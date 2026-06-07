@@ -15,7 +15,7 @@ from integrations.image_client import generate_image
 from models.script import MainCharacter
 from pipeline.asset_vault import VaultKind, save_vault_image
 from pipeline.character_assets import process_character_asset_bundle
-from pipeline.cutout_chroma import save_keyed_trimmed_cutout as save_shared_keyed_trimmed_cutout
+from pipeline.cutout_chroma import key_out_background, save_keyed_trimmed_cutout as save_shared_keyed_trimmed_cutout
 from pipeline.fallback_observability import record_fallback
 from prompts import IMAGE_CHARACTER_IN_SCENE, IMAGE_COMPOSITION_GUIDE, IMAGE_VISUAL_STYLE
 
@@ -840,6 +840,7 @@ def generate_flipflop_cutouts(
     output_dir = DATA_DIR / "projects" / script_id / "flipflop_cutouts" / scene_id
     output_dir.mkdir(parents=True, exist_ok=True)
     processed_layers: list[dict] = []
+    cutout_entries: list[dict] = []
     image_index = 0
     first_state_reference_path: Path | None = None
     for layer in layers:
@@ -912,10 +913,70 @@ def generate_flipflop_cutouts(
         next_layer["image_url"] = web_path
         next_layer["visual_source_metadata"] = source_metadata
         processed_layers.append(next_layer)
+        cutout_entries.append(
+            {
+                "raw_path": raw_path,
+                "local_path": local_path,
+                "metadata": source_metadata,
+                "layer": next_layer,
+            }
+        )
         if first_state_reference_path is None:
             first_state_reference_path = local_path
 
+    _recrop_flipflop_cutouts_to_shared_bbox(cutout_entries)
     return processed_layers
+
+
+def _recrop_flipflop_cutouts_to_shared_bbox(
+    entries: list[dict],
+    *,
+    padding: int = 24,
+    tolerance: int = 70,
+) -> None:
+    if len(entries) < 2:
+        return
+
+    keyed_entries = []
+    union_box: list[int] | None = None
+    for entry in entries:
+        raw_path = Path(entry["raw_path"])
+        if not raw_path.exists():
+            return
+        with Image.open(raw_path) as source:
+            keyed = key_out_background(source.convert("RGBA"), tolerance=tolerance)
+        bbox = keyed.getbbox()
+        if bbox is None:
+            return
+        left, top, right, bottom = bbox
+        union_box = (
+            [left, top, right, bottom]
+            if union_box is None
+            else [
+                min(union_box[0], left),
+                min(union_box[1], top),
+                max(union_box[2], right),
+                max(union_box[3], bottom),
+            ]
+        )
+        keyed_entries.append((entry, keyed))
+
+    if union_box is None:
+        return
+
+    width, height = keyed_entries[0][1].size
+    shared_trim_box = [
+        max(0, union_box[0] - padding),
+        max(0, union_box[1] - padding),
+        min(width, union_box[2] + padding),
+        min(height, union_box[3] + padding),
+    ]
+    for entry, keyed in keyed_entries:
+        local_path = Path(entry["local_path"])
+        keyed.crop(tuple(shared_trim_box)).save(local_path)
+        source_metadata = {**entry["metadata"], "trim_box": shared_trim_box}
+        _write_source_metadata(local_path, source_metadata)
+        entry["layer"]["visual_source_metadata"] = source_metadata
 
 
 def generate_stat_card_cutout(

@@ -2177,6 +2177,56 @@ def test_generate_flipflop_cutouts_keys_cutout_layers_and_preserves_non_images(t
         assert cutout.getbbox() is not None
 
 
+def test_generate_flipflop_cutouts_recrops_states_to_shared_bbox(tmp_path, monkeypatch):
+    image_gen, _, _ = _stub_panel_image_context(monkeypatch, tmp_path)
+
+    monkeypatch.setattr(image_gen, "save_vault_image", lambda **_kwargs: None)
+    rectangles = [
+        (40, 20, 70, 60),
+        (45, 10, 90, 80),
+    ]
+
+    def fake_generate_image(
+        _prompt,
+        *,
+        width,
+        height,
+        **_kwargs,
+    ):
+        source = tmp_path / f"source-{len(list(tmp_path.glob('source-*.png'))) + 1}.png"
+        image = Image.new("RGBA", (120, 100), (0, 255, 0, 255))
+        draw = ImageDraw.Draw(image)
+        draw.rectangle(rectangles.pop(0), fill=(255, 0, 0, 255))
+        image.save(source)
+        return str(source)
+
+    monkeypatch.setattr(image_gen, "generate_image", fake_generate_image)
+
+    layers = image_gen.generate_flipflop_cutouts(
+        scene_id="scene_001",
+        layers=[
+            {"id": "state_a", "type": "image", "prompt": "State A prompt", "contains_person": True},
+            {"id": "state_b", "type": "image", "prompt": "State B prompt", "contains_person": True},
+        ],
+        script_id="script-1",
+        scene_prompt="Person changes expression.",
+        width=320,
+        height=180,
+        contains_person=True,
+    )
+
+    image_layers = [layer for layer in layers if layer.get("type", "image") == "image"]
+    assert [layer["visual_source_metadata"]["trim_box"] for layer in image_layers] == [
+        [16, 0, 115, 100],
+        [16, 0, 115, 100],
+    ]
+    output_dir = tmp_path / "projects" / "script-1" / "flipflop_cutouts" / "scene_001"
+    with Image.open(output_dir / "state_01_state_a.png") as state_a:
+        assert state_a.size == (99, 100)
+    with Image.open(output_dir / "state_02_state_b.png") as state_b:
+        assert state_b.size == (99, 100)
+
+
 def test_popup_sequence_cutout_chroma_trims_item_sheet_crop(tmp_path):
     from pipeline import image_gen
 
