@@ -30,7 +30,7 @@ from models.script import (
 )
 from pipeline.flipflop_actions import normalize_flipflop_action
 from pipeline.script_helpers import _usage_task_label
-from pipeline.visual_treatments import comparison_cutout_prompt, flipflop_cutout_prompt
+from pipeline.visual_treatments import comparison_cutout_prompt, flipflop_background_prompt, flipflop_cutout_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -1194,6 +1194,14 @@ def _fallback_visual_layers_for_treatment(scene: Scene) -> list[VisualLayer]:
     if scene.visual_mode == "stat_card":
         return []
     return [
+        VisualLayer(
+            id=f"{scene.id}_background",
+            asset_kind="full_frame",
+            prompt=flipflop_background_prompt(scene.visual_prompt, scene.narration),
+            placement="center",
+            enter_at_seconds=0.0,
+            animation="none",
+        ),
         VisualLayer(
             id=f"{scene.id}_state_a",
             asset_kind="cutout",

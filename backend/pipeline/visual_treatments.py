@@ -722,6 +722,14 @@ def _flipflop_layers(scene: Scene) -> list[VisualLayer]:
     action = normalize_flipflop_action(scene.flipflop_action)
     return [
         VisualLayer(
+            id=f"{scene.id}_background",
+            asset_kind="full_frame",
+            prompt=flipflop_background_prompt(scene.visual_prompt, scene.narration),
+            placement="center",
+            enter_at_seconds=0.0,
+            animation="none",
+        ),
+        VisualLayer(
             id=f"{scene.id}_state_a",
             asset_kind="cutout",
             prompt=flipflop_cutout_prompt(scene.visual_prompt, scene.narration, "state A", action=action),
@@ -738,6 +746,17 @@ def _flipflop_layers(scene: Scene) -> list[VisualLayer]:
             animation="none",
         ),
     ]
+
+
+def flipflop_background_prompt(visual_prompt: str, narration: str) -> str:
+    base_prompt = visual_prompt.strip() or narration.strip()
+    return (
+        f"Environment-only static background for flip-flop scene: {base_prompt}. "
+        "Show only the setting and visual context behind where the character cutout will appear. "
+        "No people, no human figures, no foreground subject, no character, no mascot, no readable text, no logos, "
+        "no brand marks, no signage with words, no caption box, no speech bubble, no UI chrome, no decorative border, "
+        "no picture frame, no white margin, and no poster edge. Leave a clean central area for the character cutout."
+    )
 
 
 def _comparison_layers_for_scene(scene: Scene) -> list[VisualLayer]:

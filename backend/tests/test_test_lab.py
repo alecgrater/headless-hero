@@ -1996,14 +1996,16 @@ def test_stage_treatment_assets_generates_fallback_flipflop_cutout_urls(monkeypa
         assert kwargs["scene_id"] == "coffee-brain-scene-1"
         assert kwargs["script_id"] == script_id
         assert [layer["id"] for layer in kwargs["layers"]] == [
+            "coffee-brain-scene-1_background",
             "coffee-brain-scene-1_state_a",
             "coffee-brain-scene-1_state_b",
         ]
-        assert [layer["asset_kind"] for layer in kwargs["layers"]] == ["cutout", "cutout"]
-        assert [layer["enter_at_seconds"] for layer in kwargs["layers"]] == [0.0, 0.0]
+        assert [layer["asset_kind"] for layer in kwargs["layers"]] == ["full_frame", "cutout", "cutout"]
+        assert [layer["enter_at_seconds"] for layer in kwargs["layers"]] == [0.0, 0.0, 0.0]
         return [
-            {**kwargs["layers"][0], "asset_kind": "cutout", "image_url": "/static/projects/test/layers/state-a.png"},
-            {**kwargs["layers"][1], "asset_kind": "cutout", "image_url": "/static/projects/test/layers/state-b.png"},
+            {**kwargs["layers"][0], "asset_kind": "full_frame", "image_url": "/static/projects/test/layers/background.png"},
+            {**kwargs["layers"][1], "asset_kind": "cutout", "image_url": "/static/projects/test/layers/state-a.png"},
+            {**kwargs["layers"][2], "asset_kind": "cutout", "image_url": "/static/projects/test/layers/state-b.png"},
         ]
 
     monkeypatch.setattr(image_gen, "generate_visual_layer_panels", fail_panel_generation)
@@ -2035,10 +2037,12 @@ def test_stage_treatment_assets_generates_fallback_flipflop_cutout_urls(monkeypa
     scene = saved.segments[0].scenes[0]
     assert scene.visual_treatment == "flipflop"
     assert [layer.image_url for layer in scene.visual_layers] == [
+        "/static/projects/test/layers/background.png",
         "/static/projects/test/layers/state-a.png",
         "/static/projects/test/layers/state-b.png",
     ]
     assert [asset.url for asset in manifest.assets] == [
+        "/static/projects/test/layers/background.png",
         "/static/projects/test/layers/state-a.png",
         "/static/projects/test/layers/state-b.png",
     ]
@@ -2858,9 +2862,15 @@ def test_test_lab_flipflop_fallback_prompts_avoid_decorative_frame_language():
 
     layers = _fallback_visual_layers_for_treatment(scene)
 
-    assert len(layers) == 2
-    assert [layer.enter_at_seconds for layer in layers] == [0.0, 0.0]
-    for layer in layers:
+    assert len(layers) == 3
+    assert [layer.asset_kind for layer in layers] == ["full_frame", "cutout", "cutout"]
+    assert [layer.enter_at_seconds for layer in layers] == [0.0, 0.0, 0.0]
+    background_prompt = layers[0].prompt.lower()
+    assert "environment-only static background" in background_prompt
+    assert "no people" in background_prompt
+    assert "no readable text" in background_prompt
+    assert "no logos" in background_prompt
+    for layer in layers[1:]:
         prompt = layer.prompt.lower()
         assert layer.asset_kind == "cutout"
         assert layer.animation == "none"

@@ -173,6 +173,18 @@ describe("flipflopActiveLayer", () => {
     expect(flipflopActiveLayer(layers, 15, 30)?.id).toBe("state-b");
     expect(flipflopActiveLayer(layers, 30, 30)?.id).toBe("state-a");
   });
+
+  it("ignores static background layers when alternating flip-flop states", () => {
+    const layers = [
+      { ...panelLayer("background"), asset_kind: "full_frame" as const },
+      { ...itemLayer("state-a"), enter_at_seconds: 0 },
+      { ...itemLayer("state-b"), enter_at_seconds: 0 },
+    ];
+
+    expect(flipflopActiveLayer(layers, 0, 30)?.id).toBe("state-a");
+    expect(flipflopActiveLayer(layers, 15, 30)?.id).toBe("state-b");
+    expect(flipflopActiveLayer(layers, 30, 30)?.id).toBe("state-a");
+  });
 });
 
 describe("comparisonBoardLayerStyle", () => {

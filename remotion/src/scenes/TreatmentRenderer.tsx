@@ -231,20 +231,32 @@ const Flipflop: React.FC<Props> = ({ scene, fallbackVisualLayer }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const layers = validImageLayers(scene);
+  const backgroundLayers = flipflopBackgroundLayers(layers);
+  const stateLayers = flipflopStateLayers(layers);
 
   logTreatmentOnce(scene, "flipflop", layers.length);
 
-  if (layers.length === 0) {
+  if (stateLayers.length === 0) {
     return <>{fallbackVisualLayer}</>;
   }
 
-  const activeLayer = flipflopActiveLayer(layers, frame, fps);
+  const activeLayer = flipflopActiveLayer(stateLayers, frame, fps);
   if (!activeLayer) {
     return <>{fallbackVisualLayer}</>;
   }
 
   return (
     <div style={{ position: "absolute", inset: 0 }}>
+      {backgroundLayers.map((layer) => (
+        <div key={layer.id} style={layerFrameStyle(layer)}>
+          <div style={layerChromeStyle(layer)}>
+            <Img
+              src={layer.image_path ?? ""}
+              style={layerImageStyle(layer)}
+            />
+          </div>
+        </div>
+      ))}
       <div style={flipflopLayerFrameStyle(activeLayer)}>
         <div style={layerChromeStyle(activeLayer)}>
           <Img
@@ -256,6 +268,14 @@ const Flipflop: React.FC<Props> = ({ scene, fallbackVisualLayer }) => {
     </div>
   );
 };
+
+export const flipflopBackgroundLayers = (layers: VisualLayer[]): VisualLayer[] => (
+  layers.filter((layer) => layer.asset_kind === "full_frame" || layer.asset_kind === "panel")
+);
+
+export const flipflopStateLayers = (layers: VisualLayer[]): VisualLayer[] => (
+  layers.filter((layer) => layer.asset_kind === "cutout")
+);
 
 export const comparisonBoardLayerStyle = (
   layer: VisualLayer,
@@ -440,12 +460,13 @@ const ComparisonBoard: React.FC<Props> = ({ scene, fallbackVisualLayer }) => {
 };
 
 export const flipflopActiveLayer = (layers: VisualLayer[], frame: number, fps: number): VisualLayer | undefined => {
-  if (layers.length === 0) {
+  const stateLayers = flipflopStateLayers(layers);
+  if (stateLayers.length === 0) {
     return undefined;
   }
   const intervalFrames = Math.max(1, Math.round(fps * 0.5));
-  const activeIndex = Math.floor(Math.max(0, frame) / intervalFrames) % layers.length;
-  return layers[activeIndex];
+  const activeIndex = Math.floor(Math.max(0, frame) / intervalFrames) % stateLayers.length;
+  return stateLayers[activeIndex];
 };
 
 export const TreatmentRenderer: React.FC<Props> = ({ scene, fallbackVisualLayer }) => {
