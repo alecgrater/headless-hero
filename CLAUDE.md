@@ -6,6 +6,12 @@
 
 **When adjusting the end-to-end project workflow, update the relevant in-app docs in the same change or explicitly determine whether a new doc page should be added.** Workflow changes should not live only in code, prompts, or memory.
 
+## Forward-Only Design Bias
+
+Prefer the simplest, best design for the product going forward over extra work that preserves old project compatibility or carries legacy baggage. Do not add migration shims, compatibility layers, fallback branches, or old-data support by default.
+
+When a planned change may break existing local projects, exported assets, cached renders, saved settings, or older script JSON, call that risk out clearly before implementation so the user can verify the specific compatibility concern. After calling it out, still plan around the forward-looking design and ignore old-project support unless the user explicitly says that particular case must be preserved.
+
 ## Review Findings → Always Apply Fixes
 
 **Any time code review produces findings — from the auto-commit loop, a manual `/review`, or pasted review output — immediately implement every recommended fix.** Do NOT just report findings or ask whether to apply them. Read, edit, commit, and push. Fix FAIL items first, then WARN items; skip findings explicitly marked "non-blocking" or "optional".

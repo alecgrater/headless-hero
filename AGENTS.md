@@ -6,6 +6,12 @@
 
 **When adjusting the end-to-end project workflow, update the relevant in-app docs in the same change or explicitly determine whether a new doc page should be added.** Workflow changes should not live only in code, prompts, or memory.
 
+## Forward-Only Design Bias
+
+Prefer the simplest, best design for the product going forward over extra work that preserves old project compatibility or carries legacy baggage. Do not add migration shims, compatibility layers, fallback branches, or old-data support by default.
+
+When a planned change may break existing local projects, exported assets, cached renders, saved settings, or older script JSON, call that risk out clearly before implementation so the user can verify the specific compatibility concern. After calling it out, still plan around the forward-looking design and ignore old-project support unless the user explicitly says that particular case must be preserved.
+
 ## Codex Browser Visuals
 
 Do not ask the user whether to try the optional web-browser visuals feature or say "Some of what we're working on might be easier to explain if I can show it to you in a web browser..." in this project. Use browser tooling only when it is directly needed for the requested work or when the user explicitly asks for it.
