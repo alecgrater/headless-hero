@@ -1097,6 +1097,7 @@ def _stage_treatment_assets(ctx: TestLabRunContext) -> None:
                     layers=layer_dicts,
                     script_id=ctx.script_id,
                     scene_prompt=scene.visual_prompt,
+                    scene_narration=scene.narration,
                     force=True,
                     contains_person=scene.contains_person,
                 )

@@ -198,6 +198,7 @@ def _phase_images(ctx: ExportContext) -> None:
                     layers=layer_dicts,
                     script_id=ctx.script_id,
                     scene_prompt=sc_info.get("visual_prompt") or (scene_now.visual_prompt if scene_now is not None else ""),
+                    scene_narration=sc_info.get("narration") or (scene_now.narration if scene_now is not None else ""),
                     force=True,
                     contains_person=contains_person,
                 )

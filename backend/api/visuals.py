@@ -214,6 +214,7 @@ def _generate_scene_visual_layers(
             layers=layers,
             script_id=script_id,
             scene_prompt=request_scene_prompt or (scene.visual_prompt if scene is not None else ""),
+            scene_narration=scene.narration if scene is not None else "",
             width=width,
             height=height,
             contains_person=contains_person,

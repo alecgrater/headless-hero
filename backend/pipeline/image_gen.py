@@ -17,6 +17,7 @@ from pipeline.asset_vault import VaultKind, save_vault_image
 from pipeline.character_assets import process_character_asset_bundle
 from pipeline.cutout_chroma import key_out_background, save_keyed_trimmed_cutout as save_shared_keyed_trimmed_cutout
 from pipeline.fallback_observability import record_fallback
+from pipeline.visual_treatments import flipflop_background_prompt, flipflop_cutout_prompt
 from prompts import IMAGE_CHARACTER_IN_SCENE, IMAGE_COMPOSITION_GUIDE, IMAGE_VISUAL_STYLE
 
 logger = logging.getLogger(__name__)
@@ -830,6 +831,7 @@ def generate_flipflop_cutouts(
     layers: list[dict],
     script_id: str,
     scene_prompt: str,
+    scene_narration: str = "",
     width: int = IMAGE_WIDTH,
     height: int = IMAGE_HEIGHT,
     force: bool = False,
@@ -837,6 +839,12 @@ def generate_flipflop_cutouts(
 ) -> list[dict]:
     """Generate transparent state cutouts for renderer-owned flip-flop scenes."""
 
+    layers = _normalize_flipflop_generation_layers(
+        scene_id=scene_id,
+        layers=layers,
+        scene_prompt=scene_prompt,
+        scene_narration=scene_narration,
+    )
     output_dir = DATA_DIR / "projects" / script_id / "flipflop_cutouts" / scene_id
     output_dir.mkdir(parents=True, exist_ok=True)
     processed_layers: list[dict] = []
@@ -952,6 +960,75 @@ def generate_flipflop_cutouts(
 
     _recrop_flipflop_cutouts_to_shared_bbox(cutout_entries)
     return processed_layers
+
+
+def _normalize_flipflop_generation_layers(
+    *,
+    scene_id: str,
+    layers: list[dict],
+    scene_prompt: str,
+    scene_narration: str,
+) -> list[dict]:
+    image_layers = [
+        dict(layer)
+        for layer in layers
+        if isinstance(layer, dict) and layer.get("type", "image") == "image"
+    ]
+    other_layers = [
+        layer
+        for layer in layers
+        if not (isinstance(layer, dict) and layer.get("type", "image") == "image")
+    ]
+    background_layers = [
+        layer
+        for layer in image_layers
+        if layer.get("asset_kind") == "full_frame" or str(layer.get("id") or "").endswith("_background")
+    ]
+    state_layers = [layer for layer in image_layers if layer not in background_layers]
+    normalized: list[dict] = []
+
+    if background_layers:
+        background = dict(background_layers[0])
+        background["asset_kind"] = "full_frame"
+        background["prompt"] = str(background.get("prompt") or "").strip() or flipflop_background_prompt(scene_prompt, scene_narration)
+        normalized.append(background)
+    else:
+        normalized.append(
+            {
+                "id": f"{scene_id}_background",
+                "type": "image",
+                "asset_kind": "full_frame",
+                "prompt": flipflop_background_prompt(scene_prompt, scene_narration),
+                "placement": "center",
+                "enter_at_seconds": 0.0,
+                "animation": "none",
+            }
+        )
+
+    for index, layer in enumerate(state_layers[:2]):
+        state_layer = dict(layer)
+        state_layer["asset_kind"] = "cutout"
+        state_layer["placement"] = state_layer.get("placement") or "center"
+        state_layer["enter_at_seconds"] = state_layer.get("enter_at_seconds") or 0.0
+        state_layer["animation"] = state_layer.get("animation") or "none"
+        normalized.append(state_layer)
+
+    while len([layer for layer in normalized if layer.get("asset_kind") == "cutout"]) < 2:
+        state_index = len([layer for layer in normalized if layer.get("asset_kind") == "cutout"])
+        focus = "state A" if state_index == 0 else "state B"
+        normalized.append(
+            {
+                "id": f"{scene_id}_state_{'a' if state_index == 0 else 'b'}",
+                "type": "image",
+                "asset_kind": "cutout",
+                "prompt": flipflop_cutout_prompt(scene_prompt, scene_narration, focus),
+                "placement": "center",
+                "enter_at_seconds": 0.0,
+                "animation": "none",
+            }
+        )
+
+    return normalized + other_layers
 
 
 def _recrop_flipflop_cutouts_to_shared_bbox(
@@ -2035,6 +2112,7 @@ def _generate_one_scene(
                 layers=layer_dicts,
                 script_id=script_id,
                 scene_prompt=str(scene.get("visual_prompt") or ""),
+                scene_narration=str(scene.get("narration") or ""),
                 width=width,
                 height=height,
                 contains_person=bool(scene.get("contains_person", False)),
