@@ -30,6 +30,14 @@ _SAFE_METADATA_KEYS = {
     "word_count",
 }
 
+FALLBACK_OUTCOME_SPECS = {
+    ("visual_mode", "flipflop_invalid_micro_action_downgraded"): {
+        "success_event": "flipflop_assignment_succeeded",
+        "success_logger": "pipeline.visual_treatments",
+        "success_message_contains": ("[ANIMATION_TYPE]", "animation_type=flipflop"),
+    },
+}
+
 
 def record_fallback(
     *,
@@ -101,6 +109,7 @@ def summarize_fallback_events(
     window_hours: int,
     malformed_count: int = 0,
     recent_limit: int = 50,
+    outcome_counts: dict[tuple[str, str], int] | None = None,
 ) -> dict[str, Any]:
     """Aggregate parsed fallback events for the dev dashboard."""
 
@@ -115,15 +124,30 @@ def summarize_fallback_events(
         event_counts[key] += 1
         event_severities[key] = _max_severity(event_severities.get(key), str(event.get("severity", "warn")))
 
-    by_event = [
-        {
+    outcome_counts = outcome_counts or {}
+    by_event = []
+    for (category, event), count in event_counts.most_common():
+        item: dict[str, Any] = {
             "category": category,
             "event": event,
             "count": count,
             "severity": event_severities[(category, event)],
         }
-        for (category, event), count in event_counts.most_common()
-    ]
+        spec = FALLBACK_OUTCOME_SPECS.get((category, event))
+        if spec is not None:
+            success_count = max(0, int(outcome_counts.get((category, event), 0)))
+            attempt_count = success_count + count
+            item.update(
+                {
+                    "fallback_count": count,
+                    "success_count": success_count,
+                    "attempt_count": attempt_count,
+                    "success_rate": round(success_count / attempt_count, 4) if attempt_count else 0,
+                    "fallback_rate": round(count / attempt_count, 4) if attempt_count else 0,
+                    "success_event": spec["success_event"],
+                }
+            )
+        by_event.append(item)
 
     total = len(events)
     hot_events = [

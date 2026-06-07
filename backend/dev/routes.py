@@ -19,7 +19,12 @@ from database import engine
 from dev.log_handler import DevLog, get_broadcast_queue
 from integrations.usage_tracker import estimate_local_llm_savings
 from models.api_usage import ApiUsage
-from pipeline.fallback_observability import FALLBACK_PREFIX, parse_fallback_message, summarize_fallback_events
+from pipeline.fallback_observability import (
+    FALLBACK_OUTCOME_SPECS,
+    FALLBACK_PREFIX,
+    parse_fallback_message,
+    summarize_fallback_events,
+)
 from pipeline import render_jobs
 from pipeline.process_manager import register_process, terminate_all_processes, unregister_process
 from pipeline.render_jobs import cancel_all_jobs
@@ -193,6 +198,7 @@ async def fallback_stats(
             .order_by(col(DevLog.id).desc())
             .limit(1000)
         ).all()
+        outcome_counts = _fallback_outcome_counts(session, since)
 
     events = []
     malformed_count = 0
@@ -221,7 +227,23 @@ async def fallback_stats(
         window_hours=hours,
         malformed_count=malformed_count,
         recent_limit=limit,
+        outcome_counts=outcome_counts,
     )
+
+
+def _fallback_outcome_counts(session: Session, since: datetime) -> dict[tuple[str, str], int]:
+    counts: dict[tuple[str, str], int] = {}
+    for key, spec in FALLBACK_OUTCOME_SPECS.items():
+        stmt = (
+            select(func.count())
+            .select_from(DevLog)
+            .where(DevLog.timestamp >= since)
+            .where(DevLog.logger_name == spec["success_logger"])
+        )
+        for fragment in spec["success_message_contains"]:
+            stmt = stmt.where(col(DevLog.message).contains(fragment))
+        counts[key] = int(session.exec(stmt).one())
+    return counts
 
 
 @router.get("/api/logs/modules")
