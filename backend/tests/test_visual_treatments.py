@@ -2434,14 +2434,20 @@ def test_generate_flipflop_cutouts_recrops_states_to_shared_bbox(tmp_path, monke
     image_layers = [layer for layer in layers if layer.get("type", "image") == "image"]
     assert [layer["asset_kind"] for layer in image_layers] == ["full_frame", "cutout", "cutout"]
     assert [layer["visual_source_metadata"]["trim_box"] for layer in image_layers[1:]] == [
-        [0, 0, 60, 100],
-        [0, 0, 60, 100],
+        [0, 0, 60, 85],
+        [0, 0, 60, 85],
+    ]
+    assert [layer["visual_source_metadata"]["registration_box"] for layer in image_layers[1:]] == [
+        [20, 20, 51, 61],
+        [20, 20, 51, 61],
     ]
     output_dir = tmp_path / "projects" / "script-1" / "flipflop_cutouts" / "scene_001"
     with Image.open(output_dir / "state_02_state_a.png") as state_a:
-        assert state_a.size == (60, 100)
+        assert state_a.size == (60, 85)
+        state_a_bbox = state_a.getbbox()
     with Image.open(output_dir / "state_03_state_b.png") as state_b:
-        assert state_b.size == (60, 100)
+        assert state_b.size == (60, 85)
+        assert state_b.getbbox() == state_a_bbox
 
 
 def test_generate_flipflop_cutouts_shared_sheet_cache_ignores_state_cutout_mtime(tmp_path, monkeypatch):

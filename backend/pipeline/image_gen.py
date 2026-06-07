@@ -1121,7 +1121,6 @@ def _recrop_flipflop_cutouts_to_shared_bbox(
         return
 
     keyed_entries = []
-    union_box: list[int] | None = None
     for entry in entries:
         raw_path = Path(entry["raw_path"])
         if not raw_path.exists():
@@ -1131,33 +1130,35 @@ def _recrop_flipflop_cutouts_to_shared_bbox(
         bbox = keyed.getbbox()
         if bbox is None:
             return
-        left, top, right, bottom = bbox
-        union_box = (
-            [left, top, right, bottom]
-            if union_box is None
-            else [
-                min(union_box[0], left),
-                min(union_box[1], top),
-                max(union_box[2], right),
-                max(union_box[3], bottom),
-            ]
-        )
-        keyed_entries.append((entry, keyed))
+        keyed_entries.append((entry, keyed, list(bbox)))
 
-    if union_box is None:
+    if not keyed_entries:
         return
 
     width, height = keyed_entries[0][1].size
+    target_box = keyed_entries[0][2]
     shared_trim_box = [
-        max(0, union_box[0] - padding),
-        max(0, union_box[1] - padding),
-        min(width, union_box[2] + padding),
-        min(height, union_box[3] + padding),
+        max(0, target_box[0] - padding),
+        max(0, target_box[1] - padding),
+        min(width, target_box[2] + padding),
+        min(height, target_box[3] + padding),
     ]
-    for entry, keyed in keyed_entries:
+    target_width = max(1, target_box[2] - target_box[0])
+    target_height = max(1, target_box[3] - target_box[1])
+
+    for entry, keyed, bbox in keyed_entries:
         local_path = Path(entry["local_path"])
-        keyed.crop(tuple(shared_trim_box)).save(local_path)
-        source_metadata = {**entry["metadata"], "trim_box": shared_trim_box}
+        subject = keyed.crop(tuple(bbox))
+        if subject.size != (target_width, target_height):
+            subject = subject.resize((target_width, target_height), Image.Resampling.LANCZOS)
+        registered = Image.new("RGBA", keyed.size, (0, 0, 0, 0))
+        registered.alpha_composite(subject, dest=(target_box[0], target_box[1]))
+        registered.crop(tuple(shared_trim_box)).save(local_path)
+        source_metadata = {
+            **entry["metadata"],
+            "trim_box": shared_trim_box,
+            "registration_box": target_box,
+        }
         _write_source_metadata(local_path, source_metadata)
         entry["layer"]["visual_source_metadata"] = source_metadata
 
