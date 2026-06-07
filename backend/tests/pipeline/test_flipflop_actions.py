@@ -75,6 +75,19 @@ def test_build_flipflop_state_prompt_locks_unaffected_features():
     assert "do not change hands or arms unless the action requires it" in state_b
 
 
+def test_build_flipflop_state_prompt_locks_registration_and_zoom():
+    state_b = build_flipflop_state_prompt(
+        visual_prompt="Young employee in a red polo, chest-up portrait.",
+        narration="You start your shift.",
+        action="blink",
+        state="b",
+    )
+
+    assert "same pixel footprint" in state_b
+    assert "Do not zoom" in state_b
+    assert "Do not move the character" in state_b
+
+
 def test_build_flipflop_state_prompt_rejects_invalid_state():
     with pytest.raises(ValueError, match="flipflop state must be 'a' or 'b'"):
         build_flipflop_state_prompt(

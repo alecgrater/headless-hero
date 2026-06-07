@@ -1263,6 +1263,8 @@ def _compose_flipflop_cutout_source_prompt(layer_prompt: str, scene_prompt: str)
             "Use a solid flat chroma key background across the entire image.",
             "Use bright green (#00FF00) unless the subject contains green, then use bright magenta (#FF00FF).",
             "Keep exactly one clear closed-silhouette subject suitable for automatic chroma-key trimming.",
+            "For flip-flop pairs, preserve an identical pixel footprint, subject bounding box, camera distance, and canvas position across every state.",
+            "No zoom, no tighter crop, no wider crop, no resizing, no rotation, and no subject translation between states.",
             "No full background scene, scenery, split-screen, decorative border, picture frame, mat, white margin, inset panel, UI chrome, caption box, poster edge, speech bubble, labels, or text.",
             "",
             "Layer direction:",

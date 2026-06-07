@@ -2160,6 +2160,8 @@ def test_generate_flipflop_cutouts_keys_cutout_layers_and_preserves_non_images(t
         assert "edge to edge" not in prompt
         assert "flip-flop animation state cutout" in prompt
         assert "chroma key background" in prompt
+        assert "identical pixel footprint" in prompt
+        assert "no zoom" in prompt
         assert "no full background scene" in prompt
     assert layers[1] == {"id": "label_1", "type": "text", "asset_kind": "text", "text": "overlay"}
     image_layers = [layer for layer in layers if layer.get("type", "image") == "image"]
