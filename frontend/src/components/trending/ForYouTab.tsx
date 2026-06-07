@@ -87,12 +87,15 @@ export default function ForYouTab({ onGenerateIdeas }: Props) {
     try {
       const p = await refreshContentProfile();
       setProfile(p);
-      if (p.seed_upload.status === "uploaded") {
-        showToast("Content profile refreshed and whitespace seed uploaded", "success");
-      } else if (p.seed_upload.status === "warning") {
-        showToast(`Profile refreshed, but seed upload failed: ${p.seed_upload.message}`, "error");
+      if (p.profile_input_upload.status === "uploaded" && p.seed_upload.status === "uploaded") {
+        showToast("Content profile refreshed and remote discovery inputs uploaded", "success");
+      } else if (p.profile_input_upload.status === "warning" || p.seed_upload.status === "warning") {
+        const message = p.profile_input_upload.status === "warning"
+          ? p.profile_input_upload.message
+          : p.seed_upload.message;
+        showToast(`Profile refreshed, but remote discovery upload failed: ${message}`, "error");
       } else {
-        showToast("Content profile refreshed. Add a GitHub Contents Token to refresh whitespace remotely.", "info");
+        showToast("Content profile refreshed. Add a GitHub Contents Token to refresh remote discovery.", "info");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to refresh profile");

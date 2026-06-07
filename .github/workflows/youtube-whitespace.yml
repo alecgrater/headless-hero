@@ -3,7 +3,7 @@ name: YouTube Whitespace Discovery
 on:
   push:
     paths:
-      - discovery/content-profile-seed.json
+      - discovery/content-profile-input.json
   workflow_dispatch:
   schedule:
     - cron: "17 12 * * *"
@@ -28,19 +28,25 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
 
+      - name: Generate remote content profile and seed
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: uv run --project backend python scripts/remote_content_profile.py
+
       - name: Generate whitespace feed
         env:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
-        run: uvx --with google-api-python-client python scripts/youtube_whitespace.py
+        run: uv run --project backend python scripts/youtube_whitespace.py
 
-      - name: Commit feed changes
+      - name: Commit discovery changes
         run: |
-          if git diff --quiet -- frontend/public/discovery/youtube-whitespace.json; then
-            echo "No whitespace feed changes."
+          if git diff --quiet -- discovery/content-profile-seed.json frontend/public/discovery/content-profile.json frontend/public/discovery/youtube-whitespace.json; then
+            echo "No discovery changes."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add frontend/public/discovery/youtube-whitespace.json
-          git commit -m "Update YouTube whitespace discovery feed"
+          git add discovery/content-profile-seed.json frontend/public/discovery/content-profile.json frontend/public/discovery/youtube-whitespace.json
+          git commit -m "Update remote discovery artifacts"
           git push

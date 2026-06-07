@@ -9,9 +9,10 @@ import {
 } from "lucide-react";
 
 const FLOW_STEPS = [
-  "Refresh profile in Inspire -> For You.",
-  "The backend writes a sanitized seed to discovery/content-profile-seed.json.",
-  "The app uploads that seed to GitHub when GITHUB_CONTENTS_TOKEN is configured.",
+  "Generate or edit a real project script, or refresh the profile in Inspire -> For You.",
+  "The backend uploads discovery/content-profile-input.json when GITHUB_CONTENTS_TOKEN is configured.",
+  "Manual profile refresh also uploads the current discovery/content-profile-seed.json.",
+  "GitHub Actions runs daily or after an input change, rebuilding the public profile and seed from the uploaded input snapshot.",
   "GitHub Actions runs the YouTube analyzer with the YOUTUBE_API_KEY repo secret.",
   "The workflow commits frontend/public/discovery/youtube-whitespace.json.",
   "The local app shows the updated feed after the repo/static assets are refreshed.",
@@ -22,7 +23,13 @@ const REQUIRED_KEYS = [
     icon: Cloud,
     name: "GITHUB_CONTENTS_TOKEN",
     location: "Settings -> API Keys -> Discovery",
-    purpose: "Lets the local app upload the sanitized seed JSON to GitHub.",
+    purpose: "Lets the local app upload the remote profile input and sanitized seed JSON to GitHub.",
+  },
+  {
+    icon: FileJson2,
+    name: "OPENAI_API_KEY or ANTHROPIC_API_KEY",
+    location: "GitHub repo -> Actions secrets",
+    purpose: "Lets GitHub Actions rebuild the public content profile from the uploaded input snapshot.",
   },
   {
     icon: KeyRound,
@@ -94,11 +101,11 @@ export default function WhitespaceDiscoveryDocSection() {
         <div className="rounded-lg border border-neutral-800 bg-neutral-900/50 p-4">
           <div className="flex items-center gap-2 text-sm font-semibold text-neutral-100">
             <ShieldCheck className="h-4 w-4 text-emerald-300" />
-            Sanitized Seed
+            Remote Snapshot
           </div>
           <p className="mt-2 text-xs leading-5 text-neutral-400">
-            The uploaded seed contains profile summaries and search queries only. It must not
-            include scripts, local database rows, generated paths, OAuth data, or API keys.
+            The uploaded input snapshot contains script text needed for the remote profile refresh.
+            The committed seed remains summary-only and is what the YouTube analyzer reads.
           </p>
         </div>
       </section>

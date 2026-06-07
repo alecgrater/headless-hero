@@ -14,6 +14,7 @@ from integrations.github_contents import upload_json_file
 from models.script import Script
 from models.settings import AppSetting
 from models.trending import TrendingTopic
+from pipeline.content_profile_snapshot import build_content_profile_input_snapshot
 from pipeline.discovery_seed import build_discovery_seed
 from pipeline.render_jobs import create_job, get_job, run_in_background, update_job
 from pipeline.trending_scorer import start_refresh, get_refresh_job
@@ -68,6 +69,7 @@ class SeedUploadStatus(BaseModel):
 
 
 class ContentProfileRefreshResponse(ContentProfileRead):
+    profile_input_upload: SeedUploadStatus
     seed_upload: SeedUploadStatus
 
 
@@ -110,29 +112,72 @@ def _get_setting_or_env(key: str) -> str:
     return os.environ.get(key, "")
 
 
-def _upload_discovery_seed(profile: dict) -> SeedUploadStatus:
-    token = _get_setting_or_env("GITHUB_CONTENTS_TOKEN").strip()
-    if not token:
-        return SeedUploadStatus(
-            status="skipped",
-            message="GitHub Contents Token is not configured, so remote whitespace refresh was not triggered.",
-        )
-    seed = build_discovery_seed(profile)
+def _missing_token_status(message: str) -> SeedUploadStatus:
+    return SeedUploadStatus(status="skipped", message=message)
+
+
+def _upload_json_artifact(
+    *,
+    token: str,
+    path: str,
+    content: dict,
+    message: str,
+    success_message: str,
+    warning_context: str,
+) -> SeedUploadStatus:
     try:
         result = upload_json_file(
             token=token,
-            path="discovery/content-profile-seed.json",
-            content=seed,
-            message="Update discovery content profile seed",
+            path=path,
+            content=content,
+            message=message,
         )
     except Exception as exc:
-        logger.warning("Discovery seed upload failed", exc_info=True)
+        logger.warning("%s upload failed", warning_context, exc_info=True)
         return SeedUploadStatus(status="warning", message=str(exc))
-    logger.info("Discovery seed uploaded to GitHub commit %s", result.get("commit_sha"))
+    logger.info("%s uploaded to GitHub commit %s", warning_context, result.get("commit_sha"))
     return SeedUploadStatus(
         status="uploaded",
-        message="Discovery seed uploaded; GitHub Actions will refresh whitespace results.",
+        message=success_message,
         commit_sha=result.get("commit_sha") or None,
+    )
+
+
+def _upload_content_profile_input(token: str | None = None) -> SeedUploadStatus:
+    token = token if token is not None else _get_setting_or_env("GITHUB_CONTENTS_TOKEN").strip()
+    if not token:
+        return _missing_token_status(
+            message="GitHub Contents Token is not configured, so remote discovery refresh was not triggered.",
+        )
+    try:
+        snapshot = build_content_profile_input_snapshot()
+    except Exception as exc:
+        logger.warning("Content profile input snapshot build failed", exc_info=True)
+        return SeedUploadStatus(status="warning", message=str(exc))
+    return _upload_json_artifact(
+        token=token,
+        path="discovery/content-profile-input.json",
+        content=snapshot,
+        message="Update remote content profile input",
+        success_message="Content profile input uploaded; GitHub Actions can refresh the profile on schedule.",
+        warning_context="Content profile input",
+    )
+
+
+def _upload_discovery_seed(profile: dict, token: str | None = None) -> SeedUploadStatus:
+    token = token if token is not None else _get_setting_or_env("GITHUB_CONTENTS_TOKEN").strip()
+    if not token:
+        return _missing_token_status(
+            message="GitHub Contents Token is not configured, so remote discovery refresh was not triggered.",
+        )
+    seed = build_discovery_seed(profile)
+    return _upload_json_artifact(
+        token=token,
+        path="discovery/content-profile-seed.json",
+        content=seed,
+        message="Update discovery content profile seed",
+        success_message="Discovery seed uploaded; GitHub Actions will refresh whitespace results.",
+        warning_context="Discovery seed",
     )
 
 
@@ -262,8 +307,14 @@ async def refresh_content_profile():
     profile = analyze_content_profile()
     if not profile:
         raise HTTPException(status_code=422, detail="No scripts found to analyze")
-    upload_status = _upload_discovery_seed(profile)
-    return ContentProfileRefreshResponse(**profile, seed_upload=upload_status)
+    token = _get_setting_or_env("GITHUB_CONTENTS_TOKEN").strip()
+    profile_input_status = _upload_content_profile_input(token)
+    seed_upload_status = _upload_discovery_seed(profile, token)
+    return ContentProfileRefreshResponse(
+        **profile,
+        profile_input_upload=profile_input_status,
+        seed_upload=seed_upload_status,
+    )
 
 
 # ---------------------------------------------------------------------------

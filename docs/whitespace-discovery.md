@@ -16,14 +16,15 @@ The tab is read-only. It shows the latest feed committed by GitHub Actions, not 
 
 ## End-To-End Flow
 
-1. The local app refreshes the creator content profile from existing scripts.
-2. The backend sanitizes that profile into `discovery/content-profile-seed.json`.
-3. If `GITHUB_CONTENTS_TOKEN` is configured, the backend uploads the seed to `alecgrater/headless-hero` on `main`.
-4. The seed commit triggers `.github/workflows/youtube-whitespace.yml`.
-5. GitHub Actions reads the seed and runs `scripts/youtube_whitespace.py` with the repo secret `YOUTUBE_API_KEY`.
-6. The analyzer writes `frontend/public/discovery/youtube-whitespace.json`.
-7. If the feed changed, GitHub Actions commits it back to `main`.
-8. The local app sees new results after the repo is pulled or the packaged/static feed is refreshed.
+1. The local app generates or edits a real project script.
+2. The backend exports and uploads `discovery/content-profile-input.json` when `GITHUB_CONTENTS_TOKEN` is configured.
+3. Manual profile refresh still analyzes locally and also uploads the current `discovery/content-profile-seed.json`.
+4. The input commit triggers `.github/workflows/youtube-whitespace.yml`, and the same workflow also runs daily.
+5. GitHub Actions rebuilds `frontend/public/discovery/content-profile.json` and `discovery/content-profile-seed.json` from the uploaded input snapshot.
+6. GitHub Actions reads the seed and runs `scripts/youtube_whitespace.py` with the repo secret `YOUTUBE_API_KEY`.
+7. The analyzer writes `frontend/public/discovery/youtube-whitespace.json`.
+8. If generated artifacts changed, GitHub Actions commits them back to `main`.
+9. The local app sees new results after the repo is pulled or the packaged/static feed is refreshed.
 
 ## Required Keys
 
@@ -31,7 +32,8 @@ Two different keys are involved:
 
 | Key | Where it lives | Purpose |
 | --- | --- | --- |
-| `GITHUB_CONTENTS_TOKEN` | Headless Hero -> Settings -> API Keys -> Discovery | Lets the local app upload the sanitized seed JSON to GitHub. |
+| `GITHUB_CONTENTS_TOKEN` | Headless Hero -> Settings -> API Keys -> Discovery | Lets the local app upload the remote profile input and sanitized seed JSON to GitHub. |
+| `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` | GitHub repo -> Settings -> Secrets and variables -> Actions | Lets GitHub Actions rebuild the public content profile from the uploaded input snapshot. |
 | `YOUTUBE_API_KEY` | GitHub repo -> Settings -> Secrets and variables -> Actions | Lets GitHub Actions call the YouTube Data API when refreshing the feed. |
 
 `YOUTUBE_API_KEY` may also exist locally for Discover's other YouTube features, but the remote whitespace workflow cannot see local app settings. It needs the same key added as a GitHub Actions secret.
@@ -47,18 +49,17 @@ Create a fine-grained personal access token:
 
 Save that token as `GITHUB_CONTENTS_TOKEN` in the app.
 
-## Seed Privacy
+## Remote Profile Input
 
-The seed is intended to be safe to commit. It contains only sanitized profile summaries and deterministic search queries, such as common topics, typical keywords, audience profile, narration style, visual approach, script count, and average segment count.
+`discovery/content-profile-input.json` is a fuller script snapshot used by GitHub Actions to rebuild the content profile on schedule. It includes project titles, segment labels, scene narration, prompts, visual modes, and renderer-owned text fields needed for analysis. It should be treated as private repo data.
 
 It must never include:
 
 - local SQLite data
-- script bodies
 - API keys or OAuth data
 - generated asset paths
-- project records
-- prompts or full generated text
+
+`discovery/content-profile-seed.json` remains the summary-only artifact used by the YouTube whitespace analyzer. It contains profile summaries and deterministic search queries, such as common topics, typical keywords, audience profile, narration style, visual approach, script count, and average segment count.
 
 ## Analyzer Rules
 

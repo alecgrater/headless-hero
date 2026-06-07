@@ -44,6 +44,7 @@ export interface SeedUploadStatus {
 }
 
 export interface ContentProfileRefreshResponse extends ContentProfile {
+  profile_input_upload: SeedUploadStatus;
   seed_upload: SeedUploadStatus;
 }
 

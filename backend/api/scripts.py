@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import shutil
+import threading
 import time
 import uuid
 from collections import defaultdict
@@ -77,6 +78,30 @@ _CHARACTER = CHARACTER_SPEC_MD.template
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/scripts", tags=["scripts"])
+
+
+def _sync_remote_profile_input_async(reason: str) -> None:
+    """Upload the remote profile input snapshot after script-library changes."""
+
+    def _sync() -> None:
+        try:
+            from api.trending import _upload_content_profile_input
+
+            status = _upload_content_profile_input()
+            if status.status == "uploaded":
+                logger.info("Remote profile input synced after %s", reason)
+            elif status.status == "warning":
+                logger.warning("Remote profile input sync after %s failed: %s", reason, status.message)
+            else:
+                logger.info("Remote profile input sync after %s skipped: %s", reason, status.message)
+        except Exception:
+            logger.exception("Remote profile input sync after %s crashed", reason)
+
+    threading.Thread(
+        target=_sync,
+        name=f"remote-profile-input-sync-{reason}",
+        daemon=True,
+    ).start()
 
 
 def _build_upload_tracking(session: Session, script_id: str) -> UploadTracking:
@@ -535,6 +560,7 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
         except Exception:
             logger.exception("Hook scene detection failed for %s — short-form render will retry later", script_id)
 
+        _sync_remote_profile_input_async("script_generated")
         return [script_id]
 
     run_in_background(job_id, _run_generation)
@@ -613,6 +639,7 @@ def update_script(script_id: str, body: UpdateScriptRequest, session: Session = 
     session.commit()
     session.refresh(record)
     mark_render_inputs_changed(script_id)
+    _sync_remote_profile_input_async("script_updated")
 
     logger.info("Updated script %s", script_id)
     return ScriptRead(
@@ -671,6 +698,7 @@ def update_script_title(
     session.commit()
     session.refresh(record)
     mark_render_inputs_changed(script_id)
+    _sync_remote_profile_input_async("script_title_updated")
 
     logger.info("Updated script title %s and persisted title rename actions", script_id)
     return ScriptRead(
@@ -830,6 +858,7 @@ def split_scene_endpoint(
     session.add(record)
     session.commit()
     session.refresh(record)
+    _sync_remote_profile_input_async("script_split")
 
     logger.info("Split scene %s in script %s at %dms", body.scene_id, script_id, body.split_time_ms)
 

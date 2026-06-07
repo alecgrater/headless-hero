@@ -26,6 +26,7 @@ def test_refresh_content_profile_skips_seed_upload_without_token(monkeypatch):
     assert res.status_code == 200
     data = res.json()
     assert data["script_count"] == 3
+    assert data["profile_input_upload"]["status"] == "skipped"
     assert data["seed_upload"]["status"] == "skipped"
     assert "GitHub Contents Token" in data["seed_upload"]["message"]
 
@@ -59,6 +60,7 @@ def test_refresh_content_profile_returns_seed_upload_warning(monkeypatch):
 
     assert res.status_code == 200
     data = res.json()
+    assert data["profile_input_upload"]["status"] == "warning"
     assert data["seed_upload"]["status"] == "warning"
     assert "GitHub rejected token" in data["seed_upload"]["message"]
 
@@ -83,9 +85,26 @@ def test_refresh_content_profile_uploads_seed_when_token_exists(monkeypatch):
         },
     )
     monkeypatch.setattr(trending_api, "_get_setting_or_env", lambda key: "ghp_token")
+    monkeypatch.setattr(
+        trending_api,
+        "build_content_profile_input_snapshot",
+        lambda: {
+            "version": 1,
+            "source": "headless-hero-content-profile-input",
+            "script_count": 3,
+            "scripts": [{"id": "script-1", "title": "Science Myths"}],
+        },
+    )
 
     def fake_upload(**kwargs):
-        captured.update(kwargs)
+        captured["token"] = kwargs["token"]
+        captured.setdefault("uploads", []).append(
+            {
+                "path": kwargs["path"],
+                "message": kwargs["message"],
+                "content": kwargs["content"],
+            }
+        )
         return {"content_sha": "seed-sha", "commit_sha": "commit-sha", "created": False}
 
     monkeypatch.setattr(trending_api, "upload_json_file", fake_upload)
@@ -99,7 +118,18 @@ def test_refresh_content_profile_uploads_seed_when_token_exists(monkeypatch):
         "message": "Discovery seed uploaded; GitHub Actions will refresh whitespace results.",
         "commit_sha": "commit-sha",
     }
+    assert data["profile_input_upload"] == {
+        "status": "uploaded",
+        "message": "Content profile input uploaded; GitHub Actions can refresh the profile on schedule.",
+        "commit_sha": "commit-sha",
+    }
     assert captured["token"] == "ghp_token"
-    assert captured["path"] == "discovery/content-profile-seed.json"
-    assert captured["message"] == "Update discovery content profile seed"
-    assert captured["content"]["profile"]["common_topics"] == ["Science Myths"]
+    uploads = captured["uploads"]
+    assert [upload["path"] for upload in uploads] == [
+        "discovery/content-profile-input.json",
+        "discovery/content-profile-seed.json",
+    ]
+    assert uploads[0]["message"] == "Update remote content profile input"
+    assert uploads[0]["content"]["scripts"][0]["title"] == "Science Myths"
+    assert uploads[1]["message"] == "Update discovery content profile seed"
+    assert uploads[1]["content"]["profile"]["common_topics"] == ["Science Myths"]
