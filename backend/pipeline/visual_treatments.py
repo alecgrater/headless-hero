@@ -8,6 +8,7 @@ import re
 from pydantic import BaseModel, Field, model_validator
 
 from models.script import ScriptContent, Scene, VISUAL_MODES, VisualLayer, VisualMode
+from pipeline.fallback_observability import record_fallback
 from pipeline.flipflop_actions import (
     build_flipflop_state_prompt,
     has_human_flipflop_subject,
@@ -260,7 +261,7 @@ def analyze_visual_treatments(
 
     assignments: list[VisualTreatmentAssignment] = []
     for scene in scenes:
-        assignment = _analyze_scene(scene)
+        assignment = _analyze_scene(scene, script_id=script_id)
         logger.info(
             "[ANIMATION_TYPE] scene=%s animation_type=%s layers=%d reason=%s",
             scene.id,
@@ -384,7 +385,7 @@ def _caption_assignment_fields(scene: Scene, assignment: VisualTreatmentAssignme
     return resolved_text, resolved_emphasis
 
 
-def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
+def _analyze_scene(scene: Scene, *, script_id: str | None = None) -> VisualTreatmentAssignment:
     if scene.is_title_card:
         return _full_frame_assignment(scene.id, "Title-card scenes keep their existing full-frame animation type.")
     if scene.visual_mode == "captions":
@@ -420,8 +421,21 @@ def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
     if scene.visual_mode == "flipflop":
         action = normalize_flipflop_action(scene.flipflop_action)
         if not action or not has_human_flipflop_subject(scene.narration, scene.visual_prompt):
+            previous_action = scene.flipflop_action
             scene.set_visual_mode("full_frame")
             scene.visual_layers = []
+            scene.flipflop_action = ""
+            record_fallback(
+                category="visual_mode",
+                event="flipflop_invalid_micro_action_downgraded",
+                reason="Flipflop scene missing valid human micro-action during analyzer pass",
+                severity="warn",
+                script_id=script_id,
+                scene_id=scene.id,
+                from_value="flipflop",
+                to_value="full_frame",
+                metadata={"flipflop_action": previous_action} if previous_action else None,
+            )
             return _full_frame_assignment(
                 scene.id,
                 "Invalid flipflop request; missing valid human micro-action.",
@@ -634,28 +648,29 @@ def _looks_like_flipflop_micro_action(scene: Scene) -> bool:
     )
 
 
+_FLIPFLOP_INFER_RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("blink", ("blink", "blinks", "blinking")),
+    ("speaking_mouth", ("talk", "talks", "talking", "speaking", "speaks", "explain", "explains", "explaining")),
+    ("eye_glance", ("glance", "glances", "glancing", "looks down", "looks sideways")),
+    ("eyebrow_raise", ("eyebrow", "eyebrows", "skeptical", "curious")),
+    ("head_nod", ("nod", "nods", "nodding", "agrees", "agreeing")),
+    ("pointing_gesture", ("point", "points", "pointing")),
+    ("counting_fingers", ("count", "counts", "counting", "two fingers")),
+    ("thinking_pose", ("think", "thinks", "thinking", "considers", "considering")),
+    ("small_shrug", ("shrug", "shrugs", "shrugging")),
+    ("explaining_hand_raise", ("gesture", "gestures", "present", "presents", "presenting", "teach", "teaches", "teaching")),
+)
+
+
+def _phrase_matches(text: str, phrase: str) -> bool:
+    return re.search(rf"\b{re.escape(phrase)}\b", text) is not None
+
+
 def _infer_flipflop_action(scene: Scene) -> str:
-    text = f" {scene.narration} {scene.visual_prompt} ".casefold()
-    if "blink" in text or "blinks" in text:
-        return "blink"
-    if any(word in text for word in ("talk", "talks", "speaking", "speaks", "explain", "explains")):
-        return "speaking_mouth"
-    if "glance" in text or "looks down" in text or "looks sideways" in text:
-        return "eye_glance"
-    if "eyebrow" in text or "skeptical" in text or "curious" in text:
-        return "eyebrow_raise"
-    if "nod" in text or "agrees" in text:
-        return "head_nod"
-    if "point" in text or "points" in text:
-        return "pointing_gesture"
-    if "count" in text or "counting" in text or "two fingers" in text:
-        return "counting_fingers"
-    if "think" in text or "thinking" in text or "considers" in text:
-        return "thinking_pose"
-    if "shrug" in text or "shrugs" in text:
-        return "small_shrug"
-    if any(word in text for word in ("gesture", "gestures", "present", "presents", "teach", "teaches")):
-        return "explaining_hand_raise"
+    text = f"{scene.narration} {scene.visual_prompt}".casefold()
+    for action, phrases in _FLIPFLOP_INFER_RULES:
+        if any(_phrase_matches(text, phrase) for phrase in phrases):
+            return action
     return ""
 
 

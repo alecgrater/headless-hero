@@ -198,6 +198,14 @@ export default function TestLabControls({
   const narration = settings.narration ?? preset?.narration ?? "";
   const visualPrompt = settings.visual_prompt ?? preset?.visual_prompt ?? "";
   const visualMode = settings.visual_mode;
+  const [lastFlipflopAction, setLastFlipflopAction] = useState<FlipflopAction>(
+    (settings.flipflop_action as FlipflopAction) || "blink",
+  );
+  useEffect(() => {
+    if (settings.flipflop_action) {
+      setLastFlipflopAction(settings.flipflop_action as FlipflopAction);
+    }
+  }, [settings.flipflop_action]);
   const derivedCaptionText = captionTextFromNarration(narration);
   const captionText =
     validCaptionTextOrUndefined(settings.caption_text, derivedCaptionText) ??
@@ -251,7 +259,7 @@ export default function TestLabControls({
       {
         ...settings,
         visual_mode: nextMode,
-        flipflop_action: nextMode === "flipflop" ? settings.flipflop_action || "blink" : "",
+        flipflop_action: nextMode === "flipflop" ? settings.flipflop_action || lastFlipflopAction : "",
         visual_layers: shouldPreserveLayers ? settings.visual_layers : defaultLayersForMode(nextMode, visualPrompt, narration),
         frame_directives: usesFrameDirectives(nextMode)
           ? defaultFrameDirectivesForMode(nextMode, visualPrompt)
@@ -515,7 +523,7 @@ function SceneTextFields({
         />
       )}
       {visualMode === "flipflop" && (
-        <>
+        <div className="space-y-1">
           <label className="block">
             <span className="text-xs font-medium text-neutral-300">Flip-flop action</span>
             <select
@@ -530,18 +538,10 @@ function SceneTextFields({
               ))}
             </select>
           </label>
-          <LayerPromptFields
-            labels={["State A", "State B"]}
-            visualLayers={visualLayers}
-            fallbackPrompt={visualPrompt || narration}
-            assetKind="cutout"
-            placements={["center", "center"]}
-            idPrefix="flipflop"
-            animations={["none", "none"]}
-            enterAtSeconds={[0, 0]}
-            onChange={onVisualLayersChange}
-          />
-        </>
+          <p className="text-xs text-neutral-500">
+            State A and State B prompts are derived deterministically from this action; per-state prompts are not user-editable.
+          </p>
+        </div>
       )}
       {visualMode === "popup_sequence" && (
         <LayerPromptFields

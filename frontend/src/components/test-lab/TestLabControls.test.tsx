@@ -402,8 +402,45 @@ describe("TestLabControls layout", () => {
     );
   });
 
-  it("creates cropped cutout defaults when editing empty flip-flop state layers", () => {
+  it("preserves the last selected flip-flop action when toggling modes back to flip-flop", () => {
     const onChange = vi.fn();
+    const { rerender } = render(
+      <TestLabControls
+        preset={preset}
+        defaultMainCharacter={null}
+        visualTreatmentDefaults={defaults}
+        settings={{ ...baseSettings, visual_mode: "flipflop", flipflop_action: "head_nod" }}
+        voiceSummary={voiceSummary}
+        subtitleSummary={subtitleSummary}
+        onChange={onChange}
+        onOpenSettingsSection={() => undefined}
+      />,
+    );
+
+    rerender(
+      <TestLabControls
+        preset={preset}
+        defaultMainCharacter={null}
+        visualTreatmentDefaults={defaults}
+        settings={{ ...baseSettings, visual_mode: "full_frame", flipflop_action: "" }}
+        voiceSummary={voiceSummary}
+        subtitleSummary={subtitleSummary}
+        onChange={onChange}
+        onOpenSettingsSection={() => undefined}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Flip-flop/i }));
+
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        visual_mode: "flipflop",
+        flipflop_action: "head_nod",
+      }),
+    );
+  });
+
+  it("does not expose editable State A/State B prompts for flip-flop (action-derived in backend)", () => {
     render(
       <TestLabControls
         preset={preset}
@@ -412,34 +449,16 @@ describe("TestLabControls layout", () => {
         settings={{ ...baseSettings, visual_mode: "flipflop", visual_layers: [] }}
         voiceSummary={voiceSummary}
         subtitleSummary={subtitleSummary}
-        onChange={onChange}
+        onChange={() => undefined}
         onOpenSettingsSection={() => undefined}
       />,
     );
 
-    fireEvent.change(screen.getByLabelText("State B"), {
-      target: { value: "Character points at the chart." },
-    });
-
-    expect(onChange).toHaveBeenCalledWith(
-      expect.objectContaining({
-        visual_layers: [
-          expect.objectContaining({
-            id: "flipflop_1",
-            asset_kind: "cutout",
-            enter_at_seconds: 0,
-            animation: "none",
-          }),
-          expect.objectContaining({
-            id: "flipflop_2",
-            asset_kind: "cutout",
-            prompt: "Character points at the chart.",
-            enter_at_seconds: 0,
-            animation: "none",
-          }),
-        ],
-      }),
-    );
+    expect(screen.queryByLabelText("State A")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("State B")).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/State A and State B prompts are derived deterministically/i),
+    ).toBeInTheDocument();
   });
 
   it("keeps the scene prompt in continuous frame prompts", () => {

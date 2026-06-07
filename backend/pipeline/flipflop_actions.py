@@ -160,8 +160,8 @@ _HUMAN_SUBJECT_MARKERS = {
 }
 
 
-def normalize_flipflop_action(value: object) -> FlipflopAction | str:
-    return value if isinstance(value, str) and value in _ACTION_SET else ""
+def normalize_flipflop_action(value: object) -> FlipflopAction | Literal[""]:
+    return value if isinstance(value, str) and value in _ACTION_SET else ""  # type: ignore[return-value]
 
 
 def _contains_human_subject_marker(text: str) -> bool:

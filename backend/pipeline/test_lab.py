@@ -523,12 +523,25 @@ def _visual_mode_from_settings(settings: dict, preset: TestLabPreset) -> str:
     return preset.visual_mode
 
 
-def _flipflop_action_from_settings(settings: dict, preset: TestLabPreset) -> str:
+def _flipflop_action_from_settings(settings: dict, preset: TestLabPreset | None) -> str:
     return (
         normalize_flipflop_action(settings.get("flipflop_action"))
-        or normalize_flipflop_action(preset.flipflop_action)
+        or (normalize_flipflop_action(preset.flipflop_action) if preset is not None else "")
         or "blink"
     )
+
+
+def _resolve_flipflop_action_for_settings(
+    settings: dict, preset: TestLabPreset | None
+) -> str:
+    visual_mode = (
+        _visual_mode_from_settings(settings, preset)
+        if preset is not None
+        else (settings.get("visual_mode") or settings.get("visual_treatment") or "")
+    )
+    if visual_mode != "flipflop":
+        return ""
+    return _flipflop_action_from_settings(settings, preset)
 
 
 def _subtitle_style_from_settings(settings: dict) -> str:
@@ -1334,16 +1347,7 @@ def run_test_lab(
         preset = get_preset(preset_id)
     except ValueError:
         preset = None
-    if preset is not None:
-        visual_mode = _visual_mode_from_settings(settings, preset)
-        if visual_mode == "flipflop":
-            settings["flipflop_action"] = _flipflop_action_from_settings(settings, preset)
-        else:
-            settings["flipflop_action"] = ""
-    elif settings.get("visual_mode") == "flipflop" or settings.get("visual_treatment") == "flipflop":
-        settings["flipflop_action"] = normalize_flipflop_action(settings.get("flipflop_action")) or "blink"
-    else:
-        settings["flipflop_action"] = ""
+    settings["flipflop_action"] = _resolve_flipflop_action_for_settings(settings, preset)
     script_id = f"test-lab-{safe_run_id}"
     manifest = TestLabRunManifest(
         run_id=safe_run_id,
