@@ -60,7 +60,12 @@ def load_remote_content_profile(path: Path | str = REMOTE_CONTENT_PROFILE_PATH) 
         return None
     if not isinstance(payload, dict):
         return None
-    if int(payload.get("script_count") or 0) <= 0:
+    try:
+        script_count = int(payload.get("script_count") or 0)
+        avg_segment_count = float(payload.get("avg_segment_count") or 0.0)
+    except (TypeError, ValueError):
+        return None
+    if script_count <= 0:
         return None
     required = {
         "common_topics": list,
@@ -74,13 +79,13 @@ def load_remote_content_profile(path: Path | str = REMOTE_CONTENT_PROFILE_PATH) 
         if not isinstance(payload.get(key), expected_type):
             return None
     return {
-        "script_count": int(payload.get("script_count") or 0),
+        "script_count": script_count,
         "common_topics": payload["common_topics"],
         "narration_style": payload["narration_style"],
         "visual_approach": payload["visual_approach"],
         "typical_keywords": payload["typical_keywords"],
         "audience_profile": payload["audience_profile"],
-        "avg_segment_count": float(payload.get("avg_segment_count") or 0.0),
+        "avg_segment_count": avg_segment_count,
         "analyzed_at": payload["analyzed_at"],
         "is_stale": bool(payload.get("is_stale", False)),
     }
