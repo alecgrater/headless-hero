@@ -60,6 +60,14 @@ describe("DocsPage", () => {
     expect(screen.getByText("Files Are Not Enough")).toBeInTheDocument();
     expect(screen.getByText("Stale Render Rules")).toBeInTheDocument();
 
+    fireEvent.click(screen.getByRole("button", { name: "Whitespace" }));
+    expect(screen.getByText("Whitespace Discovery")).toBeInTheDocument();
+    expect(screen.getByText("Refresh Flow")).toBeInTheDocument();
+    expect(screen.getByText("GITHUB_CONTENTS_TOKEN")).toBeInTheDocument();
+    expect(screen.getByText("YOUTUBE_API_KEY")).toBeInTheDocument();
+    expect(screen.getByText("Qualification Rules")).toBeInTheDocument();
+    expect(screen.getByText(/small result count can mean the filters are doing their job/i)).toBeInTheDocument();
+
     fireEvent.click(screen.getByRole("button", { name: "Visual Ownership" }));
     expect(screen.getByText("Visual Asset Ownership")).toBeInTheDocument();
     expect(screen.getByText("Ownership By System")).toBeInTheDocument();

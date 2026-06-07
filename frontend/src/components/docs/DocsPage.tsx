@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { DatabaseZap, FileText, GitCompare, LayoutGrid, Layers3, type LucideIcon } from "lucide-react";
+import { DatabaseZap, FileText, GitCompare, LayoutGrid, Layers3, Radar, type LucideIcon } from "lucide-react";
 import ScriptTypesSection from "../settings/script-types/ScriptTypesSection";
 import VisualModesSection from "../settings/visual-modes/VisualModesSection";
 import RenderCacheDocSection from "./RenderCacheDocSection";
 import VisualAssetOwnershipDocSection from "./VisualAssetOwnershipDocSection";
+import WhitespaceDiscoveryDocSection from "./WhitespaceDiscoveryDocSection";
 import WorkflowDocSection from "./WorkflowDocSection";
 
 const DOC_SECTIONS = [
@@ -24,6 +25,12 @@ const DOC_SECTIONS = [
     label: "Render & Cache",
     description: "Understand when generated assets are reused, invalidated, regenerated, or exported.",
     icon: DatabaseZap,
+  },
+  {
+    id: "whitespace",
+    label: "Whitespace",
+    description: "Understand how profile-seeded YouTube whitespace discovery refreshes and why results may be sparse.",
+    icon: Radar,
   },
   {
     id: "visual-ownership",
@@ -91,6 +98,7 @@ export default function DocsPage() {
             <ScriptTypesSection onOpenVisualModes={() => setActiveSection("visual-modes")} />
           )}
           {activeSection === "render-cache" && <RenderCacheDocSection />}
+          {activeSection === "whitespace" && <WhitespaceDiscoveryDocSection />}
           {activeSection === "visual-ownership" && <VisualAssetOwnershipDocSection />}
           {activeSection === "visual-modes" && <VisualModesSection />}
         </div>
