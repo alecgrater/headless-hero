@@ -22,7 +22,7 @@ from prompts import IMAGE_CHARACTER_IN_SCENE, IMAGE_COMPOSITION_GUIDE, IMAGE_VIS
 
 logger = logging.getLogger(__name__)
 
-FLIPFLOP_CUTOUT_REGISTRATION_VERSION = "alpha-mask-registration-v2"
+FLIPFLOP_CUTOUT_REGISTRATION_VERSION = "alpha-mask-registration-v3"
 _STYLE_GUIDE = IMAGE_COMPOSITION_GUIDE.template
 _VISUAL_STYLE = IMAGE_VISUAL_STYLE.template
 _CHARACTER_PROMPT = IMAGE_CHARACTER_IN_SCENE.template
@@ -1078,37 +1078,54 @@ def _recrop_flipflop_cutouts_to_shared_bbox(
     if not keyed_entries:
         return
 
-    target_anchor = _alpha_anchor(keyed_entries[0][1])
-    prepared_subjects: list[tuple[dict, Image.Image, list[int], tuple[float, float], tuple[int, int]]] = []
+    target_box = keyed_entries[0][2]
+    target_width = max(1, target_box[2] - target_box[0])
+    target_height = max(1, target_box[3] - target_box[1])
+    prepared_subjects: list[tuple[dict, Image.Image, list[int], float, tuple[float, float], tuple[int, int]]] = []
     shifted_boxes: list[list[int]] = []
 
     for entry, keyed, bbox in keyed_entries:
-        anchor = _alpha_anchor(keyed)
+        subject_width = max(1, bbox[2] - bbox[0])
+        subject_height = max(1, bbox[3] - bbox[1])
+        scale_factor = min(target_width / subject_width, target_height / subject_height)
+        subject = keyed.crop(tuple(bbox))
+        if scale_factor != 1.0:
+            scaled_size = (
+                max(1, round(subject.width * scale_factor)),
+                max(1, round(subject.height * scale_factor)),
+            )
+            subject = subject.resize(scaled_size, Image.Resampling.LANCZOS)
+        anchor = _alpha_anchor(subject)
+        if not prepared_subjects:
+            target_anchor = anchor
         shift = _bounded_alpha_anchor_shift(target_anchor, anchor, max_shift=padding)
         shifted_box = [
-            bbox[0] + shift[0],
-            bbox[1] + shift[1],
-            bbox[2] + shift[0],
-            bbox[3] + shift[1],
+            shift[0],
+            shift[1],
+            subject.width + shift[0],
+            subject.height + shift[1],
         ]
-        prepared_subjects.append((entry, keyed, bbox, anchor, shift))
+        prepared_subjects.append((entry, subject, bbox, scale_factor, anchor, shift))
         shifted_boxes.append(shifted_box)
 
-    shared_trim_box = [
+    virtual_trim_box = [
         min(box[0] for box in shifted_boxes) - padding,
         min(box[1] for box in shifted_boxes) - padding,
         max(box[2] for box in shifted_boxes) + padding,
         max(box[3] for box in shifted_boxes) + padding,
     ]
 
-    for entry, keyed, bbox, anchor, shift in prepared_subjects:
+    for entry, subject, bbox, scale_factor, anchor, shift in prepared_subjects:
         local_path = Path(entry["local_path"])
-        registered = _translated_alpha_crop(keyed, shift=shift, crop_box=shared_trim_box)
+        registered = _translated_alpha_crop(subject, shift=shift, crop_box=virtual_trim_box)
         registered.save(local_path)
         source_metadata = {
             **entry["metadata"],
-            "trim_box": shared_trim_box,
+            "trim_box": [0, 0, registered.width, registered.height],
+            "virtual_trim_box": virtual_trim_box,
             "registration_box": bbox,
+            "scaled_registration_box": [0, 0, subject.width, subject.height],
+            "scale_factor": round(scale_factor, 4),
             "registration_algorithm_version": FLIPFLOP_CUTOUT_REGISTRATION_VERSION,
             "alpha_anchor": [round(anchor[0], 2), round(anchor[1], 2)],
             "alpha_anchor_shift": [shift[0], shift[1]],

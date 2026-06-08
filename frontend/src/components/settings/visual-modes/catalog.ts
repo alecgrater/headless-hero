@@ -172,7 +172,7 @@ export const VISUAL_MODE_CATALOG: VisualModeEntry[] = [
     },
     distribution: "Unlimited",
     routing:
-      "Script generation chooses flipflop when narration and visual prompt context support one locked human/character face micro-action, then sets flipflop_action and renderer_context for backend shared A/B state-sheet prompts, translation-only alpha-mask registration, and renderer-owned context staging.",
+      "Script generation chooses flipflop when narration and visual prompt context support one locked human/character face micro-action, then sets flipflop_action and renderer_context for backend shared A/B state-sheet prompts, uniform-scale alpha-mask registration, and renderer-owned context staging.",
     notCompatibleWith: [
       "Different-subject contrast — use comparison_board instead.",
       "Body repositioning, nods, hand gestures, shrugs, or object motion — use another mode instead.",
