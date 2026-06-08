@@ -2395,7 +2395,9 @@ def test_generate_flipflop_cutouts_recrops_states_to_shared_bbox(tmp_path, monke
         [15, 15, 56, 66],
     ]
     assert image_layers[0]["visual_source_metadata"]["scale_factor"] == 1.0
-    assert image_layers[1]["visual_source_metadata"]["scale_factor"] < 1.0
+    assert image_layers[1]["visual_source_metadata"]["scale_factor"] == 1.0
+    assert image_layers[1]["visual_source_metadata"]["fallback"] is True
+    assert image_layers[1]["visual_source_metadata"]["registration_fallback"] == "static_state_a_cutout"
     assert all("virtual_trim_box" in layer["visual_source_metadata"] for layer in image_layers)
     assert all(
         layer["visual_source_metadata"]["registration_algorithm_version"]
@@ -2416,7 +2418,7 @@ def test_generate_flipflop_cutouts_recrops_states_to_shared_bbox(tmp_path, monke
     assert (state_b_bbox[3] - state_b_bbox[1]) == (state_a_bbox[3] - state_a_bbox[1])
 
 
-def test_generate_flipflop_cutouts_normalizes_zoom_without_distorting_aspect_ratio(tmp_path, monkeypatch):
+def test_generate_flipflop_cutouts_falls_back_for_large_zoom_without_rendering_jump(tmp_path, monkeypatch):
     image_gen, _, _ = _stub_panel_image_context(monkeypatch, tmp_path)
 
     monkeypatch.setattr(image_gen, "save_vault_image", lambda **_kwargs: None)
@@ -2438,7 +2440,7 @@ def test_generate_flipflop_cutouts_normalizes_zoom_without_distorting_aspect_rat
 
     monkeypatch.setattr(image_gen, "generate_image", fake_generate_image)
 
-    image_gen.generate_flipflop_cutouts(
+    layers = image_gen.generate_flipflop_cutouts(
         scene_id="scene_001",
         layers=[
             {"id": "state_a", "type": "image", "prompt": "State A prompt", "contains_person": True},
@@ -2451,6 +2453,9 @@ def test_generate_flipflop_cutouts_normalizes_zoom_without_distorting_aspect_rat
         contains_person=True,
     )
 
+    image_layers = [layer for layer in layers if layer.get("type", "image") == "image"]
+    assert image_layers[1]["visual_source_metadata"]["fallback"] is True
+    assert image_layers[1]["visual_source_metadata"]["registration_fallback"] == "static_state_a_cutout"
     output_dir = tmp_path / "projects" / "script-1" / "flipflop_cutouts" / "scene_001"
     with Image.open(output_dir / "state_01_state_a.png") as state_a:
         state_a_bbox = state_a.getbbox()
