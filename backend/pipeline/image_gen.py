@@ -22,7 +22,7 @@ from prompts import IMAGE_CHARACTER_IN_SCENE, IMAGE_COMPOSITION_GUIDE, IMAGE_VIS
 
 logger = logging.getLogger(__name__)
 
-FLIPFLOP_CUTOUT_REGISTRATION_VERSION = "alpha-mask-registration-v1"
+FLIPFLOP_CUTOUT_REGISTRATION_VERSION = "alpha-mask-registration-v2"
 _STYLE_GUIDE = IMAGE_COMPOSITION_GUIDE.template
 _VISUAL_STYLE = IMAGE_VISUAL_STYLE.template
 _CHARACTER_PROMPT = IMAGE_CHARACTER_IN_SCENE.template
@@ -1078,45 +1078,66 @@ def _recrop_flipflop_cutouts_to_shared_bbox(
     if not keyed_entries:
         return
 
-    width, height = keyed_entries[0][1].size
-    canvas_size = (width, height)
-    target_box = keyed_entries[0][2]
-    shared_trim_box = [
-        max(0, target_box[0] - padding),
-        max(0, target_box[1] - padding),
-        min(width, target_box[2] + padding),
-        min(height, target_box[3] + padding),
-    ]
-    target_width = max(1, target_box[2] - target_box[0])
-    target_height = max(1, target_box[3] - target_box[1])
-    prepared_subjects: list[tuple[dict, Image.Image, tuple[float, float]]] = []
+    target_anchor = _alpha_anchor(keyed_entries[0][1])
+    prepared_subjects: list[tuple[dict, Image.Image, list[int], tuple[float, float], tuple[int, int]]] = []
+    shifted_boxes: list[list[int]] = []
 
     for entry, keyed, bbox in keyed_entries:
-        subject = keyed.crop(tuple(bbox))
-        if subject.size != (target_width, target_height):
-            subject = subject.resize((target_width, target_height), Image.Resampling.LANCZOS)
-        prepared_subjects.append((entry, subject, _alpha_anchor(subject)))
-
-    target_anchor = prepared_subjects[0][2]
-    for entry, subject, anchor in prepared_subjects:
-        local_path = Path(entry["local_path"])
+        anchor = _alpha_anchor(keyed)
         shift = _bounded_alpha_anchor_shift(target_anchor, anchor, max_shift=padding)
-        registered = Image.new("RGBA", canvas_size, (0, 0, 0, 0))
-        registered.alpha_composite(
-            subject,
-            dest=(target_box[0] + shift[0], target_box[1] + shift[1]),
-        )
-        registered.crop(tuple(shared_trim_box)).save(local_path)
+        shifted_box = [
+            bbox[0] + shift[0],
+            bbox[1] + shift[1],
+            bbox[2] + shift[0],
+            bbox[3] + shift[1],
+        ]
+        prepared_subjects.append((entry, keyed, bbox, anchor, shift))
+        shifted_boxes.append(shifted_box)
+
+    shared_trim_box = [
+        min(box[0] for box in shifted_boxes) - padding,
+        min(box[1] for box in shifted_boxes) - padding,
+        max(box[2] for box in shifted_boxes) + padding,
+        max(box[3] for box in shifted_boxes) + padding,
+    ]
+
+    for entry, keyed, bbox, anchor, shift in prepared_subjects:
+        local_path = Path(entry["local_path"])
+        registered = _translated_alpha_crop(keyed, shift=shift, crop_box=shared_trim_box)
+        registered.save(local_path)
         source_metadata = {
             **entry["metadata"],
             "trim_box": shared_trim_box,
-            "registration_box": target_box,
+            "registration_box": bbox,
             "registration_algorithm_version": FLIPFLOP_CUTOUT_REGISTRATION_VERSION,
             "alpha_anchor": [round(anchor[0], 2), round(anchor[1], 2)],
             "alpha_anchor_shift": [shift[0], shift[1]],
         }
         _write_source_metadata(local_path, source_metadata)
         entry["layer"]["visual_source_metadata"] = source_metadata
+
+
+def _translated_alpha_crop(
+    image: Image.Image,
+    *,
+    shift: tuple[int, int],
+    crop_box: list[int],
+) -> Image.Image:
+    left, top, right, bottom = crop_box
+    output = Image.new("RGBA", (max(1, right - left), max(1, bottom - top)), (0, 0, 0, 0))
+    source_left = max(0, left - shift[0])
+    source_top = max(0, top - shift[1])
+    source_right = min(image.width, right - shift[0])
+    source_bottom = min(image.height, bottom - shift[1])
+    if source_left >= source_right or source_top >= source_bottom:
+        return output
+
+    crop = image.crop((source_left, source_top, source_right, source_bottom))
+    output.alpha_composite(
+        crop,
+        dest=(source_left + shift[0] - left, source_top + shift[1] - top),
+    )
+    return output
 
 
 def _alpha_anchor(image: Image.Image) -> tuple[float, float]:

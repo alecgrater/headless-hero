@@ -2367,8 +2367,8 @@ def test_generate_flipflop_cutouts_recrops_states_to_shared_bbox(tmp_path, monke
         source = tmp_path / f"source-{call_number}.png"
         image = Image.new("RGBA", (120, 100), (0, 255, 0, 255))
         draw = ImageDraw.Draw(image)
-        draw.rectangle((20, 20, 50, 60), fill=(255, 0, 0, 255))
-        draw.rectangle((65, 10, 110, 80), fill=(255, 0, 0, 255))
+        draw.rectangle((20, 35, 40, 60), fill=(255, 0, 0, 255))
+        draw.rectangle((75, 25, 105, 75), fill=(255, 0, 0, 255))
         image.save(source)
         return str(source)
 
@@ -2389,13 +2389,10 @@ def test_generate_flipflop_cutouts_recrops_states_to_shared_bbox(tmp_path, monke
 
     image_layers = [layer for layer in layers if layer.get("type", "image") == "image"]
     assert [layer["asset_kind"] for layer in image_layers] == ["cutout", "cutout"]
-    assert [layer["visual_source_metadata"]["trim_box"] for layer in image_layers] == [
-        [0, 0, 60, 85],
-        [0, 0, 60, 85],
-    ]
+    assert image_layers[0]["visual_source_metadata"]["trim_box"] == image_layers[1]["visual_source_metadata"]["trim_box"]
     assert [layer["visual_source_metadata"]["registration_box"] for layer in image_layers] == [
-        [20, 20, 51, 61],
-        [20, 20, 51, 61],
+        [20, 35, 41, 61],
+        [15, 25, 46, 76],
     ]
     assert all(
         layer["visual_source_metadata"]["registration_algorithm_version"]
@@ -2405,11 +2402,65 @@ def test_generate_flipflop_cutouts_recrops_states_to_shared_bbox(tmp_path, monke
     assert all("alpha_anchor_shift" in layer["visual_source_metadata"] for layer in image_layers)
     output_dir = tmp_path / "projects" / "script-1" / "flipflop_cutouts" / "scene_001"
     with Image.open(output_dir / "state_01_state_a.png") as state_a:
-        assert state_a.size == (60, 85)
+        state_a_size = state_a.size
         state_a_bbox = state_a.getbbox()
     with Image.open(output_dir / "state_02_state_b.png") as state_b:
-        assert state_b.size == (60, 85)
-        assert state_b.getbbox() == state_a_bbox
+        state_b_bbox = state_b.getbbox()
+        assert state_b.size == state_a_size
+    assert state_a_bbox is not None
+    assert state_b_bbox is not None
+    assert (state_b_bbox[2] - state_b_bbox[0]) > (state_a_bbox[2] - state_a_bbox[0])
+    assert (state_b_bbox[3] - state_b_bbox[1]) > (state_a_bbox[3] - state_a_bbox[1])
+
+
+def test_generate_flipflop_cutouts_preserves_state_subject_scale(tmp_path, monkeypatch):
+    image_gen, _, _ = _stub_panel_image_context(monkeypatch, tmp_path)
+
+    monkeypatch.setattr(image_gen, "save_vault_image", lambda **_kwargs: None)
+
+    def fake_generate_image(
+        _prompt,
+        *,
+        width,
+        height,
+        **_kwargs,
+    ):
+        source = tmp_path / "source-scale.png"
+        image = Image.new("RGBA", (120, 100), (0, 255, 0, 255))
+        draw = ImageDraw.Draw(image)
+        draw.rectangle((20, 30, 45, 65), fill=(255, 0, 0, 255))
+        draw.rectangle((65, 15, 115, 90), fill=(255, 0, 0, 255))
+        image.save(source)
+        return str(source)
+
+    monkeypatch.setattr(image_gen, "generate_image", fake_generate_image)
+
+    image_gen.generate_flipflop_cutouts(
+        scene_id="scene_001",
+        layers=[
+            {"id": "state_a", "type": "image", "prompt": "State A prompt", "contains_person": True},
+            {"id": "state_b", "type": "image", "prompt": "State B prompt", "contains_person": True},
+        ],
+        script_id="script-1",
+        scene_prompt="Person changes expression.",
+        width=320,
+        height=180,
+        contains_person=True,
+    )
+
+    output_dir = tmp_path / "projects" / "script-1" / "flipflop_cutouts" / "scene_001"
+    with Image.open(output_dir / "state_01_state_a.png") as state_a:
+        state_a_bbox = state_a.getbbox()
+        state_a_size = state_a.size
+    with Image.open(output_dir / "state_02_state_b.png") as state_b:
+        state_b_bbox = state_b.getbbox()
+        state_b_size = state_b.size
+
+    assert state_b_size == state_a_size
+    assert state_a_bbox is not None
+    assert state_b_bbox is not None
+    assert (state_b_bbox[2] - state_b_bbox[0]) > (state_a_bbox[2] - state_a_bbox[0])
+    assert (state_b_bbox[3] - state_b_bbox[1]) > (state_a_bbox[3] - state_a_bbox[1])
 
 
 def test_generate_flipflop_cutouts_shared_sheet_cache_ignores_state_cutout_mtime(tmp_path, monkeypatch):
