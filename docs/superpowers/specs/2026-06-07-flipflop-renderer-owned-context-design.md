@@ -1,16 +1,18 @@
-# Flipflop Renderer-Owned Context Design
+# Renderer-Owned Canvas Context Design
 
 ## Decision
 
-Flipflop should no longer generate or render an AI-created environment background. Going forward, `visual_mode="flipflop"` uses two generated transparent human/character state cutouts plus a renderer-owned context stage.
+Canvas-revealing visual modes should be able to use a shared renderer-owned context stage instead of AI-created environment backgrounds. Flipflop is the first required consumer.
 
-The context stage is selected by a small explicit field:
+Going forward, `visual_mode="flipflop"` uses two generated transparent human/character state cutouts plus this renderer-owned context stage. It should no longer generate or render an AI-created environment background.
+
+The context stage is selected by a small explicit scene field:
 
 ```ts
-flipflop_context?: "plain" | "desk" | "classroom" | "office" | "kitchen" | "shop" | "lab" | "street"
+renderer_context?: "plain" | "desk" | "classroom" | "office" | "kitchen" | "shop" | "lab" | "street"
 ```
 
-The field is optional in incoming data, but generation and validation should normalize it before render. Missing or unclear contexts should resolve to `"plain"` or `"desk"`. The renderer owns the visual stage for each context with simple deterministic shapes such as wall/floor bands, desk strips, boards, shelves, counters, windows, lab benches, or street silhouettes.
+The field is optional in incoming data, but generation and validation should normalize it before render for visual modes that consume it. Missing or unclear contexts should resolve to `"plain"` or `"desk"`. The renderer owns the visual stage for each context with simple deterministic shapes such as wall/floor bands, desk strips, boards, shelves, counters, windows, lab benches, or street silhouettes.
 
 Existing generated flipflop background layers do not need compatibility preservation. New generation should stop creating, caching, or rendering flipflop environment image layers.
 
@@ -28,6 +30,7 @@ This design solves the second problem. It intentionally leaves the state-jump pr
 - Keep the character cutout isolated and stable over a deterministic stage.
 - Provide enough context for the viewer to understand the setting without generating a full room.
 - Make flipflop behave more like other renderer-owned layered modes: generated assets supply subjects; Remotion owns layout and context.
+- Design the context stage as reusable infrastructure for future canvas-revealing visual modes, not as a flipflop-only one-off.
 - Avoid carrying legacy flipflop background baggage forward.
 - Keep the implementation low-risk by preserving the existing two-cutout generation path and A/B alternation cadence.
 
@@ -38,6 +41,19 @@ This design solves the second problem. It intentionally leaves the state-jump pr
 - Do not preserve old generated flipflop environment backgrounds.
 - Do not add a normal Timeline dropdown for flipflop action or context unless the implementation discovers an existing editor surface that must expose the field.
 - Do not ask an LLM to generate context SVG, canvas code, or per-scene shape layouts.
+- Do not require all visual modes to use `renderer_context`. Full-bleed modes that hide the canvas should ignore it.
+
+## Shared Context Stage Contract
+
+`renderer_context` is a scene-level renderer hint for visual modes whose generated assets do not fully cover the canvas. It should be safe for modes to ignore it when they render full-bleed media.
+
+Initial consumers:
+
+- Required now: `flipflop`
+- Designed for later adoption: `popup_sequence`, `comparison_board`, and any future mode that stages transparent cutouts, renderer-owned text, or simple objects over the canvas
+- Usually ignored: `full_frame`, `multi_frame`, `continuous`, and `video`, because their generated image/video assets normally cover the canvas
+
+Remotion should implement this as a reusable `RendererContextStage` component, not a flipflop-only component. Mode renderers should compose it behind their generated cutouts/text when the stage improves visual context. The stage must remain deterministic, low-detail, and free of readable text or logos.
 
 ## Scene Contract
 
@@ -45,7 +61,7 @@ Required for valid flipflop scenes:
 
 - `visual_mode: "flipflop"`
 - `flipflop_action`: one allowed human micro-action
-- `flipflop_context`: normalized context preset
+- `renderer_context`: normalized context preset
 - `visual_layers`: exactly two generated image cutouts for State A and State B after asset generation
 
 The two state layers remain `type="image"` and `asset_kind="cutout"`. They should use stable ids such as `{scene_id}_state_a` and `{scene_id}_state_b`.
@@ -56,7 +72,7 @@ Flipflop scenes should not include a `full_frame` or `panel` background layer. I
 
 Context selection should be deterministic and conservative.
 
-Fresh script generation may emit `flipflop_context` when choosing `visual_mode="flipflop"`. If script generation omits it, backend validation or layered visual analysis should infer it from narration and `visual_prompt` using simple keyword rules.
+Fresh script generation may emit `renderer_context` when choosing a canvas-revealing visual mode. If script generation omits it for flipflop, backend validation or layered visual analysis should infer it from narration and `visual_prompt` using simple keyword rules.
 
 Suggested initial mapping:
 
@@ -76,7 +92,7 @@ If multiple contexts match, prefer the most specific setting in this order: `kit
 `TreatmentRenderer` should render flipflop as:
 
 1. Global static canvas color.
-2. `FlipflopContextStage` for the normalized `flipflop_context`.
+2. `RendererContextStage` for the normalized `renderer_context`.
 3. The active State A/B cutout, centered with the existing flipflop frame style.
 
 The existing A/B cadence remains unchanged: alternate from frame zero every 0.5 seconds. `enter_at_seconds` must not delay State B participation.
@@ -102,26 +118,26 @@ Flipflop render cache fingerprints should include:
 
 - `visual_mode`
 - `flipflop_action`
-- `flipflop_context`
+- `renderer_context`
 - State A/B cutout image paths and source metadata
 - renderer context version
 - existing subtitle/settings inputs that already affect render output
 
 Changing the renderer-owned context shapes should bump a context-stage version string so old renders are treated as stale.
 
-Generated asset cache keys for State A/B should not include `flipflop_context` unless cutout prompts start using it. The context is a renderer concern, not a character asset concern.
+Generated asset cache keys for State A/B should not include `renderer_context` unless cutout prompts start using it. The context is a renderer concern, not a character asset concern.
 
 ## Test Lab
 
-Test Lab should continue exposing flipflop action selection. It should also expose a compact flipflop context selector when `visual_mode="flipflop"`.
+Test Lab should continue exposing flipflop action selection. It should also expose a compact renderer context selector for flipflop. The selector can later appear for other canvas-revealing modes as they adopt `RendererContextStage`.
 
 Switching the context selector must not rewrite narration, visual prompt, caption text, stat fields, or other mode-specific scene text.
 
-Run manifests should include `flipflop_action`, `flipflop_context`, and the generated cutout layer metadata.
+Run manifests should include `flipflop_action`, `renderer_context`, and the generated cutout layer metadata.
 
 ## Fallbacks And Observability
 
-If `flipflop_context` is missing or invalid, normalize to `"plain"` and record a structured fallback event because render-visible behavior changed.
+If `renderer_context` is missing or invalid for a mode that requires it, normalize to `"plain"` and record a structured fallback event because render-visible behavior changed.
 
 If cutout generation fails, preserve the existing fallback behavior for broken layered assets: fall back to a stable existing visual path rather than rendering a broken flipflop.
 
@@ -131,15 +147,15 @@ Generation and render logs should clearly distinguish flipflop state cutout gene
 
 Backend tests should cover:
 
-- `Scene` accepts and normalizes valid `flipflop_context` values.
+- `Scene` accepts and normalizes valid `renderer_context` values.
 - Invalid/missing context normalizes to `"plain"` or inferred context.
 - Flipflop layer normalization emits exactly two cutout layers and no background layer.
 - Flipflop generation does not call image generation for an environment background.
-- Render cache fingerprints include `flipflop_context` and renderer context version.
+- Render cache fingerprints include `renderer_context` and renderer context version.
 
 Remotion/frontend tests should cover:
 
-- `FlipflopContextStage` renders deterministic presets.
+- `RendererContextStage` renders deterministic presets.
 - `TreatmentRenderer` stages context behind A/B cutouts.
 - Background image layers are not required for flipflop.
 - Test Lab context changes preserve scene text.
