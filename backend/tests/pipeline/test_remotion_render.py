@@ -115,11 +115,13 @@ def test_subtitle_render_fingerprint_tracks_style_and_router_version():
     fingerprint = remotion_render.subtitle_render_fingerprint(content)
 
     assert fingerprint["subtitle_router_version"] == remotion_render.SUBTITLE_ROUTER_VERSION
+    assert fingerprint["renderer_context_stage_version"] == remotion_render.RENDERER_CONTEXT_STAGE_VERSION
     assert fingerprint["scenes"] == [
         {
             "id": "scene-1",
             "subtitle_style": "clean",
             "visual_mode": "full_frame",
+            "renderer_context": "",
             "stat_value": "",
             "stat_label": "",
             "stat_card_icon": None,
@@ -128,11 +130,44 @@ def test_subtitle_render_fingerprint_tracks_style_and_router_version():
             "id": "scene-2",
             "subtitle_style": "burst",
             "visual_mode": "full_frame",
+            "renderer_context": "",
             "stat_value": "",
             "stat_label": "",
             "stat_card_icon": None,
         },
     ]
+
+
+def test_scene_input_props_include_renderer_context():
+    scene = Scene(
+        id="s1",
+        narration="He blinks at the whiteboard.",
+        visual_prompt="Teacher character.",
+        visual_mode="flipflop",
+        flipflop_action="blink",
+        renderer_context="classroom",
+    )
+
+    props = remotion_render._scene_to_input_props(scene, "script-1")
+
+    assert props["renderer_context"] == "classroom"
+
+
+def test_subtitle_render_fingerprint_includes_renderer_context_for_canvas_modes():
+    scene = Scene(
+        id="s1",
+        narration="He blinks at the whiteboard.",
+        visual_prompt="Teacher character.",
+        visual_mode="flipflop",
+        flipflop_action="blink",
+        renderer_context="classroom",
+    )
+    content = ScriptContent(title="T", segments=[Segment(name="S", scenes=[scene])])
+
+    fingerprint = remotion_render.subtitle_render_fingerprint(content)
+
+    assert fingerprint["renderer_context_stage_version"] == "renderer-context-stage-v1"
+    assert fingerprint["scenes"][0]["renderer_context"] == "classroom"
 
 
 def test_subtitle_settings_from_env_normalize_values(monkeypatch):

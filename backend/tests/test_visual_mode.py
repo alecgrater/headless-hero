@@ -535,6 +535,32 @@ def test_scene_accepts_valid_flipflop_action():
     assert scene.model_dump()["flipflop_action"] == "blink"
 
 
+def test_scene_accepts_renderer_context():
+    scene = Scene(
+        id="s1",
+        narration="He blinks in the classroom.",
+        visual_prompt="Teacher character near a board.",
+        visual_mode="flipflop",
+        flipflop_action="blink",
+        renderer_context="classroom",
+    )
+
+    assert scene.renderer_context == "classroom"
+
+
+def test_scene_normalizes_invalid_renderer_context_to_plain():
+    scene = Scene(
+        id="s1",
+        narration="He blinks.",
+        visual_prompt="Teacher character.",
+        visual_mode="flipflop",
+        flipflop_action="blink",
+        renderer_context="unknown",
+    )
+
+    assert scene.renderer_context == "plain"
+
+
 def test_scene_clears_flipflop_action_when_not_flipflop():
     scene = Scene(
         id="scene_001",

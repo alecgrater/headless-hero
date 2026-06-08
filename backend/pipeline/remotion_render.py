@@ -28,6 +28,7 @@ REMOTION_ENTRY = REMOTION_DIR / "src" / "index.ts"
 BACKEND_STATIC_BASE = f"http://localhost:{BACKEND_PORT}/static/projects"
 MAX_AI_VIDEO_SLOWDOWN_RATIO = 1.25
 SUBTITLE_ROUTER_VERSION = "standard-subtitle-router-v1"
+RENDERER_CONTEXT_STAGE_VERSION = "renderer-context-stage-v1"
 SUBTITLE_COVERAGE_MODES = {"all", "punchy"}
 SUBTITLE_STYLES = ("clean", "kinetic", "burst")
 
@@ -355,6 +356,7 @@ def _scene_to_input_props(
         "phrase_timestamps": [p.model_dump() for p in scene.phrase_timestamps] if scene.phrase_timestamps and not scene.is_title_card else None,
         "visual_beat": scene.visual_beat,
         "visual_mode": scene.visual_mode,
+        "renderer_context": scene.renderer_context,
         "subtitle_style": subtitle_style or scene.subtitle_style,
         "caption_text": scene.caption_text,
         "caption_emphasis": scene.caption_emphasis,
@@ -377,12 +379,14 @@ def subtitle_render_fingerprint(content: ScriptContent) -> dict[str, Any]:
     """Return content-sensitive subtitle routing inputs for render cache metadata."""
     return {
         "subtitle_router_version": SUBTITLE_ROUTER_VERSION,
+        "renderer_context_stage_version": RENDERER_CONTEXT_STAGE_VERSION,
         "settings": subtitle_settings_from_env(),
         "scenes": [
             {
                 "id": scene.id,
                 "subtitle_style": scene.subtitle_style,
                 "visual_mode": scene.visual_mode,
+                "renderer_context": scene.renderer_context if scene.visual_mode in {"flipflop", "popup_sequence", "comparison_board", "stat_card", "captions"} else "",
                 "stat_value": scene.stat_value if scene.visual_mode == "stat_card" else "",
                 "stat_label": scene.stat_label if scene.visual_mode == "stat_card" else "",
                 "stat_card_icon": _stat_card_icon_fingerprint(scene),

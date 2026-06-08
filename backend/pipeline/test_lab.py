@@ -30,7 +30,8 @@ from models.script import (
 )
 from pipeline.flipflop_actions import normalize_flipflop_action
 from pipeline.script_helpers import _usage_task_label
-from pipeline.visual_treatments import comparison_cutout_prompt, flipflop_background_prompt, flipflop_cutout_prompt
+from pipeline.visual_treatments import comparison_cutout_prompt, flipflop_cutout_prompt
+from pipeline.renderer_context import infer_renderer_context, normalize_renderer_context
 
 logger = logging.getLogger(__name__)
 
@@ -150,6 +151,7 @@ class TestLabPreset(BaseModel):
     stat_value: str = ""
     stat_label: str = ""
     flipflop_action: str = "blink"
+    renderer_context: str = "plain"
     duration_estimate_seconds: float = 7.0
     main_character: MainCharacter | None = None
 
@@ -544,6 +546,17 @@ def _resolve_flipflop_action_for_settings(
     return _flipflop_action_from_settings(settings, preset)
 
 
+def _renderer_context_from_settings(settings: dict, preset: TestLabPreset | None) -> str:
+    context = normalize_renderer_context(settings.get("renderer_context"))
+    if context != "plain":
+        return context
+    if preset is not None:
+        context = normalize_renderer_context(preset.renderer_context)
+        if context != "plain":
+            return context
+    return "plain"
+
+
 def _subtitle_style_from_settings(settings: dict) -> str:
     value = settings.get("subtitle_style")
     return value if isinstance(value, str) and value in SUBTITLE_STYLES else "auto"
@@ -591,6 +604,11 @@ def _reapply_top_level_scene_settings(content: ScriptContent, settings: dict) ->
     ):
         scene.flipflop_action = normalize_flipflop_action(settings["flipflop_action"])
     if (
+        "renderer_context" in settings
+        and "renderer_context" not in advanced_scene
+    ):
+        scene.renderer_context = normalize_renderer_context(settings["renderer_context"])
+    if (
         "visual_layers" in settings
         and "visual_layers" not in advanced_scene
         and isinstance(settings["visual_layers"], list)
@@ -620,6 +638,7 @@ def build_content_from_preset(preset_id: str, settings: dict) -> ScriptContent:
     stat_value = _stat_setting_from_settings(settings, preset, "stat_value", visual_mode)
     stat_label = _stat_setting_from_settings(settings, preset, "stat_label", visual_mode)
     flipflop_action = _flipflop_action_from_settings(settings, preset)
+    renderer_context = _renderer_context_from_settings(settings, preset)
     visual_layers = settings.get("visual_layers") if isinstance(settings.get("visual_layers"), list) else []
     if visual_mode == "stat_card" and not visual_layers and visual_prompt.strip():
         visual_layers = [
@@ -643,6 +662,7 @@ def build_content_from_preset(preset_id: str, settings: dict) -> ScriptContent:
         contains_person=bool(_setting(settings, "contains_person", preset.main_character is not None)),
         visual_layers=visual_layers,
         flipflop_action=flipflop_action if visual_mode == "flipflop" else "",
+        renderer_context=renderer_context,
         caption_text=_caption_setting_from_settings(settings, preset, "caption_text", narration, visual_mode),
         caption_emphasis=_caption_setting_from_settings(settings, preset, "caption_emphasis", narration, visual_mode),
         stat_value=stat_value,
@@ -928,6 +948,7 @@ def _stage_visual(ctx: TestLabRunContext) -> None:
                 "contains_person": scene.contains_person,
                 "visual_mode": scene.visual_mode,
                 "flipflop_action": scene.flipflop_action,
+                "renderer_context": scene.renderer_context,
                 "audio_duration_seconds": scene.audio_duration_seconds or scene.duration_estimate_seconds,
                 "visual_layers": [layer.model_dump() for layer in scene.visual_layers],
             },
@@ -1201,15 +1222,11 @@ def _fallback_visual_layers_for_treatment(scene: Scene) -> list[VisualLayer]:
         ]
     if scene.visual_mode == "stat_card":
         return []
+    context = normalize_renderer_context(scene.renderer_context)
+    if context == "plain":
+        context = infer_renderer_context(narration=scene.narration, visual_prompt=scene.visual_prompt)
+    scene.renderer_context = context
     return [
-        VisualLayer(
-            id=f"{scene.id}_background",
-            asset_kind="full_frame",
-            prompt=flipflop_background_prompt(scene.visual_prompt, scene.narration),
-            placement="center",
-            enter_at_seconds=0.0,
-            animation="none",
-        ),
         VisualLayer(
             id=f"{scene.id}_state_a",
             asset_kind="cutout",
@@ -1263,6 +1280,7 @@ def _stage_fx(ctx: TestLabRunContext) -> None:
             "has_multiple_frames": bool(scene.frame_urls and len(scene.frame_urls) > 1),
             "visual_mode": scene.visual_mode,
             "flipflop_action": scene.flipflop_action,
+            "renderer_context": scene.renderer_context,
             "visual_beat": scene.visual_beat or "static",
         }
         if scene.word_timestamps:
@@ -1364,6 +1382,7 @@ def run_test_lab(
     except ValueError:
         preset = None
     settings["flipflop_action"] = _resolve_flipflop_action_for_settings(settings, preset)
+    settings["renderer_context"] = _renderer_context_from_settings(settings, preset)
     script_id = f"test-lab-{safe_run_id}"
     manifest = TestLabRunManifest(
         run_id=safe_run_id,

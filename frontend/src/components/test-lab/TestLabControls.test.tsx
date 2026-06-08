@@ -312,9 +312,9 @@ describe("TestLabControls layout", () => {
     const visualMode = screen.getByTestId("test-lab-section-visual-mode");
     fireEvent.mouseEnter(within(visualMode).getByRole("button", { name: /Flip-flop/i }));
 
-    expect(within(visualMode).getByText(/environment-only background plus two cropped transparent cutouts/i)).toBeInTheDocument();
-    expect(within(visualMode).getByText(/State A/i)).toBeInTheDocument();
-    expect(within(visualMode).getByText(/State B/i)).toBeInTheDocument();
+    expect(within(visualMode).getByText(/two cropped transparent cutouts and stages them over renderer-owned scene context/i)).toBeInTheDocument();
+    expect(within(visualMode).getByLabelText("Flip-flop action")).toBeInTheDocument();
+    expect(within(visualMode).getByLabelText("Scene context")).toBeInTheDocument();
   });
 
   it("shows the flip-flop action selector only for flip-flop mode", () => {
@@ -332,6 +332,7 @@ describe("TestLabControls layout", () => {
     );
 
     expect(screen.getByLabelText("Flip-flop action")).toHaveValue("blink");
+    expect(screen.getByLabelText("Scene context")).toHaveValue("plain");
 
     rerender(
       <TestLabControls
@@ -347,6 +348,35 @@ describe("TestLabControls layout", () => {
     );
 
     expect(screen.queryByLabelText("Flip-flop action")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Scene context")).not.toBeInTheDocument();
+  });
+
+  it("updates renderer context without rewriting scene text", () => {
+    const onChange = vi.fn();
+    render(
+      <TestLabControls
+        preset={preset}
+        defaultMainCharacter={null}
+        visualTreatmentDefaults={defaults}
+        settings={{ ...baseSettings, visual_mode: "flipflop", renderer_context: "desk" }}
+        voiceSummary={voiceSummary}
+        subtitleSummary={subtitleSummary}
+        onChange={onChange}
+        onOpenSettingsSection={() => undefined}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Scene context"), {
+      target: { value: "office" },
+    });
+
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        renderer_context: "office",
+        narration: "Custom narration.",
+        visual_prompt: "Custom prompt.",
+      }),
+    );
   });
 
   it("updates flip-flop action without rewriting scene text", () => {
@@ -457,7 +487,7 @@ describe("TestLabControls layout", () => {
     expect(screen.queryByLabelText("State A")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("State B")).not.toBeInTheDocument();
     expect(
-      screen.getByText(/environment, State A, and State B prompts are derived deterministically/i),
+      screen.getByText(/renderer draws simple context shapes behind the State A\/B cutouts/i),
     ).toBeInTheDocument();
   });
 

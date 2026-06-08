@@ -26,7 +26,7 @@ import type {
   TestLabSubtitleSummary,
   TestLabVoiceSummary,
 } from "../../types/testLab";
-import type { FlipflopAction, VisualLayer, VisualMode } from "../../types/script";
+import type { FlipflopAction, RendererContext, VisualLayer, VisualMode } from "../../types/script";
 import { Tooltip } from "../ui/Tooltip";
 
 type StageKey = keyof TestLabStages;
@@ -142,7 +142,7 @@ const VISUAL_MODE_OPTIONS: Array<{
     label: "Flip-flop",
     icon: <Repeat2 className="h-4 w-4" />,
     summary: "Two compatible states alternate.",
-    description: "Generates one environment-only background plus two cropped transparent cutouts for character/body-language alternation.",
+    description: "Generates two cropped transparent cutouts and stages them over renderer-owned scene context.",
     bestFor: "Talking mouth changes, nodding, pointing, leaning, shrugging, and simple character actions.",
   },
   {
@@ -182,6 +182,17 @@ const FLIPFLOP_ACTION_OPTIONS: Array<{ value: FlipflopAction; label: string }> =
   { value: "pointing_gesture", label: "Pointing gesture" },
   { value: "counting_fingers", label: "Counting fingers" },
   { value: "small_shrug", label: "Small shrug" },
+];
+
+const RENDERER_CONTEXT_OPTIONS: Array<{ value: RendererContext; label: string }> = [
+  { value: "plain", label: "Plain" },
+  { value: "desk", label: "Desk" },
+  { value: "classroom", label: "Classroom" },
+  { value: "office", label: "Office" },
+  { value: "kitchen", label: "Kitchen" },
+  { value: "shop", label: "Shop" },
+  { value: "lab", label: "Lab" },
+  { value: "street", label: "Street" },
 ];
 
 export default function TestLabControls({
@@ -315,6 +326,7 @@ export default function TestLabControls({
             statValue={statValue}
             statLabel={statLabel}
             flipflopAction={settings.flipflop_action || "blink"}
+            rendererContext={settings.renderer_context || "plain"}
             frameDirectives={settings.frame_directives ?? []}
             visualLayers={settings.visual_layers}
             onNarrationChange={updateNarration}
@@ -324,6 +336,7 @@ export default function TestLabControls({
             onStatValueChange={(value) => update({ stat_value: value })}
             onStatLabelChange={(value) => update({ stat_label: value })}
             onFlipflopActionChange={(flipflop_action) => update({ flipflop_action })}
+            onRendererContextChange={(renderer_context) => update({ renderer_context })}
             onFrameDirectivesChange={(frame_directives) => update({ frame_directives })}
             onVisualLayersChange={(visual_layers) => update({ visual_layers })}
           />
@@ -465,6 +478,7 @@ function SceneTextFields({
   statValue,
   statLabel,
   flipflopAction,
+  rendererContext,
   frameDirectives,
   visualLayers,
   onNarrationChange,
@@ -474,6 +488,7 @@ function SceneTextFields({
   onStatValueChange,
   onStatLabelChange,
   onFlipflopActionChange,
+  onRendererContextChange,
   onFrameDirectivesChange,
   onVisualLayersChange,
 }: {
@@ -485,6 +500,7 @@ function SceneTextFields({
   statValue: string;
   statLabel: string;
   flipflopAction: FlipflopAction | "";
+  rendererContext: RendererContext;
   frameDirectives: Array<Record<string, unknown>>;
   visualLayers: VisualLayer[];
   onNarrationChange: (value: string) => void;
@@ -494,6 +510,7 @@ function SceneTextFields({
   onStatValueChange: (value: string) => void;
   onStatLabelChange: (value: string) => void;
   onFlipflopActionChange: (value: FlipflopAction) => void;
+  onRendererContextChange: (value: RendererContext) => void;
   onFrameDirectivesChange: (value: Array<Record<string, unknown>>) => void;
   onVisualLayersChange: (value: VisualLayer[]) => void;
 }) {
@@ -538,8 +555,23 @@ function SceneTextFields({
               ))}
             </select>
           </label>
+          <label className="block">
+            <span className="text-xs font-medium text-neutral-300">Scene context</span>
+            <select
+              aria-label="Scene context"
+              value={rendererContext || "plain"}
+              onChange={(event) => onRendererContextChange(event.target.value as RendererContext)}
+              className="mt-2 w-full rounded-md border border-neutral-800 bg-neutral-950/80 px-3 py-2 text-sm text-neutral-100 outline-none transition-colors hover:border-neutral-700 focus:border-violet-500"
+            >
+              {RENDERER_CONTEXT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
           <p className="text-xs text-neutral-500">
-            The environment, State A, and State B prompts are derived deterministically; per-state prompts are not user-editable.
+            The renderer draws simple context shapes behind the State A/B cutouts; per-state prompts are not user-editable.
           </p>
         </div>
       )}

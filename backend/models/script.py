@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field as PydanticField, field_valida
 from sqlmodel import Column, Field, SQLModel, Text
 
 from pipeline.flipflop_actions import FlipflopAction, normalize_flipflop_action
+from pipeline.renderer_context import RendererContext, normalize_renderer_context
 
 # --- Pydantic models for the script JSON structure ---
 
@@ -21,6 +22,7 @@ SUBTITLE_STYLES = {"auto", "clean", "kinetic", "burst", "none"}
 VisualMode = Literal["video", "full_frame", "multi_frame", "continuous", "captions", "popup_sequence", "flipflop", "comparison_board", "stat_card"]
 VisualTreatment = Literal["full_frame", "popup_sequence", "flipflop", "comparison_board", "stat_card"]
 FlipflopActionValue = FlipflopAction
+RendererContextValue = RendererContext
 VisualLayerType = Literal["image"]
 VisualAssetKind = Literal["full_frame", "panel", "cutout"]
 VisualLayerAnimation = Literal["none", "pop_in"]
@@ -177,6 +179,7 @@ class Scene(BaseModel):
     visual_mode: VisualMode = "full_frame"
     visual_layers: list[VisualLayer] = PydanticField(default_factory=list)
     flipflop_action: FlipflopActionValue | str = ""
+    renderer_context: RendererContextValue | str = "plain"
     caption_text: str = ""
     caption_emphasis: str = ""
     stat_value: str = ""
@@ -218,6 +221,7 @@ class Scene(BaseModel):
             if mode == "flipflop"
             else ""
         )
+        normalized["renderer_context"] = normalize_renderer_context(normalized.get("renderer_context"))
         visual_beat = _visual_beat_for_visual_mode(mode)
         if visual_beat is not None:
             normalized["visual_beat"] = visual_beat
@@ -252,6 +256,11 @@ class Scene(BaseModel):
     @classmethod
     def normalize_flipflop_action_value(_cls, value: object) -> str:
         return normalize_flipflop_action(value)
+
+    @field_validator("renderer_context", mode="before")
+    @classmethod
+    def normalize_renderer_context_value(_cls, value: object) -> str:
+        return normalize_renderer_context(value)
 
     @field_validator("subtitle_style", mode="before")
     @classmethod

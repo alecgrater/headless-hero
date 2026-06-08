@@ -17,7 +17,6 @@ from pipeline.visual_treatments import (
     VisualTreatmentAssignment,
     analyze_visual_treatments,
     apply_visual_treatment_assignments,
-    flipflop_background_prompt,
     flipflop_cutout_prompt,
     require_visual_treatment_voiceover,
 )
@@ -2213,21 +2212,16 @@ def test_generate_flipflop_cutouts_keys_cutout_layers_and_preserves_non_images(t
         contains_person=True,
     )
 
-    assert len(captured) == 2
-    assert captured[0]["reference_image_path"] is None
-    assert captured[1]["reference_image_path"] == char_ref
+    assert len(captured) == 1
+    assert captured[0]["reference_image_path"] == char_ref
     assert captured[0]["style_reference_path"] == style_ref
-    assert captured[0]["style_reference_path"] == style_ref
-    assert captured[1]["style_reference_path"] == style_ref
-    assert "[char_ref:" not in captured[0]["prompt"]
     assert "[style_ref:" in captured[0]["prompt"]
-    assert "[char_ref:" in captured[1]["prompt"]
-    assert "two-cell contact sheet" in captured[1]["prompt"]
-    assert "LEFT CELL" in captured[1]["prompt"]
-    assert "RIGHT CELL" in captured[1]["prompt"]
-    assert "equal-width vertical cells" in captured[1]["prompt"]
-    assert "Environment-only static background" in captured[0]["prompt"]
-    prompt = captured[1]["prompt"].lower()
+    assert "[char_ref:" in captured[0]["prompt"]
+    assert "two-cell contact sheet" in captured[0]["prompt"]
+    assert "LEFT CELL" in captured[0]["prompt"]
+    assert "RIGHT CELL" in captured[0]["prompt"]
+    assert "equal-width vertical cells" in captured[0]["prompt"]
+    prompt = captured[0]["prompt"].lower()
     assert "full-bleed" not in prompt
     assert "fill the entire canvas" not in prompt
     assert "edge to edge" not in prompt
@@ -2239,20 +2233,18 @@ def test_generate_flipflop_cutouts_keys_cutout_layers_and_preserves_non_images(t
     assert {"id": "label_1", "type": "text", "asset_kind": "text", "text": "overlay"} in layers
     image_layers = [layer for layer in layers if layer.get("type", "image") == "image"]
     assert [layer["image_url"] for layer in image_layers] == [
-        "/static/projects/script-1/flipflop_cutouts/scene_001/state_01_scene_001_background.png",
-        "/static/projects/script-1/flipflop_cutouts/scene_001/state_02_state_a.png",
-        "/static/projects/script-1/flipflop_cutouts/scene_001/state_03_state_b.png",
+        "/static/projects/script-1/flipflop_cutouts/scene_001/state_01_scene_001_state_a.png",
+        "/static/projects/script-1/flipflop_cutouts/scene_001/state_02_scene_001_state_b.png",
     ]
-    assert [layer["asset_kind"] for layer in image_layers] == ["full_frame", "cutout", "cutout"]
-    assert image_layers[0]["visual_source_metadata"]["source_type"] == "flipflop_background"
-    assert all(layer["visual_source_metadata"]["source_type"] == "flipflop_cutout" for layer in image_layers[1:])
-    with Image.open(tmp_path / "projects" / "script-1" / "flipflop_cutouts" / "scene_001" / "state_02_state_a.png") as cutout:
+    assert [layer["asset_kind"] for layer in image_layers] == ["cutout", "cutout"]
+    assert all(layer["visual_source_metadata"]["source_type"] == "flipflop_cutout" for layer in image_layers)
+    with Image.open(tmp_path / "projects" / "script-1" / "flipflop_cutouts" / "scene_001" / "state_01_scene_001_state_a.png") as cutout:
         assert cutout.mode == "RGBA"
         assert cutout.getpixel((0, 0))[3] == 0
         assert cutout.getbbox() is not None
 
 
-def test_generate_flipflop_cutouts_generates_background_as_full_frame_layer(tmp_path, monkeypatch):
+def test_generate_flipflop_cutouts_ignores_background_layers(tmp_path, monkeypatch):
     image_gen, _char_ref, style_ref = _stub_panel_image_context(monkeypatch, tmp_path)
 
     monkeypatch.setattr(image_gen, "save_vault_image", lambda **_kwargs: None)
@@ -2306,23 +2298,17 @@ def test_generate_flipflop_cutouts_generates_background_as_full_frame_layer(tmp_
         contains_person=True,
     )
 
-    assert len(captured) == 2
-    assert captured[0]["reference_image_path"] is None
+    assert len(captured) == 1
+    assert captured[0]["reference_image_path"] is not None
     assert captured[0]["style_reference_path"] == style_ref
-    assert "Environment-only static background" in captured[0]["prompt"]
-    assert "No people" in captured[0]["prompt"]
-    assert "[char_ref:" not in captured[0]["prompt"]
-    assert captured[1]["reference_image_path"] is not None
-    assert "two-cell contact sheet" in captured[1]["prompt"]
+    assert "Environment-only static background" not in captured[0]["prompt"]
+    assert "two-cell contact sheet" in captured[0]["prompt"]
     image_layers = [layer for layer in layers if layer.get("type", "image") == "image"]
-    assert image_layers[0]["asset_kind"] == "full_frame"
-    assert image_layers[0]["image_url"] == "/static/projects/script-1/flipflop_cutouts/scene_001/state_01_background.png"
-    assert image_layers[0]["visual_source_metadata"]["source_type"] == "flipflop_background"
-    assert image_layers[1]["asset_kind"] == "cutout"
-    assert image_layers[2]["asset_kind"] == "cutout"
+    assert [layer["id"] for layer in image_layers] == ["state_a", "state_b"]
+    assert [layer["asset_kind"] for layer in image_layers] == ["cutout", "cutout"]
 
 
-def test_generate_flipflop_cutouts_repairs_legacy_two_state_layers_with_background(tmp_path, monkeypatch):
+def test_generate_flipflop_cutouts_repairs_two_state_layers_without_background(tmp_path, monkeypatch):
     image_gen, _char_ref, _style_ref = _stub_panel_image_context(monkeypatch, tmp_path)
 
     monkeypatch.setattr(image_gen, "save_vault_image", lambda **_kwargs: None)
@@ -2360,37 +2346,10 @@ def test_generate_flipflop_cutouts_repairs_legacy_two_state_layers_with_backgrou
     )
 
     image_layers = [layer for layer in layers if layer.get("type", "image") == "image"]
-    assert [layer["id"] for layer in image_layers] == ["scene_001_background", "state_a", "state_b"]
-    assert [layer["asset_kind"] for layer in image_layers] == ["full_frame", "cutout", "cutout"]
-    assert "Environment context from narration" in captured_prompts[0]
-    assert "fryer is screaming" in captured_prompts[0]
-    assert "Character/style context only; do not use this as environment direction" in captured_prompts[0]
-
-
-def test_flipflop_background_source_prompt_treats_scene_prompt_as_character_context():
-    from pipeline.image_gen import _compose_flipflop_background_source_prompt
-
-    prompt = _compose_flipflop_background_source_prompt(
-        layer_prompt=flipflop_background_prompt(
-            visual_prompt=(
-                "Young fast-food employee character framed chest-up, clean flat 2D illustration, "
-                "no props, no counter, no background elements."
-            ),
-            narration=(
-                "You're six hours in. The fryer is screaming, your visor is sliding, "
-                "and the guy in line three is asking if the flame-grilled burger comes with cheese."
-            ),
-        ),
-        scene_prompt=(
-            "Young fast-food employee character framed chest-up, clean flat 2D illustration, "
-            "no props, no counter, no background elements."
-        ),
-    )
-
-    assert "Environment context from narration" in prompt
-    assert "fryer is screaming" in prompt
-    assert "Scene context for setting and style only" not in prompt
-    assert "Character/style context only; do not use this as environment direction" in prompt
+    assert [layer["id"] for layer in image_layers] == ["state_a", "state_b"]
+    assert [layer["asset_kind"] for layer in image_layers] == ["cutout", "cutout"]
+    assert len(captured_prompts) == 1
+    assert "two-cell contact sheet" in captured_prompts[0]
 
 
 def test_generate_flipflop_cutouts_recrops_states_to_shared_bbox(tmp_path, monkeypatch):
@@ -2408,11 +2367,8 @@ def test_generate_flipflop_cutouts_recrops_states_to_shared_bbox(tmp_path, monke
         source = tmp_path / f"source-{call_number}.png"
         image = Image.new("RGBA", (120, 100), (0, 255, 0, 255))
         draw = ImageDraw.Draw(image)
-        if call_number == 1:
-            draw.rectangle((0, 0, 119, 99), fill=(30, 40, 50, 255))
-        else:
-            draw.rectangle((20, 20, 50, 60), fill=(255, 0, 0, 255))
-            draw.rectangle((65, 10, 110, 80), fill=(255, 0, 0, 255))
+        draw.rectangle((20, 20, 50, 60), fill=(255, 0, 0, 255))
+        draw.rectangle((65, 10, 110, 80), fill=(255, 0, 0, 255))
         image.save(source)
         return str(source)
 
@@ -2432,20 +2388,20 @@ def test_generate_flipflop_cutouts_recrops_states_to_shared_bbox(tmp_path, monke
     )
 
     image_layers = [layer for layer in layers if layer.get("type", "image") == "image"]
-    assert [layer["asset_kind"] for layer in image_layers] == ["full_frame", "cutout", "cutout"]
-    assert [layer["visual_source_metadata"]["trim_box"] for layer in image_layers[1:]] == [
+    assert [layer["asset_kind"] for layer in image_layers] == ["cutout", "cutout"]
+    assert [layer["visual_source_metadata"]["trim_box"] for layer in image_layers] == [
         [0, 0, 60, 85],
         [0, 0, 60, 85],
     ]
-    assert [layer["visual_source_metadata"]["registration_box"] for layer in image_layers[1:]] == [
+    assert [layer["visual_source_metadata"]["registration_box"] for layer in image_layers] == [
         [20, 20, 51, 61],
         [20, 20, 51, 61],
     ]
     output_dir = tmp_path / "projects" / "script-1" / "flipflop_cutouts" / "scene_001"
-    with Image.open(output_dir / "state_02_state_a.png") as state_a:
+    with Image.open(output_dir / "state_01_state_a.png") as state_a:
         assert state_a.size == (60, 85)
         state_a_bbox = state_a.getbbox()
-    with Image.open(output_dir / "state_03_state_b.png") as state_b:
+    with Image.open(output_dir / "state_02_state_b.png") as state_b:
         assert state_b.size == (60, 85)
         assert state_b.getbbox() == state_a_bbox
 
@@ -2468,10 +2424,8 @@ def test_generate_flipflop_cutouts_shared_sheet_cache_ignores_state_cutout_mtime
         source = tmp_path / f"source-{generated_count}.png"
         image = Image.new("RGBA", (120, 100), (0, 255, 0, 255))
         draw = ImageDraw.Draw(image)
-        if generated_count == 1:
-            draw.rectangle((0, 0, 119, 99), fill=(30, 40, 50, 255))
-        else:
-            draw.rectangle((40, 20, 70 + generated_count, 60), fill=(255, 0, 0, 255))
+        draw.rectangle((40, 20, 70 + generated_count, 60), fill=(255, 0, 0, 255))
+        draw.rectangle((80, 20, 105, 60), fill=(255, 0, 0, 255))
         image.save(source)
         return str(source)
 
@@ -2492,12 +2446,12 @@ def test_generate_flipflop_cutouts_shared_sheet_cache_ignores_state_cutout_mtime
 
     image_gen.generate_flipflop_cutouts(**kwargs)
     output_dir = tmp_path / "projects" / "script-1" / "flipflop_cutouts" / "scene_001"
-    state_a_path = output_dir / "state_02_state_a.png"
+    state_a_path = output_dir / "state_01_state_a.png"
     future_mtime = state_a_path.stat().st_mtime + 5
     os.utime(state_a_path, (future_mtime, future_mtime))
     image_gen.generate_flipflop_cutouts(**kwargs)
 
-    assert generated_count == 2
+    assert generated_count == 1
 
 
 def test_popup_sequence_cutout_chroma_trims_item_sheet_crop(tmp_path):
@@ -2850,18 +2804,14 @@ def test_analyze_visual_treatments_assigns_flipflop_for_same_subject_micro_actio
     assert assignment.scene_id == "s1"
     assert assignment.visual_mode == "flipflop"
     assert assignment.visual_treatment == "flipflop"
-    assert len(assignment.visual_layers) == 3
-    assert [layer.id for layer in assignment.visual_layers] == ["s1_background", "s1_state_a", "s1_state_b"]
-    assert assignment.visual_layers[0].asset_kind == "full_frame"
-    assert "Environment-only static background" in assignment.visual_layers[0].prompt
-    assert "no people" in assignment.visual_layers[0].prompt.lower()
-    assert "no readable text" in assignment.visual_layers[0].prompt.lower()
-    assert "no logos" in assignment.visual_layers[0].prompt.lower()
-    assert all(layer.asset_kind == "cutout" for layer in assignment.visual_layers[1:])
+    assert len(assignment.visual_layers) == 2
+    assert [layer.id for layer in assignment.visual_layers] == ["s1_state_a", "s1_state_b"]
+    assert all(layer.asset_kind == "cutout" for layer in assignment.visual_layers)
     assert scene.flipflop_action == "speaking_mouth"
-    assert "mouth closed or lightly resting" in assignment.visual_layers[1].prompt
-    assert "mouth slightly open as if speaking one syllable" in assignment.visual_layers[2].prompt
-    for layer in assignment.visual_layers[1:]:
+    assert scene.renderer_context == "plain"
+    assert "mouth closed or lightly resting" in assignment.visual_layers[0].prompt
+    assert "mouth slightly open as if speaking one syllable" in assignment.visual_layers[1].prompt
+    for layer in assignment.visual_layers:
         prompt = layer.prompt.lower()
         assert "solid chroma" in prompt
         assert "no full background scene" in prompt
@@ -2869,43 +2819,19 @@ def test_analyze_visual_treatments_assigns_flipflop_for_same_subject_micro_actio
         assert "framed panel" not in prompt
 
 
-def test_explicit_flipflop_layers_include_environment_background():
+def test_explicit_flipflop_layers_use_renderer_context_without_background():
     scene = scene_with_words("s1", "He blinks while the kitchen noise keeps going.")
     scene.visual_prompt = "Young fast-food employee in a red polo, fast-food kitchen context."
     scene.set_visual_mode("flipflop")
     scene.flipflop_action = "blink"
     content = content_with_scenes(scene)
 
-    assignments = analyze_visual_treatments(content, script_id="script-flipflop-background")
+    assignments = analyze_visual_treatments(content, script_id="script-flipflop-context")
 
     layers = assignments[0].visual_layers
-    assert [layer.id for layer in layers] == ["s1_background", "s1_state_a", "s1_state_b"]
-    assert layers[0].asset_kind == "full_frame"
-    assert "Environment-only static background" in layers[0].prompt
-    assert "no people" in layers[0].prompt.lower()
-    assert "no readable text" in layers[0].prompt.lower()
-    assert "no logos" in layers[0].prompt.lower()
-    assert [layer.asset_kind for layer in layers[1:]] == ["cutout", "cutout"]
-
-
-def test_flipflop_background_prompt_uses_narration_for_environment_context():
-    prompt = flipflop_background_prompt(
-        visual_prompt=(
-            "Young fast-food employee character framed chest-up, plain red polo and red visor, "
-            "clean flat 2D illustration, no props, no counter, no background elements, no logos, no text."
-        ),
-        narration=(
-            "You're six hours in. The fryer is screaming, your visor is sliding, "
-            "and the guy in line three is asking if the flame-grilled burger comes with cheese."
-        ),
-    )
-
-    assert "Environment context from narration" in prompt
-    assert "fryer is screaming" in prompt
-    assert "line three" in prompt
-    assert "Character/style context only" in prompt
-    assert "no background elements" in prompt
-    assert prompt.index("fryer is screaming") < prompt.index("no background elements")
+    assert [layer.id for layer in layers] == ["s1_state_a", "s1_state_b"]
+    assert [layer.asset_kind for layer in layers] == ["cutout", "cutout"]
+    assert content.segments[0].scenes[0].renderer_context == "kitchen"
 
 
 def test_explicit_flipflop_replaces_legacy_panel_layers_with_cutouts():
@@ -2923,9 +2849,8 @@ def test_explicit_flipflop_replaces_legacy_panel_layers_with_cutouts():
 
     assignment = assignments[0]
     assert assignment.visual_mode == "flipflop"
-    assert [layer.id for layer in assignment.visual_layers] == ["s1_background", "s1_state_a", "s1_state_b"]
-    assert assignment.visual_layers[0].asset_kind == "full_frame"
-    assert all(layer.asset_kind == "cutout" for layer in assignment.visual_layers[1:])
+    assert [layer.id for layer in assignment.visual_layers] == ["s1_state_a", "s1_state_b"]
+    assert all(layer.asset_kind == "cutout" for layer in assignment.visual_layers)
 
 
 def test_explicit_flipflop_missing_action_downgrades_to_full_frame():
@@ -2962,12 +2887,10 @@ def test_explicit_flipflop_valid_action_uses_action_specific_prompts():
 
     assignment = assignments[0]
     assert assignment.visual_mode == "flipflop"
-    assert [layer.id for layer in assignment.visual_layers] == ["s1_background", "s1_state_a", "s1_state_b"]
-    assert assignment.visual_layers[0].asset_kind == "full_frame"
-    assert "Environment-only static background" in assignment.visual_layers[0].prompt
-    assert "eyes open, neutral natural face" in assignment.visual_layers[1].prompt
-    assert "eyes closed in a quick blink" in assignment.visual_layers[2].prompt
-    assert all(layer.asset_kind == "cutout" for layer in assignment.visual_layers[1:])
+    assert [layer.id for layer in assignment.visual_layers] == ["s1_state_a", "s1_state_b"]
+    assert "eyes open, neutral natural face" in assignment.visual_layers[0].prompt
+    assert "eyes closed in a quick blink" in assignment.visual_layers[1].prompt
+    assert all(layer.asset_kind == "cutout" for layer in assignment.visual_layers)
 
 
 def test_explicit_flipflop_valid_action_replaces_existing_generic_cutout_prompts():
@@ -2985,10 +2908,9 @@ def test_explicit_flipflop_valid_action_replaces_existing_generic_cutout_prompts
 
     assignment = assignments[0]
     assert assignment.visual_mode == "flipflop"
-    assert [layer.id for layer in assignment.visual_layers] == ["s1_background", "s1_state_a", "s1_state_b"]
-    assert assignment.visual_layers[0].asset_kind == "full_frame"
-    assert "eyes open, neutral natural face" in assignment.visual_layers[1].prompt
-    assert "eyes closed in a quick blink" in assignment.visual_layers[2].prompt
+    assert [layer.id for layer in assignment.visual_layers] == ["s1_state_a", "s1_state_b"]
+    assert "eyes open, neutral natural face" in assignment.visual_layers[0].prompt
+    assert "eyes closed in a quick blink" in assignment.visual_layers[1].prompt
 
 
 def test_inferred_flipflop_sets_action():

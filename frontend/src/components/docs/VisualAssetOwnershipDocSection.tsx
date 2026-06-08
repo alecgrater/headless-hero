@@ -18,7 +18,7 @@ const OWNERS = [
   {
     icon: Image,
     title: "Image Generation Owns Raw Visual Assets",
-    owns: "Full-frame images, multi-frame images, continuous frames, AI-video anchor images, transparent cutouts, icon cutouts, flip-flop environment backgrounds, and shared A/B state sheets cropped into cutouts.",
+    owns: "Full-frame images, multi-frame images, continuous frames, AI-video anchor images, transparent cutouts, icon cutouts, and shared A/B state sheets cropped into flip-flop cutouts.",
     doesNotOwn: "Readable captions, stat numbers, title-card copy, subtitle text, export wrappers, or UI labels.",
     reason: "Generated images should supply visual material. Remotion owns final composition and readable text so outputs stay editable, consistent, and cacheable.",
   },
@@ -87,8 +87,8 @@ const MODE_OWNERSHIP = [
   },
   {
     mode: "flipflop",
-    asset: "One environment-only background plus two registered transparent state cutouts",
-    renderer: "Keeps the background static and alternates only the A/B cutouts from frame zero to simulate simple repeated motion.",
+    asset: "Two registered transparent state cutouts plus renderer_context metadata",
+    renderer: "Draws the shared renderer-owned context stage and alternates only the A/B cutouts from frame zero to simulate simple repeated motion.",
   },
   {
     mode: "comparison_board",

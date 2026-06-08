@@ -14,6 +14,7 @@ from pipeline.flipflop_actions import (
     has_human_flipflop_subject,
     normalize_flipflop_action,
 )
+from pipeline.renderer_context import infer_renderer_context, normalize_renderer_context
 from pipeline.render_jobs import UserFacingJobError
 
 logger = logging.getLogger(__name__)
@@ -720,15 +721,8 @@ def _popup_layers(scene: Scene, list_items: list[tuple[str, float]]) -> list[Vis
 
 def _flipflop_layers(scene: Scene) -> list[VisualLayer]:
     action = normalize_flipflop_action(scene.flipflop_action)
+    _ensure_renderer_context(scene)
     return [
-        VisualLayer(
-            id=f"{scene.id}_background",
-            asset_kind="full_frame",
-            prompt=flipflop_background_prompt(scene.visual_prompt, scene.narration),
-            placement="center",
-            enter_at_seconds=0.0,
-            animation="none",
-        ),
         VisualLayer(
             id=f"{scene.id}_state_a",
             asset_kind="cutout",
@@ -748,25 +742,11 @@ def _flipflop_layers(scene: Scene) -> list[VisualLayer]:
     ]
 
 
-def flipflop_background_prompt(visual_prompt: str, narration: str) -> str:
-    environment_context = narration.strip() or visual_prompt.strip()
-    character_context = visual_prompt.strip()
-    character_line = (
-        f" Character/style context only, not environment instructions: {character_context}."
-        if character_context
-        else ""
-    )
-    return (
-        f"Environment-only static background for flip-flop scene. "
-        f"Environment context from narration: {environment_context}. "
-        "Show only the setting and visual context behind where the character cutout will appear. "
-        "If the character/style context says no background, no props, no counter, or no background elements, "
-        "treat that as applying only to the separate character cutout, not this environment background. "
-        "No people, no human figures, no foreground subject, no character, no mascot, no readable text, no logos, "
-        "no brand marks, no signage with words, no caption box, no speech bubble, no UI chrome, no decorative border, "
-        "no picture frame, no white margin, and no poster edge. Leave a clean central area for the character cutout."
-        f"{character_line}"
-    )
+def _ensure_renderer_context(scene: Scene) -> None:
+    context = normalize_renderer_context(scene.renderer_context)
+    if context == "plain":
+        context = infer_renderer_context(narration=scene.narration, visual_prompt=scene.visual_prompt)
+    scene.renderer_context = context
 
 
 def _comparison_layers_for_scene(scene: Scene) -> list[VisualLayer]:

@@ -1,6 +1,7 @@
 import React from "react";
 import { Img, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import type { SceneInput, VisualLayer } from "../types";
+import { RendererContextStage } from "./RendererContextStage";
 import { StatCard } from "./StatCard";
 
 interface Props {
@@ -231,7 +232,6 @@ const Flipflop: React.FC<Props> = ({ scene, fallbackVisualLayer }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const layers = validImageLayers(scene);
-  const backgroundLayers = flipflopBackgroundLayers(layers);
   const stateLayers = flipflopStateLayers(layers);
 
   logTreatmentOnce(scene, "flipflop", layers.length);
@@ -247,16 +247,7 @@ const Flipflop: React.FC<Props> = ({ scene, fallbackVisualLayer }) => {
 
   return (
     <div style={{ position: "absolute", inset: 0 }}>
-      {backgroundLayers.map((layer) => (
-        <div key={layer.id} style={layerFrameStyle(layer)}>
-          <div style={layerChromeStyle(layer)}>
-            <Img
-              src={layer.image_path ?? ""}
-              style={layerImageStyle(layer)}
-            />
-          </div>
-        </div>
-      ))}
+      <RendererContextStage context={scene.renderer_context} />
       <div style={flipflopLayerFrameStyle(activeLayer)}>
         <div style={layerChromeStyle(activeLayer)}>
           <Img
@@ -268,10 +259,6 @@ const Flipflop: React.FC<Props> = ({ scene, fallbackVisualLayer }) => {
     </div>
   );
 };
-
-export const flipflopBackgroundLayers = (layers: VisualLayer[]): VisualLayer[] => (
-  layers.filter((layer) => layer.asset_kind === "full_frame" || layer.asset_kind === "panel")
-);
 
 export const flipflopStateLayers = (layers: VisualLayer[]): VisualLayer[] => (
   layers.filter((layer) => layer.asset_kind === "cutout")

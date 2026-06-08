@@ -37,6 +37,7 @@ export interface VideoFX {
 
 export type VisualMode = "video" | "full_frame" | "multi_frame" | "continuous" | "popup_sequence" | "flipflop" | "comparison_board" | "captions" | "stat_card";
 export type SubtitleStyle = "auto" | "clean" | "kinetic" | "burst" | "none";
+export type RendererContext = "plain" | "desk" | "classroom" | "office" | "kitchen" | "shop" | "lab" | "street";
 export type FlipflopAction =
   | "blink"
   | "speaking_mouth"
@@ -98,6 +99,7 @@ export interface Scene {
   visual_mode?: VisualMode;
   visual_layers?: VisualLayer[];
   flipflop_action?: FlipflopAction | "";
+  renderer_context?: RendererContext;
   caption_text?: string;
   caption_emphasis?: string;
   stat_value?: string;

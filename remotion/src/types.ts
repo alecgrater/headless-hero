@@ -57,6 +57,7 @@ export interface VideoFX {
 }
 
 export type VisualMode = "video" | "full_frame" | "multi_frame" | "continuous" | "popup_sequence" | "flipflop" | "comparison_board" | "captions" | "stat_card";
+export type RendererContext = "plain" | "desk" | "classroom" | "office" | "kitchen" | "shop" | "lab" | "street";
 
 export interface VisualCanvas {
   background_color: string;
@@ -128,6 +129,7 @@ export interface SceneInput {
   frame_directives?: FrameDirective[] | null;
   visual_mode?: VisualMode;
   visual_layers?: VisualLayer[] | null;
+  renderer_context?: RendererContext;
   caption_text?: string | null;
   caption_emphasis?: string | null;
   stat_value?: string | null;

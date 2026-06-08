@@ -17,7 +17,7 @@ from pipeline.asset_vault import VaultKind, save_vault_image
 from pipeline.character_assets import process_character_asset_bundle
 from pipeline.cutout_chroma import key_out_background, save_keyed_trimmed_cutout as save_shared_keyed_trimmed_cutout
 from pipeline.fallback_observability import record_fallback
-from pipeline.visual_treatments import flipflop_background_prompt, flipflop_cutout_prompt
+from pipeline.visual_treatments import flipflop_cutout_prompt
 from prompts import IMAGE_CHARACTER_IN_SCENE, IMAGE_COMPOSITION_GUIDE, IMAGE_VISUAL_STYLE
 
 logger = logging.getLogger(__name__)
@@ -874,76 +874,24 @@ def generate_flipflop_cutouts(
         raw_path = output_dir / f"raw_{filename}"
         prompt_marker = output_dir / f"{filename}.prompt"
         web_path = f"/static/projects/{script_id}/flipflop_cutouts/{scene_id}/{filename}"
-        is_background_layer = next_layer.get("asset_kind") == "full_frame"
-        if is_background_layer:
-            composed_prompt, reference_image_path, style_reference_path = _compose_image_prompt_context(
-                visual_prompt=_compose_flipflop_background_source_prompt(prompt, scene_prompt),
-                script_id=script_id,
-                contains_person=False,
-            )
-            metadata = {
-                "source_type": "flipflop_background",
-                "provider": os.environ.get("IMAGE_PROVIDER", "google"),
-                "fallback": False,
-            }
-        else:
-            next_layer["asset_kind"] = "cutout"
-            next_layer["image_url"] = web_path
-            processed_layers.append(next_layer)
-            state_entries.append(
-                {
-                    "raw_path": raw_path,
-                    "local_path": local_path,
-                    "prompt_marker": prompt_marker,
-                    "prompt": prompt,
-                    "metadata": {
-                        "source_type": "flipflop_cutout",
-                        "provider": os.environ.get("IMAGE_PROVIDER", "google"),
-                        "fallback": False,
-                    },
-                    "layer": next_layer,
-                    "contains_person": bool(next_layer.get("contains_person", contains_person)),
-                }
-            )
-            continue
-
-        if not force and local_path.exists() and prompt_marker.exists() and prompt_marker.read_text(encoding="utf-8") == composed_prompt:
-            logger.info("[FLIPFLOP_CUTOUT] cache hit scene=%s layer=%s", scene_id, layer_id)
-            source_metadata = _read_source_metadata(local_path) or metadata
-        else:
-            logger.info(
-                "[FLIPFLOP_CUTOUT] generating %s scene=%s layer=%s",
-                "background" if is_background_layer else "cutout",
-                scene_id,
-                layer_id,
-            )
-            tmp_path = generate_image(
-                composed_prompt,
-                width=width,
-                height=height,
-                reference_image_path=reference_image_path,
-                style_reference_path=style_reference_path,
-                original_prompt=prompt,
-                script_id=script_id,
-            )
-            generated_path = Path(tmp_path)
-            if generated_path.resolve() != raw_path.resolve():
-                shutil.copyfile(generated_path, raw_path)
-            if is_background_layer:
-                shutil.copyfile(raw_path, local_path)
-                source_metadata = metadata
-            else:
-                with Image.open(raw_path) as source:
-                    trim_box = save_shared_keyed_trimmed_cutout(source, local_path)
-                source_metadata = {**metadata, "trim_box": trim_box}
-            _write_source_metadata(local_path, source_metadata)
-            prompt_marker.write_text(composed_prompt, encoding="utf-8")
-            save_vault_image(kind="item", label=f"Flip-flop {layer_id}", source_path=local_path)
-
-        next_layer["asset_kind"] = "full_frame" if is_background_layer else "cutout"
+        next_layer["asset_kind"] = "cutout"
         next_layer["image_url"] = web_path
-        next_layer["visual_source_metadata"] = source_metadata
         processed_layers.append(next_layer)
+        state_entries.append(
+            {
+                "raw_path": raw_path,
+                "local_path": local_path,
+                "prompt_marker": prompt_marker,
+                "prompt": prompt,
+                "metadata": {
+                    "source_type": "flipflop_cutout",
+                    "provider": os.environ.get("IMAGE_PROVIDER", "google"),
+                    "fallback": False,
+                },
+                "layer": next_layer,
+                "contains_person": bool(next_layer.get("contains_person", contains_person)),
+            }
+        )
 
     cutout_entries.extend(
         _generate_flipflop_state_sheet(
@@ -1059,31 +1007,14 @@ def _normalize_flipflop_generation_layers(
         for layer in layers
         if not (isinstance(layer, dict) and layer.get("type", "image") == "image")
     ]
-    background_layers = [
+    state_layers = [
         layer
         for layer in image_layers
-        if layer.get("asset_kind") == "full_frame" or str(layer.get("id") or "").endswith("_background")
+        if layer.get("asset_kind") != "full_frame"
+        and layer.get("asset_kind") != "panel"
+        and not str(layer.get("id") or "").endswith("_background")
     ]
-    state_layers = [layer for layer in image_layers if layer not in background_layers]
     normalized: list[dict] = []
-
-    if background_layers:
-        background = dict(background_layers[0])
-        background["asset_kind"] = "full_frame"
-        background["prompt"] = str(background.get("prompt") or "").strip() or flipflop_background_prompt(scene_prompt, scene_narration)
-        normalized.append(background)
-    else:
-        normalized.append(
-            {
-                "id": f"{scene_id}_background",
-                "type": "image",
-                "asset_kind": "full_frame",
-                "prompt": flipflop_background_prompt(scene_prompt, scene_narration),
-                "placement": "center",
-                "enter_at_seconds": 0.0,
-                "animation": "none",
-            }
-        )
 
     for index, layer in enumerate(state_layers[:2]):
         state_layer = dict(layer)
@@ -1542,24 +1473,6 @@ def _compose_flipflop_state_sheet_source_prompt(*, state_a_prompt: str, state_b_
             state_b_prompt.strip(),
             "",
             "Scene context for identity and style only:",
-            scene_prompt.strip(),
-        ]
-    ).strip()
-
-
-def _compose_flipflop_background_source_prompt(layer_prompt: str, scene_prompt: str) -> str:
-    return "\n".join(
-        [
-            "Generate one environment-only static background for a flip-flop scene.",
-            "The background gives visual context while transparent character cutouts are rendered separately on top.",
-            "Do not include people, human figures, mascots, foreground characters, body parts, silhouettes of the main subject, readable text, logos, brand marks, signs with words, speech bubbles, or captions.",
-            "Keep the composition quiet and leave a clean central area for the character cutout.",
-            "If the character/style context says no background, no props, no counter, or no background elements, treat that as applying only to the separate character cutout.",
-            "",
-            "Layer direction:",
-            layer_prompt.strip(),
-            "",
-            "Character/style context only; do not use this as environment direction:",
             scene_prompt.strip(),
         ]
     ).strip()

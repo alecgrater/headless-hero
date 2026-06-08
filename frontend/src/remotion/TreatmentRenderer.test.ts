@@ -10,6 +10,11 @@ import {
   layerFrameStyle,
   popupOrbitFrameStyle,
 } from "@remotion-src/scenes/TreatmentRenderer";
+import {
+  RENDERER_CONTEXT_STAGE_VERSION,
+  normalizeRendererContext,
+  rendererContextElements,
+} from "@remotion-src/scenes/RendererContextStage";
 import { StatCard } from "@remotion-src/scenes/StatCard";
 import type { VisualLayer } from "@remotion-src/types";
 
@@ -107,6 +112,25 @@ describe("popupOrbitFrameStyle", () => {
 
     expect(positiveDelta(firstAngle, secondAngle)).toBeCloseTo(expectedSpacing, 5);
     expect(positiveDelta(secondAngle, thirdAngle)).toBeCloseTo(expectedSpacing, 5);
+  });
+});
+
+describe("RendererContextStage", () => {
+  it("normalizes unknown contexts to plain", () => {
+    expect(normalizeRendererContext("classroom")).toBe("classroom");
+    expect(normalizeRendererContext("unknown")).toBe("plain");
+    expect(normalizeRendererContext(undefined)).toBe("plain");
+  });
+
+  it("defines a stable version for render fingerprints", () => {
+    expect(RENDERER_CONTEXT_STAGE_VERSION).toBe("renderer-context-stage-v1");
+  });
+
+  it("renders deterministic classroom context shapes", () => {
+    const elements = rendererContextElements("classroom");
+
+    expect(elements.some((element) => element.id === "classroom-board")).toBe(true);
+    expect(elements.some((element) => element.id === "floor-band")).toBe(true);
   });
 });
 
