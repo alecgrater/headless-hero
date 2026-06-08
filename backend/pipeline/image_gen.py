@@ -22,6 +22,7 @@ from prompts import IMAGE_CHARACTER_IN_SCENE, IMAGE_COMPOSITION_GUIDE, IMAGE_VIS
 
 logger = logging.getLogger(__name__)
 
+FLIPFLOP_CUTOUT_REGISTRATION_VERSION = "alpha-mask-registration-v1"
 _STYLE_GUIDE = IMAGE_COMPOSITION_GUIDE.template
 _VISUAL_STYLE = IMAGE_VISUAL_STYLE.template
 _CHARACTER_PROMPT = IMAGE_CHARACTER_IN_SCENE.template
@@ -712,6 +713,16 @@ def _reference_fingerprint(path: str | None) -> dict[str, object] | None:
         return {"path": path, "mtime": None}
 
 
+def _flipflop_state_sheet_fingerprint(prompt: str) -> str:
+    return json.dumps(
+        {
+            "prompt": prompt,
+            "registration_algorithm_version": FLIPFLOP_CUTOUT_REGISTRATION_VERSION,
+        },
+        sort_keys=True,
+    )
+
+
 def _resolve_popup_anchor_generation_context(
     *,
     script_id: str,
@@ -935,11 +946,12 @@ def _generate_flipflop_state_sheet(
         contains_person=any(bool(entry.get("contains_person")) for entry in states),
     )
     prompt_marker = output_dir / "state_sheet.prompt"
+    prompt_fingerprint = _flipflop_state_sheet_fingerprint(composed_prompt)
     sheet_path = output_dir / "state_sheet.png"
     cache_valid = (
         not force
         and prompt_marker.exists()
-        and prompt_marker.read_text(encoding="utf-8") == composed_prompt
+        and prompt_marker.read_text(encoding="utf-8") == prompt_fingerprint
         and sheet_path.exists()
         and all(Path(entry["local_path"]).exists() and Path(entry["raw_path"]).exists() for entry in states)
     )
@@ -983,10 +995,10 @@ def _generate_flipflop_state_sheet(
             _write_source_metadata(local_path, source_metadata)
             entry["metadata"] = source_metadata
             entry["layer"]["visual_source_metadata"] = source_metadata
-            Path(entry["prompt_marker"]).write_text(composed_prompt, encoding="utf-8")
+            Path(entry["prompt_marker"]).write_text(prompt_fingerprint, encoding="utf-8")
             save_vault_image(kind="item", label=f"Flip-flop {entry['layer']['id']}", source_path=local_path)
 
-    prompt_marker.write_text(composed_prompt, encoding="utf-8")
+    prompt_marker.write_text(prompt_fingerprint, encoding="utf-8")
     return states
 
 
@@ -1067,6 +1079,7 @@ def _recrop_flipflop_cutouts_to_shared_bbox(
         return
 
     width, height = keyed_entries[0][1].size
+    canvas_size = (width, height)
     target_box = keyed_entries[0][2]
     shared_trim_box = [
         max(0, target_box[0] - padding),
@@ -1076,22 +1089,72 @@ def _recrop_flipflop_cutouts_to_shared_bbox(
     ]
     target_width = max(1, target_box[2] - target_box[0])
     target_height = max(1, target_box[3] - target_box[1])
+    prepared_subjects: list[tuple[dict, Image.Image, tuple[float, float]]] = []
 
     for entry, keyed, bbox in keyed_entries:
-        local_path = Path(entry["local_path"])
         subject = keyed.crop(tuple(bbox))
         if subject.size != (target_width, target_height):
             subject = subject.resize((target_width, target_height), Image.Resampling.LANCZOS)
-        registered = Image.new("RGBA", keyed.size, (0, 0, 0, 0))
-        registered.alpha_composite(subject, dest=(target_box[0], target_box[1]))
+        prepared_subjects.append((entry, subject, _alpha_anchor(subject)))
+
+    target_anchor = prepared_subjects[0][2]
+    for entry, subject, anchor in prepared_subjects:
+        local_path = Path(entry["local_path"])
+        shift = _bounded_alpha_anchor_shift(target_anchor, anchor, max_shift=padding)
+        registered = Image.new("RGBA", canvas_size, (0, 0, 0, 0))
+        registered.alpha_composite(
+            subject,
+            dest=(target_box[0] + shift[0], target_box[1] + shift[1]),
+        )
         registered.crop(tuple(shared_trim_box)).save(local_path)
         source_metadata = {
             **entry["metadata"],
             "trim_box": shared_trim_box,
             "registration_box": target_box,
+            "registration_algorithm_version": FLIPFLOP_CUTOUT_REGISTRATION_VERSION,
+            "alpha_anchor": [round(anchor[0], 2), round(anchor[1], 2)],
+            "alpha_anchor_shift": [shift[0], shift[1]],
         }
         _write_source_metadata(local_path, source_metadata)
         entry["layer"]["visual_source_metadata"] = source_metadata
+
+
+def _alpha_anchor(image: Image.Image) -> tuple[float, float]:
+    alpha = image.convert("RGBA").getchannel("A")
+    bbox = alpha.getbbox()
+    if bbox is None:
+        return (image.width / 2, image.height / 2)
+    left, top, right, bottom = bbox
+    upper_bottom = top + max(1, round((bottom - top) * 0.62))
+    total = 0
+    weighted_x = 0
+    weighted_y = 0
+    pixels = alpha.load()
+    for y in range(top, upper_bottom):
+        for x in range(left, right):
+            value = pixels[x, y]
+            if value <= 0:
+                continue
+            total += value
+            weighted_x += x * value
+            weighted_y += y * value
+    if total == 0:
+        return ((left + right) / 2, (top + bottom) / 2)
+    return (weighted_x / total, weighted_y / total)
+
+
+def _bounded_alpha_anchor_shift(
+    target_anchor: tuple[float, float],
+    anchor: tuple[float, float],
+    *,
+    max_shift: int,
+) -> tuple[int, int]:
+    raw_x = round(target_anchor[0] - anchor[0])
+    raw_y = round(target_anchor[1] - anchor[1])
+    return (
+        max(-max_shift, min(max_shift, raw_x)),
+        max(-max_shift, min(max_shift, raw_y)),
+    )
 
 
 def generate_stat_card_cutout(

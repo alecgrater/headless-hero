@@ -13,6 +13,7 @@ from pipeline.flipflop_actions import (
     build_flipflop_state_prompt,
     has_human_flipflop_subject,
     normalize_flipflop_action,
+    normalize_production_flipflop_action,
 )
 from pipeline.renderer_context import infer_renderer_context, normalize_renderer_context
 from pipeline.render_jobs import UserFacingJobError
@@ -420,7 +421,7 @@ def _analyze_scene(scene: Scene, *, script_id: str | None = None) -> VisualTreat
             visual_layers=layers,
         )
     if scene.visual_mode == "flipflop":
-        action = normalize_flipflop_action(scene.flipflop_action)
+        action = normalize_production_flipflop_action(scene.flipflop_action)
         if not action or not has_human_flipflop_subject(scene.narration, scene.visual_prompt):
             previous_action = scene.flipflop_action
             scene.set_visual_mode("full_frame")
@@ -654,12 +655,6 @@ _FLIPFLOP_INFER_RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("speaking_mouth", ("talk", "talks", "talking", "speaking", "speaks", "explain", "explains", "explaining")),
     ("eye_glance", ("glance", "glances", "glancing", "looks down", "looks sideways")),
     ("eyebrow_raise", ("eyebrow", "eyebrows", "skeptical", "curious")),
-    ("head_nod", ("nod", "nods", "nodding", "agrees", "agreeing")),
-    ("pointing_gesture", ("point", "points", "pointing")),
-    ("counting_fingers", ("count", "counts", "counting", "two fingers")),
-    ("thinking_pose", ("think", "thinks", "thinking", "considers", "considering")),
-    ("small_shrug", ("shrug", "shrugs", "shrugging")),
-    ("explaining_hand_raise", ("gesture", "gestures", "present", "presents", "presenting", "teach", "teaches", "teaching")),
 )
 
 
@@ -671,7 +666,7 @@ def _infer_flipflop_action(scene: Scene) -> str:
     text = f"{scene.narration} {scene.visual_prompt}".casefold()
     for action, phrases in _FLIPFLOP_INFER_RULES:
         if any(_phrase_matches(text, phrase) for phrase in phrases):
-            return action
+            return normalize_production_flipflop_action(action)
     return ""
 
 
@@ -720,7 +715,7 @@ def _popup_layers(scene: Scene, list_items: list[tuple[str, float]]) -> list[Vis
 
 
 def _flipflop_layers(scene: Scene) -> list[VisualLayer]:
-    action = normalize_flipflop_action(scene.flipflop_action)
+    action = normalize_production_flipflop_action(scene.flipflop_action)
     _ensure_renderer_context(scene)
     return [
         VisualLayer(

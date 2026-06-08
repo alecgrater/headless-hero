@@ -2,10 +2,12 @@ import pytest
 
 from pipeline.flipflop_actions import (
     FLIPFLOP_ACTIONS,
+    PRODUCTION_FLIPFLOP_ACTIONS,
     build_flipflop_state_prompt,
     flipflop_action_prompt_guidance,
     has_human_flipflop_subject,
     normalize_flipflop_action,
+    normalize_production_flipflop_action,
 )
 
 
@@ -31,11 +33,22 @@ def test_flipflop_actions_are_stable_snake_case_values():
     )
 
 
+def test_production_flipflop_actions_are_face_only():
+    assert PRODUCTION_FLIPFLOP_ACTIONS == (
+        "blink",
+        "speaking_mouth",
+        "eye_glance",
+        "eyebrow_raise",
+    )
+    assert normalize_production_flipflop_action("blink") == "blink"
+    assert normalize_production_flipflop_action("head_nod") == ""
+    assert normalize_production_flipflop_action("small_shrug") == ""
+
+
 def test_action_prompt_guidance_contains_reliability_tiers():
     guidance = flipflop_action_prompt_guidance()
-    assert "Most reliable: blink, speaking_mouth, eye_glance, eyebrow_raise" in guidance
-    assert "Reliable when supported: head_nod, explaining_hand_raise, thinking_pose" in guidance
-    assert "Use only with clear prompt support: pointing_gesture, counting_fingers, small_shrug" in guidance
+    assert "Production flipflop_action values: blink, speaking_mouth, eye_glance, eyebrow_raise" in guidance
+    assert "Do not choose pose-changing or body-action values for production flipflop" in guidance
 
 
 def test_build_flipflop_state_prompt_uses_action_specific_state_text():

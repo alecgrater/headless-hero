@@ -32,7 +32,7 @@ export const VISUAL_MODE_LABELS: Record<VisualMode, { label: string; blurb: stri
   },
   flipflop: {
     label: "Flipflop",
-    blurb: "Two adjacent A/B scenes alternate rapidly for a simple animated feel.",
+    blurb: "Two transparent face-action cutouts alternate over a renderer-owned context stage.",
   },
   comparison_board: {
     label: "Comparison board",

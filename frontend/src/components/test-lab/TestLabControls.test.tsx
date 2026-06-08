@@ -487,7 +487,7 @@ describe("TestLabControls layout", () => {
     expect(screen.queryByLabelText("State A")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("State B")).not.toBeInTheDocument();
     expect(
-      screen.getByText(/renderer draws simple context shapes behind the State A\/B cutouts/i),
+      screen.getByText(/Production routing uses the four face actions/i),
     ).toBeInTheDocument();
   });
 

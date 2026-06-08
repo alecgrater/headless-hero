@@ -165,6 +165,7 @@ def test_script_prompt_defines_flipflop_as_cutout_body_language_not_contrast():
     assert '"flipflop"' in prompt_text
     assert "cropped-subject" in prompt_text
     assert "Human/character-only" in prompt_text
+    assert "face micro-animation" in prompt_text
     assert "Do not use flipflop for object-only scenes" in prompt_text
 
 
@@ -173,8 +174,8 @@ def test_script_prompt_requires_flipflop_action_allowlist():
 
     assert "flipflop_action" in prompt_text
     assert "blink, speaking_mouth, eye_glance, eyebrow_raise" in prompt_text
-    assert "Use only with clear prompt support: pointing_gesture, counting_fingers, small_shrug" in prompt_text
-    assert "If no allowed human micro-action naturally fits, choose another visual_mode" in prompt_text
+    assert "Do not choose pose-changing or body-action values" in prompt_text
+    assert "If no allowed face micro-action naturally fits, choose another visual_mode" in prompt_text
 
 
 def test_script_prompt_includes_comparison_board_mode():

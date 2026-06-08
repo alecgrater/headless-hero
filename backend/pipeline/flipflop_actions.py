@@ -34,6 +34,15 @@ FLIPFLOP_ACTIONS: tuple[FlipflopAction, ...] = (
 
 _ACTION_SET = set(FLIPFLOP_ACTIONS)
 
+PRODUCTION_FLIPFLOP_ACTIONS: tuple[FlipflopAction, ...] = (
+    "blink",
+    "speaking_mouth",
+    "eye_glance",
+    "eyebrow_raise",
+)
+
+_PRODUCTION_ACTION_SET = set(PRODUCTION_FLIPFLOP_ACTIONS)
+
 
 @dataclass(frozen=True)
 class FlipflopActionDefinition:
@@ -164,6 +173,10 @@ def normalize_flipflop_action(value: object) -> FlipflopAction | Literal[""]:
     return value if isinstance(value, str) and value in _ACTION_SET else ""  # type: ignore[return-value]
 
 
+def normalize_production_flipflop_action(value: object) -> FlipflopAction | Literal[""]:
+    return value if isinstance(value, str) and value in _PRODUCTION_ACTION_SET else ""  # type: ignore[return-value]
+
+
 def _contains_human_subject_marker(text: str) -> bool:
     return any(
         re.search(rf"\b{re.escape(marker)}\b", text.casefold())
@@ -182,16 +195,16 @@ def flipflop_action_prompt_guidance() -> str:
     action_lines = [
         f"- `{action}`: {definition.use_when}"
         for action, definition in FLIPFLOP_ACTION_DEFINITIONS.items()
+        if action in _PRODUCTION_ACTION_SET
     ]
     return "\n".join(
         [
             "When `visual_mode` is `flipflop`, also emit `flipflop_action` using exactly one allowed value.",
-            "Allowed flipflop_action values:",
+            "Production flipflop_action values: blink, speaking_mouth, eye_glance, eyebrow_raise.",
+            "Allowed production flipflop_action definitions:",
             *action_lines,
-            "Reliability tiers:",
-            "- Most reliable: blink, speaking_mouth, eye_glance, eyebrow_raise",
-            "- Reliable when supported: head_nod, explaining_hand_raise, thinking_pose",
-            "- Use only with clear prompt support: pointing_gesture, counting_fingers, small_shrug",
+            "Do not choose pose-changing or body-action values for production flipflop.",
+            "Avoid head nods, hand raises, thinking poses, pointing, counting fingers, shrugs, walking, leaning, or body repositioning.",
             "Only choose flipflop for a human, human-like, or clearly personified character scene.",
             "If no allowed human micro-action naturally fits, choose another visual_mode.",
         ]

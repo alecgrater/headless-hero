@@ -143,7 +143,7 @@ const VISUAL_MODE_OPTIONS: Array<{
     icon: <Repeat2 className="h-4 w-4" />,
     summary: "Two compatible states alternate.",
     description: "Generates two cropped transparent cutouts and stages them over renderer-owned scene context.",
-    bestFor: "Talking mouth changes, nodding, pointing, leaning, shrugging, and simple character actions.",
+    bestFor: "Production face actions: blink, speaking mouth, eye glance, and eyebrow raise.",
   },
   {
     value: "comparison_board",
@@ -176,12 +176,12 @@ const FLIPFLOP_ACTION_OPTIONS: Array<{ value: FlipflopAction; label: string }> =
   { value: "speaking_mouth", label: "Speaking mouth" },
   { value: "eye_glance", label: "Eye glance" },
   { value: "eyebrow_raise", label: "Eyebrow raise" },
-  { value: "head_nod", label: "Head nod" },
-  { value: "explaining_hand_raise", label: "Explaining hand raise" },
-  { value: "thinking_pose", label: "Thinking pose" },
-  { value: "pointing_gesture", label: "Pointing gesture" },
-  { value: "counting_fingers", label: "Counting fingers" },
-  { value: "small_shrug", label: "Small shrug" },
+  { value: "head_nod", label: "Head nod (experimental)" },
+  { value: "explaining_hand_raise", label: "Explaining hand raise (experimental)" },
+  { value: "thinking_pose", label: "Thinking pose (experimental)" },
+  { value: "pointing_gesture", label: "Pointing gesture (experimental)" },
+  { value: "counting_fingers", label: "Counting fingers (experimental)" },
+  { value: "small_shrug", label: "Small shrug (experimental)" },
 ];
 
 const RENDERER_CONTEXT_OPTIONS: Array<{ value: RendererContext; label: string }> = [
@@ -571,7 +571,7 @@ function SceneTextFields({
             </select>
           </label>
           <p className="text-xs text-neutral-500">
-            The renderer draws simple context shapes behind the State A/B cutouts; per-state prompts are not user-editable.
+            Production routing uses the four face actions. Experimental body/pose actions are kept here only for stress-testing cutout alignment.
           </p>
         </div>
       )}

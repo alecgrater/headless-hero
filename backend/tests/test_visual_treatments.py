@@ -2397,6 +2397,12 @@ def test_generate_flipflop_cutouts_recrops_states_to_shared_bbox(tmp_path, monke
         [20, 20, 51, 61],
         [20, 20, 51, 61],
     ]
+    assert all(
+        layer["visual_source_metadata"]["registration_algorithm_version"]
+        == image_gen.FLIPFLOP_CUTOUT_REGISTRATION_VERSION
+        for layer in image_layers
+    )
+    assert all("alpha_anchor_shift" in layer["visual_source_metadata"] for layer in image_layers)
     output_dir = tmp_path / "projects" / "script-1" / "flipflop_cutouts" / "scene_001"
     with Image.open(output_dir / "state_01_state_a.png") as state_a:
         assert state_a.size == (60, 85)
@@ -2452,6 +2458,52 @@ def test_generate_flipflop_cutouts_shared_sheet_cache_ignores_state_cutout_mtime
     image_gen.generate_flipflop_cutouts(**kwargs)
 
     assert generated_count == 1
+
+
+def test_generate_flipflop_cutouts_cache_tracks_registration_version(tmp_path, monkeypatch):
+    image_gen, _, _ = _stub_panel_image_context(monkeypatch, tmp_path)
+
+    monkeypatch.setattr(image_gen, "save_vault_image", lambda **_kwargs: None)
+    generated_count = 0
+
+    def fake_generate_image(
+        _prompt,
+        *,
+        width,
+        height,
+        **_kwargs,
+    ):
+        nonlocal generated_count
+        generated_count += 1
+        source = tmp_path / f"source-{generated_count}.png"
+        image = Image.new("RGBA", (120, 100), (0, 255, 0, 255))
+        draw = ImageDraw.Draw(image)
+        draw.rectangle((30, 20, 70, 70), fill=(255, 0, 0, 255))
+        draw.rectangle((80, 20, 110, 70), fill=(255, 0, 0, 255))
+        image.save(source)
+        return str(source)
+
+    monkeypatch.setattr(image_gen, "generate_image", fake_generate_image)
+
+    kwargs = {
+        "scene_id": "scene_001",
+        "layers": [
+            {"id": "state_a", "type": "image", "prompt": "State A prompt", "contains_person": True},
+            {"id": "state_b", "type": "image", "prompt": "State B prompt", "contains_person": True},
+        ],
+        "script_id": "script-1",
+        "scene_prompt": "Person changes expression.",
+        "width": 320,
+        "height": 180,
+        "contains_person": True,
+    }
+
+    image_gen.generate_flipflop_cutouts(**kwargs)
+    image_gen.generate_flipflop_cutouts(**kwargs)
+    monkeypatch.setattr(image_gen, "FLIPFLOP_CUTOUT_REGISTRATION_VERSION", "alpha-mask-registration-test-v999")
+    image_gen.generate_flipflop_cutouts(**kwargs)
+
+    assert generated_count == 2
 
 
 def test_popup_sequence_cutout_chroma_trims_item_sheet_crop(tmp_path):
@@ -2794,7 +2846,7 @@ def test_analyze_visual_treatments_assigns_three_column_comparison_board():
 
 
 def test_analyze_visual_treatments_assigns_flipflop_for_same_subject_micro_action():
-    scene = scene_with_words("s1", "His hands open and close around the microphone while he talks.")
+    scene = scene_with_words("s1", "He speaks while holding the microphone.")
     scene.visual_prompt = "[REACTION] Cartoon man holding a microphone while talking."
     content = content_with_scenes(scene)
 
@@ -2817,6 +2869,31 @@ def test_analyze_visual_treatments_assigns_flipflop_for_same_subject_micro_actio
         assert "no full background scene" in prompt
         assert "full-bleed" not in prompt
         assert "framed panel" not in prompt
+
+
+def test_analyze_visual_treatments_downgrades_explicit_pose_changing_flipflop_action():
+    scene = scene_with_words("s1", "He nods before answering.")
+    scene.visual_prompt = "[REACTION] Cartoon man at a desk before answering."
+    scene.set_visual_mode("flipflop")
+    scene.flipflop_action = "head_nod"
+    content = content_with_scenes(scene)
+
+    assignments = analyze_visual_treatments(content, script_id="script-pose-action")
+
+    assert assignments[0].visual_mode == "full_frame"
+    assert assignments[0].visual_layers == []
+    assert scene.flipflop_action == ""
+
+
+def test_analyze_visual_treatments_does_not_infer_pose_changing_flipflop_action():
+    scene = scene_with_words("s1", "He nods before answering.")
+    scene.visual_prompt = "[REACTION] Cartoon man at a desk before answering."
+    content = content_with_scenes(scene)
+
+    assignments = analyze_visual_treatments(content, script_id="script-inferred-pose-action")
+
+    assert assignments[0].visual_mode != "flipflop"
+    assert scene.flipflop_action == ""
 
 
 def test_explicit_flipflop_layers_use_renderer_context_without_background():

@@ -155,9 +155,9 @@ export const VISUAL_MODE_CATALOG: VisualModeEntry[] = [
   {
     id: "flipflop",
     label: "Flip Flop",
-    shortDescription: "Human micro-action cutouts alternating between A/B states.",
+    shortDescription: "Human face-action cutouts alternating between A/B states.",
     longDescription:
-      "Two transparent human/character state cutouts cropped from a shared A/B sheet alternate over a renderer-owned context stage. Scenes must carry flipflop_action such as blink, speaking_mouth, eye_glance, or explaining_hand_raise plus normalized renderer_context. Invalid, object-only, or non-human requests downgrade to full_frame.",
+      "Two transparent human/character state cutouts cropped from a shared A/B sheet alternate over a renderer-owned context stage. Production scenes must carry a face-only flipflop_action: blink, speaking_mouth, eye_glance, or eyebrow_raise, plus normalized renderer_context. Invalid, pose-changing, object-only, or non-human requests downgrade to full_frame.",
     previewSrc: "/visual-modes/flipflop.mp4",
     durationProfile: "normal",
     durationLabel: "Normal target · 5-9s",
@@ -172,8 +172,11 @@ export const VISUAL_MODE_CATALOG: VisualModeEntry[] = [
     },
     distribution: "Unlimited",
     routing:
-      "Script generation chooses flipflop when narration and visual prompt context support one human/character micro-action, then sets flipflop_action and renderer_context for backend shared A/B state-sheet prompts and renderer-owned context staging.",
-    notCompatibleWith: ["Different-subject contrast — use comparison_board instead."],
+      "Script generation chooses flipflop when narration and visual prompt context support one locked human/character face micro-action, then sets flipflop_action and renderer_context for backend shared A/B state-sheet prompts, alpha-mask registration, and renderer-owned context staging.",
+    notCompatibleWith: [
+      "Different-subject contrast — use comparison_board instead.",
+      "Body repositioning, nods, hand gestures, shrugs, or object motion — use another mode instead.",
+    ],
     rendererPath: "remotion/src/scenes/TreatmentRenderer.tsx",
   },
   {
