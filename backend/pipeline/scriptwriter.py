@@ -10,7 +10,7 @@ from config import DEFAULT_ACCENT_COLOR, SEGMENT_COUNT, parse_json_array_respons
 from integrations.llm_client import chat
 from models.script import LevelMeta, MainCharacter, Scene, ScriptContent, Segment
 from pipeline.fallback_observability import record_fallback
-from pipeline.flipflop_actions import has_human_flipflop_subject, normalize_flipflop_action
+from pipeline.flipflop_actions import has_human_flipflop_subject, normalize_production_flipflop_action
 from pipeline.visual_mode_policy import (
     duration_profile_for_mode,
     max_scene_seconds_for_mode,
@@ -473,7 +473,7 @@ def _validate_flipflop_actions(content: ScriptContent, *, script_id: str | None 
                 scene.flipflop_action = ""
                 counts["cleared"] += 1
             continue
-        action = normalize_flipflop_action(scene.flipflop_action)
+        action = normalize_production_flipflop_action(scene.flipflop_action)
         if action and has_human_flipflop_subject(scene.narration, scene.visual_prompt):
             scene.flipflop_action = action
             counts["preserved"] += 1

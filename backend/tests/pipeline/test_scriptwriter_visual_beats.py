@@ -354,6 +354,23 @@ def test_validate_flipflop_actions_preserves_valid_human_action():
     assert scene.flipflop_action == "blink"
 
 
+def test_validate_flipflop_actions_downgrades_pose_changing_action():
+    scene = Scene(
+        id="s1",
+        narration="He nods once.",
+        visual_prompt="[CLOSE-UP] Cartoon man at a desk.",
+        visual_mode="flipflop",
+        flipflop_action="head_nod",
+    )
+    content = ScriptContent(title="Test", segments=[Segment(name="One", scenes=[scene])])
+
+    counts = _validate_flipflop_actions(content, script_id="script-1")
+
+    assert counts["downgraded"] == 1
+    assert scene.visual_mode == "full_frame"
+    assert scene.flipflop_action == ""
+
+
 def test_validate_flipflop_actions_downgrades_pronoun_object_scene(monkeypatch):
     fallback_calls = []
 
