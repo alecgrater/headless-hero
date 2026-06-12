@@ -16,6 +16,10 @@ When a planned change may break existing local projects, exported assets, cached
 
 Do not ask the user whether to try the optional web-browser visuals feature or say "Some of what we're working on might be easier to explain if I can show it to you in a web browser..." in this project. Use browser tooling only when it is directly needed for the requested work or when the user explicitly asks for it.
 
+## Failure Reports → Read Local Evidence First
+
+When the user says something broke, failed, crashed, did not work, or otherwise reports a runtime/test failure, first inspect available local evidence before asking them to paste logs. Check the relevant app terminal output when attached, `data/test-lab/runs/*.json` for Test Lab failures, `data/db.sqlite` `dev_logs` for backend tracebacks, generated project artifacts under `data/projects/`, and any relevant stdout/stderr from commands you ran. Ask the user for screenshots or pasted logs only after local evidence is missing or insufficient.
+
 ## Review Findings → Always Apply Fixes
 
 **Any time code review produces findings — from the auto-commit loop, a manual review, or pasted review output — immediately implement every recommended fix.** Do NOT just report findings or ask whether to apply them. Read, edit, commit, and push. Fix FAIL items first, then WARN items; skip findings explicitly marked "non-blocking" or "optional".
