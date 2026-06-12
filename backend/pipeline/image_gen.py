@@ -23,10 +23,12 @@ from prompts import IMAGE_CHARACTER_IN_SCENE, IMAGE_COMPOSITION_GUIDE, IMAGE_VIS
 
 logger = logging.getLogger(__name__)
 
-FLIPFLOP_CUTOUT_REGISTRATION_VERSION = "alpha-mask-registration-v8"
+FLIPFLOP_CUTOUT_REGISTRATION_VERSION = "alpha-mask-registration-v9"
 FLIPFLOP_SCALE_CORRECTION_MIN = 0.92
 FLIPFLOP_SCALE_CORRECTION_MAX = 1.08
 FLIPFLOP_ASPECT_RATIO_TOLERANCE = 0.12
+FLIPFLOP_BASE_CANVAS_WIDTH = 760
+FLIPFLOP_BASE_CANVAS_HEIGHT = 820
 _STYLE_GUIDE = IMAGE_COMPOSITION_GUIDE.template
 _VISUAL_STYLE = IMAGE_VISUAL_STYLE.template
 _CHARACTER_PROMPT = IMAGE_CHARACTER_IN_SCENE.template
@@ -1029,12 +1031,12 @@ def generate_flipflop_base_cutout(
             )
             shutil.copyfile(generated_path, raw_path)
             with Image.open(generated_path) as source:
-                trim_box = save_shared_keyed_trimmed_cutout(source.convert("RGBA"), local_path)
+                base_metadata = _save_flipflop_canonical_base_cutout(source.convert("RGBA"), local_path)
             metadata = {
                 "source_type": "flipflop_base_cutout",
                 "provider": os.environ.get("IMAGE_PROVIDER", "google"),
                 "fallback": False,
-                "trim_box": trim_box,
+                **base_metadata,
                 "flipflop_overlay_anchor": _flipflop_overlay_anchor_metadata(),
                 "registration_algorithm_version": FLIPFLOP_CUTOUT_REGISTRATION_VERSION,
             }
@@ -1058,8 +1060,84 @@ def _flipflop_base_cache_valid(path: Path) -> bool:
         and metadata.get("registration_algorithm_version") == FLIPFLOP_CUTOUT_REGISTRATION_VERSION
         and metadata.get("source_type") == "flipflop_base_cutout"
         and isinstance(metadata.get("trim_box"), list)
+        and metadata.get("canonical_canvas") == [FLIPFLOP_BASE_CANVAS_WIDTH, FLIPFLOP_BASE_CANVAS_HEIGHT]
+        and isinstance(metadata.get("canonical_subject_box"), list)
         and isinstance(metadata.get("flipflop_overlay_anchor"), dict)
     )
+
+
+def _save_flipflop_canonical_base_cutout(image: Image.Image, output_path: Path) -> dict[str, object]:
+    keyed = key_out_background(image.convert("RGBA"))
+    bbox = keyed.getbbox()
+    if bbox is None:
+        raise FlipflopRegistrationError(
+            "Flipflop base cutout has no visible subject. Regenerate the scene or use full_frame."
+        )
+
+    padding = 24
+    source_trim_box = [
+        max(0, bbox[0] - padding),
+        max(0, bbox[1] - padding),
+        min(keyed.width, bbox[2] + padding),
+        min(keyed.height, bbox[3] + padding),
+    ]
+    subject = keyed.crop(tuple(source_trim_box))
+    subject_bbox = subject.getbbox()
+    if subject_bbox is None:
+        raise FlipflopRegistrationError(
+            "Flipflop base cutout has no visible subject. Regenerate the scene or use full_frame."
+        )
+
+    max_width = round(FLIPFLOP_BASE_CANVAS_WIDTH * 0.88)
+    max_height = round(FLIPFLOP_BASE_CANVAS_HEIGHT * 0.96)
+    scale = min(max_width / subject.width, max_height / subject.height)
+    scaled_width = max(1, round(subject.width * scale))
+    scaled_height = max(1, round(subject.height * scale))
+
+    canvas = Image.new("RGBA", (FLIPFLOP_BASE_CANVAS_WIDTH, FLIPFLOP_BASE_CANVAS_HEIGHT), (0, 0, 0, 0))
+    resized = subject.resize((scaled_width, scaled_height), Image.Resampling.LANCZOS)
+    left = round((FLIPFLOP_BASE_CANVAS_WIDTH - scaled_width) / 2)
+    top = FLIPFLOP_BASE_CANVAS_HEIGHT - scaled_height - 8
+    canvas.alpha_composite(resized, (left, top))
+    subject_box = canvas.getbbox()
+    if subject_box is None:
+        raise FlipflopRegistrationError(
+            "Flipflop base cutout has no visible subject. Regenerate the scene or use full_frame."
+        )
+
+    _validate_flipflop_base_subject_box(subject_box)
+    canvas.save(output_path)
+    return {
+        "trim_box": source_trim_box,
+        "canonical_canvas": [FLIPFLOP_BASE_CANVAS_WIDTH, FLIPFLOP_BASE_CANVAS_HEIGHT],
+        "canonical_subject_box": list(subject_box),
+    }
+
+
+def _validate_flipflop_base_subject_box(subject_box: tuple[int, int, int, int]) -> None:
+    left, top, right, bottom = subject_box
+    width = right - left
+    height = bottom - top
+    center_x = (left + right) / 2 / FLIPFLOP_BASE_CANVAS_WIDTH
+    width_ratio = width / FLIPFLOP_BASE_CANVAS_WIDTH
+    height_ratio = height / FLIPFLOP_BASE_CANVAS_HEIGHT
+    top_ratio = top / FLIPFLOP_BASE_CANVAS_HEIGHT
+    bottom_ratio = bottom / FLIPFLOP_BASE_CANVAS_HEIGHT
+
+    if (
+        center_x < 0.44
+        or center_x > 0.56
+        or width_ratio < 0.28
+        or width_ratio > 0.90
+        or height_ratio < 0.72
+        or height_ratio > 0.99
+        or top_ratio > 0.22
+        or bottom_ratio < 0.92
+    ):
+        raise FlipflopRegistrationError(
+            "Flipflop base cutout framing is not a centered chest-up bust, so deterministic "
+            "face overlays cannot be aligned safely. Regenerate the scene or use full_frame."
+        )
 
 
 def _flipflop_overlay_anchor_metadata() -> dict[str, object]:

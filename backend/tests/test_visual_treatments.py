@@ -2814,6 +2814,36 @@ def test_popup_sequence_cutout_chroma_trims_item_sheet_crop(tmp_path):
         assert cutout.getbbox() is not None
 
 
+def test_flipflop_base_cutout_is_saved_on_canonical_overlay_canvas(tmp_path):
+    from pipeline import image_gen
+
+    image = Image.new("RGBA", (420, 520), (0, 255, 0, 255))
+    draw = ImageDraw.Draw(image)
+    draw.ellipse((105, 18, 315, 228), fill=(246, 191, 145, 255))
+    draw.rectangle((138, 220, 282, 496), fill=(198, 91, 66, 255))
+
+    output_path = tmp_path / "base.png"
+    metadata = image_gen._save_flipflop_canonical_base_cutout(image, output_path)
+
+    assert metadata["canonical_canvas"] == [760, 820]
+    assert metadata["canonical_subject_box"][3] >= 754
+    with Image.open(output_path) as cutout:
+        assert cutout.size == (760, 820)
+        assert cutout.getbbox() == tuple(metadata["canonical_subject_box"])
+        assert cutout.getpixel((0, 0))[3] == 0
+
+
+def test_flipflop_base_cutout_rejects_non_bust_framing(tmp_path):
+    from pipeline import image_gen
+
+    image = Image.new("RGBA", (1000, 520), (0, 255, 0, 255))
+    draw = ImageDraw.Draw(image)
+    draw.rectangle((20, 380, 980, 500), fill=(198, 91, 66, 255))
+
+    with pytest.raises(image_gen.FlipflopRegistrationError, match="centered chest-up bust"):
+        image_gen._save_flipflop_canonical_base_cutout(image, tmp_path / "base.png")
+
+
 def test_popup_sequence_anchor_prompt_requests_standing_character_without_popup_items():
     from pipeline.image_gen import _compose_popup_anchor_prompt
 
