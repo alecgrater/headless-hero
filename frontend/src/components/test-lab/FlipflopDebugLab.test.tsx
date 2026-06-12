@@ -30,6 +30,15 @@ const cachedAsset = {
   },
 };
 
+const fixtureAsset = {
+  ...cachedAsset,
+  asset_id: "test-lab-flipflop-fixtures/flipflop_cutouts/fixture-scene/base_flipflop_fixture_base.png",
+  asset_url: "/static/projects/test-lab-flipflop-fixtures/flipflop_cutouts/fixture-scene/base_flipflop_fixture_base.png",
+  script_id: "test-lab-flipflop-fixtures",
+  scene_id: "fixture-scene",
+  filename: "base_flipflop_fixture_base.png",
+};
+
 describe("FlipflopDebugLab", () => {
   beforeEach(() => {
     analyzeFlipflopDebugAsset.mockReset();
@@ -101,5 +110,19 @@ describe("FlipflopDebugLab", () => {
     });
     expect(await screen.findByText("Remotion preview")).toBeInTheDocument();
     expect(screen.getByText("Local only")).toBeInTheDocument();
+  });
+
+  it("disables fixture generation when the saved fixture already exists", async () => {
+    getFlipflopDebugAssets.mockResolvedValue([fixtureAsset]);
+
+    render(<FlipflopDebugLab />);
+
+    expect(await screen.findByText("base_flipflop_fixture_base.png")).toBeInTheDocument();
+    const generateButton = screen.getByRole("button", { name: /fixture assets already generated/i });
+    expect(generateButton).toBeDisabled();
+
+    fireEvent.click(generateButton);
+
+    expect(createFlipflopFixtureAsset).not.toHaveBeenCalled();
   });
 });

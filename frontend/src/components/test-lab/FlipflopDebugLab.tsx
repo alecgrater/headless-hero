@@ -22,6 +22,7 @@ const ACTIONS: Array<{ value: FlipflopDebugAction; label: string }> = [
   { value: "eye_glance", label: "Eye glance" },
   { value: "eyebrow_raise", label: "Eyebrow raise" },
 ];
+const FIXTURE_SCRIPT_ID = "test-lab-flipflop-fixtures";
 
 export default function FlipflopDebugLab() {
   const [assets, setAssets] = useState<FlipflopDebugAsset[]>([]);
@@ -40,6 +41,7 @@ export default function FlipflopDebugLab() {
     () => assets.find((asset) => asset.asset_id === selectedAssetId) ?? null,
     [assets, selectedAssetId],
   );
+  const fixtureAssetExists = assets.some((asset) => asset.script_id === FIXTURE_SCRIPT_ID);
 
   const loadAssets = useCallback(async () => {
     setLoadingAssets(true);
@@ -77,7 +79,7 @@ export default function FlipflopDebugLab() {
   }
 
   async function handleCreateFixture() {
-    if (generatingFixture) return;
+    if (generatingFixture || fixtureAssetExists) return;
     setGeneratingFixture(true);
     setError("");
     try {
@@ -126,11 +128,11 @@ export default function FlipflopDebugLab() {
           <div className="mt-3 grid gap-2">
             <button
               onClick={handleCreateFixture}
-              disabled={generatingFixture}
+              disabled={generatingFixture || fixtureAssetExists}
               className="inline-flex items-center justify-center gap-2 rounded-md bg-violet-600 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-violet-500 disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-500"
             >
               {generatingFixture ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              Generate Fixture Assets
+              {fixtureAssetExists ? "Fixture Assets Already Generated" : "Generate Fixture Assets"}
             </button>
             <button
               onClick={loadAssets}
