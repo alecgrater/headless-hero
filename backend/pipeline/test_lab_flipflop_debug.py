@@ -231,6 +231,7 @@ def _asset_from_path(path: Path) -> FlipflopDebugAsset:
     script_id = parts[0] if len(parts) > 0 else ""
     scene_id = parts[2] if len(parts) > 2 else ""
     created = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc).isoformat()
+    source_metadata = _current_or_repaired_source_metadata(path)
     return FlipflopDebugAsset(
         asset_id=relative.as_posix(),
         asset_url=_web_url_for_project_path(path),
@@ -238,8 +239,38 @@ def _asset_from_path(path: Path) -> FlipflopDebugAsset:
         scene_id=scene_id,
         filename=path.name,
         created_at=created,
-        source_metadata=_read_source_metadata(path) or {},
+        source_metadata=source_metadata,
     )
+
+
+def _current_or_repaired_source_metadata(path: Path) -> dict[str, object]:
+    metadata = _read_source_metadata(path) or {}
+    anchor = metadata.get("flipflop_overlay_anchor")
+    if (
+        metadata.get("registration_algorithm_version") == FLIPFLOP_CUTOUT_REGISTRATION_VERSION
+        and isinstance(anchor, dict)
+        and anchor.get("detected") is True
+        and isinstance(anchor.get("skin_fill"), str)
+    ):
+        return metadata
+    try:
+        with Image.open(path) as image:
+            repaired_anchor = _flipflop_overlay_anchor_metadata(image.convert("RGBA"), require_detected=True)
+    except OSError:
+        return metadata
+    except Exception as exc:
+        if exc.__class__.__name__ != "FlipflopRegistrationError":
+            raise
+        return metadata
+
+    repaired = {
+        **metadata,
+        "source_type": metadata.get("source_type") or "flipflop_base_cutout",
+        "registration_algorithm_version": FLIPFLOP_CUTOUT_REGISTRATION_VERSION,
+        "flipflop_overlay_anchor": repaired_anchor,
+    }
+    _write_source_metadata(path, repaired)
+    return repaired
 
 
 def _path_for_asset_id(asset_id: str) -> Path:

@@ -7,6 +7,7 @@ import {
   flipflopActiveLayer,
   flipflopOverlayAnchor,
   flipflopMicroOverlay,
+  flipflopBlinkEyeOverlayGeometry,
   flipflopOverlayVisible,
   flipflopLayerFrameStyle,
   layerChromeStyle,
@@ -234,6 +235,38 @@ describe("flipflopMicroOverlay", () => {
   it("does not create overlays for pose-changing legacy actions", () => {
     expect(flipflopMicroOverlay("head_nod")).toBeNull();
     expect(flipflopMicroOverlay("small_shrug")).toBeNull();
+  });
+});
+
+describe("flipflopBlinkEyeOverlayGeometry", () => {
+  it("covers open eyes before drawing closed eyelids", () => {
+    const geometry = flipflopBlinkEyeOverlayGeometry(
+      {
+        eye_left: { x: 0.42, y: 0.33 },
+        eye_right: { x: 0.58, y: 0.33 },
+        mouth: { x: 0.5, y: 0.48 },
+        brow_left: { x: 0.42, y: 0.26 },
+        brow_right: { x: 0.58, y: 0.26 },
+      },
+      "#D9A374",
+    );
+
+    expect(geometry).toHaveLength(2);
+    expect(geometry[0].mask).toMatchObject({
+      cx: 42,
+      fill: "#D9A374",
+    });
+    expect(geometry[0].mask.cy).toBeGreaterThan(33);
+    expect(geometry[0].mask.rx).toBeGreaterThanOrEqual(7);
+    expect(geometry[0].mask.rx).toBeGreaterThan(geometry[0].lid.strokeWidth);
+    expect(geometry[0].lid.strokeWidth).toBeLessThanOrEqual(1.35);
+    expect(geometry[0].lid.d).toContain("Q42");
+    expect(geometry[1].mask).toMatchObject({
+      cx: 58,
+      fill: "#D9A374",
+    });
+    expect(geometry[1].mask.cy).toBeGreaterThan(33);
+    expect(geometry[1].lid.d).toContain("Q58");
   });
 });
 

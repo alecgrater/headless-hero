@@ -305,6 +305,7 @@ def test_flipflop_overlay_anchor_metadata_uses_actual_cutout_features():
     metadata = image_gen_mod._flipflop_overlay_anchor_metadata(image)
 
     assert metadata["coordinate_space"] == "normalized_layer_frame"
+    assert metadata["skin_fill"] == "#f0c396"
     assert metadata["eye_left"]["y"] == pytest.approx(0.463, abs=0.02)
     assert metadata["eye_right"]["y"] == pytest.approx(0.463, abs=0.02)
     assert metadata["mouth"]["y"] == pytest.approx(0.639, abs=0.02)

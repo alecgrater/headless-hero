@@ -285,7 +285,23 @@ type FlipflopOverlay =
 type FlipflopResolvedOverlayAnchor = Required<Pick<
   FlipflopOverlayAnchor,
   "eye_left" | "eye_right" | "mouth" | "brow_left" | "brow_right"
->>;
+>> & Pick<FlipflopOverlayAnchor, "skin_fill">;
+
+type FlipflopClosedEyeGeometry = {
+  mask: {
+    cx: number;
+    cy: number;
+    rx: number;
+    ry: number;
+    fill: string;
+  };
+  lid: {
+    d: string;
+    strokeWidth: number;
+  };
+};
+
+const DEFAULT_FLIPFLOP_SKIN_FILL = "#D9A374";
 
 export const flipflopOverlayVisible = (frame: number, fps: number): boolean => {
   const intervalFrames = Math.max(1, Math.round(fps * 0.5));
@@ -336,6 +352,7 @@ export const flipflopOverlayAnchor = (layer: VisualLayer): FlipflopResolvedOverl
     mouth: anchor.mouth,
     brow_left: anchor.brow_left,
     brow_right: anchor.brow_right,
+    skin_fill: typeof anchor.skin_fill === "string" ? anchor.skin_fill : undefined,
   };
 };
 
@@ -343,6 +360,43 @@ const toSvgPoint = (point: FlipflopOverlayPoint): FlipflopOverlayPoint => ({
   x: point.x * 100,
   y: point.y * 100,
 });
+
+const clamp = (value: number, min: number, max: number): number => (
+  Math.max(min, Math.min(max, value))
+);
+
+const roundSvgNumber = (value: number): number => (
+  Number(value.toFixed(3))
+);
+
+export const flipflopBlinkEyeOverlayGeometry = (
+  anchor: FlipflopResolvedOverlayAnchor,
+  skinFill = DEFAULT_FLIPFLOP_SKIN_FILL,
+): FlipflopClosedEyeGeometry[] => {
+  const leftEye = toSvgPoint(anchor.eye_left);
+  const rightEye = toSvgPoint(anchor.eye_right);
+  const eyeDistance = Math.abs(rightEye.x - leftEye.x);
+  const maskRx = clamp(eyeDistance * 0.45, 7.0, 10.5);
+  const maskRy = clamp(maskRx * 0.56, 4.0, 5.8);
+  const lidHalfWidth = maskRx * 0.72;
+  const lidLift = maskRy * 0.24;
+  return [leftEye, rightEye].map((eye) => {
+    const visibleEyeY = eye.y + maskRy * 0.58;
+    return {
+      mask: {
+        cx: roundSvgNumber(eye.x),
+        cy: roundSvgNumber(visibleEyeY),
+        rx: roundSvgNumber(maskRx),
+        ry: roundSvgNumber(maskRy),
+        fill: skinFill,
+      },
+      lid: {
+        d: `M${roundSvgNumber(eye.x - lidHalfWidth)} ${roundSvgNumber(visibleEyeY)} Q${roundSvgNumber(eye.x)} ${roundSvgNumber(visibleEyeY - lidLift)} ${roundSvgNumber(eye.x + lidHalfWidth)} ${roundSvgNumber(visibleEyeY)}`,
+        strokeWidth: roundSvgNumber(clamp(maskRx * 0.17, 0.95, 1.3)),
+      },
+    };
+  });
+};
 
 const FlipflopMicroExpressionOverlay: React.FC<{
   anchor: FlipflopResolvedOverlayAnchor;
@@ -372,10 +426,15 @@ const FlipflopMicroExpressionOverlay: React.FC<{
   }
 
   if (overlay.kind === "eyes" && overlay.state === "closed") {
+    const eyeGeometry = flipflopBlinkEyeOverlayGeometry(anchor, anchor.skin_fill ?? DEFAULT_FLIPFLOP_SKIN_FILL);
     return (
       <svg viewBox="0 0 100 100" style={common}>
-        <path d={`M${leftEye.x - 4} ${leftEye.y} Q${leftEye.x} ${leftEye.y - 1.2} ${leftEye.x + 4} ${leftEye.y}`} fill="none" stroke="#111" strokeWidth="1.2" strokeLinecap="round" />
-        <path d={`M${rightEye.x - 4} ${rightEye.y} Q${rightEye.x} ${rightEye.y - 1.2} ${rightEye.x + 4} ${rightEye.y}`} fill="none" stroke="#111" strokeWidth="1.2" strokeLinecap="round" />
+        {eyeGeometry.map((eye, index) => (
+          <g key={index}>
+            <ellipse {...eye.mask} />
+            <path d={eye.lid.d} fill="none" stroke="#111" strokeWidth={eye.lid.strokeWidth} strokeLinecap="round" />
+          </g>
+        ))}
       </svg>
     );
   }

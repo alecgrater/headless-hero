@@ -7,6 +7,7 @@ import re
 import shutil
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from statistics import median
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -23,7 +24,7 @@ from prompts import IMAGE_CHARACTER_IN_SCENE, IMAGE_COMPOSITION_GUIDE, IMAGE_VIS
 
 logger = logging.getLogger(__name__)
 
-FLIPFLOP_CUTOUT_REGISTRATION_VERSION = "alpha-mask-registration-v10"
+FLIPFLOP_CUTOUT_REGISTRATION_VERSION = "alpha-mask-registration-v11"
 FLIPFLOP_SCALE_CORRECTION_MIN = 0.92
 FLIPFLOP_SCALE_CORRECTION_MAX = 1.08
 FLIPFLOP_ASPECT_RATIO_TOLERANCE = 0.12
@@ -1148,16 +1149,58 @@ def _flipflop_overlay_anchor_metadata(image: Image.Image | None = None, *, requi
             "Flipflop base cutout facial landmarks could not be detected, so deterministic "
             "face overlays cannot be aligned safely. Regenerate the scene or use full_frame."
         )
+    skin_fill = _sample_flipflop_face_skin_fill(image, detected) if image is not None and detected is not None else None
     return {
         "version": 1,
         "detected": detected is not None,
         "coordinate_space": "normalized_layer_frame",
+        **({"skin_fill": skin_fill} if skin_fill else {}),
         "eye_left": detected.get("eye_left", {"x": 0.45, "y": 0.44}) if detected else {"x": 0.45, "y": 0.44},
         "eye_right": detected.get("eye_right", {"x": 0.55, "y": 0.44}) if detected else {"x": 0.55, "y": 0.44},
         "mouth": detected.get("mouth", {"x": 0.50, "y": 0.58}) if detected else {"x": 0.50, "y": 0.58},
         "brow_left": detected.get("brow_left", {"x": 0.45, "y": 0.37}) if detected else {"x": 0.45, "y": 0.37},
         "brow_right": detected.get("brow_right", {"x": 0.55, "y": 0.37}) if detected else {"x": 0.55, "y": 0.37},
     }
+
+
+def _sample_flipflop_face_skin_fill(image: Image.Image, detected: dict[str, dict[str, float]]) -> str | None:
+    rgba = image.convert("RGBA")
+    width, height = rgba.size
+    left_eye = detected.get("eye_left")
+    right_eye = detected.get("eye_right")
+    mouth = detected.get("mouth")
+    if not left_eye or not right_eye:
+        return None
+    eye_distance = max(1, abs(right_eye["x"] - left_eye["x"]) * width)
+    center_x = round(((left_eye["x"] + right_eye["x"]) / 2) * width)
+    eye_y = ((left_eye["y"] + right_eye["y"]) / 2) * height
+    mouth_y = (mouth["y"] * height) if mouth else eye_y + eye_distance
+    center_y = round(min(mouth_y - eye_distance * 0.25, eye_y + eye_distance * 0.35))
+    radius_x = max(8, round(eye_distance * 0.24))
+    radius_y = max(6, round(eye_distance * 0.18))
+    pixels = rgba.load()
+    reds: list[int] = []
+    greens: list[int] = []
+    blues: list[int] = []
+    for y in range(max(0, center_y - radius_y), min(height, center_y + radius_y + 1)):
+        for x in range(max(0, center_x - radius_x), min(width, center_x + radius_x + 1)):
+            dx = (x - center_x) / radius_x
+            dy = (y - center_y) / radius_y
+            if dx * dx + dy * dy > 1:
+                continue
+            red, green, blue, alpha = pixels[x, y]
+            if alpha < 160:
+                continue
+            if red < 45 and green < 45 and blue < 45:
+                continue
+            if red > 245 and green > 245 and blue > 245:
+                continue
+            reds.append(red)
+            greens.append(green)
+            blues.append(blue)
+    if not reds:
+        return None
+    return f"#{round(median(reds)):02x}{round(median(greens)):02x}{round(median(blues)):02x}"
 
 
 def _detect_flipflop_overlay_anchor_points(image: Image.Image | None) -> dict[str, dict[str, float]] | None:

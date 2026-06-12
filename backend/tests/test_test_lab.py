@@ -750,6 +750,8 @@ def test_flipflop_debug_lists_and_analyzes_cached_base_without_provider_calls(mo
     assert [asset.asset_id for asset in assets] == [
         "test-lab-run-1/flipflop_cutouts/scene-1/base_scene_1_base.png"
     ]
+    assert assets[0].source_metadata["registration_algorithm_version"] == flipflop_debug.FLIPFLOP_CUTOUT_REGISTRATION_VERSION
+    assert assets[0].source_metadata["flipflop_overlay_anchor"]["skin_fill"] == "#f1c696"
 
     result = flipflop_debug.analyze_flipflop_debug_asset(
         asset_id=assets[0].asset_id,
