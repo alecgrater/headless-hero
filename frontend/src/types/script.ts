@@ -59,6 +59,10 @@ export interface FlipflopOverlayPoint {
   y: number;
   width?: number;
   height?: number;
+  fill_top?: string;
+  fill_bottom?: string;
+  fill_left?: string;
+  fill_right?: string;
   erase_box?: {
     left: number;
     top: number;

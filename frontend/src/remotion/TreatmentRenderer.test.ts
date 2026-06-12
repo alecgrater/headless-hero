@@ -364,6 +364,90 @@ describe("flipflopBlinkEyeOverlayGeometry", () => {
       height: 7.5,
     });
   });
+
+  it("uses per-eye skin gradients for blink masks when sampled colors are available", () => {
+    const geometry = flipflopBlinkEyeOverlayGeometry(
+      {
+        eye_left: {
+          x: 0.42,
+          y: 0.33,
+          width: 0.045,
+          height: 0.02,
+          erase_box: { left: 0.39, top: 0.315, right: 0.45, bottom: 0.37 },
+          fill_top: "#F5B97D",
+          fill_bottom: "#C3784B",
+        },
+        eye_right: {
+          x: 0.58,
+          y: 0.33,
+          width: 0.045,
+          height: 0.02,
+          erase_box: { left: 0.55, top: 0.315, right: 0.61, bottom: 0.37 },
+          fill_top: "#E4A46A",
+          fill_bottom: "#B96E43",
+        },
+        mouth: { x: 0.5, y: 0.48 },
+        brow_left: { x: 0.42, y: 0.26 },
+        brow_right: { x: 0.58, y: 0.26 },
+      },
+      "#D9A374",
+    );
+
+    expect(geometry[0].mask.fill).toBe("url(#flipflop-blink-eye-0-gradient)");
+    expect(geometry[0].mask.gradient).toEqual({
+      id: "flipflop-blink-eye-0-gradient",
+      top: "#F5B97D",
+      bottom: "#C3784B",
+    });
+    expect(geometry[1].mask.fill).toBe("url(#flipflop-blink-eye-1-gradient)");
+    expect(geometry[1].mask.gradient).toEqual({
+      id: "flipflop-blink-eye-1-gradient",
+      top: "#E4A46A",
+      bottom: "#B96E43",
+    });
+  });
+
+  it("prefers horizontal per-eye skin gradients when side lighting is available", () => {
+    const geometry = flipflopBlinkEyeOverlayGeometry(
+      {
+        eye_left: {
+          x: 0.42,
+          y: 0.33,
+          width: 0.045,
+          height: 0.02,
+          erase_box: { left: 0.39, top: 0.315, right: 0.45, bottom: 0.37 },
+          fill_left: "#F5B97D",
+          fill_right: "#C3784B",
+          fill_top: "#D58E5B",
+          fill_bottom: "#D28A58",
+        },
+        eye_right: {
+          x: 0.58,
+          y: 0.33,
+          width: 0.045,
+          height: 0.02,
+          erase_box: { left: 0.55, top: 0.315, right: 0.61, bottom: 0.37 },
+          fill_left: "#C3784B",
+          fill_right: "#B96E43",
+        },
+        mouth: { x: 0.5, y: 0.48 },
+        brow_left: { x: 0.42, y: 0.26 },
+        brow_right: { x: 0.58, y: 0.26 },
+      },
+      "#D9A374",
+    );
+
+    expect(geometry[0].mask.gradient).toEqual({
+      id: "flipflop-blink-eye-0-gradient",
+      top: "#F5B97D",
+      bottom: "#C3784B",
+    });
+    expect(geometry[1].mask.gradient).toEqual({
+      id: "flipflop-blink-eye-1-gradient",
+      top: "#C3784B",
+      bottom: "#B96E43",
+    });
+  });
 });
 
 describe("flipflopOverlayAnchor", () => {

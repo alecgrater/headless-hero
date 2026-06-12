@@ -295,6 +295,11 @@ type FlipflopClosedEyeGeometry = {
     height: number;
     rx: number;
     fill: string;
+    gradient?: {
+      id: string;
+      top: string;
+      bottom: string;
+    };
   };
   lid: {
     d: string;
@@ -373,6 +378,8 @@ const roundSvgNumber = (value: number): number => (
   Number(value.toFixed(3))
 );
 
+const hexColorPattern = /^#[0-9a-f]{6}$/i;
+
 const normalizedEyeWidth = (point: FlipflopOverlayPoint): number | null => (
   typeof point.width === "number" && point.width > 0 ? point.width * 100 : null
 );
@@ -384,6 +391,7 @@ const normalizedEyeHeight = (point: FlipflopOverlayPoint): number | null => (
 const eraseBoxMask = (
   point: FlipflopOverlayPoint,
   skinFill: string,
+  index: number,
   sharedTop?: number,
   sharedBottom?: number,
 ): FlipflopClosedEyeGeometry["mask"] | null => {
@@ -404,13 +412,25 @@ const eraseBoxMask = (
   const y = top * 100;
   const width = (box.right - box.left) * 100;
   const height = (bottom - top) * 100;
+  const hasSideGradient = hexColorPattern.test(point.fill_left ?? "") && hexColorPattern.test(point.fill_right ?? "");
+  const hasVerticalGradient = hexColorPattern.test(point.fill_top ?? "") && hexColorPattern.test(point.fill_bottom ?? "");
+  const gradient = hasSideGradient ? {
+    id: `flipflop-blink-eye-${index}-gradient`,
+    top: point.fill_left as string,
+    bottom: point.fill_right as string,
+  } : hasVerticalGradient ? {
+    id: `flipflop-blink-eye-${index}-gradient`,
+    top: point.fill_top as string,
+    bottom: point.fill_bottom as string,
+  } : undefined;
   return {
     x: roundSvgNumber(x),
     y: roundSvgNumber(y),
     width: roundSvgNumber(width),
     height: roundSvgNumber(height),
     rx: roundSvgNumber(height / 2),
-    fill: skinFill,
+    fill: gradient ? `url(#${gradient.id})` : skinFill,
+    ...(gradient ? { gradient } : {}),
   };
 };
 
@@ -460,6 +480,7 @@ export const flipflopBlinkEyeOverlayGeometry = (
     const metadataMask = eraseBoxMask(
       index === 0 ? anchor.eye_left : anchor.eye_right,
       skinFill,
+      index,
       sharedEraseTop,
       sharedEraseBottom,
     );
@@ -511,14 +532,30 @@ const FlipflopMicroExpressionOverlay: React.FC<{
 
   if (overlay.kind === "eyes" && overlay.state === "closed") {
     const eyeGeometry = flipflopBlinkEyeOverlayGeometry(anchor, anchor.skin_fill ?? FLIPFLOP_FALLBACK_SKIN_FILL);
+    const gradients = eyeGeometry
+      .map((eye) => eye.mask.gradient)
+      .filter((gradient): gradient is NonNullable<FlipflopClosedEyeGeometry["mask"]["gradient"]> => Boolean(gradient));
     return (
       <svg viewBox="0 0 100 100" style={common}>
-        {eyeGeometry.map((eye, index) => (
-          <g key={index}>
-            <rect {...eye.mask} />
-            <path d={eye.lid.d} fill="none" stroke={eye.lid.stroke} strokeWidth={eye.lid.strokeWidth} strokeLinecap="round" />
-          </g>
-        ))}
+        {gradients.length > 0 ? (
+          <defs>
+            {gradients.map((gradient) => (
+              <linearGradient key={gradient.id} id={gradient.id} x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stopColor={gradient.top} />
+                <stop offset="100%" stopColor={gradient.bottom} />
+              </linearGradient>
+            ))}
+          </defs>
+        ) : null}
+        {eyeGeometry.map((eye, index) => {
+          const { gradient: _gradient, ...mask } = eye.mask;
+          return (
+            <g key={index}>
+              <rect {...mask} />
+              <path d={eye.lid.d} fill="none" stroke={eye.lid.stroke} strokeWidth={eye.lid.strokeWidth} strokeLinecap="round" />
+            </g>
+          );
+        })}
       </svg>
     );
   }

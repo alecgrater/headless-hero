@@ -24,7 +24,7 @@ from prompts import IMAGE_CHARACTER_IN_SCENE, IMAGE_COMPOSITION_GUIDE, IMAGE_VIS
 
 logger = logging.getLogger(__name__)
 
-FLIPFLOP_CUTOUT_REGISTRATION_VERSION = "alpha-mask-registration-v17"
+FLIPFLOP_CUTOUT_REGISTRATION_VERSION = "alpha-mask-registration-v19"
 FLIPFLOP_SCALE_CORRECTION_MIN = 0.92
 FLIPFLOP_SCALE_CORRECTION_MAX = 1.08
 FLIPFLOP_ASPECT_RATIO_TOLERANCE = 0.12
@@ -1308,6 +1308,8 @@ def _detect_flipflop_overlay_anchor_points(image: Image.Image | None) -> dict[st
     brow_y = max(0.0, eye_y - 0.08)
     left_erase_box = _flipflop_eye_erase_box(left_eye, components, rgba)
     right_erase_box = _flipflop_eye_erase_box(right_eye, components, rgba)
+    left_fill_top, left_fill_bottom, left_fill_left, left_fill_right = _flipflop_eye_fill_gradient(left_erase_box, rgba)
+    right_fill_top, right_fill_bottom, right_fill_left, right_fill_right = _flipflop_eye_fill_gradient(right_erase_box, rgba)
     return {
         "eye_left": {
             "x": round(left_eye["cx"], 4),
@@ -1315,6 +1317,10 @@ def _detect_flipflop_overlay_anchor_points(image: Image.Image | None) -> dict[st
             "width": round(left_eye["width"], 4),
             "height": round(left_eye["height"], 4),
             "erase_box": left_erase_box,
+            "fill_top": left_fill_top,
+            "fill_bottom": left_fill_bottom,
+            "fill_left": left_fill_left,
+            "fill_right": left_fill_right,
         },
         "eye_right": {
             "x": round(right_eye["cx"], 4),
@@ -1322,6 +1328,10 @@ def _detect_flipflop_overlay_anchor_points(image: Image.Image | None) -> dict[st
             "width": round(right_eye["width"], 4),
             "height": round(right_eye["height"], 4),
             "erase_box": right_erase_box,
+            "fill_top": right_fill_top,
+            "fill_bottom": right_fill_bottom,
+            "fill_left": right_fill_left,
+            "fill_right": right_fill_right,
         },
         "mouth": {"x": round(mouth["cx"], 4), "y": round(mouth["cy"], 4)},
         "brow_left": {"x": round(left_eye["cx"], 4), "y": round(brow_y, 4)},
@@ -1391,6 +1401,67 @@ def _flipflop_eye_erase_box(
         "right": round(min(1.0, right + pad_x), 4),
         "bottom": round(min(1.0, bottom + pad_y), 4),
     }
+
+
+def _flipflop_eye_fill_gradient(erase_box: dict[str, float], image: Image.Image) -> tuple[str, str, str, str]:
+    width, height = image.size
+    pixels = image.load()
+    left = max(0, round(erase_box["left"] * width))
+    right = min(width - 1, round(erase_box["right"] * width))
+    top = max(0, round(erase_box["top"] * height))
+    bottom = min(height - 1, round(erase_box["bottom"] * height))
+    if right <= left or bottom <= top:
+        return "#d9a374", "#d9a374", "#d9a374", "#d9a374"
+
+    box_height = bottom - top + 1
+    box_width = right - left + 1
+    band_height = max(2, round(box_height * 0.28))
+    band_width = max(2, round(box_width * 0.28))
+    top_color = _median_skin_color_in_box(pixels, left, top, right, min(bottom, top + band_height))
+    bottom_color = _median_skin_color_in_box(pixels, left, max(top, bottom - band_height), right, bottom)
+    left_color = _median_skin_color_in_box(pixels, left, top, min(right, left + band_width), bottom)
+    right_color = _median_skin_color_in_box(pixels, max(left, right - band_width), top, right, bottom)
+    colors = [top_color, bottom_color, left_color, right_color]
+    fallback = next((color for color in colors if color is not None), "#d9a374")
+    if top_color is None:
+        top_color = fallback
+    if bottom_color is None:
+        bottom_color = fallback
+    if left_color is None:
+        left_color = fallback
+    if right_color is None:
+        right_color = fallback
+    return top_color, bottom_color, left_color, right_color
+
+
+def _median_skin_color_in_box(
+    pixels,
+    left: int,
+    top: int,
+    right: int,
+    bottom: int,
+) -> str | None:
+    reds: list[int] = []
+    greens: list[int] = []
+    blues: list[int] = []
+    for y in range(top, bottom + 1):
+        for x in range(left, right + 1):
+            red, green, blue, alpha = pixels[x, y]
+            if alpha < 140:
+                continue
+            channel_max = max(red, green, blue)
+            channel_min = min(red, green, blue)
+            brightness = (red + green + blue) / 3
+            if channel_max < 95:
+                continue
+            if channel_min > 115 and brightness > 160 and channel_max - channel_min < 75:
+                continue
+            reds.append(red)
+            greens.append(green)
+            blues.append(blue)
+    if not reds:
+        return None
+    return f"#{round(median(reds)):02x}{round(median(greens)):02x}{round(median(blues)):02x}"
 
 
 def _generate_flipflop_state_sheet(

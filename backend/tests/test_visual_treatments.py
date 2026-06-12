@@ -356,6 +356,54 @@ def test_flipflop_overlay_anchor_metadata_expands_eye_erase_box_to_visible_scler
     assert metadata["eye_right"]["erase_box"]["bottom"] == pytest.approx(0.512, abs=0.02)
 
 
+def test_flipflop_overlay_anchor_metadata_samples_eye_skin_gradient():
+    from pipeline import image_gen as image_gen_mod
+
+    image = Image.new("RGBA", (760, 820), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    draw.ellipse((210, 120, 550, 650), fill=(220, 150, 95, 255))
+    draw.rectangle((260, 330, 520, 405), fill=(245, 185, 125, 255))
+    draw.rectangle((260, 405, 520, 470), fill=(195, 120, 75, 255))
+    draw.ellipse((292, 365, 352, 412), fill=(235, 230, 214, 255))
+    draw.ellipse((438, 365, 498, 412), fill=(235, 230, 214, 255))
+    draw.line((295, 382, 350, 382), fill=(10, 10, 10, 255), width=6)
+    draw.line((441, 382, 496, 382), fill=(10, 10, 10, 255), width=6)
+    draw.ellipse((318, 382, 337, 418), fill=(10, 10, 10, 255))
+    draw.ellipse((464, 382, 483, 418), fill=(10, 10, 10, 255))
+    draw.rounded_rectangle((365, 520, 420, 528), radius=3, fill=(10, 10, 10, 255))
+
+    metadata = image_gen_mod._flipflop_overlay_anchor_metadata(image)
+
+    assert metadata["eye_left"]["fill_top"] == "#f5b97d"
+    assert metadata["eye_left"]["fill_bottom"] == "#c3784b"
+    assert metadata["eye_right"]["fill_top"] == "#f5b97d"
+    assert metadata["eye_right"]["fill_bottom"] == "#c3784b"
+
+
+def test_flipflop_overlay_anchor_metadata_samples_eye_skin_gradient_horizontally():
+    from pipeline import image_gen as image_gen_mod
+
+    image = Image.new("RGBA", (760, 820), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    draw.ellipse((210, 120, 550, 650), fill=(215, 145, 90, 255))
+    draw.rectangle((260, 330, 330, 470), fill=(245, 185, 125, 255))
+    draw.rectangle((330, 330, 520, 470), fill=(195, 120, 75, 255))
+    draw.ellipse((292, 365, 352, 412), fill=(235, 230, 214, 255))
+    draw.ellipse((438, 365, 498, 412), fill=(235, 230, 214, 255))
+    draw.line((295, 382, 350, 382), fill=(10, 10, 10, 255), width=6)
+    draw.line((441, 382, 496, 382), fill=(10, 10, 10, 255), width=6)
+    draw.ellipse((318, 382, 337, 418), fill=(10, 10, 10, 255))
+    draw.ellipse((464, 382, 483, 418), fill=(10, 10, 10, 255))
+    draw.rounded_rectangle((365, 520, 420, 528), radius=3, fill=(10, 10, 10, 255))
+
+    metadata = image_gen_mod._flipflop_overlay_anchor_metadata(image)
+
+    assert metadata["eye_left"]["fill_left"] == "#f5b97d"
+    assert metadata["eye_left"]["fill_right"] == "#c3784b"
+    assert metadata["eye_right"]["fill_left"] == "#c3784b"
+    assert metadata["eye_right"]["fill_right"] == "#c3784b"
+
+
 def test_flipflop_overlay_anchor_metadata_ignores_brows_above_eyes():
     from pipeline import image_gen as image_gen_mod
 
