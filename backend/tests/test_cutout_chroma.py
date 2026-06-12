@@ -73,6 +73,36 @@ def test_key_out_background_preserves_isolated_chroma_colored_subject_detail():
     assert keyed.getpixel((39, 29)) == (229, 15, 175, 255)
 
 
+def test_key_out_background_removes_soft_green_chroma_and_dark_cell_divider():
+    source = Image.new("RGBA", (80, 60), (145, 210, 100, 255))
+    draw = ImageDraw.Draw(source)
+    draw.rectangle((79, 0, 79, 59), fill=(8, 6, 4, 255))
+    draw.rectangle((24, 12, 55, 48), fill=(230, 200, 170, 255))
+    draw.rectangle((36, 26, 42, 32), fill=(5, 5, 5, 255))
+
+    keyed = key_out_background(source)
+
+    assert keyed.getpixel((10, 10))[3] == 0
+    assert keyed.getpixel((79, 30))[3] == 0
+    assert keyed.getpixel((35, 30)) == (230, 200, 170, 255)
+    assert keyed.getpixel((39, 29)) == (5, 5, 5, 255)
+
+
+def test_key_out_background_removes_small_edge_artifacts_but_keeps_edge_touching_subject():
+    source = Image.new("RGBA", (80, 60), (145, 210, 100, 255))
+    draw = ImageDraw.Draw(source)
+    draw.rectangle((70, 0, 79, 59), fill=(242, 242, 242, 255))
+    draw.rectangle((0, 0, 8, 4), fill=(182, 166, 186, 255))
+    draw.rectangle((24, 12, 55, 59), fill=(230, 200, 170, 255))
+    draw.rectangle((36, 26, 42, 32), fill=(5, 5, 5, 255))
+
+    keyed = key_out_background(source)
+
+    assert keyed.getpixel((2, 2))[3] == 0
+    assert keyed.getpixel((35, 58)) == (230, 200, 170, 255)
+    assert keyed.getpixel((39, 29)) == (5, 5, 5, 255)
+
+
 def test_sample_background_rgb_uses_non_overlapping_corners_for_small_images():
     source = Image.new("RGBA", (19, 19), (0, 255, 0, 255))
     source.putpixel((9, 9), (200, 20, 20, 255))
