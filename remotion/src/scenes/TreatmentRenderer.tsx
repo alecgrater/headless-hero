@@ -248,6 +248,7 @@ const Flipflop: React.FC<Props> = ({ scene, fallbackVisualLayer }) => {
   if (!activeLayer) {
     return <>{fallbackVisualLayer}</>;
   }
+  const overlayAnchor = deterministicOverlay ? flipflopOverlayAnchor(activeLayer) : null;
 
   return (
     <div style={{ position: "absolute", inset: 0 }}>
@@ -258,9 +259,9 @@ const Flipflop: React.FC<Props> = ({ scene, fallbackVisualLayer }) => {
             src={activeLayer.image_path ?? ""}
             style={layerImageStyle(activeLayer)}
           />
-          {deterministicOverlay ? (
+          {deterministicOverlay && overlayAnchor ? (
             <FlipflopMicroExpressionOverlay
-              anchor={flipflopOverlayAnchor(activeLayer)}
+              anchor={overlayAnchor}
               overlay={deterministicOverlay}
               visible={overlayVisible}
             />
@@ -301,17 +302,6 @@ export const flipflopMicroOverlay = (action?: string | null): FlipflopOverlay | 
   }
 };
 
-const DEFAULT_FLIPFLOP_OVERLAY_ANCHOR: Required<Pick<
-  FlipflopOverlayAnchor,
-  "eye_left" | "eye_right" | "mouth" | "brow_left" | "brow_right"
->> = {
-  eye_left: { x: 0.45, y: 0.36 },
-  eye_right: { x: 0.55, y: 0.36 },
-  mouth: { x: 0.50, y: 0.46 },
-  brow_left: { x: 0.45, y: 0.315 },
-  brow_right: { x: 0.55, y: 0.315 },
-};
-
 const validAnchorPoint = (point?: FlipflopOverlayPoint): point is FlipflopOverlayPoint => (
   typeof point?.x === "number"
   && typeof point?.y === "number"
@@ -324,14 +314,26 @@ const validAnchorPoint = (point?: FlipflopOverlayPoint): point is FlipflopOverla
 export const flipflopOverlayAnchor = (layer: VisualLayer): Required<Pick<
   FlipflopOverlayAnchor,
   "eye_left" | "eye_right" | "mouth" | "brow_left" | "brow_right"
->> => {
+>> | null => {
   const anchor = layer.visual_source_metadata?.flipflop_overlay_anchor;
+  if (!anchor?.detected) {
+    return null;
+  }
+  if (
+    !validAnchorPoint(anchor.eye_left)
+    || !validAnchorPoint(anchor.eye_right)
+    || !validAnchorPoint(anchor.mouth)
+    || !validAnchorPoint(anchor.brow_left)
+    || !validAnchorPoint(anchor.brow_right)
+  ) {
+    return null;
+  }
   return {
-    eye_left: validAnchorPoint(anchor?.eye_left) ? anchor.eye_left : DEFAULT_FLIPFLOP_OVERLAY_ANCHOR.eye_left,
-    eye_right: validAnchorPoint(anchor?.eye_right) ? anchor.eye_right : DEFAULT_FLIPFLOP_OVERLAY_ANCHOR.eye_right,
-    mouth: validAnchorPoint(anchor?.mouth) ? anchor.mouth : DEFAULT_FLIPFLOP_OVERLAY_ANCHOR.mouth,
-    brow_left: validAnchorPoint(anchor?.brow_left) ? anchor.brow_left : DEFAULT_FLIPFLOP_OVERLAY_ANCHOR.brow_left,
-    brow_right: validAnchorPoint(anchor?.brow_right) ? anchor.brow_right : DEFAULT_FLIPFLOP_OVERLAY_ANCHOR.brow_right,
+    eye_left: anchor.eye_left,
+    eye_right: anchor.eye_right,
+    mouth: anchor.mouth,
+    brow_left: anchor.brow_left,
+    brow_right: anchor.brow_right,
   };
 };
 

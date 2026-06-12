@@ -61,6 +61,7 @@ export interface FlipflopOverlayPoint {
 
 export interface FlipflopOverlayAnchor {
   version?: number;
+  detected?: boolean;
   coordinate_space?: "normalized_layer_frame" | string;
   eye_left?: FlipflopOverlayPoint;
   eye_right?: FlipflopOverlayPoint;

@@ -243,8 +243,12 @@ describe("flipflopOverlayAnchor", () => {
       ...itemLayer("base"),
       visual_source_metadata: {
         flipflop_overlay_anchor: {
+          detected: true,
           mouth: { x: 0.52, y: 0.48 },
           eye_left: { x: 0.42, y: 0.33 },
+          eye_right: { x: 0.58, y: 0.33 },
+          brow_left: { x: 0.42, y: 0.27 },
+          brow_right: { x: 0.58, y: 0.27 },
         },
       },
     });
@@ -263,7 +267,7 @@ describe("flipflopOverlayAnchor", () => {
       },
     });
 
-    expect(anchor.mouth).toEqual({ x: 0.5, y: 0.46 });
+    expect(anchor).toBeNull();
   });
 });
 

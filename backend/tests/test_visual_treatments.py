@@ -328,6 +328,26 @@ def test_flipflop_overlay_anchor_metadata_ignores_brows_above_eyes():
     assert metadata["eye_right"]["y"] == pytest.approx(0.462, abs=0.02)
 
 
+def test_flipflop_overlay_anchor_metadata_handles_half_lidded_cartoon_face():
+    from pipeline import image_gen as image_gen_mod
+
+    image = Image.new("RGBA", (760, 820), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    draw.ellipse((210, 120, 550, 650), fill=(240, 195, 150, 255), outline=(10, 10, 10, 255), width=5)
+    draw.arc((285, 300, 360, 335), start=195, end=345, fill=(10, 10, 10, 255), width=10)
+    draw.arc((430, 300, 505, 335), start=195, end=345, fill=(10, 10, 10, 255), width=10)
+    draw.line((300, 392, 350, 392), fill=(10, 10, 10, 255), width=8)
+    draw.ellipse((318, 392, 338, 432), fill=(10, 10, 10, 255))
+    draw.line((445, 392, 495, 392), fill=(10, 10, 10, 255), width=8)
+    draw.ellipse((462, 392, 482, 432), fill=(10, 10, 10, 255))
+    draw.rounded_rectangle((365, 540, 420, 548), radius=3, fill=(10, 10, 10, 255))
+
+    metadata = image_gen_mod._flipflop_overlay_anchor_metadata(image)
+
+    assert metadata["eye_left"]["y"] == pytest.approx(0.505, abs=0.03)
+    assert metadata["eye_right"]["y"] == pytest.approx(0.505, abs=0.03)
+
+
 def test_flipflop_overlay_anchor_metadata_can_require_detected_features():
     from pipeline import image_gen as image_gen_mod
 

@@ -1224,8 +1224,7 @@ def _detect_flipflop_overlay_anchor_points(image: Image.Image | None) -> dict[st
         and 0.015 <= component["height"] <= 0.07
         and component["area"] >= 120
     ]
-    best_eye_pair: tuple[dict[str, float], dict[str, float], dict[str, float]] | None = None
-    best_score = 999.0
+    valid_eye_pairs: list[tuple[float, float, dict[str, float], dict[str, float], dict[str, float]]] = []
     for left_eye in eye_candidates:
         for right_eye in eye_candidates:
             if left_eye is right_eye or left_eye["cx"] >= right_eye["cx"]:
@@ -1250,20 +1249,18 @@ def _detect_flipflop_overlay_anchor_points(image: Image.Image | None) -> dict[st
             if mouth is None:
                 continue
             mouth_distance = mouth["cy"] - eye_y
-            score = (
-                y_delta
-                + abs(midpoint - 0.50) * 0.8
-                + abs(separation - 0.18) * 0.5
-                + abs(mouth_distance - 0.16) * 1.2
-                - eye_y * 0.35
+            alignment_score = (
+                -abs(midpoint - 0.50) * 0.8
+                - abs(separation - 0.18) * 0.5
+                - abs(mouth_distance - 0.16) * 1.2
+                - y_delta
             )
-            if score < best_score:
-                best_score = score
-                best_eye_pair = (left_eye, right_eye, mouth)
+            valid_eye_pairs.append((eye_y, alignment_score, left_eye, right_eye, mouth))
+    best_eye_pair = max(valid_eye_pairs, default=None, key=lambda pair: (pair[0], pair[1]))
     if best_eye_pair is None:
         return None
 
-    left_eye, right_eye, mouth = best_eye_pair
+    _eye_y, _alignment_score, left_eye, right_eye, mouth = best_eye_pair
     eye_y = (left_eye["cy"] + right_eye["cy"]) / 2
     brow_y = max(0.0, eye_y - 0.08)
     return {
