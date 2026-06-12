@@ -259,7 +259,7 @@ export default function TestLabPage({ active = true, onOpenSettingsSection }: Pr
           <div className="mt-4 inline-flex overflow-hidden rounded-md border border-neutral-800 bg-neutral-950/70">
             <TabButton active={activeTab === "pipeline"} label="Scene Pipeline" onClick={() => setActiveTab("pipeline")} />
             <TabButton active={activeTab === "popup-crop"} label="Popup Crop" onClick={() => setActiveTab("popup-crop")} />
-            <TabButton active={activeTab === "flipflop-debug"} label="Flip-flop Debug" onClick={() => setActiveTab("flipflop-debug")} />
+            <TabButton active={activeTab === "flipflop-debug"} label="Flip-flop" onClick={() => setActiveTab("flipflop-debug")} />
           </div>
         </div>
 

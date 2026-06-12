@@ -783,6 +783,91 @@ def test_flipflop_debug_rejects_non_flipflop_assets(monkeypatch, tmp_path):
         raise AssertionError("Expected non-flipflop asset to be rejected")
 
 
+def test_flipflop_fixture_create_reuses_valid_saved_asset_without_provider_call(monkeypatch, tmp_path):
+    import pipeline.test_lab_flipflop_debug as flipflop_debug
+
+    monkeypatch.setattr(flipflop_debug, "DATA_DIR", tmp_path)
+
+    generated_calls = []
+
+    def fake_generate_flipflop_base_cutout(**kwargs):
+        generated_calls.append(kwargs)
+        asset_dir = (
+            tmp_path
+            / "projects"
+            / flipflop_debug.FLIPFLOP_FIXTURE_SCRIPT_ID
+            / "flipflop_cutouts"
+            / flipflop_debug.FLIPFLOP_FIXTURE_SCENE_ID
+        )
+        asset_dir.mkdir(parents=True, exist_ok=True)
+        base_path = asset_dir / "base_flipflop_fixture_base.png"
+        Image.new("RGBA", (1000, 1000), (0, 0, 0, 0)).save(base_path)
+        flipflop_debug._write_source_metadata(base_path, {
+            "source_type": "flipflop_base_cutout",
+            "registration_algorithm_version": flipflop_debug.FLIPFLOP_CUTOUT_REGISTRATION_VERSION,
+            "trim_box": [0, 0, 1000, 1000],
+            "canonical_canvas": [760, 820],
+            "canonical_subject_box": [160, 80, 600, 812],
+            "flipflop_overlay_anchor": {"detected": True},
+        })
+        return [{
+            "id": "flipflop_fixture_base",
+            "type": "image",
+            "asset_kind": "cutout",
+            "image_url": "/static/projects/test-lab-flipflop-fixtures/flipflop_cutouts/fixture-scene/base_flipflop_fixture_base.png",
+        }]
+
+    monkeypatch.setattr(flipflop_debug, "generate_flipflop_base_cutout", fake_generate_flipflop_base_cutout)
+
+    created = flipflop_debug.create_flipflop_fixture_asset(visual_prompt="A tired worker", force=False)
+    reused = flipflop_debug.create_flipflop_fixture_asset(visual_prompt="A tired worker", force=False)
+
+    assert created.used_external_api is True
+    assert reused.used_external_api is False
+    assert created.asset.asset_id == reused.asset.asset_id
+    assert len(generated_calls) == 1
+
+
+def test_flipflop_fixture_render_uses_saved_asset_without_provider_call(monkeypatch, tmp_path):
+    import pipeline.test_lab_flipflop_debug as flipflop_debug
+
+    monkeypatch.setattr(flipflop_debug, "DATA_DIR", tmp_path)
+
+    asset_dir = tmp_path / "projects" / flipflop_debug.FLIPFLOP_FIXTURE_SCRIPT_ID / "flipflop_cutouts" / "fixture-scene"
+    asset_dir.mkdir(parents=True)
+    base_path = asset_dir / "base_flipflop_fixture_base.png"
+    Image.new("RGBA", (1000, 1000), (0, 0, 0, 0)).save(base_path)
+
+    rendered = {}
+
+    def fake_render_full_video(*, script_id, content, **_kwargs):
+        rendered["script_id"] = script_id
+        scene = content.segments[0].scenes[0]
+        rendered["visual_mode"] = scene.visual_mode
+        rendered["flipflop_action"] = scene.flipflop_action
+        rendered["image_url"] = scene.visual_layers[0].image_url
+        render_dir = tmp_path / "projects" / script_id / "renders"
+        render_dir.mkdir(parents=True, exist_ok=True)
+        (render_dir / "full_youtube.mp4").write_bytes(b"fake")
+        return f"/static/projects/{script_id}/renders/full_youtube.mp4"
+
+    monkeypatch.setattr(flipflop_debug, "render_full_video", fake_render_full_video)
+
+    result = flipflop_debug.render_flipflop_fixture_preview(
+        asset_id="test-lab-flipflop-fixtures/flipflop_cutouts/fixture-scene/base_flipflop_fixture_base.png",
+        action="speaking_mouth",
+    )
+
+    assert result.used_external_api is False
+    assert result.render_url == "/static/projects/test-lab-flipflop-fixtures/renders/full_youtube.mp4"
+    assert rendered == {
+        "script_id": "test-lab-flipflop-fixtures",
+        "visual_mode": "flipflop",
+        "flipflop_action": "speaking_mouth",
+        "image_url": "/static/projects/test-lab-flipflop-fixtures/flipflop_cutouts/fixture-scene/base_flipflop_fixture_base.png",
+    }
+
+
 def test_asset_vault_api_lists_filename_only_cutouts(monkeypatch, tmp_path):
     _engine, app = _setup_app(monkeypatch, tmp_path)
 
@@ -1007,6 +1092,69 @@ def test_flipflop_debug_endpoints_list_and_analyze(monkeypatch, tmp_path):
         assert analyzed.status_code == 200
         assert analyzed.json()["used_external_api"] is False
         assert analyzed.json()["debug_url"].endswith("/debug.png")
+    finally:
+        from database import get_session
+
+        app.dependency_overrides.pop(get_session, None)
+
+
+def test_flipflop_fixture_endpoints_create_and_render(monkeypatch, tmp_path):
+    _engine, app = _setup_app(monkeypatch, tmp_path)
+
+    import api.test_lab as test_lab_api
+
+    class FakeAsset:
+        def model_dump(self, mode="python"):
+            return {
+                "asset_id": "test-lab-flipflop-fixtures/flipflop_cutouts/fixture-scene/base_flipflop_fixture_base.png",
+                "asset_url": "/static/projects/test-lab-flipflop-fixtures/flipflop_cutouts/fixture-scene/base_flipflop_fixture_base.png",
+                "script_id": "test-lab-flipflop-fixtures",
+                "scene_id": "fixture-scene",
+                "filename": "base_flipflop_fixture_base.png",
+                "created_at": "2026-06-12T00:00:00+00:00",
+                "source_metadata": {},
+            }
+
+    class FakeFixture:
+        def model_dump(self, mode="python"):
+            return {
+                "asset": FakeAsset().model_dump(mode=mode),
+                "used_external_api": True,
+                "status": "ready",
+            }
+
+    class FakeRender:
+        def model_dump(self, mode="python"):
+            return {
+                "asset": FakeAsset().model_dump(mode=mode),
+                "action": "blink",
+                "render_url": "/static/projects/test-lab-flipflop-fixtures/renders/full_youtube.mp4",
+                "used_external_api": False,
+            }
+
+    monkeypatch.setattr(test_lab_api, "create_flipflop_fixture_asset", lambda visual_prompt, narration="", force=False: FakeFixture())
+    monkeypatch.setattr(test_lab_api, "render_flipflop_fixture_preview", lambda asset_id, action: FakeRender())
+
+    client = TestClient(app)
+
+    try:
+        fixture = client.post(
+            "/api/test-lab/flipflop/fixture",
+            json={"visual_prompt": "A tired worker", "force": False},
+        )
+        render = client.post(
+            "/api/test-lab/flipflop/render",
+            json={
+                "asset_id": "test-lab-flipflop-fixtures/flipflop_cutouts/fixture-scene/base_flipflop_fixture_base.png",
+                "action": "blink",
+            },
+        )
+
+        assert fixture.status_code == 200
+        assert fixture.json()["used_external_api"] is True
+        assert render.status_code == 200
+        assert render.json()["used_external_api"] is False
+        assert render.json()["render_url"].endswith("/full_youtube.mp4")
     finally:
         from database import get_session
 

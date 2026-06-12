@@ -33,7 +33,9 @@ from pipeline.test_lab_popup_crop import (
 from pipeline.test_lab_flipflop_debug import (
     FlipflopDebugAction,
     analyze_flipflop_debug_asset,
+    create_flipflop_fixture_asset,
     list_flipflop_debug_assets,
+    render_flipflop_fixture_preview,
 )
 
 router = APIRouter(prefix="/api/test-lab", tags=["test-lab"])
@@ -112,6 +114,17 @@ class PopupCropItemSheetChromaRequest(BaseModel):
 
 
 class FlipflopDebugAnalyzeRequest(BaseModel):
+    asset_id: str = Field(min_length=1)
+    action: FlipflopDebugAction = "blink"
+
+
+class FlipflopFixtureRequest(BaseModel):
+    visual_prompt: str = ""
+    narration: str = ""
+    force: bool = False
+
+
+class FlipflopFixtureRenderRequest(BaseModel):
     asset_id: str = Field(min_length=1)
     action: FlipflopDebugAction = "blink"
 
@@ -334,6 +347,28 @@ def get_flipflop_debug_assets():
 def analyze_flipflop_debug(request: FlipflopDebugAnalyzeRequest):
     try:
         result = analyze_flipflop_debug_asset(asset_id=request.asset_id, action=request.action)
+        return result.model_dump(mode="json")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/flipflop/fixture")
+def create_flipflop_fixture(request: FlipflopFixtureRequest):
+    try:
+        result = create_flipflop_fixture_asset(
+            visual_prompt=request.visual_prompt,
+            narration=request.narration,
+            force=request.force,
+        )
+        return result.model_dump(mode="json")
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.post("/flipflop/render")
+def render_flipflop_fixture(request: FlipflopFixtureRenderRequest):
+    try:
+        result = render_flipflop_fixture_preview(asset_id=request.asset_id, action=request.action)
         return result.model_dump(mode="json")
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

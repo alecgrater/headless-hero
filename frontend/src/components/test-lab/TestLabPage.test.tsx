@@ -1,7 +1,31 @@
-import { describe, expect, it } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
-import { testLabPresetSubtitle } from "./TestLabPage";
+import TestLabPage, { testLabPresetSubtitle } from "./TestLabPage";
 import type { TestLabPreset } from "../../types/testLab";
+
+vi.mock("../../api", () => ({
+  default: {
+    get: vi.fn().mockResolvedValue({ ok: true, data: { runs: [] } }),
+    post: vi.fn(),
+  },
+  getTestLabPresets: vi.fn().mockResolvedValue({
+    presets: [],
+    default_main_character: null,
+    voice_summary: undefined,
+    subtitle_summary: undefined,
+    visual_treatment_defaults: {},
+  }),
+  getTestLabRun: vi.fn(),
+  getTestLabRuns: vi.fn().mockResolvedValue([]),
+  startTestLabRun: vi.fn(),
+  assetUrl: (path: string) => path,
+  analyzeFlipflopDebugAsset: vi.fn(),
+  bumpAssetVersion: vi.fn(),
+  createFlipflopFixtureAsset: vi.fn(),
+  getFlipflopDebugAssets: vi.fn().mockResolvedValue([]),
+  renderFlipflopFixturePreview: vi.fn(),
+}));
 
 describe("testLabPresetSubtitle", () => {
   it("uses the description for blank presets with no narration", () => {
@@ -22,5 +46,12 @@ describe("testLabPresetSubtitle", () => {
     };
 
     expect(testLabPresetSubtitle(preset)).toBe("Write your own test script");
+  });
+
+  it("labels the flip-flop tab without debug wording", async () => {
+    render(<TestLabPage />);
+
+    expect(await screen.findByRole("button", { name: "Flip-flop" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Flip-flop Debug" })).not.toBeInTheDocument();
   });
 });

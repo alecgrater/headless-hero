@@ -73,6 +73,7 @@ const WORKFLOW_STAGES = [
       "Full-frame scenes generate one full-bleed image. Multi-frame and continuous scenes generate frame sequences. Layered modes generate cutouts, panels, stats, captions, or comparison assets instead of normal scene images.",
       "AI video scenes start from a generated anchor image, then produce motion through the configured video provider when timing, spacing, and caps allow it.",
       "Use Test Lab for risky visual behavior before spending a full project render. Test Lab should mirror production settings where the workflow depends on shared behavior.",
+      "For flip-flop iteration, use Test Lab -> Flip-flop to generate a reusable fixture once, then rerun detector or Remotion previews locally against the same saved cutout while renderer logic changes.",
     ],
     done: "The timeline has all required image, frame, layer, thumbnail, and optional video assets with no stale or missing media warnings.",
   },

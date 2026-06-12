@@ -1,12 +1,20 @@
-import { AlertTriangle, CheckCircle2, Eye, Loader2, RefreshCw, RotateCcw } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Eye, Film, Loader2, RefreshCw, RotateCcw, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   analyzeFlipflopDebugAsset,
   assetUrl,
   bumpAssetVersion,
+  createFlipflopFixtureAsset,
   getFlipflopDebugAssets,
+  renderFlipflopFixturePreview,
 } from "../../api";
-import type { FlipflopDebugAction, FlipflopDebugAsset, FlipflopDebugResult } from "../../types/testLab";
+import type {
+  FlipflopDebugAction,
+  FlipflopDebugAsset,
+  FlipflopDebugResult,
+  FlipflopFixtureRenderResult,
+  FlipflopFixtureResult,
+} from "../../types/testLab";
 
 const ACTIONS: Array<{ value: FlipflopDebugAction; label: string }> = [
   { value: "blink", label: "Blink" },
@@ -20,8 +28,12 @@ export default function FlipflopDebugLab() {
   const [selectedAssetId, setSelectedAssetId] = useState("");
   const [action, setAction] = useState<FlipflopDebugAction>("blink");
   const [result, setResult] = useState<FlipflopDebugResult | null>(null);
+  const [fixtureResult, setFixtureResult] = useState<FlipflopFixtureResult | null>(null);
+  const [renderResult, setRenderResult] = useState<FlipflopFixtureRenderResult | null>(null);
   const [loadingAssets, setLoadingAssets] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
+  const [generatingFixture, setGeneratingFixture] = useState(false);
+  const [renderingFixture, setRenderingFixture] = useState(false);
   const [error, setError] = useState("");
 
   const selectedAsset = useMemo(
@@ -64,23 +76,79 @@ export default function FlipflopDebugLab() {
     }
   }
 
+  async function handleCreateFixture() {
+    if (generatingFixture) return;
+    setGeneratingFixture(true);
+    setError("");
+    try {
+      const next = await createFlipflopFixtureAsset();
+      if (!next) {
+        setError("The flip-flop fixture assets could not be generated.");
+        return;
+      }
+      bumpAssetVersion(next.asset.asset_url);
+      setFixtureResult(next);
+      setAssets((current) => upsertAsset(current, next.asset));
+      setSelectedAssetId(next.asset.asset_id);
+      setResult(null);
+      setRenderResult(null);
+    } finally {
+      setGeneratingFixture(false);
+    }
+  }
+
+  async function handleRenderFixture() {
+    if (!selectedAssetId || renderingFixture) return;
+    setRenderingFixture(true);
+    setError("");
+    try {
+      const next = await renderFlipflopFixturePreview(selectedAssetId, action);
+      if (!next) {
+        setError("The saved flip-flop fixture could not be rendered.");
+        return;
+      }
+      bumpAssetVersion(next.render_url);
+      setRenderResult(next);
+    } finally {
+      setRenderingFixture(false);
+    }
+  }
+
   return (
     <div className="grid h-full min-h-0 gap-4 overflow-hidden lg:grid-cols-[320px_minmax(0,1fr)]">
       <aside className="min-h-0 overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900/60">
         <div className="border-b border-neutral-800 p-4">
-          <p className="text-xs font-semibold uppercase text-neutral-500">Flip-flop Debug</p>
+          <p className="text-xs font-semibold uppercase text-neutral-500">Flip-flop</p>
           <h2 className="mt-2 text-sm font-semibold text-neutral-100">Cached base cutouts</h2>
           <p className="mt-1 text-xs leading-5 text-neutral-500">
-            Reprocesses existing PNGs locally. No Gemini, ElevenLabs, or render job is started.
+            Generate one reusable fixture, then rerun detector and renderer logic against the same saved PNG.
           </p>
-          <button
-            onClick={loadAssets}
-            disabled={loadingAssets}
-            className="mt-3 inline-flex items-center gap-2 rounded-md border border-neutral-800 px-3 py-2 text-xs font-medium text-neutral-300 transition-colors hover:border-neutral-700 hover:text-neutral-100 disabled:cursor-not-allowed disabled:text-neutral-600"
-          >
-            {loadingAssets ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-            Refresh Assets
-          </button>
+          <div className="mt-3 grid gap-2">
+            <button
+              onClick={handleCreateFixture}
+              disabled={generatingFixture}
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-violet-600 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-violet-500 disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-500"
+            >
+              {generatingFixture ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              Generate Fixture Assets
+            </button>
+            <button
+              onClick={loadAssets}
+              disabled={loadingAssets}
+              className="inline-flex items-center justify-center gap-2 rounded-md border border-neutral-800 px-3 py-2 text-xs font-medium text-neutral-300 transition-colors hover:border-neutral-700 hover:text-neutral-100 disabled:cursor-not-allowed disabled:text-neutral-600"
+            >
+              {loadingAssets ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              Refresh Assets
+            </button>
+          </div>
+          {fixtureResult ? (
+            <div className="mt-3 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-200">
+              Fixture saved
+              <span className="ml-2 text-emerald-300/80">
+                {fixtureResult.used_external_api ? "Provider call used once" : "Reused existing fixture"}
+              </span>
+            </div>
+          ) : null}
         </div>
         <div className="min-h-0 overflow-y-auto p-3">
           {assets.length === 0 && !loadingAssets ? (
@@ -118,7 +186,7 @@ export default function FlipflopDebugLab() {
             <p className="text-xs font-semibold uppercase text-neutral-500">Detector rerun</p>
             <h2 className="mt-2 text-sm font-semibold text-neutral-100">Overlay anchor proof</h2>
             <p className="mt-1 text-xs leading-5 text-neutral-500">
-              Run this after detector changes to prove where the renderer-owned micro-expression will land.
+              Rerun the detector instantly, or render a real Remotion preview from the saved fixture.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -142,6 +210,14 @@ export default function FlipflopDebugLab() {
               {analyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
               Rerun Detector
             </button>
+            <button
+              onClick={handleRenderFixture}
+              disabled={!selectedAsset || renderingFixture}
+              className="inline-flex h-10 items-center gap-2 rounded-md border border-violet-500/50 px-3 text-xs font-medium text-violet-100 transition-colors hover:bg-violet-500/15 disabled:cursor-not-allowed disabled:border-neutral-800 disabled:text-neutral-500"
+            >
+              {renderingFixture ? <Loader2 className="h-4 w-4 animate-spin" /> : <Film className="h-4 w-4" />}
+              Rerender Fixture
+            </button>
           </div>
         </div>
 
@@ -154,6 +230,7 @@ export default function FlipflopDebugLab() {
         <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
           <StatusPill tone="emerald" label="External provider calls" value="None" />
           <StatusPill tone={result?.status === "failed" ? "red" : "neutral"} label="Detector" value={result?.status ?? "Not run"} />
+          <StatusPill tone={renderResult ? "emerald" : "neutral"} label="Renderer" value={renderResult ? "Local only" : "Not run"} />
           {result?.registration_algorithm_version ? (
             <StatusPill tone="neutral" label="Version" value={result.registration_algorithm_version} />
           ) : null}
@@ -176,6 +253,21 @@ export default function FlipflopDebugLab() {
           )}
         </div>
 
+        {renderResult?.render_url ? (
+          <div className="mt-4 overflow-hidden rounded-md border border-neutral-800 bg-neutral-950">
+            <div className="flex items-center gap-2 border-b border-neutral-800 px-3 py-2 text-xs font-medium text-neutral-300">
+              <Film className="h-4 w-4 text-violet-300" />
+              Remotion preview
+            </div>
+            <video
+              key={renderResult.render_url}
+              src={assetUrl(renderResult.render_url)}
+              controls
+              className="aspect-video w-full bg-black"
+            />
+          </div>
+        ) : null}
+
         <div className="mt-4 grid gap-4 xl:grid-cols-2">
           <MetadataPanel title="Selected Asset" value={selectedAsset ? selectedAsset.source_metadata : null} />
           <MetadataPanel title="Detected Anchor" value={result?.anchor ?? null} error={result?.error ?? null} />
@@ -183,6 +275,11 @@ export default function FlipflopDebugLab() {
       </section>
     </div>
   );
+}
+
+function upsertAsset(assets: FlipflopDebugAsset[], asset: FlipflopDebugAsset): FlipflopDebugAsset[] {
+  const withoutAsset = assets.filter((candidate) => candidate.asset_id !== asset.asset_id);
+  return [asset, ...withoutAsset];
 }
 
 function StatusPill({ tone, label, value }: { tone: "emerald" | "red" | "neutral"; label: string; value: string }) {

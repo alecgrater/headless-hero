@@ -197,3 +197,16 @@ export interface FlipflopDebugResult {
   status: "passed" | "failed";
   error?: string | null;
 }
+
+export interface FlipflopFixtureResult {
+  asset: FlipflopDebugAsset;
+  used_external_api: boolean;
+  status: "ready";
+}
+
+export interface FlipflopFixtureRenderResult {
+  asset: FlipflopDebugAsset;
+  action: FlipflopDebugAction;
+  render_url: string;
+  used_external_api: boolean;
+}

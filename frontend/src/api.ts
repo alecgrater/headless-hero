@@ -6,6 +6,8 @@ import type {
   FlipflopDebugAction,
   FlipflopDebugAsset,
   FlipflopDebugResult,
+  FlipflopFixtureRenderResult,
+  FlipflopFixtureResult,
   PopupCropAnchorResult,
   PopupCropChromaResult,
   PopupCropPreviewResult,
@@ -229,6 +231,24 @@ export async function analyzeFlipflopDebugAsset(
   action: FlipflopDebugAction,
 ): Promise<FlipflopDebugResult | null> {
   const res = await api.post<FlipflopDebugResult>("/api/test-lab/flipflop-debug/analyze", {
+    asset_id: assetId,
+    action,
+  });
+  return res.ok ? res.data : null;
+}
+
+export async function createFlipflopFixtureAsset(): Promise<FlipflopFixtureResult | null> {
+  const res = await api.post<FlipflopFixtureResult>("/api/test-lab/flipflop/fixture", {
+    force: false,
+  });
+  return res.ok ? res.data : null;
+}
+
+export async function renderFlipflopFixturePreview(
+  assetId: string,
+  action: FlipflopDebugAction,
+): Promise<FlipflopFixtureRenderResult | null> {
+  const res = await api.post<FlipflopFixtureRenderResult>("/api/test-lab/flipflop/render", {
     asset_id: assetId,
     action,
   });
