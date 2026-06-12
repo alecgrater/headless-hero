@@ -34,21 +34,21 @@ def test_flipflop_actions_are_stable_snake_case_values():
 
 
 def test_production_flipflop_actions_are_face_only():
-    assert PRODUCTION_FLIPFLOP_ACTIONS == (
-        "blink",
-        "speaking_mouth",
-        "eye_glance",
-        "eyebrow_raise",
-    )
-    assert normalize_production_flipflop_action("blink") == "blink"
+    assert PRODUCTION_FLIPFLOP_ACTIONS == ()
+    assert normalize_production_flipflop_action("blink") == ""
+    assert normalize_production_flipflop_action("speaking_mouth") == ""
+    assert normalize_production_flipflop_action("eye_glance") == ""
+    assert normalize_production_flipflop_action("eyebrow_raise") == ""
     assert normalize_production_flipflop_action("head_nod") == ""
     assert normalize_production_flipflop_action("small_shrug") == ""
 
 
 def test_action_prompt_guidance_contains_reliability_tiers():
     guidance = flipflop_action_prompt_guidance()
-    assert "Production flipflop_action values: blink, speaking_mouth, eye_glance, eyebrow_raise" in guidance
-    assert "Do not choose pose-changing or body-action values for production flipflop" in guidance
+    assert "Production flipflop_action values: none" in guidance
+    assert "Always choose another visual_mode" in guidance
+    assert "`blink`" in guidance
+    assert "`speaking_mouth`" in guidance
 
 
 def test_build_flipflop_state_prompt_uses_action_specific_state_text():
@@ -86,6 +86,9 @@ def test_build_flipflop_state_prompt_locks_unaffected_features():
     assert "do not change the eyes unless the action is blink or eye_glance" in state_b
     assert "do not change the eyebrows unless" in state_b
     assert "do not change hands or arms unless the action requires it" in state_b
+    assert "Copy State A exactly" in state_b
+    assert "hat, hair, ears, neck, collar, torso, shoulders, and arm edges must remain identical" in state_b
+    assert "only redraw the small internal facial mark required by the action" in state_b
 
 
 def test_build_flipflop_state_prompt_locks_registration_and_zoom():

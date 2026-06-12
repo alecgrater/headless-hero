@@ -34,12 +34,7 @@ FLIPFLOP_ACTIONS: tuple[FlipflopAction, ...] = (
 
 _ACTION_SET = set(FLIPFLOP_ACTIONS)
 
-PRODUCTION_FLIPFLOP_ACTIONS: tuple[FlipflopAction, ...] = (
-    "blink",
-    "speaking_mouth",
-    "eye_glance",
-    "eyebrow_raise",
-)
+PRODUCTION_FLIPFLOP_ACTIONS: tuple[FlipflopAction, ...] = ()
 
 _PRODUCTION_ACTION_SET = set(PRODUCTION_FLIPFLOP_ACTIONS)
 
@@ -195,18 +190,14 @@ def flipflop_action_prompt_guidance() -> str:
     action_lines = [
         f"- `{action}`: {definition.use_when}"
         for action, definition in FLIPFLOP_ACTION_DEFINITIONS.items()
-        if action in _PRODUCTION_ACTION_SET
     ]
     return "\n".join(
         [
-            "When `visual_mode` is `flipflop`, also emit `flipflop_action` using exactly one allowed value.",
-            "Production flipflop_action values: blink, speaking_mouth, eye_glance, eyebrow_raise.",
-            "Allowed production flipflop_action definitions:",
+            "Do not choose `visual_mode=\"flipflop\"` for production scripts yet.",
+            "Production flipflop_action values: none. The current shared-sheet image path is not reliable enough for automatic production routing.",
+            "Experimental Test Lab values remain available for manual stress tests:",
             *action_lines,
-            "Do not choose pose-changing or body-action values for production flipflop.",
-            "Avoid head nods, hand raises, thinking poses, pointing, counting fingers, shrugs, walking, leaning, or body repositioning.",
-            "Only choose flipflop for a human, human-like, or clearly personified character scene.",
-            "If no allowed human micro-action naturally fits, choose another visual_mode.",
+            "Always choose another visual_mode in script generation and visual analysis.",
         ]
     )
 
@@ -240,6 +231,10 @@ def build_flipflop_state_prompt(
         "resize, rotate, translate, or shift the character on the canvas. Do not move the character higher, lower, "
         "left, or right; the silhouette must register over State A like a traced animation cel. "
         "The ONLY allowed change between State A and State B is the named micro-action. "
+        "Copy State A exactly before making the micro-action change: hat, hair, ears, neck, collar, torso, "
+        "shoulders, and arm edges must remain identical. For face-only actions, keep the head outline, jaw, "
+        "chin, cheeks, nose, ears, neck, clothing, and body silhouette unchanged; only redraw the small "
+        "internal facial mark required by the action. "
         "Do not introduce a new emotion, do not change the mouth shape unless the action is speaking_mouth, "
         "do not change the eyes unless the action is blink or eye_glance, do not change the eyebrows unless "
         "the action is eyebrow_raise, and do not change hands or arms unless the action requires it. "
