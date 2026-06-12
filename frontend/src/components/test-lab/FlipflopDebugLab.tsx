@@ -35,7 +35,9 @@ export default function FlipflopDebugLab() {
     try {
       const nextAssets = await getFlipflopDebugAssets();
       setAssets(nextAssets);
-      setSelectedAssetId((current) => current || nextAssets[0]?.asset_id || "");
+      setSelectedAssetId((current) => (
+        nextAssets.some((asset) => asset.asset_id === current) ? current : nextAssets[0]?.asset_id || ""
+      ));
     } finally {
       setLoadingAssets(false);
     }
