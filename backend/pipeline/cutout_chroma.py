@@ -58,7 +58,6 @@ def remove_small_edge_alpha_artifacts(
     image: Image.Image,
     *,
     max_area_ratio: float = 0.02,
-    max_narrow_dimension: int = 16,
     edge_margin: int = 2,
 ) -> Image.Image:
     image = image.convert("RGBA")
@@ -112,10 +111,7 @@ def remove_small_edge_alpha_artifacts(
                 visited.add(neighbor)
                 queue.append(neighbor)
 
-        component_width = max_x - min_x + 1
-        component_height = max_y - min_y + 1
-        is_narrow_artifact = component_width <= max_narrow_dimension or component_height <= max_narrow_dimension
-        if touches_edge and (len(component) <= max_area or is_narrow_artifact):
+        if touches_edge and len(component) <= max_area:
             for component_pixel in component:
                 data[component_pixel * 4 + 3] = 0
 
@@ -199,23 +195,43 @@ def detect_neutral_margin_rgb(image: Image.Image) -> tuple[int, int, int] | None
 def detect_dark_margin_rgb(image: Image.Image) -> tuple[int, int, int] | None:
     image = image.convert("RGBA")
     data = image.tobytes()
-    count = 0
-    total = [0, 0, 0]
-    for index in range(0, len(data), 4):
-        red, green, blue, alpha = data[index:index + 4]
-        if alpha == 0:
-            continue
-        if max(red, green, blue) > 35:
-            continue
-        count += 1
-        total[0] += red
-        total[1] += green
-        total[2] += blue
+    edge_samples = {
+        "top": [],
+        "bottom": [],
+        "left": [],
+        "right": [],
+    }
 
-    min_pixels = max(24, round(image.width * image.height * 0.001))
-    if count < min_pixels:
+    def maybe_add(edge: str, x: int, y: int) -> None:
+        offset = (y * image.width + x) * 4
+        red, green, blue, alpha = data[offset:offset + 4]
+        if alpha == 0:
+            return
+        if max(red, green, blue) > 35:
+            return
+        edge_samples[edge].append((red, green, blue))
+
+    for x in range(image.width):
+        maybe_add("top", x, 0)
+        maybe_add("bottom", x, image.height - 1)
+    for y in range(image.height):
+        maybe_add("left", 0, y)
+        maybe_add("right", image.width - 1, y)
+
+    qualifying_samples = []
+    min_edge_coverage = 0.6
+    for edge, samples in edge_samples.items():
+        edge_length = image.width if edge in {"top", "bottom"} else image.height
+        if len(samples) / max(edge_length, 1) >= min_edge_coverage:
+            qualifying_samples.extend(samples)
+
+    if not qualifying_samples:
         return None
-    return (round(total[0] / count), round(total[1] / count), round(total[2] / count))
+    return (
+        round(sum(pixel[0] for pixel in qualifying_samples) / len(qualifying_samples)),
+        round(sum(pixel[1] for pixel in qualifying_samples) / len(qualifying_samples)),
+        round(sum(pixel[2] for pixel in qualifying_samples) / len(qualifying_samples)),
+    )
 
 
 def detect_chroma_background_rgb(image: Image.Image) -> tuple[int, int, int] | None:

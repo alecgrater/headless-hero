@@ -88,6 +88,18 @@ def test_key_out_background_removes_soft_green_chroma_and_dark_cell_divider():
     assert keyed.getpixel((39, 29)) == (5, 5, 5, 255)
 
 
+def test_key_out_background_preserves_narrow_dark_subject_touching_edge():
+    source = Image.new("RGBA", (80, 60), (145, 210, 100, 255))
+    draw = ImageDraw.Draw(source)
+    draw.rectangle((36, 10, 44, 59), fill=(10, 8, 6, 255))
+
+    keyed = key_out_background(source)
+
+    assert keyed.getpixel((10, 10))[3] == 0
+    assert keyed.getpixel((40, 30)) == (10, 8, 6, 255)
+    assert keyed.getpixel((40, 58)) == (10, 8, 6, 255)
+
+
 def test_key_out_background_removes_small_edge_artifacts_but_keeps_edge_touching_subject():
     source = Image.new("RGBA", (80, 60), (145, 210, 100, 255))
     draw = ImageDraw.Draw(source)
