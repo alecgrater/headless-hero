@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 
 const FLOW_STEPS = [
+  "Remote whitespace discovery is temporarily paused, so the app refreshes the local profile without uploading GitHub discovery artifacts.",
   "Generate or edit a real project script, or refresh the profile in Inspire -> For You.",
   "The backend uploads discovery/content-profile-input.json when GITHUB_CONTENTS_TOKEN is configured.",
   "Manual profile refresh also uploads the current discovery/content-profile-seed.json.",
@@ -73,7 +74,8 @@ export default function WhitespaceDiscoveryDocSection() {
         <p className="max-w-4xl text-sm leading-6 text-neutral-400">
           Whitespace discovery looks for YouTube channels with unusually strong demand relative to
           visible supply. It is meant to surface small channels and topic pockets where a Headless
-          Hero-style video might have room to compete.
+          Hero-style video might have room to compete. Remote refresh is temporarily paused, so the
+          tab currently shows the last committed static feed.
         </p>
       </section>
 

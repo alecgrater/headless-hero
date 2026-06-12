@@ -24,6 +24,11 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/trending", tags=["trending"])
 
+REMOTE_DISCOVERY_REFRESH_ENABLED = False
+REMOTE_DISCOVERY_REFRESH_PAUSED_MESSAGE = (
+    "Remote whitespace discovery refresh is temporarily paused, so no GitHub discovery artifacts were uploaded."
+)
+
 
 # ---------------------------------------------------------------------------
 # Request / response schemas
@@ -145,6 +150,8 @@ def _upload_json_artifact(
 
 
 def _upload_content_profile_input(token: str | None = None) -> SeedUploadStatus:
+    if not REMOTE_DISCOVERY_REFRESH_ENABLED:
+        return SeedUploadStatus(status="skipped", message=REMOTE_DISCOVERY_REFRESH_PAUSED_MESSAGE)
     token = token if token is not None else _get_setting_or_env("GITHUB_CONTENTS_TOKEN").strip()
     if not token:
         return _missing_token_status(
@@ -166,6 +173,8 @@ def _upload_content_profile_input(token: str | None = None) -> SeedUploadStatus:
 
 
 def _upload_discovery_seed(profile: dict, token: str | None = None) -> SeedUploadStatus:
+    if not REMOTE_DISCOVERY_REFRESH_ENABLED:
+        return SeedUploadStatus(status="skipped", message=REMOTE_DISCOVERY_REFRESH_PAUSED_MESSAGE)
     token = token if token is not None else _get_setting_or_env("GITHUB_CONTENTS_TOKEN").strip()
     if not token:
         return _missing_token_status(

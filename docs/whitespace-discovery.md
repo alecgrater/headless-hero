@@ -16,6 +16,10 @@ The tab is read-only. It shows the latest feed committed by GitHub Actions, not 
 
 ## End-To-End Flow
 
+Remote whitespace discovery is temporarily paused. The desktop app still refreshes the local content profile, but it skips uploading `discovery/content-profile-input.json` and `discovery/content-profile-seed.json`, and `.github/workflows/youtube-whitespace.yml` does not run automatically.
+
+When re-enabled, the flow is:
+
 1. The local app generates or edits a real project script.
 2. The backend exports and uploads `discovery/content-profile-input.json` when `GITHUB_CONTENTS_TOKEN` is configured.
 3. Manual profile refresh still analyzes locally and also uploads the current `discovery/content-profile-seed.json`.
@@ -92,6 +96,7 @@ If GitHub Actions produced a new feed but the app still shows old results:
 
 | Symptom | Likely cause | Fix |
 | --- | --- | --- |
+| Profile refresh says remote discovery is paused | Remote whitespace discovery is intentionally disabled | No action needed until the workflow is re-enabled. |
 | GitHub Actions succeeds but feed stays old | `YOUTUBE_API_KEY` secret is missing | Add `YOUTUBE_API_KEY` under repo Actions secrets. |
 | Refresh profile says seed upload skipped | `GITHUB_CONTENTS_TOKEN` is missing locally | Add it in Settings -> API Keys -> Discovery. |
 | Refresh profile says seed upload failed | Token lacks Contents write access or repo access | Recreate the fine-grained token with `Contents: Read and write` for `headless-hero`. |

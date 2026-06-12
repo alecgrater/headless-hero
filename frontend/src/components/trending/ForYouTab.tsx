@@ -95,7 +95,8 @@ export default function ForYouTab({ onGenerateIdeas }: Props) {
           : p.seed_upload.message;
         showToast(`Profile refreshed, but remote discovery upload failed: ${message}`, "error");
       } else {
-        showToast("Content profile refreshed. Add a GitHub Contents Token to refresh remote discovery.", "info");
+        const message = p.profile_input_upload.message || p.seed_upload.message;
+        showToast(`Content profile refreshed. ${message}`, "info");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to refresh profile");

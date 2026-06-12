@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 
 
-def test_refresh_content_profile_skips_seed_upload_without_token(monkeypatch):
+def test_refresh_content_profile_skips_remote_uploads_while_paused(monkeypatch):
     from api.main import app
     import api.trending as trending_api
 
@@ -19,7 +19,7 @@ def test_refresh_content_profile_skips_seed_upload_without_token(monkeypatch):
             "is_stale": False,
         },
     )
-    monkeypatch.setattr(trending_api, "_get_setting_or_env", lambda key: "")
+    monkeypatch.setattr(trending_api, "REMOTE_DISCOVERY_REFRESH_ENABLED", False)
 
     res = TestClient(app).post("/api/trending/content-profile/refresh")
 
@@ -28,7 +28,7 @@ def test_refresh_content_profile_skips_seed_upload_without_token(monkeypatch):
     assert data["script_count"] == 3
     assert data["profile_input_upload"]["status"] == "skipped"
     assert data["seed_upload"]["status"] == "skipped"
-    assert "GitHub Contents Token" in data["seed_upload"]["message"]
+    assert "temporarily paused" in data["seed_upload"]["message"]
 
 
 def test_refresh_content_profile_returns_seed_upload_warning(monkeypatch):
@@ -49,6 +49,7 @@ def test_refresh_content_profile_returns_seed_upload_warning(monkeypatch):
             "is_stale": False,
         },
     )
+    monkeypatch.setattr(trending_api, "REMOTE_DISCOVERY_REFRESH_ENABLED", True)
     monkeypatch.setattr(trending_api, "_get_setting_or_env", lambda key: "ghp_token")
 
     def fail_upload(*args, **kwargs):
@@ -84,6 +85,7 @@ def test_refresh_content_profile_uploads_seed_when_token_exists(monkeypatch):
             "is_stale": False,
         },
     )
+    monkeypatch.setattr(trending_api, "REMOTE_DISCOVERY_REFRESH_ENABLED", True)
     monkeypatch.setattr(trending_api, "_get_setting_or_env", lambda key: "ghp_token")
     monkeypatch.setattr(
         trending_api,
