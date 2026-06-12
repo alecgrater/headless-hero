@@ -24,7 +24,7 @@ from prompts import IMAGE_CHARACTER_IN_SCENE, IMAGE_COMPOSITION_GUIDE, IMAGE_VIS
 
 logger = logging.getLogger(__name__)
 
-FLIPFLOP_CUTOUT_REGISTRATION_VERSION = "alpha-mask-registration-v12"
+FLIPFLOP_CUTOUT_REGISTRATION_VERSION = "alpha-mask-registration-v17"
 FLIPFLOP_SCALE_CORRECTION_MIN = 0.92
 FLIPFLOP_SCALE_CORRECTION_MAX = 1.08
 FLIPFLOP_ASPECT_RATIO_TOLERANCE = 0.12
@@ -1306,22 +1306,90 @@ def _detect_flipflop_overlay_anchor_points(image: Image.Image | None) -> dict[st
     _eye_y, _alignment_score, left_eye, right_eye, mouth = best_eye_pair
     eye_y = (left_eye["cy"] + right_eye["cy"]) / 2
     brow_y = max(0.0, eye_y - 0.08)
+    left_erase_box = _flipflop_eye_erase_box(left_eye, components, rgba)
+    right_erase_box = _flipflop_eye_erase_box(right_eye, components, rgba)
     return {
         "eye_left": {
             "x": round(left_eye["cx"], 4),
             "y": round(left_eye["cy"], 4),
             "width": round(left_eye["width"], 4),
             "height": round(left_eye["height"], 4),
+            "erase_box": left_erase_box,
         },
         "eye_right": {
             "x": round(right_eye["cx"], 4),
             "y": round(right_eye["cy"], 4),
             "width": round(right_eye["width"], 4),
             "height": round(right_eye["height"], 4),
+            "erase_box": right_erase_box,
         },
         "mouth": {"x": round(mouth["cx"], 4), "y": round(mouth["cy"], 4)},
         "brow_left": {"x": round(left_eye["cx"], 4), "y": round(brow_y, 4)},
         "brow_right": {"x": round(right_eye["cx"], 4), "y": round(brow_y, 4)},
+    }
+
+
+def _flipflop_eye_erase_box(
+    eye: dict[str, float],
+    components: list[dict[str, float]],
+    image: Image.Image,
+) -> dict[str, float]:
+    left = eye["left"]
+    top = eye["top"]
+    right = eye["right"]
+    bottom = eye["bottom"]
+    width, height = image.size
+    pixels = image.load()
+    search_left = max(0, round((eye["left"] - eye["width"] * 0.35) * width))
+    search_top = max(0, round((eye["top"] - eye["height"] * 0.25) * height))
+    search_right = min(width - 1, round((eye["right"] + eye["width"] * 0.35) * width))
+    search_bottom = min(height - 1, round((eye["bottom"] + eye["height"] * 2.2) * height))
+    feature_xs: list[int] = []
+    feature_ys: list[int] = []
+    for y in range(search_top, search_bottom + 1):
+        for x in range(search_left, search_right + 1):
+            red, green, blue, alpha = pixels[x, y]
+            if alpha < 120:
+                continue
+            channel_max = max(red, green, blue)
+            channel_min = min(red, green, blue)
+            brightness = (red + green + blue) / 3
+            dark_expression_pixel = channel_max < 95
+            light_sclera_pixel = channel_min > 115 and brightness > 160 and channel_max - channel_min < 75
+            if not (dark_expression_pixel or light_sclera_pixel):
+                continue
+            feature_xs.append(x)
+            feature_ys.append(y)
+    if feature_xs:
+        left = min(left, min(feature_xs) / width)
+        top = min(top, min(feature_ys) / height)
+        right = max(right, max(feature_xs) / width)
+        bottom = max(bottom, max(feature_ys) / height)
+
+    for component in components:
+        if component is eye:
+            continue
+        close_x = component["right"] >= eye["left"] - eye["width"] * 0.55 and component["left"] <= eye["right"] + eye["width"] * 0.55
+        near_eye_y = eye["top"] - eye["height"] * 0.15 <= component["cy"] <= eye["bottom"] + eye["height"] * 1.55
+        small_expression_mark = (
+            component["area"] <= eye["area"] * 0.65
+            and component["width"] <= eye["width"] * 1.25
+            and component["height"] <= eye["height"] * 0.85
+        )
+        if not (close_x and near_eye_y and small_expression_mark):
+            continue
+        left = min(left, component["left"])
+        top = min(top, component["top"])
+        right = max(right, component["right"])
+        bottom = max(bottom, component["bottom"])
+
+    pad_x = eye["width"] * 0.10
+    pad_y = eye["height"] * 0.18
+    return {
+        "left": round(max(0.0, left - pad_x), 4),
+        "top": round(max(0.0, top - pad_y), 4),
+        "right": round(min(1.0, right + pad_x), 4),
+        "bottom": round(min(1.0, bottom + pad_y), 4),
     }
 
 

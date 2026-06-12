@@ -68,6 +68,12 @@ export interface FlipflopOverlayPoint {
   y: number;
   width?: number;
   height?: number;
+  erase_box?: {
+    left: number;
+    top: number;
+    right: number;
+    bottom: number;
+  };
 }
 
 export interface FlipflopOverlayAnchor {

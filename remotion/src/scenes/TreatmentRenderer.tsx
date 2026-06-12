@@ -381,6 +381,39 @@ const normalizedEyeHeight = (point: FlipflopOverlayPoint): number | null => (
   typeof point.height === "number" && point.height > 0 ? point.height * 100 : null
 );
 
+const eraseBoxMask = (
+  point: FlipflopOverlayPoint,
+  skinFill: string,
+  sharedTop?: number,
+  sharedBottom?: number,
+): FlipflopClosedEyeGeometry["mask"] | null => {
+  const box = point.erase_box;
+  if (
+    typeof box?.left !== "number"
+    || typeof box.top !== "number"
+    || typeof box.right !== "number"
+    || typeof box.bottom !== "number"
+    || box.right <= box.left
+    || box.bottom <= box.top
+  ) {
+    return null;
+  }
+  const x = box.left * 100;
+  const top = typeof sharedTop === "number" ? sharedTop : box.top;
+  const bottom = typeof sharedBottom === "number" ? sharedBottom : box.bottom;
+  const y = top * 100;
+  const width = (box.right - box.left) * 100;
+  const height = (bottom - top) * 100;
+  return {
+    x: roundSvgNumber(x),
+    y: roundSvgNumber(y),
+    width: roundSvgNumber(width),
+    height: roundSvgNumber(height),
+    rx: roundSvgNumber(height / 2),
+    fill: skinFill,
+  };
+};
+
 export const flipflopBlinkEyeOverlayGeometry = (
   anchor: FlipflopResolvedOverlayAnchor,
   skinFill = FLIPFLOP_FALLBACK_SKIN_FILL,
@@ -408,11 +441,30 @@ export const flipflopBlinkEyeOverlayGeometry = (
   const maskHeight = maskRy * 2;
   const lidHalfWidth = maskRx * 0.72;
   const lidLift = maskRy * 0.24;
-  return [leftEye, rightEye].map((eye) => {
+  const eraseBoxes = [anchor.eye_left.erase_box, anchor.eye_right.erase_box].filter(
+    (box): box is NonNullable<FlipflopOverlayPoint["erase_box"]> => (
+      typeof box?.top === "number"
+      && typeof box.bottom === "number"
+      && box.bottom > box.top
+    ),
+  );
+  const sharedEraseTop = eraseBoxes.length === 2
+    ? Math.min(...eraseBoxes.map((box) => box.top))
+    : undefined;
+  const sharedEraseBottom = eraseBoxes.length === 2
+    ? Math.max(...eraseBoxes.map((box) => box.bottom))
+    : undefined;
+  return [leftEye, rightEye].map((eye, index) => {
     const lidY = eye.y + maskRy * 0.72;
     const maskY = eye.y + maskRy * 1.02;
+    const metadataMask = eraseBoxMask(
+      index === 0 ? anchor.eye_left : anchor.eye_right,
+      skinFill,
+      sharedEraseTop,
+      sharedEraseBottom,
+    );
     return {
-      mask: {
+      mask: metadataMask ?? {
         x: roundSvgNumber(eye.x - maskWidth / 2),
         y: roundSvgNumber(maskY - maskHeight / 2),
         width: roundSvgNumber(maskWidth),
