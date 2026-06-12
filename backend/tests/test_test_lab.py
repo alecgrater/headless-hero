@@ -1979,6 +1979,7 @@ def test_stage_treatment_assets_generates_fallback_flipflop_cutout_urls(monkeypa
             settings={
                 "visual_treatment": "flipflop",
                 "visual_layers": [],
+                "contains_person": True,
             },
         )
         session.commit()
@@ -2001,6 +2002,7 @@ def test_stage_treatment_assets_generates_fallback_flipflop_cutout_urls(monkeypa
         ]
         assert [layer["asset_kind"] for layer in kwargs["layers"]] == ["cutout", "cutout"]
         assert [layer["enter_at_seconds"] for layer in kwargs["layers"]] == [0.0, 0.0]
+        assert kwargs["contains_person"] is True
         return [
             {**kwargs["layers"][0], "asset_kind": "cutout", "image_url": "/static/projects/test/layers/state-a.png"},
             {**kwargs["layers"][1], "asset_kind": "cutout", "image_url": "/static/projects/test/layers/state-b.png"},
@@ -2020,7 +2022,7 @@ def test_stage_treatment_assets_generates_fallback_flipflop_cutout_urls(monkeypa
         run_id="run-flipflop-fallback",
         script_id=script_id,
         preset_id="coffee-brain",
-        settings={"visual_treatment": "flipflop", "visual_layers": []},
+        settings={"visual_treatment": "flipflop", "visual_layers": [], "contains_person": True},
         manifest=manifest,
         job_id=None,
     )
@@ -2044,14 +2046,13 @@ def test_stage_treatment_assets_generates_fallback_flipflop_cutout_urls(monkeypa
     ]
 
 
-def test_stage_treatment_assets_preserves_explicit_flipflop_action_after_ignored_analysis(monkeypatch, tmp_path):
+def test_stage_treatment_assets_preserves_explicit_flipflop_action_without_analyzer(monkeypatch, tmp_path):
     engine, _app = _setup_app(monkeypatch, tmp_path)
 
     import pipeline.image_gen as image_gen
     import pipeline.test_lab as test_lab
     import pipeline.visual_treatments as visual_treatments
     from models.script import ScriptContent
-    from pipeline.visual_treatments import VisualTreatmentAssignment
 
     with Session(engine) as session:
         script_id = test_lab.create_hidden_test_script(
@@ -2073,22 +2074,21 @@ def test_stage_treatment_assets_preserves_explicit_flipflop_action_after_ignored
         test_lab._save_content(session, record, content)
         session.commit()
 
-    def fake_analyze(content, **_kwargs):
-        scene = content.segments[0].scenes[0]
-        scene.set_visual_mode("full_frame")
-        scene.flipflop_action = ""
-        return [VisualTreatmentAssignment(scene_id=scene.id, visual_mode="full_frame", visual_layers=[])]
-
     captured_layers = []
 
     def fake_generate_flipflop_cutouts(**kwargs):
+        assert kwargs["contains_person"] is True
         captured_layers.extend(kwargs["layers"])
         return [
             {**kwargs["layers"][0], "asset_kind": "cutout", "image_url": "/static/projects/test/layers/state-a.png"},
             {**kwargs["layers"][1], "asset_kind": "cutout", "image_url": "/static/projects/test/layers/state-b.png"},
         ]
 
-    monkeypatch.setattr(visual_treatments, "analyze_visual_treatments", fake_analyze)
+    monkeypatch.setattr(
+        visual_treatments,
+        "analyze_visual_treatments",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("explicit flipflop should not analyze")),
+    )
     monkeypatch.setattr(image_gen, "generate_flipflop_cutouts", fake_generate_flipflop_cutouts)
     monkeypatch.setattr(
         image_gen,

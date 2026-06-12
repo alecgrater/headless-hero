@@ -1086,7 +1086,11 @@ def _stage_treatment_assets(ctx: TestLabRunContext) -> None:
         )
         if not scene.visual_layers:
             assignment = None
-            if scene.audio_duration_seconds > 0 and scene.word_timestamps:
+            if requested_mode == "flipflop" and requested_flipflop_action:
+                scene.set_visual_mode("flipflop")
+                scene.flipflop_action = requested_flipflop_action
+                scene.contains_person = True
+            elif scene.audio_duration_seconds > 0 and scene.word_timestamps:
                 assignments = analyze_visual_treatments(content, script_id=ctx.script_id)
                 assignment = _assignment_for_scene(assignments, scene.id)
                 assignment_mode = assignment.visual_mode if assignment else ""
@@ -1098,9 +1102,6 @@ def _stage_treatment_assets(ctx: TestLabRunContext) -> None:
                         scene.id,
                     )
                     assignment = None
-                if requested_mode == "flipflop" and requested_flipflop_action:
-                    scene.set_visual_mode("flipflop")
-                    scene.flipflop_action = requested_flipflop_action
             scene.visual_layers = (
                 list(assignment.visual_layers)
                 if assignment and assignment.visual_layers
@@ -1108,6 +1109,8 @@ def _stage_treatment_assets(ctx: TestLabRunContext) -> None:
             )
             if isinstance(requested_mode, str):
                 scene.set_visual_mode(requested_mode)
+            if requested_mode == "flipflop" and requested_flipflop_action:
+                scene.contains_person = True
         if scene.visual_layers:
             layer_dicts = [layer.model_dump() for layer in scene.visual_layers]
             if scene.visual_mode == "popup_sequence":
