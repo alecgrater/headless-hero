@@ -60,6 +60,19 @@ def test_key_out_background_prefers_magenta_chroma_over_contact_sheet_margins():
     assert keyed.getpixel((39, 29)) == (5, 5, 5, 255)
 
 
+def test_key_out_background_preserves_isolated_chroma_colored_subject_detail():
+    source = Image.new("RGBA", (80, 60), (212, 210, 204, 255))
+    draw = ImageDraw.Draw(source)
+    draw.rectangle((12, 0, 67, 59), fill=(229, 15, 175, 255))
+    draw.rectangle((24, 12, 55, 48), fill=(230, 200, 170, 255))
+    draw.rectangle((34, 24, 45, 35), fill=(229, 15, 175, 255))
+
+    keyed = key_out_background(source)
+
+    assert keyed.getpixel((20, 10))[3] == 0
+    assert keyed.getpixel((39, 29)) == (229, 15, 175, 255)
+
+
 def test_sample_background_rgb_uses_non_overlapping_corners_for_small_images():
     source = Image.new("RGBA", (19, 19), (0, 255, 0, 255))
     source.putpixel((9, 9), (200, 20, 20, 255))

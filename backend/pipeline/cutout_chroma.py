@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import deque
 from pathlib import Path
 
 from PIL import Image
@@ -43,17 +44,60 @@ def key_out_background(image: Image.Image, *, tolerance: int = 70) -> Image.Imag
         corner_bg = sample_background_rgb(image)
         background_keys.append((corner_bg, tolerance))
     data = bytearray(image.tobytes())
-    for index in range(0, len(data), 4):
-        red, green, blue, alpha = data[index:index + 4]
-        should_key = any(
+    background_pixels = find_edge_connected_background_pixels(image, background_keys)
+    for pixel_index in background_pixels:
+        data[pixel_index * 4 + 3] = 0
+    return Image.frombytes("RGBA", image.size, bytes(data))
+
+
+def find_edge_connected_background_pixels(
+    image: Image.Image,
+    background_keys: list[tuple[tuple[int, int, int], int]],
+) -> set[int]:
+    width, height = image.size
+    data = image.convert("RGBA").tobytes()
+    queue: deque[int] = deque()
+    visited: set[int] = set()
+    background_pixels: set[int] = set()
+
+    def enqueue(pixel_index: int) -> None:
+        if pixel_index not in visited:
+            visited.add(pixel_index)
+            queue.append(pixel_index)
+
+    for x in range(width):
+        enqueue(x)
+        enqueue((height - 1) * width + x)
+    for y in range(height):
+        enqueue(y * width)
+        enqueue(y * width + width - 1)
+
+    while queue:
+        pixel_index = queue.popleft()
+        offset = pixel_index * 4
+        red, green, blue, alpha = data[offset:offset + 4]
+        if alpha == 0:
+            background_pixels.add(pixel_index)
+        elif any(
             ((red - bg[0]) ** 2 + (green - bg[1]) ** 2 + (blue - bg[2]) ** 2) ** 0.5 <= key_tolerance
             for bg, key_tolerance in background_keys
-        )
-        if should_key:
-            data[index + 3] = 0
+        ):
+            background_pixels.add(pixel_index)
         else:
-            data[index + 3] = alpha
-    return Image.frombytes("RGBA", image.size, bytes(data))
+            continue
+
+        x = pixel_index % width
+        y = pixel_index // width
+        if x > 0:
+            enqueue(pixel_index - 1)
+        if x < width - 1:
+            enqueue(pixel_index + 1)
+        if y > 0:
+            enqueue(pixel_index - width)
+        if y < height - 1:
+            enqueue(pixel_index + width)
+
+    return background_pixels
 
 
 def detect_neutral_margin_rgb(image: Image.Image) -> tuple[int, int, int] | None:
