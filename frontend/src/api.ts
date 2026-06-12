@@ -3,6 +3,9 @@ import { BACKEND_PORT } from "./constants";
 import type { ScriptContent, UploadTracking, VisualLayer, VisualMode } from "./types/script";
 import type { VideoFormat } from "./types/format";
 import type {
+  FlipflopDebugAction,
+  FlipflopDebugAsset,
+  FlipflopDebugResult,
   PopupCropAnchorResult,
   PopupCropChromaResult,
   PopupCropPreviewResult,
@@ -212,6 +215,22 @@ export async function chromaPopupCropItemSheet(
   const res = await api.post<PopupCropChromaResult>("/api/test-lab/popup-crop/items/chroma", {
     run_id: runId,
     items,
+  });
+  return res.ok ? res.data : null;
+}
+
+export async function getFlipflopDebugAssets(): Promise<FlipflopDebugAsset[]> {
+  const res = await api.get<{ assets: FlipflopDebugAsset[] }>("/api/test-lab/flipflop-debug/assets");
+  return res.ok ? res.data.assets : [];
+}
+
+export async function analyzeFlipflopDebugAsset(
+  assetId: string,
+  action: FlipflopDebugAction,
+): Promise<FlipflopDebugResult | null> {
+  const res = await api.post<FlipflopDebugResult>("/api/test-lab/flipflop-debug/analyze", {
+    asset_id: assetId,
+    action,
   });
   return res.ok ? res.data : null;
 }

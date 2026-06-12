@@ -30,6 +30,11 @@ from pipeline.test_lab_popup_crop import (
     generate_popup_crop_anchor,
     generate_popup_crop_item_sheet,
 )
+from pipeline.test_lab_flipflop_debug import (
+    FlipflopDebugAction,
+    analyze_flipflop_debug_asset,
+    list_flipflop_debug_assets,
+)
 
 router = APIRouter(prefix="/api/test-lab", tags=["test-lab"])
 
@@ -104,6 +109,11 @@ class PopupCropItemSheetRequest(BaseModel):
 class PopupCropItemSheetChromaRequest(BaseModel):
     run_id: str = Field(min_length=1)
     items: list[str] = Field(default_factory=list, max_length=5)
+
+
+class FlipflopDebugAnalyzeRequest(BaseModel):
+    asset_id: str = Field(min_length=1)
+    action: FlipflopDebugAction = "blink"
 
 
 def _default_main_character(session: Session) -> dict[str, str] | None:
@@ -313,6 +323,20 @@ def create_popup_crop_item_sheet_chroma(request: PopupCropItemSheetChromaRequest
         return result.model_dump(mode="json")
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Generate the item sheet before running chroma.") from None
+
+
+@router.get("/flipflop-debug/assets")
+def get_flipflop_debug_assets():
+    return {"assets": [asset.model_dump(mode="json") for asset in list_flipflop_debug_assets()]}
+
+
+@router.post("/flipflop-debug/analyze")
+def analyze_flipflop_debug(request: FlipflopDebugAnalyzeRequest):
+    try:
+        result = analyze_flipflop_debug_asset(asset_id=request.asset_id, action=request.action)
+        return result.model_dump(mode="json")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("/runs")

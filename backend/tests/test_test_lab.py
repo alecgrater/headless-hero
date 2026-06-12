@@ -730,6 +730,59 @@ def test_popup_crop_anchor_generate_saves_vault_and_chroma_does_not_duplicate(mo
     assert sorted((tmp_path / "projects" / "asset-vault" / "characters").glob("*.png")) == character_vault
 
 
+def test_flipflop_debug_lists_and_analyzes_cached_base_without_provider_calls(monkeypatch, tmp_path):
+    import pipeline.test_lab_flipflop_debug as flipflop_debug
+
+    monkeypatch.setattr(flipflop_debug, "DATA_DIR", tmp_path)
+
+    asset_dir = tmp_path / "projects" / "test-lab-run-1" / "flipflop_cutouts" / "scene-1"
+    asset_dir.mkdir(parents=True)
+    base_path = asset_dir / "base_scene_1_base.png"
+    image = Image.new("RGBA", (1000, 1000), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    draw.ellipse((250, 120, 750, 780), fill=(241, 198, 150, 255), outline=(20, 20, 20, 255), width=8)
+    draw.rounded_rectangle((388, 442, 456, 468), radius=12, fill=(12, 12, 12, 255))
+    draw.rounded_rectangle((570, 442, 638, 468), radius=12, fill=(12, 12, 12, 255))
+    draw.rounded_rectangle((470, 590, 545, 600), radius=5, fill=(12, 12, 12, 255))
+    image.save(base_path)
+
+    assets = flipflop_debug.list_flipflop_debug_assets()
+    assert [asset.asset_id for asset in assets] == [
+        "test-lab-run-1/flipflop_cutouts/scene-1/base_scene_1_base.png"
+    ]
+
+    result = flipflop_debug.analyze_flipflop_debug_asset(
+        asset_id=assets[0].asset_id,
+        action="blink",
+    )
+
+    assert result.status == "passed"
+    assert result.used_external_api is False
+    assert result.anchor is not None
+    assert result.anchor["detected"] is True
+    assert result.debug_url == "/static/projects/test-lab-run-1/flipflop_cutouts/scene-1/debug_base_scene_1_base_blink.png"
+    assert (asset_dir / "debug_base_scene_1_base_blink.png").exists()
+
+
+def test_flipflop_debug_rejects_non_flipflop_assets(monkeypatch, tmp_path):
+    import pipeline.test_lab_flipflop_debug as flipflop_debug
+
+    monkeypatch.setattr(flipflop_debug, "DATA_DIR", tmp_path)
+    unsafe_dir = tmp_path / "projects" / "test-lab-run-1" / "images"
+    unsafe_dir.mkdir(parents=True)
+    Image.new("RGBA", (32, 32), (255, 0, 0, 255)).save(unsafe_dir / "base_fake.png")
+
+    try:
+        flipflop_debug.analyze_flipflop_debug_asset(
+            asset_id="test-lab-run-1/images/base_fake.png",
+            action="blink",
+        )
+    except ValueError as exc:
+        assert "not a cached Test Lab flip-flop base cutout" in str(exc)
+    else:
+        raise AssertionError("Expected non-flipflop asset to be rejected")
+
+
 def test_asset_vault_api_lists_filename_only_cutouts(monkeypatch, tmp_path):
     _engine, app = _setup_app(monkeypatch, tmp_path)
 
@@ -901,6 +954,59 @@ def test_popup_crop_split_endpoints_generate_and_chroma_separately(monkeypatch, 
         assert sheet.json()["sheet_url"].endswith("/item_sheet.png")
         assert sheet_chroma.status_code == 200
         assert sheet_chroma.json()["crops"][0]["url"].endswith("/crop_02_clock.png")
+    finally:
+        from database import get_session
+
+        app.dependency_overrides.pop(get_session, None)
+
+
+def test_flipflop_debug_endpoints_list_and_analyze(monkeypatch, tmp_path):
+    _engine, app = _setup_app(monkeypatch, tmp_path)
+
+    import api.test_lab as test_lab_api
+
+    class FakeAsset:
+        def model_dump(self, mode="python"):
+            return {
+                "asset_id": "test-lab-run/flipflop_cutouts/scene/base_scene_base.png",
+                "asset_url": "/static/projects/test-lab-run/flipflop_cutouts/scene/base_scene_base.png",
+                "script_id": "test-lab-run",
+                "scene_id": "scene",
+                "filename": "base_scene_base.png",
+                "created_at": "2026-06-12T00:00:00+00:00",
+                "source_metadata": {},
+            }
+
+    class FakeResult:
+        def model_dump(self, mode="python"):
+            return {
+                "asset": FakeAsset().model_dump(mode=mode),
+                "action": "blink",
+                "used_external_api": False,
+                "registration_algorithm_version": "test-version",
+                "anchor": {"detected": True},
+                "debug_url": "/static/projects/test-lab-run/flipflop_cutouts/scene/debug.png",
+                "status": "passed",
+                "error": None,
+            }
+
+    monkeypatch.setattr(test_lab_api, "list_flipflop_debug_assets", lambda: [FakeAsset()])
+    monkeypatch.setattr(test_lab_api, "analyze_flipflop_debug_asset", lambda asset_id, action: FakeResult())
+
+    client = TestClient(app)
+
+    try:
+        listed = client.get("/api/test-lab/flipflop-debug/assets")
+        analyzed = client.post(
+            "/api/test-lab/flipflop-debug/analyze",
+            json={"asset_id": "test-lab-run/flipflop_cutouts/scene/base_scene_base.png", "action": "blink"},
+        )
+
+        assert listed.status_code == 200
+        assert listed.json()["assets"][0]["filename"] == "base_scene_base.png"
+        assert analyzed.status_code == 200
+        assert analyzed.json()["used_external_api"] is False
+        assert analyzed.json()["debug_url"].endswith("/debug.png")
     finally:
         from database import get_session
 

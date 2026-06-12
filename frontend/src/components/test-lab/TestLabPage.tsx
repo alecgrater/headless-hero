@@ -11,6 +11,7 @@ import type {
   TestLabSubtitleSummary,
   TestLabVoiceSummary,
 } from "../../types/testLab";
+import FlipflopDebugLab from "./FlipflopDebugLab";
 import PopupCropLab from "./PopupCropLab";
 import TestLabControls, { settingsWithVisualTreatmentDefaults } from "./TestLabControls";
 import TestLabRunPanel from "./TestLabRunPanel";
@@ -68,7 +69,7 @@ type TestLabJobStatus = {
   error?: string | null;
 };
 
-type TestLabTab = "pipeline" | "popup-crop";
+type TestLabTab = "pipeline" | "popup-crop" | "flipflop-debug";
 type TestLabSettingsSection = "voice" | "subtitles";
 
 interface Props {
@@ -258,6 +259,7 @@ export default function TestLabPage({ active = true, onOpenSettingsSection }: Pr
           <div className="mt-4 inline-flex overflow-hidden rounded-md border border-neutral-800 bg-neutral-950/70">
             <TabButton active={activeTab === "pipeline"} label="Scene Pipeline" onClick={() => setActiveTab("pipeline")} />
             <TabButton active={activeTab === "popup-crop"} label="Popup Crop" onClick={() => setActiveTab("popup-crop")} />
+            <TabButton active={activeTab === "flipflop-debug"} label="Flip-flop Debug" onClick={() => setActiveTab("flipflop-debug")} />
           </div>
         </div>
 
@@ -308,9 +310,13 @@ export default function TestLabPage({ active = true, onOpenSettingsSection }: Pr
               />
             </aside>
           </div>
-        ) : (
+        ) : activeTab === "popup-crop" ? (
           <div className="min-h-0 flex-1 overflow-hidden p-4">
             <PopupCropLab />
+          </div>
+        ) : (
+          <div className="min-h-0 flex-1 overflow-hidden p-4">
+            <FlipflopDebugLab />
           </div>
         )}
       </div>

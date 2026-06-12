@@ -174,3 +174,26 @@ export interface PopupCropChromaResult {
   run_id: string;
   crops: PopupCropPreviewCrop[];
 }
+
+export type FlipflopDebugAction = "blink" | "speaking_mouth" | "eye_glance" | "eyebrow_raise";
+
+export interface FlipflopDebugAsset {
+  asset_id: string;
+  asset_url: string;
+  script_id: string;
+  scene_id: string;
+  filename: string;
+  created_at: string;
+  source_metadata: Record<string, unknown>;
+}
+
+export interface FlipflopDebugResult {
+  asset: FlipflopDebugAsset;
+  action: FlipflopDebugAction;
+  used_external_api: boolean;
+  registration_algorithm_version: string;
+  anchor?: Record<string, unknown> | null;
+  debug_url?: string | null;
+  status: "passed" | "failed";
+  error?: string | null;
+}
