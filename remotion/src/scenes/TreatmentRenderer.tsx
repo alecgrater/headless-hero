@@ -289,10 +289,11 @@ type FlipflopResolvedOverlayAnchor = Required<Pick<
 
 type FlipflopClosedEyeGeometry = {
   mask: {
-    cx: number;
-    cy: number;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
     rx: number;
-    ry: number;
     fill: string;
   };
   lid: {
@@ -403,6 +404,8 @@ export const flipflopBlinkEyeOverlayGeometry = (
   const maskRy = averageEyeHeight === null
     ? clamp(maskRx * 0.38, 2.4, 4.2)
     : clamp(averageEyeHeight * 1.35, 2.2, 4.2);
+  const maskWidth = maskRx * 2;
+  const maskHeight = maskRy * 2;
   const lidHalfWidth = maskRx * 0.72;
   const lidLift = maskRy * 0.24;
   return [leftEye, rightEye].map((eye) => {
@@ -410,10 +413,11 @@ export const flipflopBlinkEyeOverlayGeometry = (
     const maskY = eye.y + maskRy * 1.02;
     return {
       mask: {
-        cx: roundSvgNumber(eye.x),
-        cy: roundSvgNumber(maskY),
-        rx: roundSvgNumber(maskRx),
-        ry: roundSvgNumber(maskRy),
+        x: roundSvgNumber(eye.x - maskWidth / 2),
+        y: roundSvgNumber(maskY - maskHeight / 2),
+        width: roundSvgNumber(maskWidth),
+        height: roundSvgNumber(maskHeight),
+        rx: roundSvgNumber(maskHeight / 2),
         fill: skinFill,
       },
       lid: {
@@ -459,7 +463,7 @@ const FlipflopMicroExpressionOverlay: React.FC<{
       <svg viewBox="0 0 100 100" style={common}>
         {eyeGeometry.map((eye, index) => (
           <g key={index}>
-            <ellipse {...eye.mask} />
+            <rect {...eye.mask} />
             <path d={eye.lid.d} fill="none" stroke={eye.lid.stroke} strokeWidth={eye.lid.strokeWidth} strokeLinecap="round" />
           </g>
         ))}

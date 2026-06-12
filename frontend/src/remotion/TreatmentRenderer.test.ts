@@ -253,20 +253,18 @@ describe("flipflopBlinkEyeOverlayGeometry", () => {
 
     expect(geometry).toHaveLength(2);
     expect(geometry[0].mask).toMatchObject({
-      cx: 42,
       fill: "#D9A374",
     });
-    expect(geometry[0].mask.cy).toBeGreaterThan(33);
-    expect(geometry[0].mask.rx).toBeGreaterThanOrEqual(7);
-    expect(geometry[0].mask.rx).toBeGreaterThan(geometry[0].lid.strokeWidth);
+    expect(geometry[0].mask.width).toBeGreaterThanOrEqual(14);
+    expect(geometry[0].mask.y + geometry[0].mask.height / 2).toBeGreaterThan(33);
+    expect(geometry[0].mask.width / 2).toBeGreaterThan(geometry[0].lid.strokeWidth);
     expect(geometry[0].lid.strokeWidth).toBeLessThanOrEqual(1.35);
     expect(geometry[0].lid.stroke).toBe("#2A1712");
     expect(geometry[0].lid.d).toContain("Q42");
     expect(geometry[1].mask).toMatchObject({
-      cx: 58,
       fill: "#D9A374",
     });
-    expect(geometry[1].mask.cy).toBeGreaterThan(33);
+    expect(geometry[1].mask.y + geometry[1].mask.height / 2).toBeGreaterThan(33);
     expect(geometry[1].lid.d).toContain("Q58");
   });
 
@@ -282,9 +280,11 @@ describe("flipflopBlinkEyeOverlayGeometry", () => {
       "#D9A374",
     );
 
-    expect(geometry[0].mask.rx).toBeLessThan(7);
-    expect(geometry[0].mask.ry).toBeLessThan(4);
-    expect(geometry[0].mask.cy).toBeGreaterThan(geometry[0].lid.y);
+    expect(geometry[0].mask.width / 2).toBeLessThan(7);
+    expect(geometry[0].mask.height / 2).toBeLessThan(4);
+    expect(geometry[0].mask.y + geometry[0].mask.height / 2).toBeGreaterThan(geometry[0].lid.y);
+    expect(geometry[0].mask.x).toBeGreaterThan(38);
+    expect(geometry[0].mask.width).toBeLessThan(7);
     expect(geometry[0].lid.d).toContain("Q42");
   });
 });
