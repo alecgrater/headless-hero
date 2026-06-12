@@ -314,7 +314,7 @@ def test_flipflop_overlay_anchor_metadata_uses_actual_cutout_features():
     assert metadata["mouth"]["y"] == pytest.approx(0.639, abs=0.02)
 
 
-def test_flipflop_overlay_anchor_metadata_keeps_under_eye_wrinkles_out_of_erase_box():
+def test_flipflop_overlay_anchor_metadata_includes_under_eye_wrinkles_in_erase_box():
     from pipeline import image_gen as image_gen_mod
 
     image = Image.new("RGBA", (760, 820), (0, 0, 0, 0))
@@ -328,10 +328,32 @@ def test_flipflop_overlay_anchor_metadata_keeps_under_eye_wrinkles_out_of_erase_
 
     metadata = image_gen_mod._flipflop_overlay_anchor_metadata(image)
 
-    assert metadata["eye_left"]["erase_box"]["bottom"] < 0.505
+    assert metadata["eye_left"]["erase_box"]["bottom"] == pytest.approx(0.522, abs=0.02)
     assert metadata["eye_left"]["erase_box"]["top"] == pytest.approx(0.445, abs=0.02)
-    assert metadata["eye_right"]["erase_box"]["bottom"] < 0.505
+    assert metadata["eye_right"]["erase_box"]["bottom"] == pytest.approx(0.522, abs=0.02)
     assert metadata["eye_right"]["erase_box"]["top"] == pytest.approx(0.445, abs=0.02)
+
+
+def test_flipflop_overlay_anchor_metadata_includes_upper_eyelid_lines():
+    from pipeline import image_gen as image_gen_mod
+
+    image = Image.new("RGBA", (760, 820), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    draw.ellipse((210, 120, 550, 650), fill=(240, 195, 150, 255))
+    draw.line((300, 330, 345, 322), fill=(10, 10, 10, 255), width=4)
+    draw.line((445, 330, 490, 322), fill=(10, 10, 10, 255), width=4)
+    draw.ellipse((300, 365, 345, 395), fill=(10, 10, 10, 255))
+    draw.ellipse((445, 365, 490, 395), fill=(10, 10, 10, 255))
+    draw.line((302, 425, 342, 418), fill=(35, 28, 22, 255), width=4)
+    draw.line((448, 425, 488, 418), fill=(35, 28, 22, 255), width=4)
+    draw.rounded_rectangle((365, 520, 420, 528), radius=3, fill=(10, 10, 10, 255))
+
+    metadata = image_gen_mod._flipflop_overlay_anchor_metadata(image)
+
+    assert metadata["eye_left"]["erase_box"]["top"] < 0.415
+    assert metadata["eye_left"]["erase_box"]["bottom"] == pytest.approx(0.522, abs=0.02)
+    assert metadata["eye_right"]["erase_box"]["top"] < 0.415
+    assert metadata["eye_right"]["erase_box"]["bottom"] == pytest.approx(0.522, abs=0.02)
 
 
 def test_flipflop_overlay_anchor_metadata_expands_eye_erase_box_to_visible_sclera():

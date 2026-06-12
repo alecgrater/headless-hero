@@ -24,7 +24,7 @@ from prompts import IMAGE_CHARACTER_IN_SCENE, IMAGE_COMPOSITION_GUIDE, IMAGE_VIS
 
 logger = logging.getLogger(__name__)
 
-FLIPFLOP_CUTOUT_REGISTRATION_VERSION = "alpha-mask-registration-v20"
+FLIPFLOP_CUTOUT_REGISTRATION_VERSION = "alpha-mask-registration-v22"
 FLIPFLOP_SCALE_CORRECTION_MIN = 0.92
 FLIPFLOP_SCALE_CORRECTION_MAX = 1.08
 FLIPFLOP_ASPECT_RATIO_TOLERANCE = 0.12
@@ -1351,9 +1351,9 @@ def _flipflop_eye_erase_box(
     width, height = image.size
     pixels = image.load()
     search_left = max(0, round((eye["left"] - eye["width"] * 0.35) * width))
-    search_top = max(0, round((eye["top"] - eye["height"] * 0.25) * height))
+    search_top = max(0, round((eye["top"] - eye["height"] * 1.05) * height))
     search_right = min(width - 1, round((eye["right"] + eye["width"] * 0.35) * width))
-    search_bottom = min(height - 1, round((eye["bottom"] + eye["height"] * 0.45) * height))
+    search_bottom = min(height - 1, round((eye["bottom"] + eye["height"] * 1.55) * height))
     feature_xs: list[int] = []
     feature_ys: list[int] = []
     for y in range(search_top, search_bottom + 1):
