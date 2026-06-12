@@ -14,6 +14,7 @@ from api._helpers import update_scene
 from models.generation_duration import GenerationDuration
 from models.script import Script, ScriptContent, VISUAL_MODES
 from pipeline.image_gen import (
+    FlipflopRegistrationError,
     generate_batch,
     generate_comparison_board_cutouts,
     generate_flipflop_cutouts,
@@ -349,17 +350,20 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
     )
 
     if treatment != "full_frame":
-        visual_layers = _generate_scene_visual_layers(
-            content=content,
-            scene_id=body.scene_id,
-            script_id=body.script_id,
-            width=body.width,
-            height=body.height,
-            request_mode=treatment,
-            request_layers=body.visual_layers,
-            request_scene_prompt=body.visual_prompt,
-            request_contains_person=body.contains_person,
-        )
+        try:
+            visual_layers = _generate_scene_visual_layers(
+                content=content,
+                scene_id=body.scene_id,
+                script_id=body.script_id,
+                width=body.width,
+                height=body.height,
+                request_mode=treatment,
+                request_layers=body.visual_layers,
+                request_scene_prompt=body.visual_prompt,
+                request_contains_person=body.contains_person,
+            )
+        except FlipflopRegistrationError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
         update_scene(
             session,
             body.script_id,

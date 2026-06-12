@@ -1574,6 +1574,64 @@ def test_generate_visual_persists_request_visual_treatment(monkeypatch):
     ]
 
 
+def test_generate_visual_reports_flipflop_registration_error(monkeypatch):
+    from fastapi import HTTPException
+    from api import visuals as visuals_api
+    from api.visuals import GenerateVisualRequest
+
+    engine = _build_test_engine()
+    script_id = "flipflop-registration-error"
+    content = content_with_scenes(
+        Scene(
+            id="scene_001",
+            narration="Before and after.",
+            visual_prompt="Person changes expression.",
+            visual_mode="flipflop",
+            flipflop_action="blink",
+            visual_layers=[
+                VisualLayer(id="state_a", asset_kind="cutout", prompt="state A"),
+                VisualLayer(id="state_b", asset_kind="cutout", prompt="state B"),
+            ],
+        )
+    )
+
+    monkeypatch.setattr(visuals_api, "_require_character_reference_ready", lambda session, script_id: None)
+    monkeypatch.setattr(
+        visuals_api,
+        "generate_flipflop_cutouts",
+        lambda **_kwargs: (_ for _ in ()).throw(
+            visuals_api.FlipflopRegistrationError(
+                "Flipflop State A/B cutouts could not be aligned: generated states differ too much in scale or aspect ratio. Regenerate the scene or use full_frame."
+            )
+        ),
+    )
+
+    with Session(engine) as session:
+        session.add(
+            Script(
+                id=script_id,
+                brand_id="brand",
+                topic_title="Treatment Test",
+                script_json=content.model_dump_json(),
+            )
+        )
+        session.commit()
+
+        with pytest.raises(HTTPException) as exc_info:
+            visuals_api.generate_visual(
+                GenerateVisualRequest(
+                    script_id=script_id,
+                    scene_id="scene_001",
+                    visual_prompt="Person changes expression.",
+                    visual_mode="flipflop",
+                ),
+                session,
+            )
+
+    assert exc_info.value.status_code == 400
+    assert "could not be aligned" in str(exc_info.value.detail)
+
+
 def test_generate_visual_preserves_explicit_stat_card_and_generates_icon_layer(monkeypatch):
     from api import visuals as visuals_api
     from api.visuals import GenerateVisualRequest
@@ -2368,7 +2426,7 @@ def test_generate_flipflop_cutouts_recrops_states_to_shared_bbox(tmp_path, monke
         image = Image.new("RGBA", (120, 100), (0, 255, 0, 255))
         draw = ImageDraw.Draw(image)
         draw.rectangle((20, 35, 40, 60), fill=(255, 0, 0, 255))
-        draw.rectangle((75, 15, 115, 65), fill=(255, 0, 0, 255))
+        draw.rectangle((78, 35, 98, 60), fill=(255, 0, 0, 255))
         image.save(source)
         return str(source)
 
@@ -2392,12 +2450,11 @@ def test_generate_flipflop_cutouts_recrops_states_to_shared_bbox(tmp_path, monke
     assert image_layers[0]["visual_source_metadata"]["trim_box"] == image_layers[1]["visual_source_metadata"]["trim_box"]
     assert [layer["visual_source_metadata"]["registration_box"] for layer in image_layers] == [
         [20, 35, 41, 61],
-        [15, 15, 56, 66],
+        [18, 35, 39, 61],
     ]
     assert image_layers[0]["visual_source_metadata"]["scale_factor"] == 1.0
     assert image_layers[1]["visual_source_metadata"]["scale_factor"] == 1.0
-    assert image_layers[1]["visual_source_metadata"]["fallback"] is True
-    assert image_layers[1]["visual_source_metadata"]["registration_fallback"] == "static_state_a_cutout"
+    assert image_layers[1]["visual_source_metadata"]["fallback"] is False
     assert all("virtual_trim_box" in layer["visual_source_metadata"] for layer in image_layers)
     assert all(
         layer["visual_source_metadata"]["registration_algorithm_version"]
@@ -2418,7 +2475,7 @@ def test_generate_flipflop_cutouts_recrops_states_to_shared_bbox(tmp_path, monke
     assert (state_b_bbox[3] - state_b_bbox[1]) == (state_a_bbox[3] - state_a_bbox[1])
 
 
-def test_generate_flipflop_cutouts_falls_back_for_large_zoom_without_rendering_jump(tmp_path, monkeypatch):
+def test_generate_flipflop_cutouts_errors_for_large_zoom_mismatch(tmp_path, monkeypatch):
     image_gen, _, _ = _stub_panel_image_context(monkeypatch, tmp_path)
 
     monkeypatch.setattr(image_gen, "save_vault_image", lambda **_kwargs: None)
@@ -2440,43 +2497,22 @@ def test_generate_flipflop_cutouts_falls_back_for_large_zoom_without_rendering_j
 
     monkeypatch.setattr(image_gen, "generate_image", fake_generate_image)
 
-    layers = image_gen.generate_flipflop_cutouts(
-        scene_id="scene_001",
-        layers=[
-            {"id": "state_a", "type": "image", "prompt": "State A prompt", "contains_person": True},
-            {"id": "state_b", "type": "image", "prompt": "State B prompt", "contains_person": True},
-        ],
-        script_id="script-1",
-        scene_prompt="Person changes expression.",
-        width=320,
-        height=180,
-        contains_person=True,
-    )
-
-    image_layers = [layer for layer in layers if layer.get("type", "image") == "image"]
-    assert image_layers[1]["visual_source_metadata"]["fallback"] is True
-    assert image_layers[1]["visual_source_metadata"]["registration_fallback"] == "static_state_a_cutout"
-    output_dir = tmp_path / "projects" / "script-1" / "flipflop_cutouts" / "scene_001"
-    with Image.open(output_dir / "state_01_state_a.png") as state_a:
-        state_a_bbox = state_a.getbbox()
-        state_a_size = state_a.size
-    with Image.open(output_dir / "state_02_state_b.png") as state_b:
-        state_b_bbox = state_b.getbbox()
-        state_b_size = state_b.size
-
-    assert state_b_size == state_a_size
-    assert state_a_bbox is not None
-    assert state_b_bbox is not None
-    state_a_width = state_a_bbox[2] - state_a_bbox[0]
-    state_a_height = state_a_bbox[3] - state_a_bbox[1]
-    state_b_width = state_b_bbox[2] - state_b_bbox[0]
-    state_b_height = state_b_bbox[3] - state_b_bbox[1]
-    assert abs(state_b_width - state_a_width) <= 1
-    assert abs(state_b_height - state_a_height) <= 1
-    assert round(state_a_width / state_a_height, 2) == round(state_b_width / state_b_height, 2)
+    with pytest.raises(image_gen.FlipflopRegistrationError, match="could not be aligned"):
+        image_gen.generate_flipflop_cutouts(
+            scene_id="scene_001",
+            layers=[
+                {"id": "state_a", "type": "image", "prompt": "State A prompt", "contains_person": True},
+                {"id": "state_b", "type": "image", "prompt": "State B prompt", "contains_person": True},
+            ],
+            script_id="script-1",
+            scene_prompt="Person changes expression.",
+            width=320,
+            height=180,
+            contains_person=True,
+        )
 
 
-def test_generate_flipflop_cutouts_falls_back_for_borderline_final_size_mismatch(tmp_path, monkeypatch):
+def test_generate_flipflop_cutouts_errors_for_borderline_final_size_mismatch(tmp_path, monkeypatch):
     image_gen, _, _ = _stub_panel_image_context(monkeypatch, tmp_path)
 
     monkeypatch.setattr(image_gen, "save_vault_image", lambda **_kwargs: None)
@@ -2498,29 +2534,19 @@ def test_generate_flipflop_cutouts_falls_back_for_borderline_final_size_mismatch
 
     monkeypatch.setattr(image_gen, "generate_image", fake_generate_image)
 
-    layers = image_gen.generate_flipflop_cutouts(
-        scene_id="scene_001",
-        layers=[
-            {"id": "state_a", "type": "image", "prompt": "State A prompt", "contains_person": True},
-            {"id": "state_b", "type": "image", "prompt": "State B prompt", "contains_person": True},
-        ],
-        script_id="script-1",
-        scene_prompt="Person changes expression.",
-        width=320,
-        height=180,
-        contains_person=True,
-    )
-
-    image_layers = [layer for layer in layers if layer.get("type", "image") == "image"]
-    assert image_layers[1]["visual_source_metadata"]["fallback"] is True
-    assert image_layers[1]["visual_source_metadata"]["registration_fallback"] == "static_state_a_cutout"
-    output_dir = tmp_path / "projects" / "script-1" / "flipflop_cutouts" / "scene_001"
-    with Image.open(output_dir / "state_01_state_a.png") as state_a:
-        state_a_bbox = state_a.getbbox()
-    with Image.open(output_dir / "state_02_state_b.png") as state_b:
-        state_b_bbox = state_b.getbbox()
-
-    assert state_a_bbox == state_b_bbox
+    with pytest.raises(image_gen.FlipflopRegistrationError, match="could not be aligned"):
+        image_gen.generate_flipflop_cutouts(
+            scene_id="scene_001",
+            layers=[
+                {"id": "state_a", "type": "image", "prompt": "State A prompt", "contains_person": True},
+                {"id": "state_b", "type": "image", "prompt": "State B prompt", "contains_person": True},
+            ],
+            script_id="script-1",
+            scene_prompt="Person changes expression.",
+            width=320,
+            height=180,
+            contains_person=True,
+        )
 
 
 def test_generate_flipflop_cutouts_shared_sheet_cache_ignores_state_cutout_mtime(tmp_path, monkeypatch):
@@ -2541,8 +2567,8 @@ def test_generate_flipflop_cutouts_shared_sheet_cache_ignores_state_cutout_mtime
         source = tmp_path / f"source-{generated_count}.png"
         image = Image.new("RGBA", (120, 100), (0, 255, 0, 255))
         draw = ImageDraw.Draw(image)
-        draw.rectangle((40, 20, 70 + generated_count, 60), fill=(255, 0, 0, 255))
-        draw.rectangle((80, 20, 105, 60), fill=(255, 0, 0, 255))
+        draw.rectangle((20, 20, 50, 60), fill=(255, 0, 0, 255))
+        draw.rectangle((80, 20, 110, 60), fill=(255, 0, 0, 255))
         image.save(source)
         return str(source)
 
@@ -2589,7 +2615,7 @@ def test_generate_flipflop_cutouts_cache_tracks_registration_version(tmp_path, m
         source = tmp_path / f"source-{generated_count}.png"
         image = Image.new("RGBA", (120, 100), (0, 255, 0, 255))
         draw = ImageDraw.Draw(image)
-        draw.rectangle((30, 20, 70, 70), fill=(255, 0, 0, 255))
+        draw.rectangle((20, 20, 50, 70), fill=(255, 0, 0, 255))
         draw.rectangle((80, 20, 110, 70), fill=(255, 0, 0, 255))
         image.save(source)
         return str(source)

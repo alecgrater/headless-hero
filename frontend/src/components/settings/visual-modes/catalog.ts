@@ -157,7 +157,7 @@ export const VISUAL_MODE_CATALOG: VisualModeEntry[] = [
     label: "Flip Flop",
     shortDescription: "Human face-action cutouts alternating between A/B states.",
     longDescription:
-      "Two transparent human/character state cutouts keyed from a shared A/B sheet onto one registered output canvas alternate over a renderer-owned context stage. Production scenes must carry a face-only flipflop_action: blink, speaking_mouth, eye_glance, or eyebrow_raise, plus normalized renderer_context. Invalid, pose-changing, object-only, or non-human requests downgrade to full_frame.",
+      "Two transparent human/character state cutouts keyed from a shared A/B sheet onto one registered output canvas alternate over a renderer-owned context stage. Production scenes must carry a face-only flipflop_action: blink, speaking_mouth, eye_glance, or eyebrow_raise, plus normalized renderer_context. Invalid, pose-changing, object-only, or non-human requests downgrade to full_frame; cutouts that cannot be registered fail generation with a visible error.",
     previewSrc: "/visual-modes/flipflop.mp4",
     durationProfile: "normal",
     durationLabel: "Normal target · 5-9s",

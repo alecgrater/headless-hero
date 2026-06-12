@@ -22,7 +22,7 @@ from prompts import IMAGE_CHARACTER_IN_SCENE, IMAGE_COMPOSITION_GUIDE, IMAGE_VIS
 
 logger = logging.getLogger(__name__)
 
-FLIPFLOP_CUTOUT_REGISTRATION_VERSION = "alpha-mask-registration-v3"
+FLIPFLOP_CUTOUT_REGISTRATION_VERSION = "alpha-mask-registration-v4"
 FLIPFLOP_SCALE_CORRECTION_MIN = 0.92
 FLIPFLOP_SCALE_CORRECTION_MAX = 1.08
 FLIPFLOP_ASPECT_RATIO_TOLERANCE = 0.12
@@ -30,6 +30,12 @@ FLIPFLOP_FINAL_SIZE_TOLERANCE_PX = 2
 _STYLE_GUIDE = IMAGE_COMPOSITION_GUIDE.template
 _VISUAL_STYLE = IMAGE_VISUAL_STYLE.template
 _CHARACTER_PROMPT = IMAGE_CHARACTER_IN_SCENE.template
+
+
+class FlipflopRegistrationError(RuntimeError):
+    """Raised when generated flipflop states cannot be safely aligned."""
+
+
 _SEQUENCE_CONSISTENCY_PROMPT = """\
 Multi-image sequence consistency:
 - These images belong to the same scene sequence and must look like adjacent shots from one cohesive explainer video.
@@ -1088,17 +1094,14 @@ def _recrop_flipflop_cutouts_to_shared_bbox(
     target_width = max(1, target_box[2] - target_box[0])
     target_height = max(1, target_box[3] - target_box[1])
     target_aspect_ratio = target_width / target_height
-    prepared_subjects: list[tuple[dict, Image.Image, list[int], float, tuple[float, float], tuple[int, int], bool, str]] = []
+    prepared_subjects: list[tuple[dict, Image.Image, list[int], float, tuple[float, float], tuple[int, int]]] = []
     shifted_boxes: list[list[int]] = []
-    fallback_recorded = False
 
     for entry, keyed, bbox in keyed_entries:
         subject_width = max(1, bbox[2] - bbox[0])
         subject_height = max(1, bbox[3] - bbox[1])
         scale_factor = min(target_width / subject_width, target_height / subject_height)
         subject = keyed.crop(tuple(bbox))
-        used_static_fallback = False
-        fallback_reason = ""
         subject_aspect_ratio = subject_width / subject_height
         scale_is_safe = FLIPFLOP_SCALE_CORRECTION_MIN <= scale_factor <= FLIPFLOP_SCALE_CORRECTION_MAX
         aspect_is_safe = (
@@ -1106,28 +1109,9 @@ def _recrop_flipflop_cutouts_to_shared_bbox(
             <= FLIPFLOP_ASPECT_RATIO_TOLERANCE
         )
         if prepared_subjects and (not scale_is_safe or not aspect_is_safe):
-            used_static_fallback = True
-            fallback_reason = (
-                "State B scale/aspect mismatch exceeded flipflop registration tolerance"
-                if len(prepared_subjects) == 1
-                else "Flipflop state scale/aspect mismatch exceeded registration tolerance"
+            raise FlipflopRegistrationError(
+                "Flipflop State A/B cutouts could not be aligned: generated states differ too much in scale or aspect ratio. Regenerate the scene or use full_frame."
             )
-            if not fallback_recorded:
-                record_fallback(
-                    category="image_generation",
-                    event="flipflop_static_state_fallback",
-                    reason=fallback_reason,
-                    from_value="two_state_cutouts",
-                    to_value="static_state_a_cutout",
-                    script_id=script_id,
-                    scene_id=scene_id,
-                    severity="warn",
-                    metadata={"source_type": "flipflop_cutout"},
-                    logger=logger,
-                )
-                fallback_recorded = True
-            subject = prepared_subjects[0][1].copy()
-            scale_factor = 1.0
         if scale_factor != 1.0:
             scaled_size = (
                 max(1, round(subject.width * scale_factor)),
@@ -1141,25 +1125,10 @@ def _recrop_flipflop_cutouts_to_shared_bbox(
             abs(final_width - target_width) <= FLIPFLOP_FINAL_SIZE_TOLERANCE_PX
             and abs(final_height - target_height) <= FLIPFLOP_FINAL_SIZE_TOLERANCE_PX
         )
-        if prepared_subjects and not used_static_fallback and not final_size_is_safe:
-            used_static_fallback = True
-            fallback_reason = "Final registered state size exceeded flipflop tolerance"
-            if not fallback_recorded:
-                record_fallback(
-                    category="image_generation",
-                    event="flipflop_static_state_fallback",
-                    reason=fallback_reason,
-                    from_value="two_state_cutouts",
-                    to_value="static_state_a_cutout",
-                    script_id=script_id,
-                    scene_id=scene_id,
-                    severity="warn",
-                    metadata={"source_type": "flipflop_cutout"},
-                    logger=logger,
-                )
-                fallback_recorded = True
-            subject = prepared_subjects[0][1].copy()
-            scale_factor = 1.0
+        if prepared_subjects and not final_size_is_safe:
+            raise FlipflopRegistrationError(
+                "Flipflop State A/B cutouts could not be aligned: final registered state sizes still differ. Regenerate the scene or use full_frame."
+            )
         anchor = _alpha_anchor(subject)
         if not prepared_subjects:
             target_anchor = anchor
@@ -1170,7 +1139,7 @@ def _recrop_flipflop_cutouts_to_shared_bbox(
             subject.width + shift[0],
             subject.height + shift[1],
         ]
-        prepared_subjects.append((entry, subject, bbox, scale_factor, anchor, shift, used_static_fallback, fallback_reason))
+        prepared_subjects.append((entry, subject, bbox, scale_factor, anchor, shift))
         shifted_boxes.append(shifted_box)
 
     virtual_trim_box = [
@@ -1180,7 +1149,7 @@ def _recrop_flipflop_cutouts_to_shared_bbox(
         max(box[3] for box in shifted_boxes) + padding,
     ]
 
-    for entry, subject, bbox, scale_factor, anchor, shift, used_static_fallback, fallback_reason in prepared_subjects:
+    for entry, subject, bbox, scale_factor, anchor, shift in prepared_subjects:
         local_path = Path(entry["local_path"])
         registered = _translated_alpha_crop(subject, shift=shift, crop_box=virtual_trim_box)
         registered.save(local_path)
@@ -1195,14 +1164,6 @@ def _recrop_flipflop_cutouts_to_shared_bbox(
             "alpha_anchor": [round(anchor[0], 2), round(anchor[1], 2)],
             "alpha_anchor_shift": [shift[0], shift[1]],
         }
-        if used_static_fallback:
-            source_metadata.update(
-                {
-                    "fallback": True,
-                    "fallback_reason": fallback_reason,
-                    "registration_fallback": "static_state_a_cutout",
-                }
-            )
         _write_source_metadata(local_path, source_metadata)
         entry["layer"]["visual_source_metadata"] = source_metadata
 
