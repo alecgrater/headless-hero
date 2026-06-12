@@ -1,6 +1,6 @@
 import React from "react";
 import { Img, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
-import type { SceneInput, VisualLayer } from "../types";
+import type { FlipflopOverlayAnchor, FlipflopOverlayPoint, SceneInput, VisualLayer } from "../types";
 import { RendererContextStage } from "./RendererContextStage";
 import { StatCard } from "./StatCard";
 
@@ -259,7 +259,11 @@ const Flipflop: React.FC<Props> = ({ scene, fallbackVisualLayer }) => {
             style={layerImageStyle(activeLayer)}
           />
           {deterministicOverlay ? (
-            <FlipflopMicroExpressionOverlay overlay={deterministicOverlay} visible={overlayVisible} />
+            <FlipflopMicroExpressionOverlay
+              anchor={flipflopOverlayAnchor(activeLayer)}
+              overlay={deterministicOverlay}
+              visible={overlayVisible}
+            />
           ) : null}
         </div>
       </div>
@@ -297,7 +301,50 @@ export const flipflopMicroOverlay = (action?: string | null): FlipflopOverlay | 
   }
 };
 
-const FlipflopMicroExpressionOverlay: React.FC<{ overlay: FlipflopOverlay; visible: boolean }> = ({ overlay, visible }) => {
+const DEFAULT_FLIPFLOP_OVERLAY_ANCHOR: Required<Pick<
+  FlipflopOverlayAnchor,
+  "eye_left" | "eye_right" | "mouth" | "brow_left" | "brow_right"
+>> = {
+  eye_left: { x: 0.45, y: 0.36 },
+  eye_right: { x: 0.55, y: 0.36 },
+  mouth: { x: 0.50, y: 0.46 },
+  brow_left: { x: 0.45, y: 0.315 },
+  brow_right: { x: 0.55, y: 0.315 },
+};
+
+const validAnchorPoint = (point?: FlipflopOverlayPoint): point is FlipflopOverlayPoint => (
+  typeof point?.x === "number"
+  && typeof point?.y === "number"
+  && point.x >= 0
+  && point.x <= 1
+  && point.y >= 0
+  && point.y <= 1
+);
+
+export const flipflopOverlayAnchor = (layer: VisualLayer): Required<Pick<
+  FlipflopOverlayAnchor,
+  "eye_left" | "eye_right" | "mouth" | "brow_left" | "brow_right"
+>> => {
+  const anchor = layer.visual_source_metadata?.flipflop_overlay_anchor;
+  return {
+    eye_left: validAnchorPoint(anchor?.eye_left) ? anchor.eye_left : DEFAULT_FLIPFLOP_OVERLAY_ANCHOR.eye_left,
+    eye_right: validAnchorPoint(anchor?.eye_right) ? anchor.eye_right : DEFAULT_FLIPFLOP_OVERLAY_ANCHOR.eye_right,
+    mouth: validAnchorPoint(anchor?.mouth) ? anchor.mouth : DEFAULT_FLIPFLOP_OVERLAY_ANCHOR.mouth,
+    brow_left: validAnchorPoint(anchor?.brow_left) ? anchor.brow_left : DEFAULT_FLIPFLOP_OVERLAY_ANCHOR.brow_left,
+    brow_right: validAnchorPoint(anchor?.brow_right) ? anchor.brow_right : DEFAULT_FLIPFLOP_OVERLAY_ANCHOR.brow_right,
+  };
+};
+
+const toSvgPoint = (point: FlipflopOverlayPoint): FlipflopOverlayPoint => ({
+  x: point.x * 100,
+  y: point.y * 100,
+});
+
+const FlipflopMicroExpressionOverlay: React.FC<{
+  anchor: ReturnType<typeof flipflopOverlayAnchor>;
+  overlay: FlipflopOverlay;
+  visible: boolean;
+}> = ({ anchor, overlay, visible }) => {
   const opacity = visible ? 1 : 0;
   const common: React.CSSProperties = {
     position: "absolute",
@@ -305,38 +352,43 @@ const FlipflopMicroExpressionOverlay: React.FC<{ overlay: FlipflopOverlay; visib
     pointerEvents: "none",
     opacity,
   };
+  const leftEye = toSvgPoint(anchor.eye_left);
+  const rightEye = toSvgPoint(anchor.eye_right);
+  const mouth = toSvgPoint(anchor.mouth);
+  const leftBrow = toSvgPoint(anchor.brow_left);
+  const rightBrow = toSvgPoint(anchor.brow_right);
 
   if (overlay.kind === "mouth") {
     return (
-      <svg viewBox="0 0 760 820" style={common}>
-        <ellipse cx="380" cy="374" rx="34" ry="18" fill="#F4BE91" />
-        <ellipse cx="380" cy="377" rx="12" ry="18" fill="#4B1814" stroke="#111" strokeWidth="5" />
+      <svg viewBox="0 0 100 100" style={common}>
+        <ellipse cx={mouth.x} cy={mouth.y - 0.4} rx="4.5" ry="2.4" fill="#F4BE91" />
+        <ellipse cx={mouth.x} cy={mouth.y} rx="1.6" ry="2.3" fill="#4B1814" stroke="#111" strokeWidth="0.65" />
       </svg>
     );
   }
 
   if (overlay.kind === "eyes" && overlay.state === "closed") {
     return (
-      <svg viewBox="0 0 760 820" style={common}>
-        <path d="M308 305 Q338 297 366 305" fill="none" stroke="#111" strokeWidth="9" strokeLinecap="round" />
-        <path d="M394 305 Q424 297 452 305" fill="none" stroke="#111" strokeWidth="9" strokeLinecap="round" />
+      <svg viewBox="0 0 100 100" style={common}>
+        <path d={`M${leftEye.x - 4} ${leftEye.y} Q${leftEye.x} ${leftEye.y - 1.2} ${leftEye.x + 4} ${leftEye.y}`} fill="none" stroke="#111" strokeWidth="1.2" strokeLinecap="round" />
+        <path d={`M${rightEye.x - 4} ${rightEye.y} Q${rightEye.x} ${rightEye.y - 1.2} ${rightEye.x + 4} ${rightEye.y}`} fill="none" stroke="#111" strokeWidth="1.2" strokeLinecap="round" />
       </svg>
     );
   }
 
   if (overlay.kind === "eyes" && overlay.state === "glance") {
     return (
-      <svg viewBox="0 0 760 820" style={common}>
-        <ellipse cx="346" cy="314" rx="13" ry="18" fill="#111" />
-        <ellipse cx="432" cy="314" rx="13" ry="18" fill="#111" />
+      <svg viewBox="0 0 100 100" style={common}>
+        <ellipse cx={leftEye.x - 1.1} cy={leftEye.y} rx="1.7" ry="2.2" fill="#111" />
+        <ellipse cx={rightEye.x - 1.1} cy={rightEye.y} rx="1.7" ry="2.2" fill="#111" />
       </svg>
     );
   }
 
   return (
-    <svg viewBox="0 0 760 820" style={common}>
-      <path d="M300 282 Q334 268 368 278" fill="none" stroke="#111" strokeWidth="9" strokeLinecap="round" />
-      <path d="M392 274 Q426 258 460 268" fill="none" stroke="#111" strokeWidth="9" strokeLinecap="round" />
+    <svg viewBox="0 0 100 100" style={common}>
+      <path d={`M${leftBrow.x - 4.5} ${leftBrow.y} Q${leftBrow.x} ${leftBrow.y - 1.8} ${leftBrow.x + 4.5} ${leftBrow.y - 0.6}`} fill="none" stroke="#111" strokeWidth="1.2" strokeLinecap="round" />
+      <path d={`M${rightBrow.x - 4.5} ${rightBrow.y - 0.8} Q${rightBrow.x} ${rightBrow.y - 2.6} ${rightBrow.x + 4.5} ${rightBrow.y - 1.4}`} fill="none" stroke="#111" strokeWidth="1.2" strokeLinecap="round" />
     </svg>
   );
 };

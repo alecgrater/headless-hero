@@ -312,7 +312,7 @@ describe("TestLabControls layout", () => {
     const visualMode = screen.getByTestId("test-lab-section-visual-mode");
     fireEvent.mouseEnter(within(visualMode).getByRole("button", { name: /Flip-flop/i }));
 
-    expect(within(visualMode).getByText(/two cropped transparent cutouts and stages them over renderer-owned scene context/i)).toBeInTheDocument();
+    expect(within(visualMode).getByText(/one neutral transparent cutout and stages deterministic face overlays/i)).toBeInTheDocument();
     expect(within(visualMode).getByLabelText("Flip-flop action")).toBeInTheDocument();
     expect(within(visualMode).getByLabelText("Scene context")).toBeInTheDocument();
   });
@@ -395,12 +395,12 @@ describe("TestLabControls layout", () => {
     );
 
     fireEvent.change(screen.getByLabelText("Flip-flop action"), {
-      target: { value: "head_nod" },
+      target: { value: "eye_glance" },
     });
 
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({
-        flipflop_action: "head_nod",
+        flipflop_action: "eye_glance",
         narration: "Custom narration.",
         visual_prompt: "Custom prompt.",
       }),
@@ -439,7 +439,7 @@ describe("TestLabControls layout", () => {
         preset={preset}
         defaultMainCharacter={null}
         visualTreatmentDefaults={defaults}
-        settings={{ ...baseSettings, visual_mode: "flipflop", flipflop_action: "head_nod" }}
+        settings={{ ...baseSettings, visual_mode: "flipflop", flipflop_action: "eye_glance" }}
         voiceSummary={voiceSummary}
         subtitleSummary={subtitleSummary}
         onChange={onChange}
@@ -465,9 +465,21 @@ describe("TestLabControls layout", () => {
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({
         visual_mode: "flipflop",
-        flipflop_action: "head_nod",
+        flipflop_action: "eye_glance",
       }),
     );
+  });
+
+  it("does not offer unsupported body-pose actions for deterministic flip-flop overlays", () => {
+    renderControls({ ...baseSettings, visual_mode: "flipflop" });
+
+    const actionSelect = screen.getByLabelText("Flip-flop action");
+
+    expect(within(actionSelect).queryByRole("option", { name: /Head nod/i })).not.toBeInTheDocument();
+    expect(within(actionSelect).getByRole("option", { name: "Blink" })).toBeInTheDocument();
+    expect(within(actionSelect).getByRole("option", { name: "Speaking mouth" })).toBeInTheDocument();
+    expect(within(actionSelect).getByRole("option", { name: "Eye glance" })).toBeInTheDocument();
+    expect(within(actionSelect).getByRole("option", { name: "Eyebrow raise" })).toBeInTheDocument();
   });
 
   it("does not expose editable State A/State B prompts for flip-flop (action-derived in backend)", () => {
@@ -487,7 +499,7 @@ describe("TestLabControls layout", () => {
     expect(screen.queryByLabelText("State A")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("State B")).not.toBeInTheDocument();
     expect(
-      screen.getByText(/Production routing uses the four face actions/i),
+      screen.getByText(/renderer-supported face actions/i),
     ).toBeInTheDocument();
   });
 

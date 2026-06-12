@@ -2,7 +2,7 @@
 
 import json
 
-from models.script import Scene, ScriptContent, Segment
+from models.script import Scene, ScriptContent, Segment, VisualLayer
 from pipeline import remotion_render
 
 
@@ -165,6 +165,32 @@ def test_scene_input_props_include_flipflop_action():
     props = remotion_render._scene_to_input_props(scene, "script-1")
 
     assert props["flipflop_action"] == "speaking_mouth"
+
+
+def test_scene_input_props_include_visual_layer_source_metadata():
+    scene = Scene(
+        id="s1",
+        narration="He blinks.",
+        visual_prompt="Teacher character.",
+        visual_mode="flipflop",
+        flipflop_action="blink",
+        visual_layers=[
+            VisualLayer(
+                id="s1_base",
+                asset_kind="cutout",
+                image_url="/static/projects/script-1/flipflop_cutouts/s1/base.png",
+                visual_source_metadata={
+                    "source_type": "flipflop_base_cutout",
+                    "flipflop_overlay_anchor": {"mouth": {"x": 0.5, "y": 0.46}},
+                },
+            )
+        ],
+    )
+
+    props = remotion_render._scene_to_input_props(scene, "script-1")
+
+    assert props["visual_layers"][0]["visual_source_metadata"]["source_type"] == "flipflop_base_cutout"
+    assert props["visual_layers"][0]["visual_source_metadata"]["flipflop_overlay_anchor"]["mouth"] == {"x": 0.5, "y": 0.46}
 
 
 def test_subtitle_render_fingerprint_includes_renderer_context_for_canvas_modes():

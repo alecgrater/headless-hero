@@ -82,6 +82,7 @@ class VisualLayer(BaseModel):
     enter_at_seconds: float = 0.0
     exit_at_seconds: float | None = None
     animation: VisualLayerAnimation = "none"
+    visual_source_metadata: dict | None = None
 
     @field_validator("type", mode="before")
     @classmethod

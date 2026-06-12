@@ -999,6 +999,7 @@ def generate_flipflop_base_cutout(
                 f"{prompt}\n\n"
                 "Generate exactly one isolated human or character cutout on a solid chroma key background. "
                 "Use a neutral/resting version of the face; do not draw alternate states. "
+                "Canonical framing requirement: front-facing chest-up bust, head centered horizontally, eyes near 36% of the image height, mouth near 46% of the image height, shoulders visible in the lower third, no tilt, no profile view, no extreme close-up, no full-body distant figure. "
                 "The renderer will add any blink, mouth, eye, or eyebrow micro-animation later. "
                 "No props, scenery, text, labels, borders, panels, or split-screen layout."
             ),
@@ -1034,6 +1035,7 @@ def generate_flipflop_base_cutout(
                 "provider": os.environ.get("IMAGE_PROVIDER", "google"),
                 "fallback": False,
                 "trim_box": trim_box,
+                "flipflop_overlay_anchor": _flipflop_overlay_anchor_metadata(),
                 "registration_algorithm_version": FLIPFLOP_CUTOUT_REGISTRATION_VERSION,
             }
             _write_source_metadata(local_path, metadata)
@@ -1056,7 +1058,20 @@ def _flipflop_base_cache_valid(path: Path) -> bool:
         and metadata.get("registration_algorithm_version") == FLIPFLOP_CUTOUT_REGISTRATION_VERSION
         and metadata.get("source_type") == "flipflop_base_cutout"
         and isinstance(metadata.get("trim_box"), list)
+        and isinstance(metadata.get("flipflop_overlay_anchor"), dict)
     )
+
+
+def _flipflop_overlay_anchor_metadata() -> dict[str, object]:
+    return {
+        "version": 1,
+        "coordinate_space": "normalized_layer_frame",
+        "eye_left": {"x": 0.45, "y": 0.36},
+        "eye_right": {"x": 0.55, "y": 0.36},
+        "mouth": {"x": 0.50, "y": 0.46},
+        "brow_left": {"x": 0.45, "y": 0.315},
+        "brow_right": {"x": 0.55, "y": 0.315},
+    }
 
 
 def _generate_flipflop_state_sheet(

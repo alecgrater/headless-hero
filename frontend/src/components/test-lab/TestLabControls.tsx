@@ -141,8 +141,8 @@ const VISUAL_MODE_OPTIONS: Array<{
     value: "flipflop",
     label: "Flip-flop",
     icon: <Repeat2 className="h-4 w-4" />,
-    summary: "Two compatible states alternate.",
-    description: "Generates two cropped transparent cutouts and stages them over renderer-owned scene context.",
+    summary: "A face cutout gets renderer-owned toggles.",
+    description: "Generates one neutral transparent cutout and stages deterministic face overlays over renderer-owned scene context.",
     bestFor: "Production face actions: blink, speaking mouth, eye glance, and eyebrow raise.",
   },
   {
@@ -176,13 +176,11 @@ const FLIPFLOP_ACTION_OPTIONS: Array<{ value: FlipflopAction; label: string }> =
   { value: "speaking_mouth", label: "Speaking mouth" },
   { value: "eye_glance", label: "Eye glance" },
   { value: "eyebrow_raise", label: "Eyebrow raise" },
-  { value: "head_nod", label: "Head nod (experimental)" },
-  { value: "explaining_hand_raise", label: "Explaining hand raise (experimental)" },
-  { value: "thinking_pose", label: "Thinking pose (experimental)" },
-  { value: "pointing_gesture", label: "Pointing gesture (experimental)" },
-  { value: "counting_fingers", label: "Counting fingers (experimental)" },
-  { value: "small_shrug", label: "Small shrug (experimental)" },
 ];
+
+const isSupportedFlipflopAction = (value: string | undefined): value is FlipflopAction => (
+  FLIPFLOP_ACTION_OPTIONS.some((option) => option.value === value)
+);
 
 const RENDERER_CONTEXT_OPTIONS: Array<{ value: RendererContext; label: string }> = [
   { value: "plain", label: "Plain" },
@@ -210,11 +208,11 @@ export default function TestLabControls({
   const visualPrompt = settings.visual_prompt ?? preset?.visual_prompt ?? "";
   const visualMode = settings.visual_mode;
   const [lastFlipflopAction, setLastFlipflopAction] = useState<FlipflopAction>(
-    (settings.flipflop_action as FlipflopAction) || "blink",
+    isSupportedFlipflopAction(settings.flipflop_action) ? settings.flipflop_action : "blink",
   );
   useEffect(() => {
-    if (settings.flipflop_action) {
-      setLastFlipflopAction(settings.flipflop_action as FlipflopAction);
+    if (isSupportedFlipflopAction(settings.flipflop_action)) {
+      setLastFlipflopAction(settings.flipflop_action);
     }
   }, [settings.flipflop_action]);
   const derivedCaptionText = captionTextFromNarration(narration);
@@ -544,7 +542,7 @@ function SceneTextFields({
           <label className="block">
             <span className="text-xs font-medium text-neutral-300">Flip-flop action</span>
             <select
-              value={flipflopAction || "blink"}
+              value={isSupportedFlipflopAction(flipflopAction) ? flipflopAction : "blink"}
               onChange={(event) => onFlipflopActionChange(event.target.value as FlipflopAction)}
               className="mt-2 w-full rounded-md border border-neutral-800 bg-neutral-950/80 px-3 py-2 text-sm text-neutral-100 outline-none transition-colors hover:border-neutral-700 focus:border-violet-500"
             >
@@ -571,7 +569,7 @@ function SceneTextFields({
             </select>
           </label>
           <p className="text-xs text-neutral-500">
-            Production routing uses the four face actions. Experimental body/pose actions are kept here only for stress-testing cutout alignment.
+            Test Lab uses the four renderer-supported face actions so the output visibly toggles instead of falling back to a static cutout.
           </p>
         </div>
       )}

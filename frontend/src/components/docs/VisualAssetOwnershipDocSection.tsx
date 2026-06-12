@@ -87,8 +87,8 @@ const MODE_OWNERSHIP = [
   },
   {
     mode: "flipflop",
-    asset: "Two version-registered transparent face-action state cutouts on one shared output canvas plus renderer_context metadata",
-    renderer: "Draws the shared renderer-owned context stage and alternates only the A/B cutouts from frame zero to simulate a locked facial micro-action.",
+    asset: "One transparent neutral base cutout plus flip-flop overlay anchor metadata and renderer_context metadata",
+    renderer: "Draws the shared renderer-owned context stage and toggles deterministic face overlays from frame zero to simulate a locked facial micro-action.",
   },
   {
     mode: "comparison_board",

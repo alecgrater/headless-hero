@@ -54,6 +54,21 @@ export interface VisualCanvas {
   background_color: string;
 }
 
+export interface FlipflopOverlayPoint {
+  x: number;
+  y: number;
+}
+
+export interface FlipflopOverlayAnchor {
+  version?: number;
+  coordinate_space?: "normalized_layer_frame" | string;
+  eye_left?: FlipflopOverlayPoint;
+  eye_right?: FlipflopOverlayPoint;
+  mouth?: FlipflopOverlayPoint;
+  brow_left?: FlipflopOverlayPoint;
+  brow_right?: FlipflopOverlayPoint;
+}
+
 export interface VisualLayer {
   id: string;
   type: "image";
@@ -65,6 +80,14 @@ export interface VisualLayer {
   enter_at_seconds?: number;
   exit_at_seconds?: number | null;
   animation?: "none" | "pop_in";
+  visual_source_metadata?: {
+    source_type?: string;
+    provider?: string;
+    fallback?: boolean;
+    trim_box?: number[];
+    flipflop_overlay_anchor?: FlipflopOverlayAnchor;
+    [key: string]: unknown;
+  } | null;
 }
 
 export interface FrameDirective {

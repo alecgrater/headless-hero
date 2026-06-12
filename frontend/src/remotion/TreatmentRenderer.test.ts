@@ -5,6 +5,7 @@ import {
   comparisonBoardLayerStyle,
   comparisonLabel,
   flipflopActiveLayer,
+  flipflopOverlayAnchor,
   flipflopMicroOverlay,
   flipflopOverlayVisible,
   flipflopLayerFrameStyle,
@@ -233,6 +234,36 @@ describe("flipflopMicroOverlay", () => {
   it("does not create overlays for pose-changing legacy actions", () => {
     expect(flipflopMicroOverlay("head_nod")).toBeNull();
     expect(flipflopMicroOverlay("small_shrug")).toBeNull();
+  });
+});
+
+describe("flipflopOverlayAnchor", () => {
+  it("reads normalized overlay anchors from layer metadata", () => {
+    const anchor = flipflopOverlayAnchor({
+      ...itemLayer("base"),
+      visual_source_metadata: {
+        flipflop_overlay_anchor: {
+          mouth: { x: 0.52, y: 0.48 },
+          eye_left: { x: 0.42, y: 0.33 },
+        },
+      },
+    });
+
+    expect(anchor.mouth).toEqual({ x: 0.52, y: 0.48 });
+    expect(anchor.eye_left).toEqual({ x: 0.42, y: 0.33 });
+  });
+
+  it("falls back when overlay anchor metadata is missing or invalid", () => {
+    const anchor = flipflopOverlayAnchor({
+      ...itemLayer("base"),
+      visual_source_metadata: {
+        flipflop_overlay_anchor: {
+          mouth: { x: 2, y: -1 },
+        },
+      },
+    });
+
+    expect(anchor.mouth).toEqual({ x: 0.5, y: 0.46 });
   });
 });
 
