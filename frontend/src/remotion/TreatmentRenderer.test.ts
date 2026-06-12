@@ -355,13 +355,13 @@ describe("flipflopBlinkEyeOverlayGeometry", () => {
       x: 39.3,
       y: 31.5,
       width: 5.4,
-      height: 7.5,
+      height: 5.5,
     });
     expect(geometry[1].mask).toMatchObject({
       x: 55.3,
       y: 31.5,
       width: 5.4,
-      height: 7.5,
+      height: 5.5,
     });
   });
 
@@ -393,14 +393,50 @@ describe("flipflopBlinkEyeOverlayGeometry", () => {
       x: 39,
       y: 31.5,
       width: 6,
-      height: 7.5,
+      height: 5.5,
     });
     expect(geometry[1].mask).toMatchObject({
       x: 55,
       y: 31.5,
       width: 6,
-      height: 7.5,
+      height: 5.5,
     });
+  });
+
+  it("keeps under-eye detail outside blink masks and lowers closed lashes", () => {
+    const geometry = flipflopBlinkEyeOverlayGeometry(
+      {
+        eye_left: {
+          x: 0.42,
+          y: 0.33,
+          width: 0.05,
+          height: 0.02,
+          erase_box: { left: 0.39, top: 0.315, right: 0.45, bottom: 0.43 },
+        },
+        eye_right: {
+          x: 0.58,
+          y: 0.33,
+          width: 0.05,
+          height: 0.02,
+          erase_box: { left: 0.55, top: 0.315, right: 0.61, bottom: 0.43 },
+        },
+        mouth: { x: 0.5, y: 0.48 },
+        brow_left: { x: 0.42, y: 0.26 },
+        brow_right: { x: 0.58, y: 0.26 },
+      },
+      "#D9A374",
+    );
+
+    expect(geometry[0].mask).toMatchObject({
+      y: 31.5,
+      height: 5.5,
+    });
+    expect(geometry[1].mask).toMatchObject({
+      y: 31.5,
+      height: 5.5,
+    });
+    expect(geometry[0].lid.y).toBeGreaterThan(34);
+    expect(geometry[1].lid.y).toBeGreaterThan(34);
   });
 
   it("uses per-eye skin gradients for blink masks when sampled colors are available", () => {

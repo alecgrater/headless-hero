@@ -442,7 +442,11 @@ const eraseBoxMask = (
     : { left: box.left, right: box.right };
   const x = resolvedHorizontalBounds.left * 100;
   const top = typeof sharedTop === "number" ? sharedTop : box.top;
-  const bottom = typeof sharedBottom === "number" ? sharedBottom : box.bottom;
+  const featureBottom = typeof point.height === "number" && point.height > 0
+    ? point.y + point.height * 2.0
+    : box.bottom;
+  const requestedBottom = typeof sharedBottom === "number" ? sharedBottom : box.bottom;
+  const bottom = Math.max(top, Math.min(requestedBottom, featureBottom));
   const y = top * 100;
   const width = (resolvedHorizontalBounds.right - resolvedHorizontalBounds.left) * 100;
   const height = (bottom - top) * 100;
@@ -512,7 +516,7 @@ export const flipflopBlinkEyeOverlayGeometry = (
     ? Math.max(...eraseBoxes.map((box) => box.bottom))
     : undefined;
   return [leftEye, rightEye].map((eye, index) => {
-    const lidY = eye.y + maskRy * 0.72;
+    const lidY = eye.y + maskRy * 0.86;
     const maskY = eye.y + maskRy * 1.02;
     const metadataMask = eraseBoxMask(
       index === 0 ? anchor.eye_left : anchor.eye_right,
