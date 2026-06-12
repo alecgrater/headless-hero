@@ -299,6 +299,7 @@ type FlipflopClosedEyeGeometry = {
       id: string;
       top: string;
       bottom: string;
+      orientation: "horizontal" | "vertical";
     };
   };
   lid: {
@@ -380,6 +381,30 @@ const roundSvgNumber = (value: number): number => (
 
 const hexColorPattern = /^#[0-9a-f]{6}$/i;
 
+const parseHexColor = (color?: string): [number, number, number] | null => {
+  if (!hexColorPattern.test(color ?? "")) {
+    return null;
+  }
+  const hex = (color as string).slice(1);
+  return [
+    Number.parseInt(hex.slice(0, 2), 16),
+    Number.parseInt(hex.slice(2, 4), 16),
+    Number.parseInt(hex.slice(4, 6), 16),
+  ];
+};
+
+const colorDistance = (first?: string, second?: string): number | null => {
+  const firstRgb = parseHexColor(first);
+  const secondRgb = parseHexColor(second);
+  if (!firstRgb || !secondRgb) {
+    return null;
+  }
+  const redDelta = firstRgb[0] - secondRgb[0];
+  const greenDelta = firstRgb[1] - secondRgb[1];
+  const blueDelta = firstRgb[2] - secondRgb[2];
+  return Math.sqrt(redDelta * redDelta + greenDelta * greenDelta + blueDelta * blueDelta);
+};
+
 const normalizedEyeWidth = (point: FlipflopOverlayPoint): number | null => (
   typeof point.width === "number" && point.width > 0 ? point.width * 100 : null
 );
@@ -412,16 +437,19 @@ const eraseBoxMask = (
   const y = top * 100;
   const width = (box.right - box.left) * 100;
   const height = (bottom - top) * 100;
-  const hasSideGradient = hexColorPattern.test(point.fill_left ?? "") && hexColorPattern.test(point.fill_right ?? "");
-  const hasVerticalGradient = hexColorPattern.test(point.fill_top ?? "") && hexColorPattern.test(point.fill_bottom ?? "");
-  const gradient = hasSideGradient ? {
+  const sideDistance = colorDistance(point.fill_left, point.fill_right);
+  const verticalDistance = colorDistance(point.fill_top, point.fill_bottom);
+  const useSideGradient = sideDistance !== null && (verticalDistance === null || sideDistance >= verticalDistance);
+  const gradient = useSideGradient ? {
     id: `flipflop-blink-eye-${index}-gradient`,
     top: point.fill_left as string,
     bottom: point.fill_right as string,
-  } : hasVerticalGradient ? {
+    orientation: "horizontal" as const,
+  } : verticalDistance !== null ? {
     id: `flipflop-blink-eye-${index}-gradient`,
     top: point.fill_top as string,
     bottom: point.fill_bottom as string,
+    orientation: "vertical" as const,
   } : undefined;
   return {
     x: roundSvgNumber(x),
@@ -540,7 +568,14 @@ const FlipflopMicroExpressionOverlay: React.FC<{
         {gradients.length > 0 ? (
           <defs>
             {gradients.map((gradient) => (
-              <linearGradient key={gradient.id} id={gradient.id} x1="0" y1="0" x2="1" y2="0">
+              <linearGradient
+                key={gradient.id}
+                id={gradient.id}
+                x1="0"
+                y1="0"
+                x2={gradient.orientation === "horizontal" ? "1" : "0"}
+                y2={gradient.orientation === "horizontal" ? "0" : "1"}
+              >
                 <stop offset="0%" stopColor={gradient.top} />
                 <stop offset="100%" stopColor={gradient.bottom} />
               </linearGradient>
