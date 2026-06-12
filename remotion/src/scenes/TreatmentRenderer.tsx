@@ -297,6 +297,7 @@ type FlipflopClosedEyeGeometry = {
   };
   lid: {
     d: string;
+    y: number;
     stroke: string;
     strokeWidth: number;
   };
@@ -405,17 +406,19 @@ export const flipflopBlinkEyeOverlayGeometry = (
   const lidHalfWidth = maskRx * 0.72;
   const lidLift = maskRy * 0.24;
   return [leftEye, rightEye].map((eye) => {
-    const visibleEyeY = eye.y + maskRy * 0.82;
+    const lidY = eye.y + maskRy * 0.72;
+    const maskY = eye.y + maskRy * 1.02;
     return {
       mask: {
         cx: roundSvgNumber(eye.x),
-        cy: roundSvgNumber(visibleEyeY),
+        cy: roundSvgNumber(maskY),
         rx: roundSvgNumber(maskRx),
         ry: roundSvgNumber(maskRy),
         fill: skinFill,
       },
       lid: {
-        d: `M${roundSvgNumber(eye.x - lidHalfWidth)} ${roundSvgNumber(visibleEyeY)} Q${roundSvgNumber(eye.x)} ${roundSvgNumber(visibleEyeY - lidLift)} ${roundSvgNumber(eye.x + lidHalfWidth)} ${roundSvgNumber(visibleEyeY)}`,
+        d: `M${roundSvgNumber(eye.x - lidHalfWidth)} ${roundSvgNumber(lidY)} Q${roundSvgNumber(eye.x)} ${roundSvgNumber(lidY - lidLift)} ${roundSvgNumber(eye.x + lidHalfWidth)} ${roundSvgNumber(lidY)}`,
+        y: roundSvgNumber(lidY),
         stroke: FLIPFLOP_EYELID_STROKE,
         strokeWidth: roundSvgNumber(clamp(maskRx * 0.17, 0.95, 1.3)),
       },

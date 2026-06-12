@@ -284,6 +284,7 @@ describe("flipflopBlinkEyeOverlayGeometry", () => {
 
     expect(geometry[0].mask.rx).toBeLessThan(7);
     expect(geometry[0].mask.ry).toBeLessThan(4);
+    expect(geometry[0].mask.cy).toBeGreaterThan(geometry[0].lid.y);
     expect(geometry[0].lid.d).toContain("Q42");
   });
 });
