@@ -297,11 +297,13 @@ type FlipflopClosedEyeGeometry = {
   };
   lid: {
     d: string;
+    stroke: string;
     strokeWidth: number;
   };
 };
 
-const DEFAULT_FLIPFLOP_SKIN_FILL = "#D9A374";
+const FLIPFLOP_FALLBACK_SKIN_FILL = "#D9A374";
+const FLIPFLOP_EYELID_STROKE = "#2A1712";
 
 export const flipflopOverlayVisible = (frame: number, fps: number): boolean => {
   const intervalFrames = Math.max(1, Math.round(fps * 0.5));
@@ -371,7 +373,7 @@ const roundSvgNumber = (value: number): number => (
 
 export const flipflopBlinkEyeOverlayGeometry = (
   anchor: FlipflopResolvedOverlayAnchor,
-  skinFill = DEFAULT_FLIPFLOP_SKIN_FILL,
+  skinFill = FLIPFLOP_FALLBACK_SKIN_FILL,
 ): FlipflopClosedEyeGeometry[] => {
   const leftEye = toSvgPoint(anchor.eye_left);
   const rightEye = toSvgPoint(anchor.eye_right);
@@ -392,6 +394,7 @@ export const flipflopBlinkEyeOverlayGeometry = (
       },
       lid: {
         d: `M${roundSvgNumber(eye.x - lidHalfWidth)} ${roundSvgNumber(visibleEyeY)} Q${roundSvgNumber(eye.x)} ${roundSvgNumber(visibleEyeY - lidLift)} ${roundSvgNumber(eye.x + lidHalfWidth)} ${roundSvgNumber(visibleEyeY)}`,
+        stroke: FLIPFLOP_EYELID_STROKE,
         strokeWidth: roundSvgNumber(clamp(maskRx * 0.17, 0.95, 1.3)),
       },
     };
@@ -426,13 +429,13 @@ const FlipflopMicroExpressionOverlay: React.FC<{
   }
 
   if (overlay.kind === "eyes" && overlay.state === "closed") {
-    const eyeGeometry = flipflopBlinkEyeOverlayGeometry(anchor, anchor.skin_fill ?? DEFAULT_FLIPFLOP_SKIN_FILL);
+    const eyeGeometry = flipflopBlinkEyeOverlayGeometry(anchor, anchor.skin_fill ?? FLIPFLOP_FALLBACK_SKIN_FILL);
     return (
       <svg viewBox="0 0 100 100" style={common}>
         {eyeGeometry.map((eye, index) => (
           <g key={index}>
             <ellipse {...eye.mask} />
-            <path d={eye.lid.d} fill="none" stroke="#111" strokeWidth={eye.lid.strokeWidth} strokeLinecap="round" />
+            <path d={eye.lid.d} fill="none" stroke={eye.lid.stroke} strokeWidth={eye.lid.strokeWidth} strokeLinecap="round" />
           </g>
         ))}
       </svg>

@@ -260,6 +260,7 @@ describe("flipflopBlinkEyeOverlayGeometry", () => {
     expect(geometry[0].mask.rx).toBeGreaterThanOrEqual(7);
     expect(geometry[0].mask.rx).toBeGreaterThan(geometry[0].lid.strokeWidth);
     expect(geometry[0].lid.strokeWidth).toBeLessThanOrEqual(1.35);
+    expect(geometry[0].lid.stroke).toBe("#2A1712");
     expect(geometry[0].lid.d).toContain("Q42");
     expect(geometry[1].mask).toMatchObject({
       cx: 58,
