@@ -10,13 +10,13 @@ import {
 
 const FLOW_STEPS = [
   "Remote whitespace discovery is temporarily paused, so the app refreshes the local profile without uploading GitHub discovery artifacts.",
-  "Generate or edit a real project script, or refresh the profile in Inspire -> For You.",
-  "The backend uploads discovery/content-profile-input.json when GITHUB_CONTENTS_TOKEN is configured.",
-  "Manual profile refresh also uploads the current discovery/content-profile-seed.json.",
-  "GitHub Actions runs daily or after an input change, rebuilding the public profile and seed from the uploaded input snapshot.",
-  "GitHub Actions runs the YouTube analyzer with the YOUTUBE_API_KEY repo secret.",
-  "The workflow commits frontend/public/discovery/youtube-whitespace.json.",
-  "The local app shows the updated feed after the repo/static assets are refreshed.",
+  "While paused, GitHub Actions does not run automatically and the Whitespace tab shows the last committed static feed.",
+  "When re-enabled, generating or editing a real project script will upload discovery/content-profile-input.json.",
+  "When re-enabled, manual profile refresh will also upload discovery/content-profile-seed.json.",
+  "GitHub Actions will rebuild the public profile and seed from the uploaded input snapshot.",
+  "GitHub Actions will run the YouTube analyzer with the YOUTUBE_API_KEY repo secret.",
+  "The workflow will commit frontend/public/discovery/youtube-whitespace.json.",
+  "The local app will show the updated feed after the repo/static assets are refreshed.",
 ];
 
 const REQUIRED_KEYS = [
@@ -57,7 +57,11 @@ const TROUBLESHOOTING = [
     fix: "Check that the repo secret YOUTUBE_API_KEY exists and is not empty.",
   },
   {
-    symptom: "Profile refresh skips seed upload",
+    symptom: "Profile refresh says remote discovery is paused",
+    fix: "No action is needed until the workflow is re-enabled.",
+  },
+  {
+    symptom: "Profile refresh skips seed upload after re-enable",
     fix: "Add GITHUB_CONTENTS_TOKEN in Settings -> API Keys -> Discovery.",
   },
   {
