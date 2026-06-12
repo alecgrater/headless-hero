@@ -431,11 +431,20 @@ const eraseBoxMask = (
   ) {
     return null;
   }
-  const x = box.left * 100;
+  const horizontalBounds = typeof point.width === "number" && point.width > 0
+    ? {
+      left: Math.max(box.left, point.x - point.width * 0.6),
+      right: Math.min(box.right, point.x + point.width * 0.6),
+    }
+    : { left: box.left, right: box.right };
+  const resolvedHorizontalBounds = horizontalBounds.right > horizontalBounds.left
+    ? horizontalBounds
+    : { left: box.left, right: box.right };
+  const x = resolvedHorizontalBounds.left * 100;
   const top = typeof sharedTop === "number" ? sharedTop : box.top;
   const bottom = typeof sharedBottom === "number" ? sharedBottom : box.bottom;
   const y = top * 100;
-  const width = (box.right - box.left) * 100;
+  const width = (resolvedHorizontalBounds.right - resolvedHorizontalBounds.left) * 100;
   const height = (bottom - top) * 100;
   const sideDistance = colorDistance(point.fill_left, point.fill_right);
   const verticalDistance = colorDistance(point.fill_top, point.fill_bottom);

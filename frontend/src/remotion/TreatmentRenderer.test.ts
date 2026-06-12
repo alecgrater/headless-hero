@@ -313,15 +313,15 @@ describe("flipflopBlinkEyeOverlayGeometry", () => {
     );
 
     expect(geometry[0].mask).toMatchObject({
-      x: 39,
+      x: 39.3,
       y: 31.5,
-      width: 6,
+      width: 5.4,
       height: 5.5,
     });
     expect(geometry[1].mask).toMatchObject({
-      x: 55,
+      x: 55.3,
       y: 31.5,
-      width: 6,
+      width: 5.4,
       height: 5.5,
     });
     expect(geometry[0].lid.d).toContain("Q42");
@@ -343,6 +343,44 @@ describe("flipflopBlinkEyeOverlayGeometry", () => {
           width: 0.045,
           height: 0.02,
           erase_box: { left: 0.55, top: 0.32, right: 0.61, bottom: 0.36 },
+        },
+        mouth: { x: 0.5, y: 0.48 },
+        brow_left: { x: 0.42, y: 0.26 },
+        brow_right: { x: 0.58, y: 0.26 },
+      },
+      "#D9A374",
+    );
+
+    expect(geometry[0].mask).toMatchObject({
+      x: 39.3,
+      y: 31.5,
+      width: 5.4,
+      height: 7.5,
+    });
+    expect(geometry[1].mask).toMatchObject({
+      x: 55.3,
+      y: 31.5,
+      width: 5.4,
+      height: 7.5,
+    });
+  });
+
+  it("clamps detected erase boxes horizontally to the eye feature bounds", () => {
+    const geometry = flipflopBlinkEyeOverlayGeometry(
+      {
+        eye_left: {
+          x: 0.42,
+          y: 0.33,
+          width: 0.05,
+          height: 0.02,
+          erase_box: { left: 0.34, top: 0.315, right: 0.50, bottom: 0.39 },
+        },
+        eye_right: {
+          x: 0.58,
+          y: 0.33,
+          width: 0.05,
+          height: 0.02,
+          erase_box: { left: 0.50, top: 0.315, right: 0.66, bottom: 0.39 },
         },
         mouth: { x: 0.5, y: 0.48 },
         brow_left: { x: 0.42, y: 0.26 },
