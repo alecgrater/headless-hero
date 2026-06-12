@@ -282,6 +282,11 @@ type FlipflopOverlay =
   | { kind: "eyes"; state: "glance" }
   | { kind: "brows"; state: "raised" };
 
+type FlipflopResolvedOverlayAnchor = Required<Pick<
+  FlipflopOverlayAnchor,
+  "eye_left" | "eye_right" | "mouth" | "brow_left" | "brow_right"
+>>;
+
 export const flipflopOverlayVisible = (frame: number, fps: number): boolean => {
   const intervalFrames = Math.max(1, Math.round(fps * 0.5));
   return Math.floor(Math.max(0, frame) / intervalFrames) % 2 === 1;
@@ -311,10 +316,7 @@ const validAnchorPoint = (point?: FlipflopOverlayPoint): point is FlipflopOverla
   && point.y <= 1
 );
 
-export const flipflopOverlayAnchor = (layer: VisualLayer): Required<Pick<
-  FlipflopOverlayAnchor,
-  "eye_left" | "eye_right" | "mouth" | "brow_left" | "brow_right"
->> | null => {
+export const flipflopOverlayAnchor = (layer: VisualLayer): FlipflopResolvedOverlayAnchor | null => {
   const anchor = layer.visual_source_metadata?.flipflop_overlay_anchor;
   if (!anchor?.detected) {
     return null;
@@ -343,7 +345,7 @@ const toSvgPoint = (point: FlipflopOverlayPoint): FlipflopOverlayPoint => ({
 });
 
 const FlipflopMicroExpressionOverlay: React.FC<{
-  anchor: ReturnType<typeof flipflopOverlayAnchor>;
+  anchor: FlipflopResolvedOverlayAnchor;
   overlay: FlipflopOverlay;
   visible: boolean;
 }> = ({ anchor, overlay, visible }) => {

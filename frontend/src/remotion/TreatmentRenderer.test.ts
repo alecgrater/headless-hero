@@ -253,6 +253,10 @@ describe("flipflopOverlayAnchor", () => {
       },
     });
 
+    expect(anchor).not.toBeNull();
+    if (!anchor) {
+      throw new Error("Expected detected flip-flop anchor metadata");
+    }
     expect(anchor.mouth).toEqual({ x: 0.52, y: 0.48 });
     expect(anchor.eye_left).toEqual({ x: 0.42, y: 0.33 });
   });
