@@ -24,7 +24,7 @@ from prompts import IMAGE_CHARACTER_IN_SCENE, IMAGE_COMPOSITION_GUIDE, IMAGE_VIS
 
 logger = logging.getLogger(__name__)
 
-FLIPFLOP_CUTOUT_REGISTRATION_VERSION = "alpha-mask-registration-v11"
+FLIPFLOP_CUTOUT_REGISTRATION_VERSION = "alpha-mask-registration-v12"
 FLIPFLOP_SCALE_CORRECTION_MIN = 0.92
 FLIPFLOP_SCALE_CORRECTION_MAX = 1.08
 FLIPFLOP_ASPECT_RATIO_TOLERANCE = 0.12
@@ -1307,8 +1307,18 @@ def _detect_flipflop_overlay_anchor_points(image: Image.Image | None) -> dict[st
     eye_y = (left_eye["cy"] + right_eye["cy"]) / 2
     brow_y = max(0.0, eye_y - 0.08)
     return {
-        "eye_left": {"x": round(left_eye["cx"], 4), "y": round(left_eye["cy"], 4)},
-        "eye_right": {"x": round(right_eye["cx"], 4), "y": round(right_eye["cy"], 4)},
+        "eye_left": {
+            "x": round(left_eye["cx"], 4),
+            "y": round(left_eye["cy"], 4),
+            "width": round(left_eye["width"], 4),
+            "height": round(left_eye["height"], 4),
+        },
+        "eye_right": {
+            "x": round(right_eye["cx"], 4),
+            "y": round(right_eye["cy"], 4),
+            "width": round(right_eye["width"], 4),
+            "height": round(right_eye["height"], 4),
+        },
         "mouth": {"x": round(mouth["cx"], 4), "y": round(mouth["cy"], 4)},
         "brow_left": {"x": round(left_eye["cx"], 4), "y": round(brow_y, 4)},
         "brow_right": {"x": round(right_eye["cx"], 4), "y": round(brow_y, 4)},

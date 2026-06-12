@@ -269,6 +269,23 @@ describe("flipflopBlinkEyeOverlayGeometry", () => {
     expect(geometry[1].mask.cy).toBeGreaterThan(33);
     expect(geometry[1].lid.d).toContain("Q58");
   });
+
+  it("sizes blink lids from detected eye width when available", () => {
+    const geometry = flipflopBlinkEyeOverlayGeometry(
+      {
+        eye_left: { x: 0.42, y: 0.33, width: 0.045, height: 0.02 },
+        eye_right: { x: 0.58, y: 0.33, width: 0.045, height: 0.02 },
+        mouth: { x: 0.5, y: 0.48 },
+        brow_left: { x: 0.42, y: 0.26 },
+        brow_right: { x: 0.58, y: 0.26 },
+      },
+      "#D9A374",
+    );
+
+    expect(geometry[0].mask.rx).toBeLessThan(7);
+    expect(geometry[0].mask.ry).toBeLessThan(4);
+    expect(geometry[0].lid.d).toContain("Q42");
+  });
 });
 
 describe("flipflopOverlayAnchor", () => {

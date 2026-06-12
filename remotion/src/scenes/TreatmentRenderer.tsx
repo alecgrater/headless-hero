@@ -371,6 +371,14 @@ const roundSvgNumber = (value: number): number => (
   Number(value.toFixed(3))
 );
 
+const normalizedEyeWidth = (point: FlipflopOverlayPoint): number | null => (
+  typeof point.width === "number" && point.width > 0 ? point.width * 100 : null
+);
+
+const normalizedEyeHeight = (point: FlipflopOverlayPoint): number | null => (
+  typeof point.height === "number" && point.height > 0 ? point.height * 100 : null
+);
+
 export const flipflopBlinkEyeOverlayGeometry = (
   anchor: FlipflopResolvedOverlayAnchor,
   skinFill = FLIPFLOP_FALLBACK_SKIN_FILL,
@@ -378,12 +386,26 @@ export const flipflopBlinkEyeOverlayGeometry = (
   const leftEye = toSvgPoint(anchor.eye_left);
   const rightEye = toSvgPoint(anchor.eye_right);
   const eyeDistance = Math.abs(rightEye.x - leftEye.x);
-  const maskRx = clamp(eyeDistance * 0.45, 7.0, 10.5);
-  const maskRy = clamp(maskRx * 0.56, 4.0, 5.8);
+  const detectedEyeWidths = [normalizedEyeWidth(anchor.eye_left), normalizedEyeWidth(anchor.eye_right)]
+    .filter((width): width is number => width !== null);
+  const averageEyeWidth = detectedEyeWidths.length > 0
+    ? detectedEyeWidths.reduce((sum, width) => sum + width, 0) / detectedEyeWidths.length
+    : null;
+  const detectedEyeHeights = [normalizedEyeHeight(anchor.eye_left), normalizedEyeHeight(anchor.eye_right)]
+    .filter((height): height is number => height !== null);
+  const averageEyeHeight = detectedEyeHeights.length > 0
+    ? detectedEyeHeights.reduce((sum, height) => sum + height, 0) / detectedEyeHeights.length
+    : null;
+  const maskRx = averageEyeWidth === null
+    ? clamp(eyeDistance * 0.45, 7.0, 10.5)
+    : clamp(averageEyeWidth * 0.65, 3.2, 10.5);
+  const maskRy = averageEyeHeight === null
+    ? clamp(maskRx * 0.38, 2.4, 4.2)
+    : clamp(averageEyeHeight * 1.35, 2.2, 4.2);
   const lidHalfWidth = maskRx * 0.72;
   const lidLift = maskRy * 0.24;
   return [leftEye, rightEye].map((eye) => {
-    const visibleEyeY = eye.y + maskRy * 0.58;
+    const visibleEyeY = eye.y + maskRy * 0.82;
     return {
       mask: {
         cx: roundSvgNumber(eye.x),

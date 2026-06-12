@@ -66,6 +66,8 @@ export interface VisualCanvas {
 export interface FlipflopOverlayPoint {
   x: number;
   y: number;
+  width?: number;
+  height?: number;
 }
 
 export interface FlipflopOverlayAnchor {
