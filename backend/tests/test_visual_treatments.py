@@ -2480,6 +2480,51 @@ def test_generate_flipflop_cutouts_recrops_states_to_shared_bbox(tmp_path, monke
     assert (state_b_bbox[3] - state_b_bbox[1]) == (state_a_bbox[3] - state_a_bbox[1])
 
 
+def test_generate_flipflop_cutouts_keys_magenta_cells_with_contact_sheet_margins(tmp_path, monkeypatch):
+    image_gen, _, _ = _stub_panel_image_context(monkeypatch, tmp_path)
+
+    monkeypatch.setattr(image_gen, "save_vault_image", lambda **_kwargs: None)
+
+    def fake_generate_image(
+        _prompt,
+        *,
+        width,
+        height,
+        **_kwargs,
+    ):
+        source = tmp_path / "source-magenta-margins.png"
+        image = Image.new("RGBA", (320, 180), (212, 210, 204, 255))
+        draw = ImageDraw.Draw(image)
+        draw.rectangle((20, 0, 150, 179), fill=(229, 15, 175, 255))
+        draw.rectangle((180, 0, 310, 179), fill=(229, 15, 175, 255))
+        draw.rectangle((62, 38, 108, 122), fill=(244, 190, 145, 255))
+        draw.rectangle((78, 70, 92, 84), fill=(5, 5, 5, 255))
+        draw.rectangle((222, 38, 268, 122), fill=(244, 190, 145, 255))
+        draw.ellipse((237, 70, 253, 86), fill=(5, 5, 5, 255))
+        image.save(source)
+        return str(source)
+
+    monkeypatch.setattr(image_gen, "generate_image", fake_generate_image)
+
+    image_gen.generate_flipflop_cutouts(
+        scene_id="scene_001",
+        layers=[
+            {"id": "state_a", "type": "image", "prompt": "State A prompt", "contains_person": True},
+            {"id": "state_b", "type": "image", "prompt": "State B prompt", "contains_person": True},
+        ],
+        script_id="script-1",
+        scene_prompt="Person changes expression.",
+        width=320,
+        height=180,
+        contains_person=True,
+    )
+
+    output_dir = tmp_path / "projects" / "script-1" / "flipflop_cutouts" / "scene_001"
+    with Image.open(output_dir / "state_01_state_a.png").convert("RGBA") as state_a:
+        assert state_a.getpixel((5, 5))[3] == 0
+        assert bytes((244, 190, 145, 255)) in state_a.tobytes()
+
+
 def test_generate_flipflop_cutouts_errors_for_large_zoom_mismatch(tmp_path, monkeypatch):
     image_gen, _, _ = _stub_panel_image_context(monkeypatch, tmp_path)
     from pipeline.render_jobs import UserFacingJobError

@@ -33,16 +33,86 @@ def save_keyed_trimmed_cutout(
 
 def key_out_background(image: Image.Image, *, tolerance: int = 70) -> Image.Image:
     image = image.convert("RGBA")
-    bg = sample_background_rgb(image)
+    chroma_bg = detect_chroma_background_rgb(image)
+    background_keys = [(chroma_bg, tolerance)] if chroma_bg else []
+    if chroma_bg:
+        margin_bg = detect_neutral_margin_rgb(image)
+        if margin_bg:
+            background_keys.append((margin_bg, min(tolerance, 35)))
+    else:
+        corner_bg = sample_background_rgb(image)
+        background_keys.append((corner_bg, tolerance))
     data = bytearray(image.tobytes())
     for index in range(0, len(data), 4):
         red, green, blue, alpha = data[index:index + 4]
-        distance = ((red - bg[0]) ** 2 + (green - bg[1]) ** 2 + (blue - bg[2]) ** 2) ** 0.5
-        if distance <= tolerance:
+        should_key = any(
+            ((red - bg[0]) ** 2 + (green - bg[1]) ** 2 + (blue - bg[2]) ** 2) ** 0.5 <= key_tolerance
+            for bg, key_tolerance in background_keys
+        )
+        if should_key:
             data[index + 3] = 0
         else:
             data[index + 3] = alpha
     return Image.frombytes("RGBA", image.size, bytes(data))
+
+
+def detect_neutral_margin_rgb(image: Image.Image) -> tuple[int, int, int] | None:
+    image = image.convert("RGBA")
+    data = image.tobytes()
+    count = 0
+    total = [0, 0, 0]
+    for index in range(0, len(data), 4):
+        red, green, blue, alpha = data[index:index + 4]
+        if alpha == 0:
+            continue
+        if max(red, green, blue) - min(red, green, blue) > 35:
+            continue
+        if (red + green + blue) / 3 < 150:
+            continue
+        count += 1
+        total[0] += red
+        total[1] += green
+        total[2] += blue
+
+    min_pixels = max(24, round(image.width * image.height * 0.03))
+    if count < min_pixels:
+        return None
+    return (round(total[0] / count), round(total[1] / count), round(total[2] / count))
+
+
+def detect_chroma_background_rgb(image: Image.Image) -> tuple[int, int, int] | None:
+    image = image.convert("RGBA")
+    data = image.tobytes()
+    counts = {
+        "green": 0,
+        "magenta": 0,
+    }
+    totals = {
+        "green": [0, 0, 0],
+        "magenta": [0, 0, 0],
+    }
+    for index in range(0, len(data), 4):
+        red, green, blue, alpha = data[index:index + 4]
+        if alpha == 0:
+            continue
+        if green >= 180 and red <= 80 and blue <= 80:
+            counts["green"] += 1
+            totals["green"][0] += red
+            totals["green"][1] += green
+            totals["green"][2] += blue
+        elif red >= 180 and blue >= 130 and green <= 80:
+            counts["magenta"] += 1
+            totals["magenta"][0] += red
+            totals["magenta"][1] += green
+            totals["magenta"][2] += blue
+
+    min_pixels = max(24, round(image.width * image.height * 0.05))
+    key = max(counts, key=lambda name: counts[name])
+    if counts[key] < min_pixels:
+        return None
+    total = totals[key]
+    count = counts[key]
+    return (round(total[0] / count), round(total[1] / count), round(total[2] / count))
 
 
 def sample_background_rgb(image: Image.Image) -> tuple[int, int, int]:
