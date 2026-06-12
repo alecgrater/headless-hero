@@ -292,6 +292,24 @@ def _stub_generate_image_file(monkeypatch, image_gen_mod, captured):
     monkeypatch.setattr(image_gen_mod, "generate_image", fake_generate_image)
 
 
+def test_flipflop_overlay_anchor_metadata_uses_actual_cutout_features():
+    from pipeline import image_gen as image_gen_mod
+
+    image = Image.new("RGBA", (760, 820), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    draw.ellipse((210, 120, 550, 650), fill=(240, 195, 150, 255))
+    draw.ellipse((300, 365, 345, 395), fill=(10, 10, 10, 255))
+    draw.ellipse((445, 365, 490, 395), fill=(10, 10, 10, 255))
+    draw.rounded_rectangle((365, 520, 420, 528), radius=3, fill=(10, 10, 10, 255))
+
+    metadata = image_gen_mod._flipflop_overlay_anchor_metadata(image)
+
+    assert metadata["coordinate_space"] == "normalized_layer_frame"
+    assert metadata["eye_left"]["y"] == pytest.approx(0.463, abs=0.02)
+    assert metadata["eye_right"]["y"] == pytest.approx(0.463, abs=0.02)
+    assert metadata["mouth"]["y"] == pytest.approx(0.639, abs=0.02)
+
+
 def test_generate_visual_layer_panels_uses_composed_prompt_and_references(tmp_path, monkeypatch):
     image_gen_mod, char_ref, style_ref = _stub_panel_image_context(monkeypatch, tmp_path)
     captured = []

@@ -23,7 +23,7 @@ from prompts import IMAGE_CHARACTER_IN_SCENE, IMAGE_COMPOSITION_GUIDE, IMAGE_VIS
 
 logger = logging.getLogger(__name__)
 
-FLIPFLOP_CUTOUT_REGISTRATION_VERSION = "alpha-mask-registration-v9"
+FLIPFLOP_CUTOUT_REGISTRATION_VERSION = "alpha-mask-registration-v10"
 FLIPFLOP_SCALE_CORRECTION_MIN = 0.92
 FLIPFLOP_SCALE_CORRECTION_MAX = 1.08
 FLIPFLOP_ASPECT_RATIO_TOLERANCE = 0.12
@@ -1037,7 +1037,6 @@ def generate_flipflop_base_cutout(
                 "provider": os.environ.get("IMAGE_PROVIDER", "google"),
                 "fallback": False,
                 **base_metadata,
-                "flipflop_overlay_anchor": _flipflop_overlay_anchor_metadata(),
                 "registration_algorithm_version": FLIPFLOP_CUTOUT_REGISTRATION_VERSION,
             }
             _write_source_metadata(local_path, metadata)
@@ -1111,6 +1110,7 @@ def _save_flipflop_canonical_base_cutout(image: Image.Image, output_path: Path) 
         "trim_box": source_trim_box,
         "canonical_canvas": [FLIPFLOP_BASE_CANVAS_WIDTH, FLIPFLOP_BASE_CANVAS_HEIGHT],
         "canonical_subject_box": list(subject_box),
+        "flipflop_overlay_anchor": _flipflop_overlay_anchor_metadata(canvas),
     }
 
 
@@ -1140,15 +1140,127 @@ def _validate_flipflop_base_subject_box(subject_box: tuple[int, int, int, int]) 
         )
 
 
-def _flipflop_overlay_anchor_metadata() -> dict[str, object]:
+def _flipflop_overlay_anchor_metadata(image: Image.Image | None = None) -> dict[str, object]:
+    detected = _detect_flipflop_overlay_anchor_points(image) if image is not None else None
     return {
         "version": 1,
         "coordinate_space": "normalized_layer_frame",
-        "eye_left": {"x": 0.45, "y": 0.36},
-        "eye_right": {"x": 0.55, "y": 0.36},
-        "mouth": {"x": 0.50, "y": 0.46},
-        "brow_left": {"x": 0.45, "y": 0.315},
-        "brow_right": {"x": 0.55, "y": 0.315},
+        "eye_left": detected.get("eye_left", {"x": 0.45, "y": 0.44}) if detected else {"x": 0.45, "y": 0.44},
+        "eye_right": detected.get("eye_right", {"x": 0.55, "y": 0.44}) if detected else {"x": 0.55, "y": 0.44},
+        "mouth": detected.get("mouth", {"x": 0.50, "y": 0.58}) if detected else {"x": 0.50, "y": 0.58},
+        "brow_left": detected.get("brow_left", {"x": 0.45, "y": 0.37}) if detected else {"x": 0.45, "y": 0.37},
+        "brow_right": detected.get("brow_right", {"x": 0.55, "y": 0.37}) if detected else {"x": 0.55, "y": 0.37},
+    }
+
+
+def _detect_flipflop_overlay_anchor_points(image: Image.Image | None) -> dict[str, dict[str, float]] | None:
+    if image is None:
+        return None
+    rgba = image.convert("RGBA")
+    width, height = rgba.size
+    dark_points: set[tuple[int, int]] = set()
+    pixels = rgba.load()
+    for y in range(round(height * 0.24), round(height * 0.70)):
+        for x in range(round(width * 0.18), round(width * 0.82)):
+            red, green, blue, alpha = pixels[x, y]
+            if alpha > 80 and red < 55 and green < 55 and blue < 55:
+                dark_points.add((x, y))
+
+    components: list[dict[str, float]] = []
+    seen: set[tuple[int, int]] = set()
+    for point in list(dark_points):
+        if point in seen:
+            continue
+        stack = [point]
+        seen.add(point)
+        xs: list[int] = []
+        ys: list[int] = []
+        while stack:
+            x, y = stack.pop()
+            xs.append(x)
+            ys.append(y)
+            for nx in (x - 1, x, x + 1):
+                for ny in (y - 1, y, y + 1):
+                    neighbor = (nx, ny)
+                    if neighbor != (x, y) and neighbor in dark_points and neighbor not in seen:
+                        seen.add(neighbor)
+                        stack.append(neighbor)
+        if len(xs) < 40:
+            continue
+        left = min(xs)
+        top = min(ys)
+        right = max(xs)
+        bottom = max(ys)
+        box_width = right - left + 1
+        box_height = bottom - top + 1
+        if box_width <= 0 or box_height <= 0:
+            continue
+        components.append(
+            {
+                "area": float(len(xs)),
+                "left": left / width,
+                "top": top / height,
+                "right": right / width,
+                "bottom": bottom / height,
+                "cx": (sum(xs) / len(xs)) / width,
+                "cy": (sum(ys) / len(ys)) / height,
+                "width": box_width / width,
+                "height": box_height / height,
+            }
+        )
+
+    eye_candidates = [
+        component
+        for component in components
+        if 0.36 <= component["cy"] <= 0.54
+        and 0.03 <= component["width"] <= 0.12
+        and 0.015 <= component["height"] <= 0.07
+        and component["area"] >= 120
+    ]
+    best_eye_pair: tuple[dict[str, float], dict[str, float]] | None = None
+    best_score = 999.0
+    for left_eye in eye_candidates:
+        for right_eye in eye_candidates:
+            if left_eye is right_eye or left_eye["cx"] >= right_eye["cx"]:
+                continue
+            separation = right_eye["cx"] - left_eye["cx"]
+            if separation < 0.12 or separation > 0.30:
+                continue
+            y_delta = abs(left_eye["cy"] - right_eye["cy"])
+            if y_delta > 0.035:
+                continue
+            midpoint = (left_eye["cx"] + right_eye["cx"]) / 2
+            score = y_delta + abs(midpoint - 0.50) * 0.8 + abs(separation - 0.18) * 0.5
+            if score < best_score:
+                best_score = score
+                best_eye_pair = (left_eye, right_eye)
+    if best_eye_pair is None:
+        return None
+
+    left_eye, right_eye = best_eye_pair
+    eye_y = (left_eye["cy"] + right_eye["cy"]) / 2
+    eye_midpoint = (left_eye["cx"] + right_eye["cx"]) / 2
+    mouth_candidates = [
+        component
+        for component in components
+        if eye_y + 0.08 <= component["cy"] <= min(0.70, eye_y + 0.25)
+        and 0.035 <= component["width"] <= 0.14
+        and component["height"] <= 0.025
+        and abs(component["cx"] - eye_midpoint) <= 0.10
+    ]
+    mouth = max(mouth_candidates, key=lambda component: component["area"], default=None)
+    mouth_point = (
+        {"x": round(mouth["cx"], 4), "y": round(mouth["cy"], 4)}
+        if mouth is not None
+        else {"x": round(eye_midpoint, 4), "y": round(min(0.70, eye_y + 0.14), 4)}
+    )
+    brow_y = max(0.0, eye_y - 0.08)
+    return {
+        "eye_left": {"x": round(left_eye["cx"], 4), "y": round(left_eye["cy"], 4)},
+        "eye_right": {"x": round(right_eye["cx"], 4), "y": round(right_eye["cy"], 4)},
+        "mouth": mouth_point,
+        "brow_left": {"x": round(left_eye["cx"], 4), "y": round(brow_y, 4)},
+        "brow_right": {"x": round(right_eye["cx"], 4), "y": round(brow_y, 4)},
     }
 
 
