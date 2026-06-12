@@ -5,6 +5,8 @@ import {
   comparisonBoardLayerStyle,
   comparisonLabel,
   flipflopActiveLayer,
+  flipflopMicroOverlay,
+  flipflopOverlayVisible,
   flipflopLayerFrameStyle,
   layerChromeStyle,
   layerFrameStyle,
@@ -208,6 +210,29 @@ describe("flipflopActiveLayer", () => {
     expect(flipflopActiveLayer(layers, 0, 30)?.id).toBe("state-a");
     expect(flipflopActiveLayer(layers, 15, 30)?.id).toBe("state-b");
     expect(flipflopActiveLayer(layers, 30, 30)?.id).toBe("state-a");
+  });
+});
+
+describe("flipflopOverlayVisible", () => {
+  it("toggles renderer-owned micro-expression overlays every half second", () => {
+    expect(flipflopOverlayVisible(0, 30)).toBe(false);
+    expect(flipflopOverlayVisible(14, 30)).toBe(false);
+    expect(flipflopOverlayVisible(15, 30)).toBe(true);
+    expect(flipflopOverlayVisible(30, 30)).toBe(false);
+  });
+});
+
+describe("flipflopMicroOverlay", () => {
+  it("defines a deterministic speaking mouth overlay", () => {
+    expect(flipflopMicroOverlay("speaking_mouth")).toMatchObject({
+      kind: "mouth",
+      state: "open",
+    });
+  });
+
+  it("does not create overlays for pose-changing legacy actions", () => {
+    expect(flipflopMicroOverlay("head_nod")).toBeNull();
+    expect(flipflopMicroOverlay("small_shrug")).toBeNull();
   });
 });
 

@@ -356,6 +356,7 @@ def _scene_to_input_props(
         "phrase_timestamps": [p.model_dump() for p in scene.phrase_timestamps] if scene.phrase_timestamps and not scene.is_title_card else None,
         "visual_beat": scene.visual_beat,
         "visual_mode": scene.visual_mode,
+        "flipflop_action": scene.flipflop_action,
         "renderer_context": scene.renderer_context,
         "subtitle_style": subtitle_style or scene.subtitle_style,
         "caption_text": scene.caption_text,

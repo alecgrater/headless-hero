@@ -128,6 +128,7 @@ export interface SceneInput {
   visual_beat?: "static" | "continuous" | "multi_frame" | "quick_cuts" | "aha_subtitle" | "montage" | "captions" | "comparison_board";
   frame_directives?: FrameDirective[] | null;
   visual_mode?: VisualMode;
+  flipflop_action?: string | null;
   visual_layers?: VisualLayer[] | null;
   renderer_context?: RendererContext;
   caption_text?: string | null;

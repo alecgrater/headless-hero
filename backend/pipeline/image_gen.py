@@ -930,6 +930,135 @@ def generate_flipflop_cutouts(
     return processed_layers
 
 
+def generate_flipflop_base_cutout(
+    *,
+    scene_id: str,
+    layers: list[dict],
+    script_id: str,
+    scene_prompt: str,
+    scene_narration: str = "",
+    width: int = IMAGE_WIDTH,
+    height: int = IMAGE_HEIGHT,
+    force: bool = False,
+    contains_person: bool = False,
+) -> list[dict]:
+    """Generate one base cutout for renderer-owned deterministic flip-flop overlays."""
+
+    image_layers = [
+        dict(layer)
+        for layer in layers
+        if isinstance(layer, dict) and layer.get("type", "image") == "image"
+    ]
+    has_input_image_layers = bool(image_layers)
+    if not image_layers:
+        image_layers = [
+            {
+                "id": f"{scene_id}_base",
+                "type": "image",
+                "asset_kind": "cutout",
+                "prompt": flipflop_cutout_prompt(scene_prompt, scene_narration, "state A"),
+                "placement": "center",
+                "enter_at_seconds": 0.0,
+                "animation": "none",
+            }
+        ]
+
+    output_dir = DATA_DIR / "projects" / script_id / "flipflop_cutouts" / scene_id
+    output_dir.mkdir(parents=True, exist_ok=True)
+    processed_layers: list[dict] = []
+    generated = False
+    source_layers = layers if has_input_image_layers else image_layers
+
+    for layer in source_layers:
+        if not isinstance(layer, dict) or layer.get("type", "image") != "image":
+            processed_layers.append(layer)
+            continue
+        if generated:
+            continue
+
+        next_layer = dict(layer)
+        layer_id = str(next_layer.get("id") or f"{scene_id}_base")
+        next_layer["id"] = layer_id
+        next_layer["asset_kind"] = "cutout"
+        next_layer["placement"] = "center"
+        next_layer["enter_at_seconds"] = 0.0
+        next_layer["animation"] = "none"
+        prompt = str(next_layer.get("prompt") or scene_prompt or scene_narration).strip()
+        if not prompt:
+            processed_layers.append(next_layer)
+            generated = True
+            continue
+
+        filename = f"base_{_slug(layer_id)}.png"
+        raw_path = output_dir / f"raw_{filename}"
+        local_path = output_dir / filename
+        prompt_marker = output_dir / f"{filename}.prompt"
+        web_path = f"/static/projects/{script_id}/flipflop_cutouts/{scene_id}/{filename}"
+        composed_prompt, reference_image_path, style_reference_path = _compose_cutout_prompt_context(
+            visual_prompt=(
+                f"{prompt}\n\n"
+                "Generate exactly one isolated human or character cutout on a solid chroma key background. "
+                "Use a neutral/resting version of the face; do not draw alternate states. "
+                "The renderer will add any blink, mouth, eye, or eyebrow micro-animation later. "
+                "No props, scenery, text, labels, borders, panels, or split-screen layout."
+            ),
+            script_id=script_id,
+            contains_person=bool(next_layer.get("contains_person", contains_person)),
+        )
+        prompt_fingerprint = _flipflop_state_sheet_fingerprint(composed_prompt)
+        cache_valid = (
+            not force
+            and prompt_marker.exists()
+            and prompt_marker.read_text(encoding="utf-8") == prompt_fingerprint
+            and local_path.exists()
+            and _flipflop_base_cache_valid(local_path)
+        )
+        if not cache_valid:
+            logger.info("[FLIPFLOP_BASE_CUTOUT] generating base cutout scene=%s layer=%s", scene_id, layer_id)
+            generated_path = Path(
+                generate_image(
+                    composed_prompt,
+                    width=width,
+                    height=height,
+                    reference_image_path=reference_image_path,
+                    style_reference_path=style_reference_path,
+                    original_prompt=prompt,
+                    script_id=script_id,
+                )
+            )
+            shutil.copyfile(generated_path, raw_path)
+            with Image.open(generated_path) as source:
+                trim_box = save_shared_keyed_trimmed_cutout(source.convert("RGBA"), local_path)
+            metadata = {
+                "source_type": "flipflop_base_cutout",
+                "provider": os.environ.get("IMAGE_PROVIDER", "google"),
+                "fallback": False,
+                "trim_box": trim_box,
+                "registration_algorithm_version": FLIPFLOP_CUTOUT_REGISTRATION_VERSION,
+            }
+            _write_source_metadata(local_path, metadata)
+            prompt_marker.write_text(prompt_fingerprint, encoding="utf-8")
+            save_vault_image(kind="item", label=f"Flip-flop base {layer_id}", source_path=local_path)
+
+        source_metadata = _read_source_metadata(local_path) or {}
+        next_layer["image_url"] = web_path
+        next_layer["visual_source_metadata"] = source_metadata
+        processed_layers.append(next_layer)
+        generated = True
+
+    return processed_layers
+
+
+def _flipflop_base_cache_valid(path: Path) -> bool:
+    metadata = _read_source_metadata(path)
+    return bool(
+        metadata
+        and metadata.get("registration_algorithm_version") == FLIPFLOP_CUTOUT_REGISTRATION_VERSION
+        and metadata.get("source_type") == "flipflop_base_cutout"
+        and isinstance(metadata.get("trim_box"), list)
+    )
+
+
 def _generate_flipflop_state_sheet(
     *,
     scene_id: str,

@@ -240,7 +240,11 @@ const Flipflop: React.FC<Props> = ({ scene, fallbackVisualLayer }) => {
     return <>{fallbackVisualLayer}</>;
   }
 
-  const activeLayer = flipflopActiveLayer(stateLayers, frame, fps);
+  const deterministicOverlay = flipflopMicroOverlay(scene.flipflop_action);
+  const overlayVisible = deterministicOverlay ? flipflopOverlayVisible(frame, fps) : false;
+  const activeLayer = stateLayers.length === 1
+    ? stateLayers[0]
+    : flipflopActiveLayer(stateLayers, frame, fps);
   if (!activeLayer) {
     return <>{fallbackVisualLayer}</>;
   }
@@ -254,6 +258,9 @@ const Flipflop: React.FC<Props> = ({ scene, fallbackVisualLayer }) => {
             src={activeLayer.image_path ?? ""}
             style={layerImageStyle(activeLayer)}
           />
+          {deterministicOverlay ? (
+            <FlipflopMicroExpressionOverlay overlay={deterministicOverlay} visible={overlayVisible} />
+          ) : null}
         </div>
       </div>
     </div>
@@ -263,6 +270,76 @@ const Flipflop: React.FC<Props> = ({ scene, fallbackVisualLayer }) => {
 export const flipflopStateLayers = (layers: VisualLayer[]): VisualLayer[] => (
   layers.filter((layer) => layer.asset_kind === "cutout")
 );
+
+type FlipflopOverlay =
+  | { kind: "mouth"; state: "open" }
+  | { kind: "eyes"; state: "closed" }
+  | { kind: "eyes"; state: "glance" }
+  | { kind: "brows"; state: "raised" };
+
+export const flipflopOverlayVisible = (frame: number, fps: number): boolean => {
+  const intervalFrames = Math.max(1, Math.round(fps * 0.5));
+  return Math.floor(Math.max(0, frame) / intervalFrames) % 2 === 1;
+};
+
+export const flipflopMicroOverlay = (action?: string | null): FlipflopOverlay | null => {
+  switch (action) {
+    case "speaking_mouth":
+      return { kind: "mouth", state: "open" };
+    case "blink":
+      return { kind: "eyes", state: "closed" };
+    case "eye_glance":
+      return { kind: "eyes", state: "glance" };
+    case "eyebrow_raise":
+      return { kind: "brows", state: "raised" };
+    default:
+      return null;
+  }
+};
+
+const FlipflopMicroExpressionOverlay: React.FC<{ overlay: FlipflopOverlay; visible: boolean }> = ({ overlay, visible }) => {
+  const opacity = visible ? 1 : 0;
+  const common: React.CSSProperties = {
+    position: "absolute",
+    inset: 0,
+    pointerEvents: "none",
+    opacity,
+  };
+
+  if (overlay.kind === "mouth") {
+    return (
+      <svg viewBox="0 0 760 820" style={common}>
+        <ellipse cx="380" cy="374" rx="34" ry="18" fill="#F4BE91" />
+        <ellipse cx="380" cy="377" rx="12" ry="18" fill="#4B1814" stroke="#111" strokeWidth="5" />
+      </svg>
+    );
+  }
+
+  if (overlay.kind === "eyes" && overlay.state === "closed") {
+    return (
+      <svg viewBox="0 0 760 820" style={common}>
+        <path d="M308 305 Q338 297 366 305" fill="none" stroke="#111" strokeWidth="9" strokeLinecap="round" />
+        <path d="M394 305 Q424 297 452 305" fill="none" stroke="#111" strokeWidth="9" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  if (overlay.kind === "eyes" && overlay.state === "glance") {
+    return (
+      <svg viewBox="0 0 760 820" style={common}>
+        <ellipse cx="346" cy="314" rx="13" ry="18" fill="#111" />
+        <ellipse cx="432" cy="314" rx="13" ry="18" fill="#111" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg viewBox="0 0 760 820" style={common}>
+      <path d="M300 282 Q334 268 368 278" fill="none" stroke="#111" strokeWidth="9" strokeLinecap="round" />
+      <path d="M392 274 Q426 258 460 268" fill="none" stroke="#111" strokeWidth="9" strokeLinecap="round" />
+    </svg>
+  );
+};
 
 export const comparisonBoardLayerStyle = (
   layer: VisualLayer,

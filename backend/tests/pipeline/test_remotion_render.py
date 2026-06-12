@@ -153,6 +153,20 @@ def test_scene_input_props_include_renderer_context():
     assert props["renderer_context"] == "classroom"
 
 
+def test_scene_input_props_include_flipflop_action():
+    scene = Scene(
+        id="s1",
+        narration="He speaks.",
+        visual_prompt="Teacher character.",
+        visual_mode="flipflop",
+        flipflop_action="speaking_mouth",
+    )
+
+    props = remotion_render._scene_to_input_props(scene, "script-1")
+
+    assert props["flipflop_action"] == "speaking_mouth"
+
+
 def test_subtitle_render_fingerprint_includes_renderer_context_for_canvas_modes():
     scene = Scene(
         id="s1",

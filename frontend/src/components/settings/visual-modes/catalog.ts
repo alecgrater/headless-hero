@@ -155,9 +155,9 @@ export const VISUAL_MODE_CATALOG: VisualModeEntry[] = [
   {
     id: "flipflop",
     label: "Flip Flop",
-    shortDescription: "Experimental human cutouts alternating between A/B states.",
+    shortDescription: "Experimental human cutout with renderer-owned micro-expression toggles.",
     longDescription:
-      "Two transparent human/character state cutouts keyed from a shared A/B sheet onto one registered output canvas alternate over a renderer-owned context stage. This mode is currently Test Lab-only while shared-sheet generation is being hardened; production scriptwriting and visual analysis choose another visual mode. Test Lab can stress-test flipflop_action values, and cutouts that cannot be registered fail generation with a visible error.",
+      "A transparent neutral human/character base cutout is keyed onto a renderer-owned context stage, then Remotion toggles deterministic face overlays for reliable micro-actions such as blink, speaking_mouth, eye_glance, and eyebrow_raise. This mode is currently Test Lab-only; production scriptwriting and visual analysis choose another visual mode. Legacy two-state assets can still render, but new Test Lab runs avoid shared A/B sheet registration.",
     previewSrc: "/visual-modes/flipflop.mp4",
     durationProfile: "normal",
     durationLabel: "Normal target · 5-9s",
@@ -172,10 +172,10 @@ export const VISUAL_MODE_CATALOG: VisualModeEntry[] = [
     },
     distribution: "Unlimited",
     routing:
-      "Production script generation and visual analysis do not choose flipflop while shared A/B state-sheet generation is being hardened. Test Lab can still stress-test flipflop_action values, renderer_context staging, shared state-sheet prompts, and uniform-scale alpha-mask registration.",
+      "Production script generation and visual analysis do not choose flipflop while generation is being hardened. Test Lab can stress-test flipflop_action values, renderer_context staging, base-cutout keying, and renderer-owned overlays.",
     notCompatibleWith: [
       "Different-subject contrast — use comparison_board instead.",
-      "Production same-subject A/B animation — use another mode until flipflop is re-enabled.",
+      "Production same-subject micro-animation — use another mode until flipflop is re-enabled.",
       "Body repositioning, nods, hand gestures, shrugs, or object motion — use another mode instead.",
     ],
     rendererPath: "remotion/src/scenes/TreatmentRenderer.tsx",
