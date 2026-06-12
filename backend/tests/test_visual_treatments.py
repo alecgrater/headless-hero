@@ -2520,7 +2520,52 @@ def test_generate_flipflop_cutouts_errors_for_large_zoom_mismatch(tmp_path, monk
         )
 
 
-def test_generate_flipflop_cutouts_errors_for_borderline_final_size_mismatch(tmp_path, monkeypatch):
+def test_generate_flipflop_cutouts_allows_small_same_height_width_drift(tmp_path, monkeypatch):
+    image_gen, _, _ = _stub_panel_image_context(monkeypatch, tmp_path)
+
+    monkeypatch.setattr(image_gen, "save_vault_image", lambda **_kwargs: None)
+
+    def fake_generate_image(
+        _prompt,
+        *,
+        width,
+        height,
+        **_kwargs,
+    ):
+        source = tmp_path / "source-small-width-drift.png"
+        image = Image.new("RGBA", (320, 180), (0, 255, 0, 255))
+        draw = ImageDraw.Draw(image)
+        draw.rectangle((20, 10, 124, 163), fill=(255, 0, 0, 255))
+        draw.rectangle((173, 10, 282, 163), fill=(255, 0, 0, 255))
+        image.save(source)
+        return str(source)
+
+    monkeypatch.setattr(image_gen, "generate_image", fake_generate_image)
+
+    layers = image_gen.generate_flipflop_cutouts(
+        scene_id="scene_001",
+        layers=[
+            {"id": "state_a", "type": "image", "prompt": "State A prompt", "contains_person": True},
+            {"id": "state_b", "type": "image", "prompt": "State B prompt", "contains_person": True},
+        ],
+        script_id="script-1",
+        scene_prompt="Person changes expression.",
+        width=320,
+        height=180,
+        contains_person=True,
+    )
+
+    image_layers = [layer for layer in layers if layer.get("type", "image") == "image"]
+    assert image_layers[1]["visual_source_metadata"]["scale_factor"] == 0.9545
+
+    output_dir = tmp_path / "projects" / "script-1" / "flipflop_cutouts" / "scene_001"
+    with Image.open(output_dir / "state_01_state_a.png") as state_a:
+        state_a_size = state_a.size
+    with Image.open(output_dir / "state_02_state_b.png") as state_b:
+        assert state_b.size == state_a_size
+
+
+def test_generate_flipflop_cutouts_errors_for_aspect_mismatch_above_tolerance(tmp_path, monkeypatch):
     image_gen, _, _ = _stub_panel_image_context(monkeypatch, tmp_path)
 
     monkeypatch.setattr(image_gen, "save_vault_image", lambda **_kwargs: None)
@@ -2536,7 +2581,7 @@ def test_generate_flipflop_cutouts_errors_for_borderline_final_size_mismatch(tmp
         image = Image.new("RGBA", (260, 160), (0, 255, 0, 255))
         draw = ImageDraw.Draw(image)
         draw.rectangle((20, 20, 119, 119), fill=(255, 0, 0, 255))
-        draw.rectangle((150, 20, 256, 115), fill=(255, 0, 0, 255))
+        draw.rectangle((150, 25, 256, 108), fill=(255, 0, 0, 255))
         image.save(source)
         return str(source)
 

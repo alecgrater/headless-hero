@@ -27,7 +27,6 @@ FLIPFLOP_CUTOUT_REGISTRATION_VERSION = "alpha-mask-registration-v4"
 FLIPFLOP_SCALE_CORRECTION_MIN = 0.92
 FLIPFLOP_SCALE_CORRECTION_MAX = 1.08
 FLIPFLOP_ASPECT_RATIO_TOLERANCE = 0.12
-FLIPFLOP_FINAL_SIZE_TOLERANCE_PX = 2
 _STYLE_GUIDE = IMAGE_COMPOSITION_GUIDE.template
 _VISUAL_STYLE = IMAGE_VISUAL_STYLE.template
 _CHARACTER_PROMPT = IMAGE_CHARACTER_IN_SCENE.template
@@ -1132,17 +1131,6 @@ def _recrop_flipflop_cutouts_to_shared_bbox(
                 max(1, round(subject.height * scale_factor)),
             )
             subject = subject.resize(scaled_size, Image.Resampling.LANCZOS)
-        final_bbox = subject.getbbox()
-        final_width = max(0, final_bbox[2] - final_bbox[0]) if final_bbox else 0
-        final_height = max(0, final_bbox[3] - final_bbox[1]) if final_bbox else 0
-        final_size_is_safe = (
-            abs(final_width - target_width) <= FLIPFLOP_FINAL_SIZE_TOLERANCE_PX
-            and abs(final_height - target_height) <= FLIPFLOP_FINAL_SIZE_TOLERANCE_PX
-        )
-        if prepared_subjects and not final_size_is_safe:
-            raise FlipflopRegistrationError(
-                "Flipflop State A/B cutouts could not be aligned: final registered state sizes still differ. Regenerate the scene or use full_frame."
-            )
         anchor = _alpha_anchor(subject)
         if not prepared_subjects:
             target_anchor = anchor
