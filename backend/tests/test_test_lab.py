@@ -2044,6 +2044,91 @@ def test_stage_treatment_assets_generates_fallback_flipflop_cutout_urls(monkeypa
     ]
 
 
+def test_stage_treatment_assets_preserves_explicit_flipflop_action_after_ignored_analysis(monkeypatch, tmp_path):
+    engine, _app = _setup_app(monkeypatch, tmp_path)
+
+    import pipeline.image_gen as image_gen
+    import pipeline.test_lab as test_lab
+    import pipeline.visual_treatments as visual_treatments
+    from models.script import ScriptContent
+    from pipeline.visual_treatments import VisualTreatmentAssignment
+
+    with Session(engine) as session:
+        script_id = test_lab.create_hidden_test_script(
+            session,
+            run_id="run-flipflop-action-preserve",
+            preset_id="blank",
+            settings={
+                "visual_mode": "flipflop",
+                "visual_prompt": "Young employee in a plain red polo and visor, isolated chest-up character.",
+                "narration": "He answers the impossible burger question.",
+                "flipflop_action": "speaking_mouth",
+                "visual_layers": [],
+            },
+        )
+        record, content = test_lab._load_content_for_script(session, script_id)
+        scene = content.segments[0].scenes[0]
+        scene.audio_duration_seconds = 5.0
+        scene.word_timestamps = [{"word": "He", "start_ms": 0, "end_ms": 200}]
+        test_lab._save_content(session, record, content)
+        session.commit()
+
+    def fake_analyze(content, **_kwargs):
+        scene = content.segments[0].scenes[0]
+        scene.set_visual_mode("full_frame")
+        scene.flipflop_action = ""
+        return [VisualTreatmentAssignment(scene_id=scene.id, visual_mode="full_frame", visual_layers=[])]
+
+    captured_layers = []
+
+    def fake_generate_flipflop_cutouts(**kwargs):
+        captured_layers.extend(kwargs["layers"])
+        return [
+            {**kwargs["layers"][0], "asset_kind": "cutout", "image_url": "/static/projects/test/layers/state-a.png"},
+            {**kwargs["layers"][1], "asset_kind": "cutout", "image_url": "/static/projects/test/layers/state-b.png"},
+        ]
+
+    monkeypatch.setattr(visual_treatments, "analyze_visual_treatments", fake_analyze)
+    monkeypatch.setattr(image_gen, "generate_flipflop_cutouts", fake_generate_flipflop_cutouts)
+    monkeypatch.setattr(
+        image_gen,
+        "generate_visual_layer_panels",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("flipflop should not use panel generation")),
+    )
+
+    manifest = test_lab.TestLabRunManifest(
+        run_id="run-flipflop-action-preserve",
+        script_id=script_id,
+        preset_id="blank",
+        status="running",
+    )
+    ctx = test_lab.TestLabRunContext(
+        engine=engine,
+        run_id="run-flipflop-action-preserve",
+        script_id=script_id,
+        preset_id="blank",
+        settings={
+            "visual_mode": "flipflop",
+            "flipflop_action": "speaking_mouth",
+            "visual_layers": [],
+        },
+        manifest=manifest,
+        job_id=None,
+    )
+
+    test_lab._stage_treatment_assets(ctx)
+
+    assert "mouth closed or lightly resting" in captured_layers[0]["prompt"]
+    assert "mouth slightly open as if speaking one syllable" in captured_layers[1]["prompt"]
+
+    with Session(engine) as session:
+        _record, saved = test_lab._load_content_for_script(session, script_id)
+        scene = ScriptContent.model_validate(saved).segments[0].scenes[0]
+
+    assert scene.visual_mode == "flipflop"
+    assert scene.flipflop_action == "speaking_mouth"
+
+
 def test_stage_treatment_assets_generates_stat_card_icon_cutout(monkeypatch, tmp_path):
     engine, _app = _setup_app(monkeypatch, tmp_path)
 

@@ -1079,6 +1079,11 @@ def _stage_treatment_assets(ctx: TestLabRunContext) -> None:
         if not layer_based_treatment:
             _save_content(session, record, content)
             return
+        requested_flipflop_action = (
+            _resolve_flipflop_action_for_settings(ctx.settings, get_preset(ctx.preset_id))
+            if requested_mode == "flipflop"
+            else ""
+        )
         if not scene.visual_layers:
             assignment = None
             if scene.audio_duration_seconds > 0 and scene.word_timestamps:
@@ -1093,6 +1098,9 @@ def _stage_treatment_assets(ctx: TestLabRunContext) -> None:
                         scene.id,
                     )
                     assignment = None
+                if requested_mode == "flipflop" and requested_flipflop_action:
+                    scene.set_visual_mode("flipflop")
+                    scene.flipflop_action = requested_flipflop_action
             scene.visual_layers = (
                 list(assignment.visual_layers)
                 if assignment and assignment.visual_layers
