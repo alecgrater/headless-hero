@@ -58,13 +58,14 @@ def remove_small_edge_alpha_artifacts(
     image: Image.Image,
     *,
     max_area_ratio: float = 0.02,
+    max_area_pixels: int = 512,
     edge_margin: int = 2,
 ) -> Image.Image:
     image = image.convert("RGBA")
     width, height = image.size
     data = bytearray(image.tobytes())
     visited: set[int] = set()
-    max_area = max(24, round(width * height * max_area_ratio))
+    max_area = max(24, min(round(width * height * max_area_ratio), max_area_pixels))
 
     for pixel_index in range(width * height):
         if pixel_index in visited or data[pixel_index * 4 + 3] == 0:
