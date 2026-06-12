@@ -314,7 +314,7 @@ def test_flipflop_overlay_anchor_metadata_uses_actual_cutout_features():
     assert metadata["mouth"]["y"] == pytest.approx(0.639, abs=0.02)
 
 
-def test_flipflop_overlay_anchor_metadata_expands_eye_erase_box_for_nearby_wrinkles():
+def test_flipflop_overlay_anchor_metadata_keeps_under_eye_wrinkles_out_of_erase_box():
     from pipeline import image_gen as image_gen_mod
 
     image = Image.new("RGBA", (760, 820), (0, 0, 0, 0))
@@ -328,9 +328,9 @@ def test_flipflop_overlay_anchor_metadata_expands_eye_erase_box_for_nearby_wrink
 
     metadata = image_gen_mod._flipflop_overlay_anchor_metadata(image)
 
-    assert metadata["eye_left"]["erase_box"]["bottom"] == pytest.approx(0.522, abs=0.02)
+    assert metadata["eye_left"]["erase_box"]["bottom"] < 0.505
     assert metadata["eye_left"]["erase_box"]["top"] == pytest.approx(0.445, abs=0.02)
-    assert metadata["eye_right"]["erase_box"]["bottom"] == pytest.approx(0.522, abs=0.02)
+    assert metadata["eye_right"]["erase_box"]["bottom"] < 0.505
     assert metadata["eye_right"]["erase_box"]["top"] == pytest.approx(0.445, abs=0.02)
 
 

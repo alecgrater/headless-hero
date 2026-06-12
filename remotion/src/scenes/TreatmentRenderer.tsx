@@ -102,6 +102,7 @@ export const layerChromeStyle = (layer: VisualLayer, scale = 1): React.CSSProper
   const isCutout = layer.asset_kind === "cutout";
   const isFullBleedLayer = layer.asset_kind === "full_frame" || layer.asset_kind === "panel";
   return {
+    position: "relative",
     width: "100%",
     height: "100%",
     transform: `scale(${scale})`,
@@ -442,11 +443,7 @@ const eraseBoxMask = (
     : { left: box.left, right: box.right };
   const x = resolvedHorizontalBounds.left * 100;
   const top = typeof sharedTop === "number" ? sharedTop : box.top;
-  const featureBottom = typeof point.height === "number" && point.height > 0
-    ? point.y + point.height * 2.0
-    : box.bottom;
-  const requestedBottom = typeof sharedBottom === "number" ? sharedBottom : box.bottom;
-  const bottom = Math.max(top, Math.min(requestedBottom, featureBottom));
+  const bottom = typeof sharedBottom === "number" ? sharedBottom : box.bottom;
   const y = top * 100;
   const width = (resolvedHorizontalBounds.right - resolvedHorizontalBounds.left) * 100;
   const height = (bottom - top) * 100;
@@ -552,9 +549,14 @@ const FlipflopMicroExpressionOverlay: React.FC<{
   const opacity = visible ? 1 : 0;
   const common: React.CSSProperties = {
     position: "absolute",
+    left: 0,
+    top: 0,
+    width: "100%",
+    height: "100%",
     inset: 0,
     pointerEvents: "none",
     opacity,
+    zIndex: 2,
   };
   const leftEye = toSvgPoint(anchor.eye_left);
   const rightEye = toSvgPoint(anchor.eye_right);

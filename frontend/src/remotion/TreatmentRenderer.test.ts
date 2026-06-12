@@ -119,6 +119,16 @@ describe("popupOrbitFrameStyle", () => {
   });
 });
 
+describe("layerChromeStyle", () => {
+  it("anchors cutout overlays to the cutout image frame", () => {
+    expect(layerChromeStyle(itemLayer("cutout"))).toMatchObject({
+      position: "relative",
+      width: "100%",
+      height: "100%",
+    });
+  });
+});
+
 describe("RendererContextStage", () => {
   it("normalizes unknown contexts to plain", () => {
     expect(normalizeRendererContext("classroom")).toBe("classroom");
@@ -355,17 +365,17 @@ describe("flipflopBlinkEyeOverlayGeometry", () => {
       x: 39.3,
       y: 31.5,
       width: 5.4,
-      height: 5.5,
+      height: 7.5,
     });
     expect(geometry[1].mask).toMatchObject({
       x: 55.3,
       y: 31.5,
       width: 5.4,
-      height: 5.5,
+      height: 7.5,
     });
   });
 
-  it("clamps detected erase boxes horizontally to the eye feature bounds", () => {
+  it("clamps broad erase boxes horizontally to the eye aperture", () => {
     const geometry = flipflopBlinkEyeOverlayGeometry(
       {
         eye_left: {
@@ -393,17 +403,17 @@ describe("flipflopBlinkEyeOverlayGeometry", () => {
       x: 39,
       y: 31.5,
       width: 6,
-      height: 5.5,
+      height: 7.5,
     });
     expect(geometry[1].mask).toMatchObject({
       x: 55,
       y: 31.5,
       width: 6,
-      height: 5.5,
+      height: 7.5,
     });
   });
 
-  it("keeps under-eye detail outside blink masks and lowers closed lashes", () => {
+  it("uses backend eye-aperture bounds and lowers closed lashes", () => {
     const geometry = flipflopBlinkEyeOverlayGeometry(
       {
         eye_left: {
@@ -411,14 +421,14 @@ describe("flipflopBlinkEyeOverlayGeometry", () => {
           y: 0.33,
           width: 0.05,
           height: 0.02,
-          erase_box: { left: 0.39, top: 0.315, right: 0.45, bottom: 0.43 },
+          erase_box: { left: 0.39, top: 0.315, right: 0.45, bottom: 0.37 },
         },
         eye_right: {
           x: 0.58,
           y: 0.33,
           width: 0.05,
           height: 0.02,
-          erase_box: { left: 0.55, top: 0.315, right: 0.61, bottom: 0.43 },
+          erase_box: { left: 0.55, top: 0.315, right: 0.61, bottom: 0.37 },
         },
         mouth: { x: 0.5, y: 0.48 },
         brow_left: { x: 0.42, y: 0.26 },

@@ -24,7 +24,7 @@ from prompts import IMAGE_CHARACTER_IN_SCENE, IMAGE_COMPOSITION_GUIDE, IMAGE_VIS
 
 logger = logging.getLogger(__name__)
 
-FLIPFLOP_CUTOUT_REGISTRATION_VERSION = "alpha-mask-registration-v19"
+FLIPFLOP_CUTOUT_REGISTRATION_VERSION = "alpha-mask-registration-v20"
 FLIPFLOP_SCALE_CORRECTION_MIN = 0.92
 FLIPFLOP_SCALE_CORRECTION_MAX = 1.08
 FLIPFLOP_ASPECT_RATIO_TOLERANCE = 0.12
@@ -1353,7 +1353,7 @@ def _flipflop_eye_erase_box(
     search_left = max(0, round((eye["left"] - eye["width"] * 0.35) * width))
     search_top = max(0, round((eye["top"] - eye["height"] * 0.25) * height))
     search_right = min(width - 1, round((eye["right"] + eye["width"] * 0.35) * width))
-    search_bottom = min(height - 1, round((eye["bottom"] + eye["height"] * 2.2) * height))
+    search_bottom = min(height - 1, round((eye["bottom"] + eye["height"] * 0.45) * height))
     feature_xs: list[int] = []
     feature_ys: list[int] = []
     for y in range(search_top, search_bottom + 1):
@@ -1375,23 +1375,6 @@ def _flipflop_eye_erase_box(
         top = min(top, min(feature_ys) / height)
         right = max(right, max(feature_xs) / width)
         bottom = max(bottom, max(feature_ys) / height)
-
-    for component in components:
-        if component is eye:
-            continue
-        close_x = component["right"] >= eye["left"] - eye["width"] * 0.55 and component["left"] <= eye["right"] + eye["width"] * 0.55
-        near_eye_y = eye["top"] - eye["height"] * 0.15 <= component["cy"] <= eye["bottom"] + eye["height"] * 1.55
-        small_expression_mark = (
-            component["area"] <= eye["area"] * 0.65
-            and component["width"] <= eye["width"] * 1.25
-            and component["height"] <= eye["height"] * 0.85
-        )
-        if not (close_x and near_eye_y and small_expression_mark):
-            continue
-        left = min(left, component["left"])
-        top = min(top, component["top"])
-        right = max(right, component["right"])
-        bottom = max(bottom, component["bottom"])
 
     pad_x = eye["width"] * 0.10
     pad_y = eye["height"] * 0.18
