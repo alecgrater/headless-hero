@@ -1062,6 +1062,7 @@ def _flipflop_base_cache_valid(path: Path) -> bool:
         and metadata.get("canonical_canvas") == [FLIPFLOP_BASE_CANVAS_WIDTH, FLIPFLOP_BASE_CANVAS_HEIGHT]
         and isinstance(metadata.get("canonical_subject_box"), list)
         and isinstance(metadata.get("flipflop_overlay_anchor"), dict)
+        and metadata.get("flipflop_overlay_anchor", {}).get("detected") is True
     )
 
 
@@ -1110,7 +1111,7 @@ def _save_flipflop_canonical_base_cutout(image: Image.Image, output_path: Path) 
         "trim_box": source_trim_box,
         "canonical_canvas": [FLIPFLOP_BASE_CANVAS_WIDTH, FLIPFLOP_BASE_CANVAS_HEIGHT],
         "canonical_subject_box": list(subject_box),
-        "flipflop_overlay_anchor": _flipflop_overlay_anchor_metadata(canvas),
+        "flipflop_overlay_anchor": _flipflop_overlay_anchor_metadata(canvas, require_detected=True),
     }
 
 
@@ -1140,10 +1141,16 @@ def _validate_flipflop_base_subject_box(subject_box: tuple[int, int, int, int]) 
         )
 
 
-def _flipflop_overlay_anchor_metadata(image: Image.Image | None = None) -> dict[str, object]:
+def _flipflop_overlay_anchor_metadata(image: Image.Image | None = None, *, require_detected: bool = False) -> dict[str, object]:
     detected = _detect_flipflop_overlay_anchor_points(image) if image is not None else None
+    if require_detected and detected is None:
+        raise FlipflopRegistrationError(
+            "Flipflop base cutout facial landmarks could not be detected, so deterministic "
+            "face overlays cannot be aligned safely. Regenerate the scene or use full_frame."
+        )
     return {
         "version": 1,
+        "detected": detected is not None,
         "coordinate_space": "normalized_layer_frame",
         "eye_left": detected.get("eye_left", {"x": 0.45, "y": 0.44}) if detected else {"x": 0.45, "y": 0.44},
         "eye_right": detected.get("eye_right", {"x": 0.55, "y": 0.44}) if detected else {"x": 0.55, "y": 0.44},
@@ -1217,7 +1224,7 @@ def _detect_flipflop_overlay_anchor_points(image: Image.Image | None) -> dict[st
         and 0.015 <= component["height"] <= 0.07
         and component["area"] >= 120
     ]
-    best_eye_pair: tuple[dict[str, float], dict[str, float]] | None = None
+    best_eye_pair: tuple[dict[str, float], dict[str, float], dict[str, float]] | None = None
     best_score = 999.0
     for left_eye in eye_candidates:
         for right_eye in eye_candidates:
@@ -1230,35 +1237,39 @@ def _detect_flipflop_overlay_anchor_points(image: Image.Image | None) -> dict[st
             if y_delta > 0.035:
                 continue
             midpoint = (left_eye["cx"] + right_eye["cx"]) / 2
-            score = y_delta + abs(midpoint - 0.50) * 0.8 + abs(separation - 0.18) * 0.5
+            eye_y = (left_eye["cy"] + right_eye["cy"]) / 2
+            mouth_candidates = [
+                component
+                for component in components
+                if eye_y + 0.10 <= component["cy"] <= min(0.70, eye_y + 0.27)
+                and 0.035 <= component["width"] <= 0.14
+                and component["height"] <= 0.025
+                and abs(component["cx"] - midpoint) <= 0.10
+            ]
+            mouth = max(mouth_candidates, key=lambda component: component["area"], default=None)
+            if mouth is None:
+                continue
+            mouth_distance = mouth["cy"] - eye_y
+            score = (
+                y_delta
+                + abs(midpoint - 0.50) * 0.8
+                + abs(separation - 0.18) * 0.5
+                + abs(mouth_distance - 0.16) * 1.2
+                - eye_y * 0.35
+            )
             if score < best_score:
                 best_score = score
-                best_eye_pair = (left_eye, right_eye)
+                best_eye_pair = (left_eye, right_eye, mouth)
     if best_eye_pair is None:
         return None
 
-    left_eye, right_eye = best_eye_pair
+    left_eye, right_eye, mouth = best_eye_pair
     eye_y = (left_eye["cy"] + right_eye["cy"]) / 2
-    eye_midpoint = (left_eye["cx"] + right_eye["cx"]) / 2
-    mouth_candidates = [
-        component
-        for component in components
-        if eye_y + 0.08 <= component["cy"] <= min(0.70, eye_y + 0.25)
-        and 0.035 <= component["width"] <= 0.14
-        and component["height"] <= 0.025
-        and abs(component["cx"] - eye_midpoint) <= 0.10
-    ]
-    mouth = max(mouth_candidates, key=lambda component: component["area"], default=None)
-    mouth_point = (
-        {"x": round(mouth["cx"], 4), "y": round(mouth["cy"], 4)}
-        if mouth is not None
-        else {"x": round(eye_midpoint, 4), "y": round(min(0.70, eye_y + 0.14), 4)}
-    )
     brow_y = max(0.0, eye_y - 0.08)
     return {
         "eye_left": {"x": round(left_eye["cx"], 4), "y": round(left_eye["cy"], 4)},
         "eye_right": {"x": round(right_eye["cx"], 4), "y": round(right_eye["cy"], 4)},
-        "mouth": mouth_point,
+        "mouth": {"x": round(mouth["cx"], 4), "y": round(mouth["cy"], 4)},
         "brow_left": {"x": round(left_eye["cx"], 4), "y": round(brow_y, 4)},
         "brow_right": {"x": round(right_eye["cx"], 4), "y": round(brow_y, 4)},
     }

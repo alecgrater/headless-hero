@@ -310,6 +310,35 @@ def test_flipflop_overlay_anchor_metadata_uses_actual_cutout_features():
     assert metadata["mouth"]["y"] == pytest.approx(0.639, abs=0.02)
 
 
+def test_flipflop_overlay_anchor_metadata_ignores_brows_above_eyes():
+    from pipeline import image_gen as image_gen_mod
+
+    image = Image.new("RGBA", (760, 820), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    draw.ellipse((210, 120, 550, 650), fill=(240, 195, 150, 255))
+    draw.rounded_rectangle((292, 300, 352, 316), radius=8, fill=(10, 10, 10, 255))
+    draw.rounded_rectangle((430, 300, 490, 316), radius=8, fill=(10, 10, 10, 255))
+    draw.rounded_rectangle((305, 365, 345, 392), radius=10, fill=(10, 10, 10, 255))
+    draw.rounded_rectangle((445, 365, 485, 392), radius=10, fill=(10, 10, 10, 255))
+    draw.rounded_rectangle((365, 520, 420, 528), radius=3, fill=(10, 10, 10, 255))
+
+    metadata = image_gen_mod._flipflop_overlay_anchor_metadata(image)
+
+    assert metadata["eye_left"]["y"] == pytest.approx(0.462, abs=0.02)
+    assert metadata["eye_right"]["y"] == pytest.approx(0.462, abs=0.02)
+
+
+def test_flipflop_overlay_anchor_metadata_can_require_detected_features():
+    from pipeline import image_gen as image_gen_mod
+
+    image = Image.new("RGBA", (760, 820), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    draw.ellipse((210, 120, 550, 650), fill=(240, 195, 150, 255))
+
+    with pytest.raises(image_gen_mod.FlipflopRegistrationError):
+        image_gen_mod._flipflop_overlay_anchor_metadata(image, require_detected=True)
+
+
 def test_generate_visual_layer_panels_uses_composed_prompt_and_references(tmp_path, monkeypatch):
     image_gen_mod, char_ref, style_ref = _stub_panel_image_context(monkeypatch, tmp_path)
     captured = []
@@ -2837,8 +2866,11 @@ def test_flipflop_base_cutout_is_saved_on_canonical_overlay_canvas(tmp_path):
 
     image = Image.new("RGBA", (420, 520), (0, 255, 0, 255))
     draw = ImageDraw.Draw(image)
-    draw.ellipse((105, 18, 315, 228), fill=(246, 191, 145, 255))
-    draw.rectangle((138, 220, 282, 496), fill=(198, 91, 66, 255))
+    draw.ellipse((84, 58, 336, 346), fill=(246, 191, 145, 255))
+    draw.ellipse((148, 215, 188, 245), fill=(10, 10, 10, 255))
+    draw.ellipse((232, 215, 272, 245), fill=(10, 10, 10, 255))
+    draw.rounded_rectangle((185, 300, 235, 308), radius=3, fill=(10, 10, 10, 255))
+    draw.rectangle((138, 338, 282, 496), fill=(198, 91, 66, 255))
 
     output_path = tmp_path / "base.png"
     metadata = image_gen._save_flipflop_canonical_base_cutout(image, output_path)
