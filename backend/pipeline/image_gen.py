@@ -17,6 +17,7 @@ from pipeline.asset_vault import VaultKind, save_vault_image
 from pipeline.character_assets import process_character_asset_bundle
 from pipeline.cutout_chroma import key_out_background, save_keyed_trimmed_cutout as save_shared_keyed_trimmed_cutout
 from pipeline.fallback_observability import record_fallback
+from pipeline.render_jobs import UserFacingJobError
 from pipeline.visual_treatments import flipflop_cutout_prompt
 from prompts import IMAGE_CHARACTER_IN_SCENE, IMAGE_COMPOSITION_GUIDE, IMAGE_VISUAL_STYLE
 
@@ -32,7 +33,7 @@ _VISUAL_STYLE = IMAGE_VISUAL_STYLE.template
 _CHARACTER_PROMPT = IMAGE_CHARACTER_IN_SCENE.template
 
 
-class FlipflopRegistrationError(RuntimeError):
+class FlipflopRegistrationError(UserFacingJobError):
     """Raised when generated flipflop states cannot be safely aligned."""
 
 
@@ -964,6 +965,7 @@ def _generate_flipflop_state_sheet(
         and prompt_marker.read_text(encoding="utf-8") == prompt_fingerprint
         and sheet_path.exists()
         and all(Path(entry["local_path"]).exists() and Path(entry["raw_path"]).exists() for entry in states)
+        and all(_flipflop_registration_cache_valid(Path(entry["local_path"])) for entry in states)
     )
 
     if cache_valid:
@@ -1010,6 +1012,18 @@ def _generate_flipflop_state_sheet(
 
     prompt_marker.write_text(prompt_fingerprint, encoding="utf-8")
     return states
+
+
+def _flipflop_registration_cache_valid(path: Path) -> bool:
+    metadata = _read_source_metadata(path)
+    return bool(
+        metadata
+        and metadata.get("registration_algorithm_version") == FLIPFLOP_CUTOUT_REGISTRATION_VERSION
+        and isinstance(metadata.get("trim_box"), list)
+        and isinstance(metadata.get("virtual_trim_box"), list)
+        and isinstance(metadata.get("registration_box"), list)
+        and isinstance(metadata.get("scale_factor"), int | float)
+    )
 
 
 def _normalize_flipflop_generation_layers(

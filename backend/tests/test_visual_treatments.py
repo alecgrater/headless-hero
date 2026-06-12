@@ -2477,6 +2477,9 @@ def test_generate_flipflop_cutouts_recrops_states_to_shared_bbox(tmp_path, monke
 
 def test_generate_flipflop_cutouts_errors_for_large_zoom_mismatch(tmp_path, monkeypatch):
     image_gen, _, _ = _stub_panel_image_context(monkeypatch, tmp_path)
+    from pipeline.render_jobs import UserFacingJobError
+
+    assert issubclass(image_gen.FlipflopRegistrationError, UserFacingJobError)
 
     monkeypatch.setattr(image_gen, "save_vault_image", lambda **_kwargs: None)
 
@@ -2547,6 +2550,62 @@ def test_generate_flipflop_cutouts_errors_for_borderline_final_size_mismatch(tmp
             height=180,
             contains_person=True,
         )
+
+
+def test_generate_flipflop_cutouts_failed_registration_does_not_cache_bad_sheet(tmp_path, monkeypatch):
+    image_gen, _, _ = _stub_panel_image_context(monkeypatch, tmp_path)
+
+    monkeypatch.setattr(image_gen, "save_vault_image", lambda **_kwargs: None)
+    generated_count = 0
+
+    def fake_generate_image(
+        _prompt,
+        *,
+        width,
+        height,
+        **_kwargs,
+    ):
+        nonlocal generated_count
+        generated_count += 1
+        source = tmp_path / f"source-retry-{generated_count}.png"
+        image = Image.new("RGBA", (120, 100), (0, 255, 0, 255))
+        draw = ImageDraw.Draw(image)
+        if generated_count == 1:
+            draw.rectangle((20, 20, 50, 60), fill=(255, 0, 0, 255))
+            draw.rectangle((70, 10, 110, 80), fill=(255, 0, 0, 255))
+        else:
+            draw.rectangle((20, 20, 50, 60), fill=(255, 0, 0, 255))
+            draw.rectangle((80, 20, 110, 60), fill=(255, 0, 0, 255))
+        image.save(source)
+        return str(source)
+
+    monkeypatch.setattr(image_gen, "generate_image", fake_generate_image)
+
+    kwargs = {
+        "scene_id": "scene_001",
+        "layers": [
+            {"id": "state_a", "type": "image", "prompt": "State A prompt", "contains_person": True},
+            {"id": "state_b", "type": "image", "prompt": "State B prompt", "contains_person": True},
+        ],
+        "script_id": "script-1",
+        "scene_prompt": "Person changes expression.",
+        "width": 320,
+        "height": 180,
+        "contains_person": True,
+    }
+
+    with pytest.raises(image_gen.FlipflopRegistrationError):
+        image_gen.generate_flipflop_cutouts(**kwargs)
+
+    layers = image_gen.generate_flipflop_cutouts(**kwargs)
+
+    assert generated_count == 2
+    image_layers = [layer for layer in layers if layer.get("type", "image") == "image"]
+    assert all(
+        layer["visual_source_metadata"]["registration_algorithm_version"]
+        == image_gen.FLIPFLOP_CUTOUT_REGISTRATION_VERSION
+        for layer in image_layers
+    )
 
 
 def test_generate_flipflop_cutouts_shared_sheet_cache_ignores_state_cutout_mtime(tmp_path, monkeypatch):
