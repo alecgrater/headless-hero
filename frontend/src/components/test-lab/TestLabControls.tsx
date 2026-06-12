@@ -264,11 +264,14 @@ export default function TestLabControls({
   function updateVisualMode(nextMode: VisualMode) {
     const nextLayered = isLayeredVisualMode(nextMode);
     const shouldPreserveLayers = nextLayered && nextMode === visualMode;
+    const nextFlipflopAction = isSupportedFlipflopAction(settings.flipflop_action)
+      ? settings.flipflop_action
+      : lastFlipflopAction;
     onChange(settingsWithVisualTreatmentDefaults(
       {
         ...settings,
         visual_mode: nextMode,
-        flipflop_action: nextMode === "flipflop" ? settings.flipflop_action || lastFlipflopAction : "",
+        flipflop_action: nextMode === "flipflop" ? nextFlipflopAction : "",
         visual_layers: shouldPreserveLayers ? settings.visual_layers : defaultLayersForMode(nextMode, visualPrompt, narration),
         frame_directives: usesFrameDirectives(nextMode)
           ? defaultFrameDirectivesForMode(nextMode, visualPrompt)

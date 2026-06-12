@@ -371,6 +371,15 @@ def test_run_test_lab_manifest_defaults_flipflop_action(monkeypatch, tmp_path):
     assert manifest.settings["flipflop_action"] == "blink"
 
 
+def test_resolve_flipflop_action_coerces_unsupported_test_lab_action():
+    import pipeline.test_lab as test_lab
+
+    assert test_lab._resolve_flipflop_action_for_settings(
+        {"visual_mode": "flipflop", "flipflop_action": "head_nod"},
+        None,
+    ) == "blink"
+
+
 def test_run_test_lab_manifest_clears_flipflop_action_for_non_flipflop(monkeypatch, tmp_path):
     engine, _app = _setup_app(monkeypatch, tmp_path)
 

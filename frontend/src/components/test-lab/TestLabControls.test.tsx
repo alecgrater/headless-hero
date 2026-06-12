@@ -482,6 +482,30 @@ describe("TestLabControls layout", () => {
     expect(within(actionSelect).getByRole("option", { name: "Eyebrow raise" })).toBeInTheDocument();
   });
 
+  it("coerces stale unsupported flip-flop actions when switching into flip-flop", () => {
+    const onChange = vi.fn();
+    render(
+      <TestLabControls
+        preset={preset}
+        defaultMainCharacter={null}
+        visualTreatmentDefaults={defaults}
+        settings={{ ...baseSettings, visual_mode: "full_frame", flipflop_action: "head_nod" }}
+        voiceSummary={voiceSummary}
+        subtitleSummary={subtitleSummary}
+        onChange={onChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Flip-flop/i }));
+
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        visual_mode: "flipflop",
+        flipflop_action: "blink",
+      }),
+    );
+  });
+
   it("does not expose editable State A/State B prompts for flip-flop (action-derived in backend)", () => {
     render(
       <TestLabControls

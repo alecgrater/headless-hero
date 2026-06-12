@@ -28,7 +28,7 @@ from models.script import (
     VisualCanvas,
     VisualLayer,
 )
-from pipeline.flipflop_actions import normalize_flipflop_action
+from pipeline.flipflop_actions import FlipflopAction, normalize_flipflop_action
 from pipeline.script_helpers import _usage_task_label
 from pipeline.visual_treatments import comparison_cutout_prompt, flipflop_cutout_prompt
 from pipeline.renderer_context import infer_renderer_context, normalize_renderer_context
@@ -64,6 +64,13 @@ FLIPFLOP_TEXT_DEFAULTS = {
         "strong clear silhouette, bold outlines, expressive face, clean 2D cartoon aesthetic, no readable "
         "text or letters."
     ),
+}
+
+TEST_LAB_RENDERER_FLIPFLOP_ACTIONS: set[FlipflopAction] = {
+    "blink",
+    "speaking_mouth",
+    "eye_glance",
+    "eyebrow_raise",
 }
 COMPARISON_BOARD_TEXT_DEFAULTS = {
     "narration": (
@@ -526,11 +533,12 @@ def _visual_mode_from_settings(settings: dict, preset: TestLabPreset) -> str:
 
 
 def _flipflop_action_from_settings(settings: dict, preset: TestLabPreset | None) -> str:
-    return (
+    action = (
         normalize_flipflop_action(settings.get("flipflop_action"))
         or (normalize_flipflop_action(preset.flipflop_action) if preset is not None else "")
         or "blink"
     )
+    return action if action in TEST_LAB_RENDERER_FLIPFLOP_ACTIONS else "blink"
 
 
 def _resolve_flipflop_action_for_settings(
