@@ -434,8 +434,8 @@ const eraseBoxMask = (
   }
   const horizontalBounds = typeof point.width === "number" && point.width > 0
     ? {
-      left: Math.max(box.left, point.x - point.width * 0.6),
-      right: Math.min(box.right, point.x + point.width * 0.6),
+      left: Math.max(box.left, point.x - point.width * 0.85),
+      right: Math.min(box.right, point.x + point.width * 0.85),
     }
     : { left: box.left, right: box.right };
   const resolvedHorizontalBounds = horizontalBounds.right > horizontalBounds.left

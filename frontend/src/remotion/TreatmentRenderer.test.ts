@@ -323,15 +323,15 @@ describe("flipflopBlinkEyeOverlayGeometry", () => {
     );
 
     expect(geometry[0].mask).toMatchObject({
-      x: 39.3,
+      x: 39,
       y: 31.5,
-      width: 5.4,
+      width: 6,
       height: 5.5,
     });
     expect(geometry[1].mask).toMatchObject({
-      x: 55.3,
+      x: 55,
       y: 31.5,
-      width: 5.4,
+      width: 6,
       height: 5.5,
     });
     expect(geometry[0].lid.d).toContain("Q42");
@@ -362,20 +362,20 @@ describe("flipflopBlinkEyeOverlayGeometry", () => {
     );
 
     expect(geometry[0].mask).toMatchObject({
-      x: 39.3,
+      x: 39,
       y: 31.5,
-      width: 5.4,
+      width: 6,
       height: 7.5,
     });
     expect(geometry[1].mask).toMatchObject({
-      x: 55.3,
+      x: 55,
       y: 31.5,
-      width: 5.4,
+      width: 6,
       height: 7.5,
     });
   });
 
-  it("clamps broad erase boxes horizontally to the eye aperture", () => {
+  it("clamps broad erase boxes horizontally to a wider eye-detail band", () => {
     const geometry = flipflopBlinkEyeOverlayGeometry(
       {
         eye_left: {
@@ -400,17 +400,47 @@ describe("flipflopBlinkEyeOverlayGeometry", () => {
     );
 
     expect(geometry[0].mask).toMatchObject({
-      x: 39,
+      x: 37.75,
       y: 31.5,
-      width: 6,
+      width: 8.5,
       height: 7.5,
     });
     expect(geometry[1].mask).toMatchObject({
-      x: 55,
+      x: 53.75,
       y: 31.5,
-      width: 6,
+      width: 8.5,
       height: 7.5,
     });
+  });
+
+  it("covers eyelid remnants outside the narrow dark aperture", () => {
+    const geometry = flipflopBlinkEyeOverlayGeometry(
+      {
+        eye_left: {
+          x: 0.42,
+          y: 0.33,
+          width: 0.05,
+          height: 0.02,
+          erase_box: { left: 0.36, top: 0.30, right: 0.48, bottom: 0.41 },
+        },
+        eye_right: {
+          x: 0.58,
+          y: 0.33,
+          width: 0.05,
+          height: 0.02,
+          erase_box: { left: 0.52, top: 0.30, right: 0.64, bottom: 0.41 },
+        },
+        mouth: { x: 0.5, y: 0.48 },
+        brow_left: { x: 0.42, y: 0.26 },
+        brow_right: { x: 0.58, y: 0.26 },
+      },
+      "#D9A374",
+    );
+
+    expect(geometry[0].mask.x).toBeLessThanOrEqual(37.8);
+    expect(geometry[0].mask.x + geometry[0].mask.width).toBeGreaterThanOrEqual(46.2);
+    expect(geometry[1].mask.x).toBeLessThanOrEqual(53.8);
+    expect(geometry[1].mask.x + geometry[1].mask.width).toBeGreaterThanOrEqual(62.2);
   });
 
   it("uses backend eye-aperture bounds and lowers closed lashes", () => {
