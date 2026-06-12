@@ -172,9 +172,10 @@ export const VISUAL_MODE_CATALOG: VisualModeEntry[] = [
     },
     distribution: "Unlimited",
     routing:
-      "Script generation chooses flipflop when narration and visual prompt context support one locked human/character face micro-action, then sets flipflop_action and renderer_context for backend shared A/B state-sheet prompts, uniform-scale alpha-mask registration, and renderer-owned context staging.",
+      "Production script generation and visual analysis do not choose flipflop while shared A/B state-sheet generation is being hardened. Test Lab can still stress-test flipflop_action values, renderer_context staging, shared state-sheet prompts, and uniform-scale alpha-mask registration.",
     notCompatibleWith: [
       "Different-subject contrast — use comparison_board instead.",
+      "Production same-subject A/B animation — use another mode until flipflop is re-enabled.",
       "Body repositioning, nods, hand gestures, shrugs, or object motion — use another mode instead.",
     ],
     rendererPath: "remotion/src/scenes/TreatmentRenderer.tsx",
@@ -201,7 +202,7 @@ export const VISUAL_MODE_CATALOG: VisualModeEntry[] = [
     routing:
       "Script generation chooses comparison_board when narration explicitly contrasts two or three things. Avoid for single environments, item lists, same-subject animation, or progression.",
     notCompatibleWith: [
-      "Cropped same-subject character/body-language A/B animation — use flipflop.",
+      "Cropped same-subject character/body-language A/B animation — use another mode until flipflop is re-enabled.",
       "Item callouts around an anchor — use popup_sequence.",
       "Process progression — use continuous.",
     ],

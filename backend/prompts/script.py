@@ -183,19 +183,19 @@ VISUAL MODE VOCABULARY:
 - "captions" — When a sentence delivers a punchy editorial label, reversal, emotional realization, or key claim that should become large in-scene text. Captions are a short editorial punch mode, not a rare extended-duration mode. Use a static canvas with optional side visual plus renderer-owned caption typography. Emit "caption_text" as an exact contiguous phrase copied from the scene narration (2-15 words ideally), and "caption_emphasis" as the one strongest word or phrase inside that exact caption_text to render red. Do not invent, rewrite, paraphrase, summarize, or add caption text that is not present in the narration. Do not describe typography, animation, color, or layout in detail; the renderer handles those. Do not put readable caption text into visual_prompt.
 
 VISUAL MODE DURATION POLICY:
-Normal modes (`full_frame`, `multi_frame`, `continuous`, `flipflop`, `captions`) target ~5-9s. Captions can use normal short-scene timing because they are editorial punch beats. Renderer-owned board/object modes use longer duration policy: `comparison_board` ~16-24s, `popup_sequence` ~14-20s, and `stat_card` ~10-14s. Plan these durations before voiceover.
+Normal production modes (`full_frame`, `multi_frame`, `continuous`, `captions`) target ~5-9s. Captions can use normal short-scene timing because they are editorial punch beats. Renderer-owned board/object modes use longer duration policy: `comparison_board` ~16-24s, `popup_sequence` ~14-20s, and `stat_card` ~10-14s. Plan these durations before voiceover. `flipflop` is Test Lab-only and must not be chosen for production scripts.
 
 BEST-FIT ROUTING RULES:
 1. Choose the single best visual mode for each scene based on the narration and visual intent. Do not choose a mode to satisfy a quota.
 2. full_frame remains the fallback/default when no specialized mode clearly improves the scene. Several full_frame scenes in a row are fine when each is the natural best fit.
 3. Other than full_frame, never place visual modes back to back. If the previous non-title scene is non-full-frame, choose full_frame for the next scene unless the scene would break without its specialized mode.
-4. Prioritize variety among full_frame, multi_frame, continuous, and flipflop when they fit the scene.
+4. Prioritize variety among full_frame, multi_frame, and continuous when they fit the scene.
 5. Select comparison_board, stat_card, popup_sequence, video, and captions only when they clearly improve the scene.
 6. Specialized modes should appear only when the scene has clear affordances:
    - continuous: one coherent process, physical progression, or time passage in the same space/subject.
    - multi_frame: multiple distinct examples, beats, or fast context shifts.
    - popup_sequence: concrete items, tools, documents, symptoms, objects, or ingredients around an anchor subject.
-   - flipflop: human/character-only cropped-subject micro-animation with an allowed flipflop_action and renderer_context.
+   - flipflop: Test Lab-only experimental micro-animation; do not choose it for production scenes.
    - comparison_board: a true two- or three-way contrast.
    - captions: one renderer-owned editorial text beat, not standard subtitles.
    - stat_card: one decisive number.
@@ -206,7 +206,7 @@ BEST-FIT ROUTING RULES:
 ### Frame Directives Format
 Each scene MUST have "visual_mode", "visual_beat", and "frame_directives" (list of objects). Set "visual_beat" to the same value as "visual_mode" except use "static" when "visual_mode" is "full_frame".
 For captions scenes, include "caption_text" and "caption_emphasis" on the scene object. The caption_text must be an exact contiguous phrase from that scene's narration, and caption_emphasis must be a word or phrase inside caption_text. For text-only captions, set "visual_prompt" to an empty string and "frame_directives" to an empty list. Only use a shot-labeled "visual_prompt" when the caption should have an optional side visual, and then use a normal ai_generated frame directive for that visual.
-For flipflop scenes, include "flipflop_action" and "renderer_context" on the scene object. Use exactly one renderer_context value: "plain", "desk", "classroom", "office", "kitchen", "shop", "lab", or "street". For every non-flipflop scene, omit flipflop_action or set it to an empty string; renderer_context may be omitted.
+Do not emit production flipflop scenes. For every production scene, omit flipflop_action or set it to an empty string; renderer_context may be omitted.
 Each frame directive has:
   - "prompt": Visual description
   - "source": "ai_generated"
@@ -462,7 +462,7 @@ Critically different from listicle scenes:
 | Visual modes | full vocabulary, chosen by scene fit | same full vocabulary, chosen by lived-experience fit |
 | Transitions | varied with intentional energy | mostly `cut`, occasional `crossfade` for time-passage |
 
-Each non-title scene should be **1–2 sentences** of narration and represent exactly one visual/narrative beat. Normal modes (`full_frame`, `multi_frame`, `continuous`, `flipflop`, `captions`) target ~5-9s. Captions can use normal short-scene timing as editorial punch beats. Renderer-owned board/object modes use longer duration policy: `comparison_board` ~16-24s, `popup_sequence` ~14-20s, and `stat_card` ~10-14s. Plan these durations before voiceover. Preserve the literary register through sentence texture and scene-to-scene flow, not by packing several unrelated moments into one long paragraph.
+Each non-title scene should be **1–2 sentences** of narration and represent exactly one visual/narrative beat. Normal production modes (`full_frame`, `multi_frame`, `continuous`, `captions`) target ~5-9s. Captions can use normal short-scene timing as editorial punch beats. Renderer-owned board/object modes use longer duration policy: `comparison_board` ~16-24s, `popup_sequence` ~14-20s, and `stat_card` ~10-14s. Plan these durations before voiceover. Do not choose `flipflop`; it is Test Lab-only. Preserve the literary register through sentence texture and scene-to-scene flow, not by packing several unrelated moments into one long paragraph.
 
 ---
 
@@ -500,7 +500,7 @@ Choose the single best visual mode for each scene. There is no quota and no requ
 - `continuous`: one coherent process, time-passage moment, or same-space progression.
 - `multi_frame`: multiple distinct memories, routines, examples, sensory beats, or fast context shifts.
 - `popup_sequence`: concrete items, tools, documents, objects, symptoms, or possessions orbiting an anchor subject. For protagonist scenes, the anchor must follow protagonist-aware behavior.
-- `flipflop`: human/character-only cropped-subject face micro-animation over one renderer-owned context preset, with a production `flipflop_action` of `blink`, `speaking_mouth`, `eye_glance`, or `eyebrow_raise`, plus a `renderer_context` of `plain`, `desk`, `classroom`, `office`, `kitchen`, `shop`, `lab`, or `street`.
+- `flipflop`: Test Lab-only experimental micro-animation. Do not choose it for production life-as-a scenes; use another visual mode for human reactions.
 - `comparison_board`: a true two- or three-way contrast that the viewer should understand side by side.
 - `captions`: a renderer-owned editorial text beat for a short realization or label. Do not use it as ordinary subtitles.
 - `stat_card`: one decisive number that matters more than the room or atmosphere.
@@ -568,7 +568,7 @@ Output rules:
 - `intro_hook` is the very first lines the viewer hears; it must already be in second person, present tense, and must NOT greet the viewer.
 - `outro_cta` is editor metadata only. Do NOT fold its language into scene narration.
 - Each level's first scene is a chapter card (`is_title_card: true`, `visual_mode: "full_frame"`, `visual_beat: "static"`, `frame_directives: []`) whose narration is ONLY the descriptor phrase, without the level label or number (for example, "The occasional."). The TTS pipeline adds "Level N" once at audio generation time.
-- After the chapter card, write single-beat scenes (1–2 sentences each). Normal modes (`full_frame`, `multi_frame`, `continuous`, `flipflop`, `captions`) target ~5-9s. Captions can use normal short-scene timing as editorial punch beats. Renderer-owned board/object modes use longer duration policy: `comparison_board` ~16-24s, `popup_sequence` ~14-20s, and `stat_card` ~10-14s. Plan these durations before voiceover.
+- After the chapter card, write single-beat scenes (1–2 sentences each). Normal production modes (`full_frame`, `multi_frame`, `continuous`, `captions`) target ~5-9s. Captions can use normal short-scene timing as editorial punch beats. Renderer-owned board/object modes use longer duration policy: `comparison_board` ~16-24s, `popup_sequence` ~14-20s, and `stat_card` ~10-14s. Plan these durations before voiceover. Do not choose `flipflop`; it is Test Lab-only.
 - `visual_prompt` MUST begin with `[ESTABLISHING]`, `[CLOSE-UP]`, `[REACTION]`, or `[METAPHOR]`.
 - Scene IDs must be unique and sequential across the entire script: `scene_001`, `scene_002`, etc.
 - Visual prompts must NEVER request text, letters, words, labels, or written characters in the image.
@@ -735,7 +735,7 @@ Return a JSON object with a single key `"scenes"` whose value is a flat array of
 
 ### Scene shape
 - The FIRST scene of this level MUST be a chapter card: `is_title_card: true`, `visual_mode: "full_frame"`, `visual_beat: "static"`, `frame_directives: []`. Its narration is ONLY the descriptor phrase, without the level label or number — e.g. "The occasional." (one short sentence). The TTS pipeline adds "Level N" once at audio generation time.
-- After the chapter card, write single-beat scenes. Each non-title scene should be **1–2 sentences** of narration. Normal modes (`full_frame`, `multi_frame`, `continuous`, `flipflop`, `captions`) target ~5-9s. Captions can use normal short-scene timing as editorial punch beats. Renderer-owned board/object modes use longer duration policy: `comparison_board` ~16-24s, `popup_sequence` ~14-20s, and `stat_card` ~10-14s. Plan these durations before voiceover. Each scene must describe one visual moment, action, or realization.
+- After the chapter card, write single-beat scenes. Each non-title scene should be **1–2 sentences** of narration. Normal production modes (`full_frame`, `multi_frame`, `continuous`, `captions`) target ~5-9s. Captions can use normal short-scene timing as editorial punch beats. Renderer-owned board/object modes use longer duration policy: `comparison_board` ~16-24s, `popup_sequence` ~14-20s, and `stat_card` ~10-14s. Plan these durations before voiceover. Do not choose `flipflop`; it is Test Lab-only. Each scene must describe one visual moment, action, or realization.
 - The outline may include "visual_opportunities" for this level. Use them as pre-scene planning notes to shape scene boundaries, narration length, duration estimates, and mode-specific fields from the start. Strong opportunities should normally become scenes when they still fit the lived progression. Ignore weak opportunities when they would hurt script quality, format voice, protagonist continuity, or the level's emotional arc. Do not force a quota.
 - There is no fixed scene count for a level. Let the narration and the level's topic_summary determine how many scenes the level needs. Most levels will have 8–14 short content scenes after the chapter card.
 - Scene IDs start at `scene_001` within this level (they will be renumbered globally later).
@@ -757,12 +757,12 @@ Return a JSON object with a single key `"scenes"` whose value is a flat array of
 ### Visual modes (best-fit)
 - Choose the single best visual mode for each scene. There is no quota and no required mix. `full_frame` remains the fallback/default when no specialized mode clearly improves the scene.
 - Other than `full_frame`, never place visual modes back to back. If the previous non-title scene is non-full-frame, choose `full_frame` for the next scene unless the scene would break without its specialized mode.
-- Prioritize variety among `full_frame`, `multi_frame`, `continuous`, and `flipflop` when they fit the scene.
+- Prioritize variety among `full_frame`, `multi_frame`, and `continuous` when they fit the scene.
 - `full_frame`: one strong lived moment, room, object, character beat, atmosphere, or metaphor.
 - `continuous`: one coherent process, time-passage moment, or same-space progression.
 - `multi_frame`: multiple distinct memories, repeated routines, examples, sensory beats, or fast context shifts.
 - `popup_sequence`: concrete items, tools, documents, objects, symptoms, or possessions around an anchor subject. For protagonist scenes, the anchor must stay protagonist-aware.
-- `flipflop`: human/character-only cropped-subject face micro-animation over one renderer-owned context preset, with a production `flipflop_action` of `blink`, `speaking_mouth`, `eye_glance`, or `eyebrow_raise`, plus a `renderer_context` of `plain`, `desk`, `classroom`, `office`, `kitchen`, `shop`, `lab`, or `street`.
+- `flipflop`: Test Lab-only experimental micro-animation. Do not choose it for production scenes; use another visual mode for human reactions.
 - `comparison_board`: a true two- or three-way contrast that should be understood side by side.
 - `captions`: a renderer-owned editorial text beat for a short realization or label. Do not use it as ordinary subtitles.
 - `stat_card`: one decisive number that matters more than the room or atmosphere.
