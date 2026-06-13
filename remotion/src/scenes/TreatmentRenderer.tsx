@@ -452,7 +452,7 @@ const eraseBoxMask = (
   )
     ? brow.y + (point.y - brow.y) * 0.45
     : requestedTop;
-  const top = Math.min(requestedTop, browAwareTop);
+  const top = browAwareTop;
   const bottom = typeof sharedBottom === "number" ? sharedBottom : box.bottom;
   const y = top * 100;
   const width = (resolvedHorizontalBounds.right - resolvedHorizontalBounds.left) * 100;
