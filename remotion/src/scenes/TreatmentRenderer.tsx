@@ -444,15 +444,19 @@ const eraseBoxMask = (
     : { left: box.left, right: box.right };
   const x = resolvedHorizontalBounds.left * 100;
   const requestedTop = typeof sharedTop === "number" ? sharedTop : box.top;
-  const browAwareTop = (
+  const browGap = (
     brow
     && typeof brow.y === "number"
     && typeof point.y === "number"
     && brow.y < point.y
-  )
-    ? brow.y + (point.y - brow.y) * 0.45
+  ) ? point.y - brow.y : null;
+  const browAwareTop = brow && typeof brow.y === "number" && browGap !== null
+    ? brow.y + browGap * 0.45
     : requestedTop;
-  const top = browAwareTop;
+  const browSafeTop = brow && typeof brow.y === "number" && browGap !== null
+    ? brow.y + browGap * 0.30
+    : requestedTop;
+  const top = Math.max(Math.min(requestedTop, browAwareTop), browSafeTop);
   const bottom = typeof sharedBottom === "number" ? sharedBottom : box.bottom;
   const y = top * 100;
   const width = (resolvedHorizontalBounds.right - resolvedHorizontalBounds.left) * 100;

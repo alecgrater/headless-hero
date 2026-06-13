@@ -501,6 +501,34 @@ describe("flipflopBlinkEyeOverlayGeometry", () => {
     expect(geometry[1].mask.y).toBeGreaterThan(26);
   });
 
+  it("keeps detected upper eyelid tops that are below eyebrow space", () => {
+    const geometry = flipflopBlinkEyeOverlayGeometry(
+      {
+        eye_left: {
+          x: 0.42,
+          y: 0.33,
+          width: 0.05,
+          height: 0.02,
+          erase_box: { left: 0.39, top: 0.285, right: 0.45, bottom: 0.40 },
+        },
+        eye_right: {
+          x: 0.58,
+          y: 0.33,
+          width: 0.05,
+          height: 0.02,
+          erase_box: { left: 0.55, top: 0.285, right: 0.61, bottom: 0.40 },
+        },
+        mouth: { x: 0.5, y: 0.48 },
+        brow_left: { x: 0.42, y: 0.26 },
+        brow_right: { x: 0.58, y: 0.26 },
+      },
+      "#D9A374",
+    );
+
+    expect(geometry[0].mask.y).toBe(28.5);
+    expect(geometry[1].mask.y).toBe(28.5);
+  });
+
   it("uses backend eye-aperture bounds and lowers closed lashes", () => {
     const geometry = flipflopBlinkEyeOverlayGeometry(
       {
