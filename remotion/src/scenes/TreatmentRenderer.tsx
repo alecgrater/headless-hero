@@ -420,6 +420,7 @@ const eraseBoxMask = (
   index: number,
   sharedTop?: number,
   sharedBottom?: number,
+  brow?: FlipflopOverlayPoint,
 ): FlipflopClosedEyeGeometry["mask"] | null => {
   const box = point.erase_box;
   if (
@@ -442,7 +443,16 @@ const eraseBoxMask = (
     ? horizontalBounds
     : { left: box.left, right: box.right };
   const x = resolvedHorizontalBounds.left * 100;
-  const top = typeof sharedTop === "number" ? sharedTop : box.top;
+  const requestedTop = typeof sharedTop === "number" ? sharedTop : box.top;
+  const browAwareTop = (
+    brow
+    && typeof brow.y === "number"
+    && typeof point.y === "number"
+    && brow.y < point.y
+  )
+    ? brow.y + (point.y - brow.y) * 0.45
+    : requestedTop;
+  const top = Math.min(requestedTop, browAwareTop);
   const bottom = typeof sharedBottom === "number" ? sharedBottom : box.bottom;
   const y = top * 100;
   const width = (resolvedHorizontalBounds.right - resolvedHorizontalBounds.left) * 100;
@@ -521,6 +531,7 @@ export const flipflopBlinkEyeOverlayGeometry = (
       index,
       sharedEraseTop,
       sharedEraseBottom,
+      index === 0 ? anchor.brow_left : anchor.brow_right,
     );
     return {
       mask: metadataMask ?? {

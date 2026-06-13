@@ -324,15 +324,15 @@ describe("flipflopBlinkEyeOverlayGeometry", () => {
 
     expect(geometry[0].mask).toMatchObject({
       x: 39,
-      y: 31.5,
+      y: 29.15,
       width: 6,
-      height: 5.5,
+      height: 7.85,
     });
     expect(geometry[1].mask).toMatchObject({
       x: 55,
-      y: 31.5,
+      y: 29.15,
       width: 6,
-      height: 5.5,
+      height: 7.85,
     });
     expect(geometry[0].lid.d).toContain("Q42");
   });
@@ -363,15 +363,15 @@ describe("flipflopBlinkEyeOverlayGeometry", () => {
 
     expect(geometry[0].mask).toMatchObject({
       x: 39,
-      y: 31.5,
+      y: 29.15,
       width: 6,
-      height: 7.5,
+      height: 9.85,
     });
     expect(geometry[1].mask).toMatchObject({
       x: 55,
-      y: 31.5,
+      y: 29.15,
       width: 6,
-      height: 7.5,
+      height: 9.85,
     });
   });
 
@@ -401,15 +401,15 @@ describe("flipflopBlinkEyeOverlayGeometry", () => {
 
     expect(geometry[0].mask).toMatchObject({
       x: 37.75,
-      y: 31.5,
+      y: 29.15,
       width: 8.5,
-      height: 7.5,
+      height: 9.85,
     });
     expect(geometry[1].mask).toMatchObject({
       x: 53.75,
-      y: 31.5,
+      y: 29.15,
       width: 8.5,
-      height: 7.5,
+      height: 9.85,
     });
   });
 
@@ -443,6 +443,36 @@ describe("flipflopBlinkEyeOverlayGeometry", () => {
     expect(geometry[1].mask.x + geometry[1].mask.width).toBeGreaterThanOrEqual(62.2);
   });
 
+  it("expands upward toward old open lashes while staying below eyebrows", () => {
+    const geometry = flipflopBlinkEyeOverlayGeometry(
+      {
+        eye_left: {
+          x: 0.42,
+          y: 0.33,
+          width: 0.05,
+          height: 0.02,
+          erase_box: { left: 0.39, top: 0.315, right: 0.45, bottom: 0.40 },
+        },
+        eye_right: {
+          x: 0.58,
+          y: 0.33,
+          width: 0.05,
+          height: 0.02,
+          erase_box: { left: 0.55, top: 0.315, right: 0.61, bottom: 0.40 },
+        },
+        mouth: { x: 0.5, y: 0.48 },
+        brow_left: { x: 0.42, y: 0.26 },
+        brow_right: { x: 0.58, y: 0.26 },
+      },
+      "#D9A374",
+    );
+
+    expect(geometry[0].mask.y).toBeLessThanOrEqual(29.2);
+    expect(geometry[0].mask.y).toBeGreaterThan(26);
+    expect(geometry[1].mask.y).toBeLessThanOrEqual(29.2);
+    expect(geometry[1].mask.y).toBeGreaterThan(26);
+  });
+
   it("uses backend eye-aperture bounds and lowers closed lashes", () => {
     const geometry = flipflopBlinkEyeOverlayGeometry(
       {
@@ -468,12 +498,12 @@ describe("flipflopBlinkEyeOverlayGeometry", () => {
     );
 
     expect(geometry[0].mask).toMatchObject({
-      y: 31.5,
-      height: 5.5,
+      y: 29.15,
+      height: 7.85,
     });
     expect(geometry[1].mask).toMatchObject({
-      y: 31.5,
-      height: 5.5,
+      y: 29.15,
+      height: 7.85,
     });
     expect(geometry[0].lid.y).toBeGreaterThan(34);
     expect(geometry[1].lid.y).toBeGreaterThan(34);
