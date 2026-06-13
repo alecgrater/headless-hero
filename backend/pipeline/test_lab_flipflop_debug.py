@@ -79,11 +79,20 @@ class FlipflopFixtureRenderResult(BaseModel):
 
 
 def list_flipflop_debug_assets(*, limit: int = 20) -> list[FlipflopDebugAsset]:
-    """Return recent cached flip-flop base cutouts that can be reprocessed locally."""
+    """Return recent saved Test Lab cutouts that can be reprocessed locally."""
 
     projects_dir = DATA_DIR / "projects"
+    patterns = (
+        "test-lab-*/flipflop_cutouts/*/base_*.png",
+        "test-lab-*/character/cutout.png",
+        "test-lab-*/popup_crops/*/anchor_cutout.png",
+    )
+    candidate_paths: dict[Path, None] = {}
+    for pattern in patterns:
+        for path in projects_dir.glob(pattern):
+            candidate_paths[path] = None
     candidates = sorted(
-        projects_dir.glob("test-lab-*/flipflop_cutouts/*/base_*.png"),
+        candidate_paths,
         key=lambda path: path.stat().st_mtime if path.exists() else 0,
         reverse=True,
     )
@@ -229,7 +238,7 @@ def _asset_from_path(path: Path) -> FlipflopDebugAsset:
     relative = path.relative_to((DATA_DIR / "projects").resolve())
     parts = relative.parts
     script_id = parts[0] if len(parts) > 0 else ""
-    scene_id = parts[2] if len(parts) > 2 else ""
+    scene_id = _scene_id_for_debug_asset(relative)
     created = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc).isoformat()
     source_metadata = _current_or_repaired_source_metadata(path)
     return FlipflopDebugAsset(
@@ -245,6 +254,8 @@ def _asset_from_path(path: Path) -> FlipflopDebugAsset:
 
 def _current_or_repaired_source_metadata(path: Path) -> dict[str, object]:
     metadata = _read_source_metadata(path) or {}
+    if not metadata.get("source_type"):
+        metadata = {**metadata, "source_type": _source_type_for_debug_asset(path)}
     anchor = metadata.get("flipflop_overlay_anchor")
     if (
         metadata.get("registration_algorithm_version") == FLIPFLOP_CUTOUT_REGISTRATION_VERSION
@@ -265,7 +276,6 @@ def _current_or_repaired_source_metadata(path: Path) -> dict[str, object]:
 
     repaired = {
         **metadata,
-        "source_type": metadata.get("source_type") or "flipflop_base_cutout",
         "registration_algorithm_version": FLIPFLOP_CUTOUT_REGISTRATION_VERSION,
         "flipflop_overlay_anchor": repaired_anchor,
     }
@@ -284,14 +294,45 @@ def _path_for_asset_id(asset_id: str) -> Path:
         raise ValueError("Selected flip-flop debug asset does not exist.")
     relative = path.relative_to(projects_dir)
     if (
-        len(relative.parts) < 4
+        not relative.parts
         or not relative.parts[0].startswith("test-lab-")
-        or relative.parts[1] != "flipflop_cutouts"
-        or not path.name.startswith("base_")
         or path.suffix.lower() != ".png"
+        or not _is_allowed_debug_asset(relative)
     ):
-        raise ValueError("Selected file is not a cached Test Lab flip-flop base cutout.")
+        raise ValueError(
+            "Selected file is not a cached Test Lab flip-flop base cutout or saved Test Lab character cutout."
+        )
     return path
+
+
+def _is_allowed_debug_asset(relative: Path) -> bool:
+    parts = relative.parts
+    if len(parts) >= 4 and parts[1] == "flipflop_cutouts" and parts[-1].startswith("base_"):
+        return True
+    if len(parts) == 3 and parts[1] == "character" and parts[2] == "cutout.png":
+        return True
+    if len(parts) == 4 and parts[1] == "popup_crops" and parts[3] == "anchor_cutout.png":
+        return True
+    return False
+
+
+def _scene_id_for_debug_asset(relative: Path) -> str:
+    parts = relative.parts
+    if len(parts) >= 4 and parts[1] in {"flipflop_cutouts", "popup_crops"}:
+        return parts[2]
+    if len(parts) >= 3 and parts[1] == "character":
+        return "character"
+    return ""
+
+
+def _source_type_for_debug_asset(path: Path) -> str:
+    relative = path.resolve().relative_to((DATA_DIR / "projects").resolve())
+    parts = relative.parts
+    if len(parts) >= 3 and parts[1] == "character":
+        return "character_cutout"
+    if len(parts) >= 4 and parts[1] == "popup_crops":
+        return "popup_anchor_cutout"
+    return "flipflop_base_cutout"
 
 
 def _fixture_asset_path() -> Path:

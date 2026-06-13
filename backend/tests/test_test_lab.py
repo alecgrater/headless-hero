@@ -870,6 +870,55 @@ def test_flipflop_fixture_render_uses_saved_asset_without_provider_call(monkeypa
     }
 
 
+def test_flipflop_debug_lists_and_renders_saved_character_cutouts(monkeypatch, tmp_path):
+    import pipeline.test_lab_flipflop_debug as flipflop_debug
+
+    monkeypatch.setattr(flipflop_debug, "DATA_DIR", tmp_path)
+
+    character_dir = tmp_path / "projects" / "test-lab-character-1" / "character"
+    character_dir.mkdir(parents=True)
+    cutout_path = character_dir / "cutout.png"
+    image = Image.new("RGBA", (1000, 1000), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    draw.ellipse((250, 120, 750, 780), fill=(241, 198, 150, 255), outline=(20, 20, 20, 255), width=8)
+    draw.rounded_rectangle((388, 442, 456, 468), radius=12, fill=(12, 12, 12, 255))
+    draw.rounded_rectangle((570, 442, 638, 468), radius=12, fill=(12, 12, 12, 255))
+    draw.rounded_rectangle((470, 590, 545, 600), radius=5, fill=(12, 12, 12, 255))
+    image.save(cutout_path)
+
+    rendered = {}
+
+    def fake_render_full_video(*, script_id, content, **_kwargs):
+        rendered["script_id"] = script_id
+        scene = content.segments[0].scenes[0]
+        rendered["visual_mode"] = scene.visual_mode
+        rendered["image_url"] = scene.visual_layers[0].image_url
+        render_dir = tmp_path / "projects" / script_id / "renders"
+        render_dir.mkdir(parents=True, exist_ok=True)
+        (render_dir / "full_youtube.mp4").write_bytes(b"fake")
+        return f"/static/projects/{script_id}/renders/full_youtube.mp4"
+
+    monkeypatch.setattr(flipflop_debug, "render_full_video", fake_render_full_video)
+
+    assets = flipflop_debug.list_flipflop_debug_assets()
+    assert [asset.asset_id for asset in assets] == ["test-lab-character-1/character/cutout.png"]
+    assert assets[0].scene_id == "character"
+    assert assets[0].source_metadata["source_type"] == "character_cutout"
+
+    result = flipflop_debug.render_flipflop_fixture_preview(
+        asset_id="test-lab-character-1/character/cutout.png",
+        action="blink",
+    )
+
+    assert result.used_external_api is False
+    assert result.render_url == "/static/projects/test-lab-character-1/renders/full_youtube.mp4"
+    assert rendered == {
+        "script_id": "test-lab-character-1",
+        "visual_mode": "flipflop",
+        "image_url": "/static/projects/test-lab-character-1/character/cutout.png",
+    }
+
+
 def test_asset_vault_api_lists_filename_only_cutouts(monkeypatch, tmp_path):
     _engine, app = _setup_app(monkeypatch, tmp_path)
 

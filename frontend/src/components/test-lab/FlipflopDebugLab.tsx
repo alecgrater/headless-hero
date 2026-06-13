@@ -121,9 +121,9 @@ export default function FlipflopDebugLab() {
       <aside className="min-h-0 overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900/60">
         <div className="border-b border-neutral-800 p-4">
           <p className="text-xs font-semibold uppercase text-neutral-500">Flip-flop</p>
-          <h2 className="mt-2 text-sm font-semibold text-neutral-100">Cached base cutouts</h2>
+          <h2 className="mt-2 text-sm font-semibold text-neutral-100">Cached saved cutouts</h2>
           <p className="mt-1 text-xs leading-5 text-neutral-500">
-            Generate one reusable fixture, then rerun detector and renderer logic against the same saved PNG.
+            Reuse generated flip-flop bases, character cutouts, and popup anchors without new provider calls.
           </p>
           <div className="mt-3 grid gap-2">
             <button
@@ -155,7 +155,7 @@ export default function FlipflopDebugLab() {
         <div className="min-h-0 overflow-y-auto p-3">
           {assets.length === 0 && !loadingAssets ? (
             <div className="rounded-md border border-dashed border-neutral-800 bg-neutral-950/50 p-4 text-xs leading-5 text-neutral-500">
-              No cached flip-flop base cutouts found yet. Run one flip-flop Test Lab generation once, then reuse it here.
+              No cached Test Lab cutouts found yet. Run one flip-flop or character-backed Test Lab generation once, then reuse it here.
             </div>
           ) : (
             <div className="space-y-2">
