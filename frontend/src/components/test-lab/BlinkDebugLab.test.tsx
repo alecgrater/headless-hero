@@ -76,8 +76,13 @@ describe("BlinkDebugLab", () => {
     expect(await screen.findByText("Blink base: scene")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /blink base: scene/i })).toHaveAttribute(
       "src",
-      "/static/projects/test-lab-run/blink_cutouts/scene/base_scene_base.png",
+      "/static/projects/test-lab-run/blink_cutouts/scene/base_scene_base.png?t=1781222400000",
     );
+    expect(screen.getByRole("img", { name: /cached base png/i })).toHaveAttribute(
+      "src",
+      "/static/projects/test-lab-run/blink_cutouts/scene/base_scene_base.png?t=1781222400000",
+    );
+    expect(screen.getByRole("img", { name: /cached base png/i })).toHaveClass("max-h-full", "max-w-full");
     expect(screen.queryByRole("combobox", { name: /blink action/i })).not.toBeInTheDocument();
     expect(screen.getByText("Blink action:")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /rerun detector/i }));

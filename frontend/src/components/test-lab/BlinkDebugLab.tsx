@@ -218,7 +218,11 @@ export default function BlinkDebugLab() {
 
         <div className="mt-4 grid gap-4 xl:grid-cols-2">
           {selectedAsset ? (
-            <ImagePanel title="Cached base PNG" src={selectedAsset.asset_url} icon={<Eye className="h-4 w-4" />} />
+            <ImagePanel
+              title="Cached base PNG"
+              src={timestampedAssetPath(selectedAsset.asset_url, selectedAsset.created_at)}
+              icon={<Eye className="h-4 w-4" />}
+            />
           ) : (
             <EmptyPanel label="Select a cached asset" />
           )}
@@ -278,7 +282,7 @@ function AssetButton({
     >
       <span className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded border border-neutral-800 bg-neutral-950">
         <img
-          src={assetUrl(asset.asset_url)}
+          src={assetUrl(timestampedAssetPath(asset.asset_url, asset.created_at))}
           alt={displayName}
           className="h-full w-full object-contain"
           loading="lazy"
@@ -332,6 +336,13 @@ function shortAssetId(scriptId: string): string {
   return normalized.length > 8 ? normalized.slice(0, 8) : normalized || "saved";
 }
 
+function timestampedAssetPath(path: string, createdAt: string): string {
+  const timestamp = Date.parse(createdAt);
+  if (!Number.isFinite(timestamp)) return path;
+  const separator = path.includes("?") ? "&" : "?";
+  return `${path}${separator}t=${timestamp}`;
+}
+
 function upsertAsset(assets: BlinkDebugAsset[], asset: BlinkDebugAsset): BlinkDebugAsset[] {
   const withoutAsset = assets.filter((candidate) => candidate.asset_id !== asset.asset_id);
   return [asset, ...withoutAsset];
@@ -359,7 +370,7 @@ function ImagePanel({ title, src, icon }: { title: string; src: string; icon: Re
         {title}
       </div>
       <div
-        className="flex aspect-square items-center justify-center"
+        className="flex h-[min(58vh,620px)] min-h-80 items-center justify-center p-4"
         style={{
           backgroundColor: "#171717",
           backgroundImage:
@@ -368,7 +379,7 @@ function ImagePanel({ title, src, icon }: { title: string; src: string; icon: Re
           backgroundSize: "16px 16px",
         }}
       >
-        <img src={assetUrl(src)} alt={title} className="h-full w-full object-contain" />
+        <img src={assetUrl(src)} alt={title} className="max-h-full max-w-full object-contain" />
       </div>
     </div>
   );
@@ -376,7 +387,7 @@ function ImagePanel({ title, src, icon }: { title: string; src: string; icon: Re
 
 function EmptyPanel({ label }: { label: string }) {
   return (
-    <div className="flex aspect-square items-center justify-center rounded-md border border-dashed border-neutral-800 bg-neutral-950/40 text-xs text-neutral-600">
+    <div className="flex h-[min(58vh,620px)] min-h-80 items-center justify-center rounded-md border border-dashed border-neutral-800 bg-neutral-950/40 p-4 text-xs text-neutral-600">
       {label}
     </div>
   );
