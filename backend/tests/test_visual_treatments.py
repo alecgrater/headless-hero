@@ -597,6 +597,18 @@ def test_blink_overlay_anchor_metadata_rejects_minimalist_non_face_marks():
         image_gen_mod._blink_overlay_anchor_metadata(image, require_detected=True)
 
 
+def test_blink_overlay_anchor_metadata_rejects_tiny_marks_without_face_region():
+    from pipeline import image_gen as image_gen_mod
+
+    image = Image.new("RGBA", (423, 727), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    draw.ellipse((136, 141, 143, 149), fill=(24, 24, 24, 255))
+    draw.ellipse((196, 141, 204, 149), fill=(24, 24, 24, 255))
+
+    with pytest.raises(image_gen_mod.BlinkRegistrationError):
+        image_gen_mod._blink_overlay_anchor_metadata(image, require_detected=True)
+
+
 def test_blink_overlay_anchor_metadata_can_require_detected_features():
     from pipeline import image_gen as image_gen_mod
 

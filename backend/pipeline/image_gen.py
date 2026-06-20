@@ -1337,23 +1337,8 @@ def _detect_blink_overlay_anchor_points(image: Image.Image | None) -> dict[str, 
         component
         for component in components
         if 0.16 <= component["cy"] <= 0.54
-        and (
-            (
-                0.03 <= component["width"] <= 0.12
-                and 0.015 <= component["height"] <= 0.07
-            )
-            or (
-                0.03 <= component["width"] <= 0.095
-                and 0.006 <= component["height"] <= 0.018
-                and component["cy"] <= 0.25
-                and component["width"] / max(component["height"], 0.001) >= 3.0
-            )
-            or (
-                0.018 <= component["width"] <= 0.045
-                and 0.008 <= component["height"] <= 0.025
-                and component["cy"] <= 0.25
-            )
-        )
+        and 0.03 <= component["width"] <= 0.12
+        and 0.015 <= component["height"] <= 0.07
         and component["area"] >= 24
     ]
     valid_eye_pairs: list[tuple[bool, float, float, dict[str, float], dict[str, float], dict[str, float]]] = []
@@ -1468,10 +1453,18 @@ def _detect_minimalist_blink_eye_pair(
         component
         for component in dark_components
         if 0.12 <= component["cy"] <= 0.36
-        and 0.035 <= component["width"] <= 0.095
-        and 0.006 <= component["height"] <= 0.018
+        and (
+            (
+                0.035 <= component["width"] <= 0.095
+                and 0.006 <= component["height"] <= 0.018
+                and component["width"] / max(component["height"], 0.001) >= 3.0
+            )
+            or (
+                0.018 <= component["width"] <= 0.045
+                and 0.008 <= component["height"] <= 0.025
+            )
+        )
         and component["area"] >= 32
-        and component["width"] / max(component["height"], 0.001) >= 3.0
     ]
     valid_pairs: list[tuple[bool, float, float, dict[str, float], dict[str, float], dict[str, float]]] = []
     for left_eye in eye_candidates:
