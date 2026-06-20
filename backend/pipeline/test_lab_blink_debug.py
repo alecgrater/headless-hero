@@ -1,4 +1,4 @@
-"""Local flip-flop diagnostics for cached Test Lab cutouts."""
+"""Local blink diagnostics for cached Test Lab cutouts."""
 
 from __future__ import annotations
 
@@ -12,20 +12,20 @@ from pydantic import BaseModel, Field
 from config import DATA_DIR
 from models.script import Scene, ScriptContent, Segment, VisualCanvas, VisualLayer
 from pipeline.image_gen import (
-    FLIPFLOP_CUTOUT_REGISTRATION_VERSION,
-    FlipflopRegistrationError,
-    _flipflop_base_cache_valid,
-    _flipflop_overlay_anchor_metadata,
+    BLINK_CUTOUT_REGISTRATION_VERSION,
+    BlinkRegistrationError,
+    _blink_base_cache_valid,
+    _blink_overlay_anchor_metadata,
     _read_source_metadata,
     _write_source_metadata,
-    generate_flipflop_base_cutout,
+    generate_blink_base_cutout,
 )
 from pipeline.remotion_render import render_full_video
 
-FlipflopDebugAction = Literal["blink", "speaking_mouth", "eye_glance", "eyebrow_raise"]
-FLIPFLOP_FIXTURE_SCRIPT_ID = "test-lab-flipflop-fixtures"
-FLIPFLOP_FIXTURE_SCENE_ID = "fixture-scene"
-FLIPFLOP_FIXTURE_LAYER_ID = "flipflop_fixture_base"
+BlinkDebugAction = Literal["blink"]
+BLINK_FIXTURE_SCRIPT_ID = "test-lab-blink-fixtures"
+BLINK_FIXTURE_SCENE_ID = "fixture-scene"
+BLINK_FIXTURE_LAYER_ID = "blink_fixture_base"
 DEFAULT_FIXTURE_PROMPT = (
     "Young fast-food employee character framed chest-up, wearing a plain red polo and red visor cap, "
     "tired but composed expression, looking slightly off-camera. Clean flat 2D illustration, no props, "
@@ -38,13 +38,10 @@ DEFAULT_FIXTURE_NARRATION = (
 
 _ACTION_LABELS: dict[str, str] = {
     "blink": "Blink",
-    "speaking_mouth": "Speaking mouth",
-    "eye_glance": "Eye glance",
-    "eyebrow_raise": "Eyebrow raise",
 }
 
 
-class FlipflopDebugAsset(BaseModel):
+class BlinkDebugAsset(BaseModel):
     asset_id: str
     asset_url: str
     script_id: str
@@ -54,9 +51,9 @@ class FlipflopDebugAsset(BaseModel):
     source_metadata: dict[str, object] = Field(default_factory=dict)
 
 
-class FlipflopDebugResult(BaseModel):
-    asset: FlipflopDebugAsset
-    action: FlipflopDebugAction
+class BlinkDebugResult(BaseModel):
+    asset: BlinkDebugAsset
+    action: BlinkDebugAction
     used_external_api: bool = False
     registration_algorithm_version: str
     anchor: dict[str, object] | None = None
@@ -65,25 +62,25 @@ class FlipflopDebugResult(BaseModel):
     error: str | None = None
 
 
-class FlipflopFixtureResult(BaseModel):
-    asset: FlipflopDebugAsset
+class BlinkFixtureResult(BaseModel):
+    asset: BlinkDebugAsset
     used_external_api: bool
     status: Literal["ready"] = "ready"
 
 
-class FlipflopFixtureRenderResult(BaseModel):
-    asset: FlipflopDebugAsset
-    action: FlipflopDebugAction
+class BlinkFixtureRenderResult(BaseModel):
+    asset: BlinkDebugAsset
+    action: BlinkDebugAction
     render_url: str
     used_external_api: bool = False
 
 
-def list_flipflop_debug_assets(*, limit: int = 20) -> list[FlipflopDebugAsset]:
+def list_blink_debug_assets(*, limit: int = 20) -> list[BlinkDebugAsset]:
     """Return recent saved Test Lab cutouts that can be reprocessed locally."""
 
     projects_dir = DATA_DIR / "projects"
     patterns = (
-        "test-lab-*/flipflop_cutouts/*/base_*.png",
+        "test-lab-*/blink_cutouts/*/base_*.png",
         "test-lab-*/character/cutout.png",
         "test-lab-*/popup_crops/*/anchor_cutout.png",
     )
@@ -99,23 +96,23 @@ def list_flipflop_debug_assets(*, limit: int = 20) -> list[FlipflopDebugAsset]:
     return [_asset_from_path(path) for path in candidates[:limit]]
 
 
-def create_flipflop_fixture_asset(
+def create_blink_fixture_asset(
     *,
     visual_prompt: str = DEFAULT_FIXTURE_PROMPT,
     narration: str = DEFAULT_FIXTURE_NARRATION,
     force: bool = False,
-) -> FlipflopFixtureResult:
-    """Create or reuse the stable flip-flop fixture base cutout."""
+) -> BlinkFixtureResult:
+    """Create or reuse the stable blink fixture base cutout."""
 
     fixture_path = _fixture_asset_path()
-    cache_valid = fixture_path.exists() and _flipflop_base_cache_valid(fixture_path)
+    cache_valid = fixture_path.exists() and _blink_base_cache_valid(fixture_path)
     used_external_api = bool(force or not cache_valid)
     if used_external_api:
-        generate_flipflop_base_cutout(
-            scene_id=FLIPFLOP_FIXTURE_SCENE_ID,
+        generate_blink_base_cutout(
+            scene_id=BLINK_FIXTURE_SCENE_ID,
             layers=[
                 {
-                    "id": FLIPFLOP_FIXTURE_LAYER_ID,
+                    "id": BLINK_FIXTURE_LAYER_ID,
                     "type": "image",
                     "asset_kind": "cutout",
                     "prompt": (visual_prompt or DEFAULT_FIXTURE_PROMPT).strip(),
@@ -125,26 +122,26 @@ def create_flipflop_fixture_asset(
                     "contains_person": True,
                 }
             ],
-            script_id=FLIPFLOP_FIXTURE_SCRIPT_ID,
+            script_id=BLINK_FIXTURE_SCRIPT_ID,
             scene_prompt=(visual_prompt or DEFAULT_FIXTURE_PROMPT).strip(),
             scene_narration=(narration or DEFAULT_FIXTURE_NARRATION).strip(),
             force=force,
             contains_person=True,
         )
         if not fixture_path.exists():
-            raise FileNotFoundError("Flip-flop fixture generation did not create the expected base cutout.")
+            raise FileNotFoundError("Blink fixture generation did not create the expected base cutout.")
 
-    return FlipflopFixtureResult(
+    return BlinkFixtureResult(
         asset=_asset_from_path(fixture_path),
         used_external_api=used_external_api,
     )
 
 
-def analyze_flipflop_debug_asset(
+def analyze_blink_debug_asset(
     *,
     asset_id: str,
-    action: FlipflopDebugAction = "blink",
-) -> FlipflopDebugResult:
+    action: BlinkDebugAction = "blink",
+) -> BlinkDebugResult:
     """Run current overlay anchor detection against an existing PNG and save a visual proof image."""
 
     asset_path = _path_for_asset_id(asset_id)
@@ -154,19 +151,19 @@ def analyze_flipflop_debug_asset(
     with Image.open(asset_path) as image:
         rgba = image.convert("RGBA")
         try:
-            anchor = _flipflop_overlay_anchor_metadata(rgba, require_detected=True)
+            anchor = _blink_overlay_anchor_metadata(rgba, require_detected=True)
             status: Literal["passed", "failed"] = "passed"
-        except FlipflopRegistrationError as exc:
+        except BlinkRegistrationError as exc:
             status = "failed"
             error = str(exc)
         debug_path = _debug_path(asset_path, action)
         _save_debug_overlay(rgba, debug_path, anchor=anchor, action=action, error=error)
 
-    return FlipflopDebugResult(
+    return BlinkDebugResult(
         asset=asset,
         action=action,
         used_external_api=False,
-        registration_algorithm_version=FLIPFLOP_CUTOUT_REGISTRATION_VERSION,
+        registration_algorithm_version=BLINK_CUTOUT_REGISTRATION_VERSION,
         anchor=anchor,
         debug_url=_web_url_for_project_path(debug_path),
         status=status,
@@ -174,27 +171,27 @@ def analyze_flipflop_debug_asset(
     )
 
 
-def render_flipflop_fixture_preview(
+def render_blink_fixture_preview(
     *,
     asset_id: str,
-    action: FlipflopDebugAction = "blink",
-) -> FlipflopFixtureRenderResult:
+    action: BlinkDebugAction = "blink",
+) -> BlinkFixtureRenderResult:
     """Render a real Remotion preview from a saved fixture asset without provider calls."""
 
     asset_path = _path_for_asset_id(asset_id)
     asset = _asset_from_path(asset_path)
     scene = Scene(
-        id=FLIPFLOP_FIXTURE_SCENE_ID,
+        id=BLINK_FIXTURE_SCENE_ID,
         narration=DEFAULT_FIXTURE_NARRATION,
         visual_prompt=DEFAULT_FIXTURE_PROMPT,
         duration_estimate_seconds=4.0,
         contains_person=True,
-        visual_mode="flipflop",
-        flipflop_action=action,
+        visual_mode="blink",
+        blink_action=action,
         renderer_context="shop",
         visual_layers=[
             VisualLayer(
-                id=FLIPFLOP_FIXTURE_LAYER_ID,
+                id=BLINK_FIXTURE_LAYER_ID,
                 type="image",
                 asset_kind="cutout",
                 image_url=asset.asset_url,
@@ -206,7 +203,7 @@ def render_flipflop_fixture_preview(
         ],
     )
     content = ScriptContent(
-        title="Flip-flop Fixture",
+        title="Blink Fixture",
         format_id="youtube-listicle",
         visual_canvas=VisualCanvas(background_color="#1f1f1f"),
         segment_timer_enabled=False,
@@ -225,7 +222,7 @@ def render_flipflop_fixture_preview(
         speed=1.0,
         brand={},
     )
-    return FlipflopFixtureRenderResult(
+    return BlinkFixtureRenderResult(
         asset=asset,
         action=action,
         render_url=render_url,
@@ -233,7 +230,7 @@ def render_flipflop_fixture_preview(
     )
 
 
-def _asset_from_path(path: Path) -> FlipflopDebugAsset:
+def _asset_from_path(path: Path) -> BlinkDebugAsset:
     path = path.resolve()
     relative = path.relative_to((DATA_DIR / "projects").resolve())
     parts = relative.parts
@@ -241,7 +238,7 @@ def _asset_from_path(path: Path) -> FlipflopDebugAsset:
     scene_id = _scene_id_for_debug_asset(relative)
     created = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc).isoformat()
     source_metadata = _current_or_repaired_source_metadata(path)
-    return FlipflopDebugAsset(
+    return BlinkDebugAsset(
         asset_id=relative.as_posix(),
         asset_url=_web_url_for_project_path(path),
         script_id=script_id,
@@ -256,9 +253,9 @@ def _current_or_repaired_source_metadata(path: Path) -> dict[str, object]:
     metadata = _read_source_metadata(path) or {}
     if not metadata.get("source_type"):
         metadata = {**metadata, "source_type": _source_type_for_debug_asset(path)}
-    anchor = metadata.get("flipflop_overlay_anchor")
+    anchor = metadata.get("blink_overlay_anchor")
     if (
-        metadata.get("registration_algorithm_version") == FLIPFLOP_CUTOUT_REGISTRATION_VERSION
+        metadata.get("registration_algorithm_version") == BLINK_CUTOUT_REGISTRATION_VERSION
         and isinstance(anchor, dict)
         and anchor.get("detected") is True
         and isinstance(anchor.get("skin_fill"), str)
@@ -266,18 +263,18 @@ def _current_or_repaired_source_metadata(path: Path) -> dict[str, object]:
         return metadata
     try:
         with Image.open(path) as image:
-            repaired_anchor = _flipflop_overlay_anchor_metadata(image.convert("RGBA"), require_detected=True)
+            repaired_anchor = _blink_overlay_anchor_metadata(image.convert("RGBA"), require_detected=True)
     except OSError:
         return metadata
     except Exception as exc:
-        if exc.__class__.__name__ != "FlipflopRegistrationError":
+        if exc.__class__.__name__ != "BlinkRegistrationError":
             raise
         return metadata
 
     repaired = {
         **metadata,
-        "registration_algorithm_version": FLIPFLOP_CUTOUT_REGISTRATION_VERSION,
-        "flipflop_overlay_anchor": repaired_anchor,
+        "registration_algorithm_version": BLINK_CUTOUT_REGISTRATION_VERSION,
+        "blink_overlay_anchor": repaired_anchor,
     }
     _write_source_metadata(path, repaired)
     return repaired
@@ -285,13 +282,13 @@ def _current_or_repaired_source_metadata(path: Path) -> dict[str, object]:
 
 def _path_for_asset_id(asset_id: str) -> Path:
     if not asset_id or asset_id.startswith("/") or "\\" in asset_id:
-        raise ValueError("Select a cached flip-flop asset to debug.")
+        raise ValueError("Select a cached blink asset to debug.")
     projects_dir = (DATA_DIR / "projects").resolve()
     path = (projects_dir / asset_id).resolve()
     if not path.is_relative_to(projects_dir):
-        raise ValueError("Flip-flop debug asset must live under the project data directory.")
+        raise ValueError("Blink debug asset must live under the project data directory.")
     if not path.exists() or not path.is_file():
-        raise ValueError("Selected flip-flop debug asset does not exist.")
+        raise ValueError("Selected blink debug asset does not exist.")
     relative = path.relative_to(projects_dir)
     if (
         not relative.parts
@@ -301,14 +298,14 @@ def _path_for_asset_id(asset_id: str) -> Path:
         or not _is_reusable_debug_asset(path)
     ):
         raise ValueError(
-            "Selected file is not a cached Test Lab flip-flop base cutout or saved Test Lab character cutout."
+            "Selected file is not a cached Test Lab blink base cutout or saved Test Lab character cutout."
         )
     return path
 
 
 def _is_allowed_debug_asset(relative: Path) -> bool:
     parts = relative.parts
-    if len(parts) >= 4 and parts[1] == "flipflop_cutouts" and parts[-1].startswith("base_"):
+    if len(parts) >= 4 and parts[1] == "blink_cutouts" and parts[-1].startswith("base_"):
         return True
     if len(parts) == 3 and parts[1] == "character" and parts[2] == "cutout.png":
         return True
@@ -325,16 +322,16 @@ def _is_reusable_debug_asset(path: Path) -> bool:
     if len(parts) == 4 and parts[1] == "popup_crops" and parts[3] == "anchor_cutout.png":
         if not _has_transparent_background(path):
             return False
-    return _has_detectable_flipflop_anchor(path)
+    return _has_detectable_blink_anchor(path)
 
 
-def _has_detectable_flipflop_anchor(path: Path) -> bool:
+def _has_detectable_blink_anchor(path: Path) -> bool:
     try:
         with Image.open(path) as image:
-            _flipflop_overlay_anchor_metadata(image.convert("RGBA"), require_detected=True)
+            _blink_overlay_anchor_metadata(image.convert("RGBA"), require_detected=True)
     except OSError:
         return False
-    except FlipflopRegistrationError:
+    except BlinkRegistrationError:
         return False
     return True
 
@@ -353,7 +350,7 @@ def _has_transparent_background(path: Path) -> bool:
 
 def _scene_id_for_debug_asset(relative: Path) -> str:
     parts = relative.parts
-    if len(parts) >= 4 and parts[1] in {"flipflop_cutouts", "popup_crops"}:
+    if len(parts) >= 4 and parts[1] in {"blink_cutouts", "popup_crops"}:
         return parts[2]
     if len(parts) >= 3 and parts[1] == "character":
         return "character"
@@ -367,17 +364,17 @@ def _source_type_for_debug_asset(path: Path) -> str:
         return "character_cutout"
     if len(parts) >= 4 and parts[1] == "popup_crops":
         return "popup_anchor_cutout"
-    return "flipflop_base_cutout"
+    return "blink_base_cutout"
 
 
 def _fixture_asset_path() -> Path:
     return (
         DATA_DIR
         / "projects"
-        / FLIPFLOP_FIXTURE_SCRIPT_ID
-        / "flipflop_cutouts"
-        / FLIPFLOP_FIXTURE_SCENE_ID
-        / "base_flipflop_fixture_base.png"
+        / BLINK_FIXTURE_SCRIPT_ID
+        / "blink_cutouts"
+        / BLINK_FIXTURE_SCENE_ID
+        / "base_blink_fixture_base.png"
     )
 
 
@@ -404,8 +401,8 @@ def _save_debug_overlay(
     draw = ImageDraw.Draw(background)
 
     draw.rectangle((0, 0, width - 1, height - 1), outline=(150, 110, 255, 255), width=3)
-    draw.text((16, 14), f"Flip-flop debug: {_ACTION_LABELS.get(action, action)}", fill=(245, 245, 245, 255))
-    draw.text((16, 34), f"Version: {FLIPFLOP_CUTOUT_REGISTRATION_VERSION}", fill=(190, 190, 190, 255))
+    draw.text((16, 14), f"Blink debug: {_ACTION_LABELS.get(action, action)}", fill=(245, 245, 245, 255))
+    draw.text((16, 34), f"Version: {BLINK_CUTOUT_REGISTRATION_VERSION}", fill=(190, 190, 190, 255))
 
     if anchor is None:
         draw.text((16, 58), error or "No detected anchor.", fill=(255, 120, 120, 255))
@@ -459,29 +456,3 @@ def _draw_action_overlay(
             x, y = point
             draw.arc((x - 42, y - 18, x + 42, y + 18), start=200, end=340, fill=(255, 60, 210, 255), width=7)
         return
-
-    if action == "speaking_mouth":
-        point = points.get("mouth")
-        if point is None:
-            return
-        x, y = point
-        draw.ellipse((x - 45, y - 24, x + 45, y + 24), fill=(244, 190, 145, 180), outline=(255, 60, 210, 255), width=5)
-        draw.ellipse((x - 16, y - 22, x + 16, y + 24), fill=(75, 24, 20, 230), outline=(20, 20, 20, 255), width=3)
-        return
-
-    if action == "eye_glance":
-        for label in ("eye_left", "eye_right"):
-            point = points.get(label)
-            if point is None:
-                continue
-            x, y = point
-            draw.ellipse((x - 28, y - 24, x + 5, y + 24), fill=(255, 60, 210, 180), outline=(20, 20, 20, 255), width=3)
-        return
-
-    if action == "eyebrow_raise":
-        for label in ("brow_left", "brow_right"):
-            point = points.get(label)
-            if point is None:
-                continue
-            x, y = point
-            draw.arc((x - 48, y - 24, x + 48, y + 20), start=200, end=340, fill=(255, 60, 210, 255), width=7)

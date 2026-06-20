@@ -1,26 +1,26 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import FlipflopDebugLab from "./FlipflopDebugLab";
+import BlinkDebugLab from "./BlinkDebugLab";
 
-const analyzeFlipflopDebugAsset = vi.fn();
-const createFlipflopFixtureAsset = vi.fn();
-const getFlipflopDebugAssets = vi.fn();
-const renderFlipflopFixturePreview = vi.fn();
+const analyzeBlinkDebugAsset = vi.fn();
+const createBlinkFixtureAsset = vi.fn();
+const getBlinkDebugAssets = vi.fn();
+const renderBlinkFixturePreview = vi.fn();
 const bumpAssetVersion = vi.fn();
 
 vi.mock("../../api", () => ({
-  analyzeFlipflopDebugAsset: (...args: unknown[]) => analyzeFlipflopDebugAsset(...args),
+  analyzeBlinkDebugAsset: (...args: unknown[]) => analyzeBlinkDebugAsset(...args),
   assetUrl: (path: string) => path,
   bumpAssetVersion: (...args: unknown[]) => bumpAssetVersion(...args),
-  createFlipflopFixtureAsset: (...args: unknown[]) => createFlipflopFixtureAsset(...args),
-  getFlipflopDebugAssets: () => getFlipflopDebugAssets(),
-  renderFlipflopFixturePreview: (...args: unknown[]) => renderFlipflopFixturePreview(...args),
+  createBlinkFixtureAsset: (...args: unknown[]) => createBlinkFixtureAsset(...args),
+  getBlinkDebugAssets: () => getBlinkDebugAssets(),
+  renderBlinkFixturePreview: (...args: unknown[]) => renderBlinkFixturePreview(...args),
 }));
 
 const cachedAsset = {
-  asset_id: "test-lab-run/flipflop_cutouts/scene/base_scene_base.png",
-  asset_url: "/static/projects/test-lab-run/flipflop_cutouts/scene/base_scene_base.png",
+  asset_id: "test-lab-run/blink_cutouts/scene/base_scene_base.png",
+  asset_url: "/static/projects/test-lab-run/blink_cutouts/scene/base_scene_base.png",
   script_id: "test-lab-run",
   scene_id: "scene",
   filename: "base_scene_base.png",
@@ -32,79 +32,79 @@ const cachedAsset = {
 
 const fixtureAsset = {
   ...cachedAsset,
-  asset_id: "test-lab-flipflop-fixtures/flipflop_cutouts/fixture-scene/base_flipflop_fixture_base.png",
-  asset_url: "/static/projects/test-lab-flipflop-fixtures/flipflop_cutouts/fixture-scene/base_flipflop_fixture_base.png",
-  script_id: "test-lab-flipflop-fixtures",
+  asset_id: "test-lab-blink-fixtures/blink_cutouts/fixture-scene/base_blink_fixture_base.png",
+  asset_url: "/static/projects/test-lab-blink-fixtures/blink_cutouts/fixture-scene/base_blink_fixture_base.png",
+  script_id: "test-lab-blink-fixtures",
   scene_id: "fixture-scene",
-  filename: "base_flipflop_fixture_base.png",
+  filename: "base_blink_fixture_base.png",
 };
 
-describe("FlipflopDebugLab", () => {
+describe("BlinkDebugLab", () => {
   beforeEach(() => {
-    analyzeFlipflopDebugAsset.mockReset();
-    createFlipflopFixtureAsset.mockReset();
-    getFlipflopDebugAssets.mockReset();
-    renderFlipflopFixturePreview.mockReset();
+    analyzeBlinkDebugAsset.mockReset();
+    createBlinkFixtureAsset.mockReset();
+    getBlinkDebugAssets.mockReset();
+    renderBlinkFixturePreview.mockReset();
     bumpAssetVersion.mockReset();
-    getFlipflopDebugAssets.mockResolvedValue([cachedAsset]);
-    createFlipflopFixtureAsset.mockResolvedValue({
+    getBlinkDebugAssets.mockResolvedValue([cachedAsset]);
+    createBlinkFixtureAsset.mockResolvedValue({
       asset: cachedAsset,
       used_external_api: true,
       status: "ready",
     });
-    renderFlipflopFixturePreview.mockResolvedValue({
+    renderBlinkFixturePreview.mockResolvedValue({
       asset: cachedAsset,
       action: "blink",
-      render_url: "/static/projects/test-lab-flipflop-fixtures/renders/full_youtube.mp4",
+      render_url: "/static/projects/test-lab-blink-fixtures/renders/full_youtube.mp4",
       used_external_api: false,
     });
-    analyzeFlipflopDebugAsset.mockResolvedValue({
+    analyzeBlinkDebugAsset.mockResolvedValue({
       asset: cachedAsset,
       action: "blink",
       used_external_api: false,
       registration_algorithm_version: "alpha-mask-registration-v10",
       anchor: { detected: true },
-      debug_url: "/static/projects/test-lab-run/flipflop_cutouts/scene/debug_base_scene_base_blink.png",
+      debug_url: "/static/projects/test-lab-run/blink_cutouts/scene/debug_base_scene_base_blink.png",
       status: "passed",
       error: null,
     });
   });
 
   it("reruns the selected cached asset through the local analyzer", async () => {
-    render(<FlipflopDebugLab />);
+    render(<BlinkDebugLab />);
 
     expect(await screen.findByText("base_scene_base.png")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /rerun detector/i }));
 
     await waitFor(() => {
-      expect(analyzeFlipflopDebugAsset).toHaveBeenCalledWith(
-        "test-lab-run/flipflop_cutouts/scene/base_scene_base.png",
+      expect(analyzeBlinkDebugAsset).toHaveBeenCalledWith(
+        "test-lab-run/blink_cutouts/scene/base_scene_base.png",
         "blink",
       );
     });
     expect(bumpAssetVersion).toHaveBeenCalledWith(
-      "/static/projects/test-lab-run/flipflop_cutouts/scene/debug_base_scene_base_blink.png",
+      "/static/projects/test-lab-run/blink_cutouts/scene/debug_base_scene_base_blink.png",
     );
     expect(await screen.findByText("alpha-mask-registration-v10")).toBeInTheDocument();
     expect(screen.getByText("None")).toBeInTheDocument();
   });
 
   it("creates a persistent fixture once and rerenders it locally", async () => {
-    render(<FlipflopDebugLab />);
+    render(<BlinkDebugLab />);
 
     expect(await screen.findByText("base_scene_base.png")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /generate fixture assets/i }));
 
     await waitFor(() => {
-      expect(createFlipflopFixtureAsset).toHaveBeenCalled();
+      expect(createBlinkFixtureAsset).toHaveBeenCalled();
     });
     expect(await screen.findByText("Fixture saved")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /rerender fixture/i }));
 
     await waitFor(() => {
-      expect(renderFlipflopFixturePreview).toHaveBeenCalledWith(
-        "test-lab-run/flipflop_cutouts/scene/base_scene_base.png",
+      expect(renderBlinkFixturePreview).toHaveBeenCalledWith(
+        "test-lab-run/blink_cutouts/scene/base_scene_base.png",
         "blink",
       );
     });
@@ -113,16 +113,16 @@ describe("FlipflopDebugLab", () => {
   });
 
   it("disables fixture generation when the saved fixture already exists", async () => {
-    getFlipflopDebugAssets.mockResolvedValue([fixtureAsset]);
+    getBlinkDebugAssets.mockResolvedValue([fixtureAsset]);
 
-    render(<FlipflopDebugLab />);
+    render(<BlinkDebugLab />);
 
-    expect(await screen.findByText("base_flipflop_fixture_base.png")).toBeInTheDocument();
+    expect(await screen.findByText("base_blink_fixture_base.png")).toBeInTheDocument();
     const generateButton = screen.getByRole("button", { name: /fixture assets already generated/i });
     expect(generateButton).toBeDisabled();
 
     fireEvent.click(generateButton);
 
-    expect(createFlipflopFixtureAsset).not.toHaveBeenCalled();
+    expect(createBlinkFixtureAsset).not.toHaveBeenCalled();
   });
 });

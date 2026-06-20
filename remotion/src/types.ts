@@ -56,14 +56,14 @@ export interface VideoFX {
   chapter_markers: ChapterMarker[];
 }
 
-export type VisualMode = "video" | "full_frame" | "multi_frame" | "continuous" | "popup_sequence" | "flipflop" | "comparison_board" | "captions" | "stat_card";
+export type VisualMode = "video" | "full_frame" | "multi_frame" | "continuous" | "popup_sequence" | "blink" | "comparison_board" | "captions" | "stat_card";
 export type RendererContext = "plain" | "desk" | "classroom" | "office" | "kitchen" | "shop" | "lab" | "street";
 
 export interface VisualCanvas {
   background_color: string;
 }
 
-export interface FlipflopOverlayPoint {
+export interface BlinkOverlayPoint {
   x: number;
   y: number;
   width?: number;
@@ -80,16 +80,16 @@ export interface FlipflopOverlayPoint {
   };
 }
 
-export interface FlipflopOverlayAnchor {
+export interface BlinkOverlayAnchor {
   version?: number;
   detected?: boolean;
   coordinate_space?: "normalized_layer_frame" | string;
   skin_fill?: string;
-  eye_left?: FlipflopOverlayPoint;
-  eye_right?: FlipflopOverlayPoint;
-  mouth?: FlipflopOverlayPoint;
-  brow_left?: FlipflopOverlayPoint;
-  brow_right?: FlipflopOverlayPoint;
+  eye_left?: BlinkOverlayPoint;
+  eye_right?: BlinkOverlayPoint;
+  mouth?: BlinkOverlayPoint;
+  brow_left?: BlinkOverlayPoint;
+  brow_right?: BlinkOverlayPoint;
 }
 
 export interface VisualLayer {
@@ -109,7 +109,7 @@ export interface VisualLayer {
     provider?: string;
     fallback?: boolean;
     trim_box?: number[];
-    flipflop_overlay_anchor?: FlipflopOverlayAnchor;
+    blink_overlay_anchor?: BlinkOverlayAnchor;
     [key: string]: unknown;
   } | null;
 }
@@ -165,7 +165,7 @@ export interface SceneInput {
   visual_beat?: "static" | "continuous" | "multi_frame" | "quick_cuts" | "aha_subtitle" | "montage" | "captions" | "comparison_board";
   frame_directives?: FrameDirective[] | null;
   visual_mode?: VisualMode;
-  flipflop_action?: string | null;
+  blink_action?: "blink" | "" | null;
   visual_layers?: VisualLayer[] | null;
   renderer_context?: RendererContext;
   caption_text?: string | null;

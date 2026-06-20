@@ -28,9 +28,9 @@ from models.script import (
     VisualCanvas,
     VisualLayer,
 )
-from pipeline.flipflop_actions import FlipflopAction, normalize_flipflop_action
+from pipeline.blink_actions import BlinkAction, normalize_blink_action
 from pipeline.script_helpers import _usage_task_label
-from pipeline.visual_treatments import comparison_cutout_prompt, flipflop_cutout_prompt
+from pipeline.visual_treatments import comparison_cutout_prompt, blink_cutout_prompt
 from pipeline.renderer_context import infer_renderer_context, normalize_renderer_context
 
 logger = logging.getLogger(__name__)
@@ -52,7 +52,7 @@ POPUP_SEQUENCE_TEXT_DEFAULTS = {
         "or letters."
     ),
 }
-FLIPFLOP_TEXT_DEFAULTS = {
+BLINK_TEXT_DEFAULTS = {
     "narration": (
         "He tried to explain the rule calmly, but the longer he talked, the harder it became "
         "to hide how tired he was"
@@ -66,11 +66,8 @@ FLIPFLOP_TEXT_DEFAULTS = {
     ),
 }
 
-TEST_LAB_RENDERER_FLIPFLOP_ACTIONS: set[FlipflopAction] = {
+TEST_LAB_RENDERER_BLINK_ACTIONS: set[BlinkAction] = {
     "blink",
-    "speaking_mouth",
-    "eye_glance",
-    "eyebrow_raise",
 }
 COMPARISON_BOARD_TEXT_DEFAULTS = {
     "narration": (
@@ -129,7 +126,7 @@ VISUAL_TREATMENT_TEXT_DEFAULTS = {
     "multi_frame": MULTI_FRAME_TEXT_DEFAULTS,
     "continuous": CONTINUOUS_TEXT_DEFAULTS,
     "popup_sequence": POPUP_SEQUENCE_TEXT_DEFAULTS,
-    "flipflop": FLIPFLOP_TEXT_DEFAULTS,
+    "blink": BLINK_TEXT_DEFAULTS,
     "comparison_board": COMPARISON_BOARD_TEXT_DEFAULTS,
     "captions": CAPTIONS_TEXT_DEFAULTS,
     "stat_card": STAT_CARD_NO_ICON_DEFAULTS,
@@ -151,13 +148,13 @@ class TestLabPreset(BaseModel):
     visual_prompt: str
     background_color: str = "#F6C54A"
     visual_mode: Literal[
-        "video", "full_frame", "multi_frame", "continuous", "popup_sequence", "flipflop", "comparison_board", "captions", "stat_card"
+        "video", "full_frame", "multi_frame", "continuous", "popup_sequence", "blink", "comparison_board", "captions", "stat_card"
     ] = "full_frame"
     caption_text: str = ""
     caption_emphasis: str = ""
     stat_value: str = ""
     stat_label: str = ""
-    flipflop_action: str = "blink"
+    blink_action: str = "blink"
     renderer_context: str = "plain"
     duration_estimate_seconds: float = 7.0
     main_character: MainCharacter | None = None
@@ -532,16 +529,16 @@ def _visual_mode_from_settings(settings: dict, preset: TestLabPreset) -> str:
     return preset.visual_mode
 
 
-def _flipflop_action_from_settings(settings: dict, preset: TestLabPreset | None) -> str:
+def _blink_action_from_settings(settings: dict, preset: TestLabPreset | None) -> str:
     action = (
-        normalize_flipflop_action(settings.get("flipflop_action"))
-        or (normalize_flipflop_action(preset.flipflop_action) if preset is not None else "")
+        normalize_blink_action(settings.get("blink_action"))
+        or (normalize_blink_action(preset.blink_action) if preset is not None else "")
         or "blink"
     )
-    return action if action in TEST_LAB_RENDERER_FLIPFLOP_ACTIONS else "blink"
+    return action if action in TEST_LAB_RENDERER_BLINK_ACTIONS else "blink"
 
 
-def _resolve_flipflop_action_for_settings(
+def _resolve_blink_action_for_settings(
     settings: dict, preset: TestLabPreset | None
 ) -> str:
     visual_mode = (
@@ -549,9 +546,9 @@ def _resolve_flipflop_action_for_settings(
         if preset is not None
         else (settings.get("visual_mode") or settings.get("visual_treatment") or "")
     )
-    if visual_mode != "flipflop":
+    if visual_mode != "blink":
         return ""
-    return _flipflop_action_from_settings(settings, preset)
+    return _blink_action_from_settings(settings, preset)
 
 
 def _renderer_context_from_settings(settings: dict, preset: TestLabPreset | None) -> str:
@@ -607,10 +604,10 @@ def _reapply_top_level_scene_settings(content: ScriptContent, settings: dict) ->
     elif "visual_treatment" in settings and "visual_treatment" not in advanced_scene:
         scene.set_visual_mode(settings["visual_treatment"])
     if (
-        "flipflop_action" in settings
-        and "flipflop_action" not in advanced_scene
+        "blink_action" in settings
+        and "blink_action" not in advanced_scene
     ):
-        scene.flipflop_action = normalize_flipflop_action(settings["flipflop_action"])
+        scene.blink_action = normalize_blink_action(settings["blink_action"])
     if (
         "renderer_context" in settings
         and "renderer_context" not in advanced_scene
@@ -645,7 +642,7 @@ def build_content_from_preset(preset_id: str, settings: dict) -> ScriptContent:
     visual_prompt = _scene_text_from_settings(settings, preset, visual_mode, "visual_prompt")
     stat_value = _stat_setting_from_settings(settings, preset, "stat_value", visual_mode)
     stat_label = _stat_setting_from_settings(settings, preset, "stat_label", visual_mode)
-    flipflop_action = _flipflop_action_from_settings(settings, preset)
+    blink_action = _blink_action_from_settings(settings, preset)
     renderer_context = _renderer_context_from_settings(settings, preset)
     visual_layers = settings.get("visual_layers") if isinstance(settings.get("visual_layers"), list) else []
     if visual_mode == "stat_card" and not visual_layers and visual_prompt.strip():
@@ -669,7 +666,7 @@ def build_content_from_preset(preset_id: str, settings: dict) -> ScriptContent:
         visual_mode=visual_mode,
         contains_person=bool(_setting(settings, "contains_person", preset.main_character is not None)),
         visual_layers=visual_layers,
-        flipflop_action=flipflop_action if visual_mode == "flipflop" else "",
+        blink_action=blink_action if visual_mode == "blink" else "",
         renderer_context=renderer_context,
         caption_text=_caption_setting_from_settings(settings, preset, "caption_text", narration, visual_mode),
         caption_emphasis=_caption_setting_from_settings(settings, preset, "caption_emphasis", narration, visual_mode),
@@ -938,7 +935,7 @@ def _stage_visual(ctx: TestLabRunContext) -> None:
         scene = _first_scene(content)
         if scene.visual_mode in {"multi_frame", "continuous"} and not scene.frame_directives:
             scene.frame_directives = _frame_directives_for_visual_mode(scene)
-        if scene.visual_mode in {"popup_sequence", "flipflop", "comparison_board", "stat_card"}:
+        if scene.visual_mode in {"popup_sequence", "blink", "comparison_board", "stat_card"}:
             scene.image_url = ""
             scene.video_url = ""
             scene.frame_urls = []
@@ -955,7 +952,7 @@ def _stage_visual(ctx: TestLabRunContext) -> None:
                 "frame_directives": [directive.model_dump() for directive in scene.frame_directives],
                 "contains_person": scene.contains_person,
                 "visual_mode": scene.visual_mode,
-                "flipflop_action": scene.flipflop_action,
+                "blink_action": scene.blink_action,
                 "renderer_context": scene.renderer_context,
                 "audio_duration_seconds": scene.audio_duration_seconds or scene.duration_estimate_seconds,
                 "visual_layers": [layer.model_dump() for layer in scene.visual_layers],
@@ -1054,7 +1051,7 @@ def _frame_directives_for_visual_mode(scene: Scene) -> list[dict]:
 def _stage_treatment_assets(ctx: TestLabRunContext) -> None:
     from pipeline.image_gen import (
         generate_comparison_board_cutouts,
-        generate_flipflop_base_cutout,
+        generate_blink_base_cutout,
         generate_popup_sequence_cutouts,
         generate_stat_card_cutout,
         generate_visual_layer_panels,
@@ -1073,13 +1070,13 @@ def _stage_treatment_assets(ctx: TestLabRunContext) -> None:
         requested_mode = ctx.settings.get("visual_mode") or ctx.settings.get("visual_treatment")
         if isinstance(requested_mode, str):
             scene.set_visual_mode(requested_mode)
-        layer_based_treatment = scene.visual_mode in {"popup_sequence", "flipflop", "comparison_board", "stat_card"}
+        layer_based_treatment = scene.visual_mode in {"popup_sequence", "blink", "comparison_board", "stat_card"}
         explicit_treatment = "visual_mode" in ctx.settings or "visual_treatment" in ctx.settings or scene.visual_mode != "full_frame"
         if not explicit_treatment:
             assignments = analyze_visual_treatments(content, script_id=ctx.script_id)
             apply_visual_treatment_assignments(content, assignments)
             scene = _first_scene(content)
-            layer_based_treatment = scene.visual_mode in {"popup_sequence", "flipflop", "comparison_board", "stat_card"}
+            layer_based_treatment = scene.visual_mode in {"popup_sequence", "blink", "comparison_board", "stat_card"}
         if scene.visual_mode == "full_frame":
             scene.visual_layers = []
             _save_content(session, record, content)
@@ -1087,16 +1084,16 @@ def _stage_treatment_assets(ctx: TestLabRunContext) -> None:
         if not layer_based_treatment:
             _save_content(session, record, content)
             return
-        requested_flipflop_action = (
-            _resolve_flipflop_action_for_settings(ctx.settings, get_preset(ctx.preset_id))
-            if requested_mode == "flipflop"
+        requested_blink_action = (
+            _resolve_blink_action_for_settings(ctx.settings, get_preset(ctx.preset_id))
+            if requested_mode == "blink"
             else ""
         )
         if not scene.visual_layers:
             assignment = None
-            if requested_mode == "flipflop" and requested_flipflop_action:
-                scene.set_visual_mode("flipflop")
-                scene.flipflop_action = requested_flipflop_action
+            if requested_mode == "blink" and requested_blink_action:
+                scene.set_visual_mode("blink")
+                scene.blink_action = requested_blink_action
                 scene.contains_person = True
             elif scene.audio_duration_seconds > 0 and scene.word_timestamps:
                 assignments = analyze_visual_treatments(content, script_id=ctx.script_id)
@@ -1117,7 +1114,7 @@ def _stage_treatment_assets(ctx: TestLabRunContext) -> None:
             )
             if isinstance(requested_mode, str):
                 scene.set_visual_mode(requested_mode)
-            if requested_mode == "flipflop" and requested_flipflop_action:
+            if requested_mode == "blink" and requested_blink_action:
                 scene.contains_person = True
         if scene.visual_layers:
             layer_dicts = [layer.model_dump() for layer in scene.visual_layers]
@@ -1138,8 +1135,8 @@ def _stage_treatment_assets(ctx: TestLabRunContext) -> None:
                     scene_prompt=scene.visual_prompt,
                     force=True,
                 )
-            elif scene.visual_mode == "flipflop":
-                generated_layers = generate_flipflop_base_cutout(
+            elif scene.visual_mode == "blink":
+                generated_layers = generate_blink_base_cutout(
                     scene_id=scene.id,
                     layers=layer_dicts,
                     script_id=ctx.script_id,
@@ -1249,11 +1246,11 @@ def _fallback_visual_layers_for_treatment(scene: Scene) -> list[VisualLayer]:
         VisualLayer(
             id=f"{scene.id}_base",
             asset_kind="cutout",
-            prompt=flipflop_cutout_prompt(
+            prompt=blink_cutout_prompt(
                 scene.visual_prompt,
                 scene.narration,
                 "state A",
-                action=scene.flipflop_action,
+                action=scene.blink_action,
             ),
             placement="center",
             enter_at_seconds=0.0,
@@ -1285,7 +1282,7 @@ def _stage_fx(ctx: TestLabRunContext) -> None:
             "duration_frames": int(duration * FPS),
             "has_multiple_frames": bool(scene.frame_urls and len(scene.frame_urls) > 1),
             "visual_mode": scene.visual_mode,
-            "flipflop_action": scene.flipflop_action,
+            "blink_action": scene.blink_action,
             "renderer_context": scene.renderer_context,
             "visual_beat": scene.visual_beat or "static",
         }
@@ -1360,7 +1357,7 @@ def _stage_render(ctx: TestLabRunContext) -> None:
 def _stage_defaults(settings: dict) -> dict[str, bool]:
     eli_default = _bool_setting(settings, "eli_enabled", False)
     visual_mode = settings.get("visual_mode") or ("video" if settings.get("media_source") == "ai_video" else "full_frame")
-    treatment_assets_enabled = visual_mode in {"popup_sequence", "flipflop", "comparison_board", "stat_card"}
+    treatment_assets_enabled = visual_mode in {"popup_sequence", "blink", "comparison_board", "stat_card"}
     return {
         "audio": _enabled(settings, "audio", True),
         "visual": _enabled(settings, "visual", True),
@@ -1387,7 +1384,7 @@ def run_test_lab(
         preset = get_preset(preset_id)
     except ValueError:
         preset = None
-    settings["flipflop_action"] = _resolve_flipflop_action_for_settings(settings, preset)
+    settings["blink_action"] = _resolve_blink_action_for_settings(settings, preset)
     settings["renderer_context"] = _renderer_context_from_settings(settings, preset)
     script_id = f"test-lab-{safe_run_id}"
     manifest = TestLabRunManifest(

@@ -21,7 +21,7 @@ const mixedAssignments: VisualTreatmentAssignment[] = [
   ...assignments,
   {
     scene_id: "scene_002",
-    visual_mode: "flipflop",
+    visual_mode: "blink",
     reasoning: "Motion beat.",
     visual_layers: [
       { id: "scene_002_state_a", type: "image", asset_kind: "panel" },
@@ -30,7 +30,7 @@ const mixedAssignments: VisualTreatmentAssignment[] = [
   },
   {
     scene_id: "scene_003",
-    visual_mode: "flipflop",
+    visual_mode: "blink",
     reasoning: "Motion beat.",
     visual_layers: [
       { id: "scene_003_state_a", type: "image", asset_kind: "panel" },
@@ -67,11 +67,11 @@ const scenes: Record<string, Scene> = {
     image_url: "",
     audio_url: "",
     audio_duration_seconds: 6,
-    visual_beat: "flipflop",
+    visual_beat: "blink",
     frame_directives: [],
     contains_person: false,
     frame_urls: [],
-    visual_mode: "flipflop",
+    visual_mode: "blink",
     visual_layers: [],
     caption_text: "",
     caption_emphasis: "",
@@ -85,11 +85,11 @@ const scenes: Record<string, Scene> = {
     image_url: "",
     audio_url: "",
     audio_duration_seconds: 6,
-    visual_beat: "flipflop",
+    visual_beat: "blink",
     frame_directives: [],
     contains_person: false,
     frame_urls: [],
-    visual_mode: "flipflop",
+    visual_mode: "blink",
     visual_layers: [],
     caption_text: "",
     caption_emphasis: "",
@@ -183,7 +183,7 @@ describe("VisualTreatmentReviewPanel", () => {
     expect(screen.getByLabelText("Full frame scenes")).toHaveClass("border-blue-300/70");
     expect(screen.getByLabelText("Full frame scenes")).toHaveClass("bg-blue-700");
     expect(screen.getByLabelText("Full frame scenes")).toHaveClass("text-yellow-300");
-    expect(screen.getByLabelText("Flipflop scenes")).toHaveTextContent("2");
+    expect(screen.getByLabelText("Blink scenes")).toHaveTextContent("2");
     expect(screen.getByLabelText("Captions scenes")).toHaveTextContent("0");
     expect(screen.getByLabelText("Video scenes")).toHaveTextContent("0");
   });

@@ -4,12 +4,12 @@ import type React from "react";
 import {
   comparisonBoardLayerStyle,
   comparisonLabel,
-  flipflopActiveLayer,
-  flipflopOverlayAnchor,
-  flipflopMicroOverlay,
-  flipflopBlinkEyeOverlayGeometry,
-  flipflopOverlayVisible,
-  flipflopLayerFrameStyle,
+  blinkActiveLayer,
+  blinkOverlayAnchor,
+  blinkMicroOverlay,
+  blinkBlinkEyeOverlayGeometry,
+  blinkOverlayVisible,
+  blinkLayerFrameStyle,
   layerChromeStyle,
   layerFrameStyle,
   popupOrbitFrameStyle,
@@ -177,9 +177,9 @@ describe("layerFrameStyle", () => {
   });
 });
 
-describe("flipflopLayerFrameStyle", () => {
-  it("renders flip-flop cutouts centered over the static context", () => {
-    const style = flipflopLayerFrameStyle(itemLayer("state-a"));
+describe("blinkLayerFrameStyle", () => {
+  it("renders blink cutouts centered over the static context", () => {
+    const style = blinkLayerFrameStyle(itemLayer("state-a"));
 
     expect(style.position).toBe("absolute");
     expect(style.left).toBe("50%");
@@ -191,7 +191,7 @@ describe("flipflopLayerFrameStyle", () => {
   });
 
   it("falls back to full-bleed frame styling for panel layers", () => {
-    const style = flipflopLayerFrameStyle(panelLayer("state-a"));
+    const style = blinkLayerFrameStyle(panelLayer("state-a"));
 
     expect(style.position).toBe("absolute");
     expect(style.inset).toBe(0);
@@ -200,57 +200,58 @@ describe("flipflopLayerFrameStyle", () => {
   });
 });
 
-describe("flipflopActiveLayer", () => {
+describe("blinkActiveLayer", () => {
   it("alternates between all states from the start of the scene", () => {
     const layers = [
       { ...itemLayer("state-a"), enter_at_seconds: 0 },
       { ...itemLayer("state-b"), enter_at_seconds: 2.1 },
     ];
 
-    expect(flipflopActiveLayer(layers, 0, 30)?.id).toBe("state-a");
-    expect(flipflopActiveLayer(layers, 15, 30)?.id).toBe("state-b");
-    expect(flipflopActiveLayer(layers, 30, 30)?.id).toBe("state-a");
+    expect(blinkActiveLayer(layers, 0, 30)?.id).toBe("state-a");
+    expect(blinkActiveLayer(layers, 15, 30)?.id).toBe("state-b");
+    expect(blinkActiveLayer(layers, 30, 30)?.id).toBe("state-a");
   });
 
-  it("ignores static background layers when alternating flip-flop states", () => {
+  it("ignores static background layers when alternating blink states", () => {
     const layers = [
       { ...panelLayer("background"), asset_kind: "full_frame" as const },
       { ...itemLayer("state-a"), enter_at_seconds: 0 },
       { ...itemLayer("state-b"), enter_at_seconds: 0 },
     ];
 
-    expect(flipflopActiveLayer(layers, 0, 30)?.id).toBe("state-a");
-    expect(flipflopActiveLayer(layers, 15, 30)?.id).toBe("state-b");
-    expect(flipflopActiveLayer(layers, 30, 30)?.id).toBe("state-a");
+    expect(blinkActiveLayer(layers, 0, 30)?.id).toBe("state-a");
+    expect(blinkActiveLayer(layers, 15, 30)?.id).toBe("state-b");
+    expect(blinkActiveLayer(layers, 30, 30)?.id).toBe("state-a");
   });
 });
 
-describe("flipflopOverlayVisible", () => {
+describe("blinkOverlayVisible", () => {
   it("toggles renderer-owned micro-expression overlays every half second", () => {
-    expect(flipflopOverlayVisible(0, 30)).toBe(false);
-    expect(flipflopOverlayVisible(14, 30)).toBe(false);
-    expect(flipflopOverlayVisible(15, 30)).toBe(true);
-    expect(flipflopOverlayVisible(30, 30)).toBe(false);
+    expect(blinkOverlayVisible(0, 30)).toBe(false);
+    expect(blinkOverlayVisible(14, 30)).toBe(false);
+    expect(blinkOverlayVisible(15, 30)).toBe(true);
+    expect(blinkOverlayVisible(30, 30)).toBe(false);
   });
 });
 
-describe("flipflopMicroOverlay", () => {
-  it("defines a deterministic speaking mouth overlay", () => {
-    expect(flipflopMicroOverlay("speaking_mouth")).toMatchObject({
-      kind: "mouth",
-      state: "open",
+describe("blinkMicroOverlay", () => {
+  it("defines a deterministic blink overlay", () => {
+    expect(blinkMicroOverlay("blink")).toMatchObject({
+      kind: "eyes",
+      state: "closed",
     });
   });
 
-  it("does not create overlays for pose-changing legacy actions", () => {
-    expect(flipflopMicroOverlay("head_nod")).toBeNull();
-    expect(flipflopMicroOverlay("small_shrug")).toBeNull();
+  it("does not create overlays for unsupported legacy actions", () => {
+    expect(blinkMicroOverlay("talking")).toBeNull();
+    expect(blinkMicroOverlay("looking_sideways")).toBeNull();
+    expect(blinkMicroOverlay("walking")).toBeNull();
   });
 });
 
-describe("flipflopBlinkEyeOverlayGeometry", () => {
+describe("blinkBlinkEyeOverlayGeometry", () => {
   it("covers open eyes before drawing closed eyelids", () => {
-    const geometry = flipflopBlinkEyeOverlayGeometry(
+    const geometry = blinkBlinkEyeOverlayGeometry(
       {
         eye_left: { x: 0.42, y: 0.33 },
         eye_right: { x: 0.58, y: 0.33 },
@@ -279,7 +280,7 @@ describe("flipflopBlinkEyeOverlayGeometry", () => {
   });
 
   it("sizes blink lids from detected eye width when available", () => {
-    const geometry = flipflopBlinkEyeOverlayGeometry(
+    const geometry = blinkBlinkEyeOverlayGeometry(
       {
         eye_left: { x: 0.42, y: 0.33, width: 0.045, height: 0.02 },
         eye_right: { x: 0.58, y: 0.33, width: 0.045, height: 0.02 },
@@ -299,7 +300,7 @@ describe("flipflopBlinkEyeOverlayGeometry", () => {
   });
 
   it("uses detected eye erase boxes for skin fill bounds when available", () => {
-    const geometry = flipflopBlinkEyeOverlayGeometry(
+    const geometry = blinkBlinkEyeOverlayGeometry(
       {
         eye_left: {
           x: 0.42,
@@ -338,7 +339,7 @@ describe("flipflopBlinkEyeOverlayGeometry", () => {
   });
 
   it("shares detected eye erase box height across both blink masks", () => {
-    const geometry = flipflopBlinkEyeOverlayGeometry(
+    const geometry = blinkBlinkEyeOverlayGeometry(
       {
         eye_left: {
           x: 0.42,
@@ -376,7 +377,7 @@ describe("flipflopBlinkEyeOverlayGeometry", () => {
   });
 
   it("clamps broad erase boxes horizontally to a wider eye-detail band", () => {
-    const geometry = flipflopBlinkEyeOverlayGeometry(
+    const geometry = blinkBlinkEyeOverlayGeometry(
       {
         eye_left: {
           x: 0.42,
@@ -414,7 +415,7 @@ describe("flipflopBlinkEyeOverlayGeometry", () => {
   });
 
   it("covers eyelid remnants outside the narrow dark aperture", () => {
-    const geometry = flipflopBlinkEyeOverlayGeometry(
+    const geometry = blinkBlinkEyeOverlayGeometry(
       {
         eye_left: {
           x: 0.42,
@@ -444,7 +445,7 @@ describe("flipflopBlinkEyeOverlayGeometry", () => {
   });
 
   it("expands upward toward old open lashes while staying below eyebrows", () => {
-    const geometry = flipflopBlinkEyeOverlayGeometry(
+    const geometry = blinkBlinkEyeOverlayGeometry(
       {
         eye_left: {
           x: 0.42,
@@ -474,7 +475,7 @@ describe("flipflopBlinkEyeOverlayGeometry", () => {
   });
 
   it("honors brow-inclusive erase boxes from the backend", () => {
-    const geometry = flipflopBlinkEyeOverlayGeometry(
+    const geometry = blinkBlinkEyeOverlayGeometry(
       {
         eye_left: {
           x: 0.42,
@@ -514,7 +515,7 @@ describe("flipflopBlinkEyeOverlayGeometry", () => {
   });
 
   it("keeps detected upper eyelid tops that are below eyebrow space", () => {
-    const geometry = flipflopBlinkEyeOverlayGeometry(
+    const geometry = blinkBlinkEyeOverlayGeometry(
       {
         eye_left: {
           x: 0.42,
@@ -542,7 +543,7 @@ describe("flipflopBlinkEyeOverlayGeometry", () => {
   });
 
   it("uses backend eye-aperture bounds and draws closed lashes at the detected eye center", () => {
-    const geometry = flipflopBlinkEyeOverlayGeometry(
+    const geometry = blinkBlinkEyeOverlayGeometry(
       {
         eye_left: {
           x: 0.42,
@@ -578,7 +579,7 @@ describe("flipflopBlinkEyeOverlayGeometry", () => {
   });
 
   it("uses per-eye skin gradients for blink masks when sampled colors are available", () => {
-    const geometry = flipflopBlinkEyeOverlayGeometry(
+    const geometry = blinkBlinkEyeOverlayGeometry(
       {
         eye_left: {
           x: 0.42,
@@ -605,16 +606,16 @@ describe("flipflopBlinkEyeOverlayGeometry", () => {
       "#D9A374",
     );
 
-    expect(geometry[0].mask.fill).toBe("url(#flipflop-blink-eye-0-gradient)");
+    expect(geometry[0].mask.fill).toBe("url(#blink-blink-eye-0-gradient)");
     expect(geometry[0].mask.gradient).toEqual({
-      id: "flipflop-blink-eye-0-gradient",
+      id: "blink-blink-eye-0-gradient",
       top: "#F5B97D",
       bottom: "#C3784B",
       orientation: "vertical",
     });
-    expect(geometry[1].mask.fill).toBe("url(#flipflop-blink-eye-1-gradient)");
+    expect(geometry[1].mask.fill).toBe("url(#blink-blink-eye-1-gradient)");
     expect(geometry[1].mask.gradient).toEqual({
-      id: "flipflop-blink-eye-1-gradient",
+      id: "blink-blink-eye-1-gradient",
       top: "#E4A46A",
       bottom: "#B96E43",
       orientation: "vertical",
@@ -622,7 +623,7 @@ describe("flipflopBlinkEyeOverlayGeometry", () => {
   });
 
   it("prefers horizontal per-eye skin gradients when side lighting is available", () => {
-    const geometry = flipflopBlinkEyeOverlayGeometry(
+    const geometry = blinkBlinkEyeOverlayGeometry(
       {
         eye_left: {
           x: 0.42,
@@ -652,13 +653,13 @@ describe("flipflopBlinkEyeOverlayGeometry", () => {
     );
 
     expect(geometry[0].mask.gradient).toEqual({
-      id: "flipflop-blink-eye-0-gradient",
+      id: "blink-blink-eye-0-gradient",
       top: "#F5B97D",
       bottom: "#C3784B",
       orientation: "horizontal",
     });
     expect(geometry[1].mask.gradient).toEqual({
-      id: "flipflop-blink-eye-1-gradient",
+      id: "blink-blink-eye-1-gradient",
       top: "#C3784B",
       bottom: "#B96E43",
       orientation: "horizontal",
@@ -666,7 +667,7 @@ describe("flipflopBlinkEyeOverlayGeometry", () => {
   });
 
   it("prefers vertical per-eye skin gradients when vertical lighting changes more", () => {
-    const geometry = flipflopBlinkEyeOverlayGeometry(
+    const geometry = blinkBlinkEyeOverlayGeometry(
       {
         eye_left: {
           x: 0.42,
@@ -694,7 +695,7 @@ describe("flipflopBlinkEyeOverlayGeometry", () => {
     );
 
     expect(geometry[0].mask.gradient).toEqual({
-      id: "flipflop-blink-eye-0-gradient",
+      id: "blink-blink-eye-0-gradient",
       top: "#F5B97D",
       bottom: "#C3784B",
       orientation: "vertical",
@@ -702,12 +703,12 @@ describe("flipflopBlinkEyeOverlayGeometry", () => {
   });
 });
 
-describe("flipflopOverlayAnchor", () => {
+describe("blinkOverlayAnchor", () => {
   it("reads normalized overlay anchors from layer metadata", () => {
-    const anchor = flipflopOverlayAnchor({
+    const anchor = blinkOverlayAnchor({
       ...itemLayer("base"),
       visual_source_metadata: {
-        flipflop_overlay_anchor: {
+        blink_overlay_anchor: {
           detected: true,
           mouth: { x: 0.52, y: 0.48 },
           eye_left: { x: 0.42, y: 0.33 },
@@ -720,17 +721,17 @@ describe("flipflopOverlayAnchor", () => {
 
     expect(anchor).not.toBeNull();
     if (!anchor) {
-      throw new Error("Expected detected flip-flop anchor metadata");
+      throw new Error("Expected detected blink anchor metadata");
     }
     expect(anchor.mouth).toEqual({ x: 0.52, y: 0.48 });
     expect(anchor.eye_left).toEqual({ x: 0.42, y: 0.33 });
   });
 
   it("falls back when overlay anchor metadata is missing or invalid", () => {
-    const anchor = flipflopOverlayAnchor({
+    const anchor = blinkOverlayAnchor({
       ...itemLayer("base"),
       visual_source_metadata: {
-        flipflop_overlay_anchor: {
+        blink_overlay_anchor: {
           mouth: { x: 2, y: -1 },
         },
       },

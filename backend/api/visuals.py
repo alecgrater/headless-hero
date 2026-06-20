@@ -14,10 +14,10 @@ from api._helpers import update_scene
 from models.generation_duration import GenerationDuration
 from models.script import Script, ScriptContent, VISUAL_MODES
 from pipeline.image_gen import (
-    FlipflopRegistrationError,
+    BlinkRegistrationError,
     generate_batch,
     generate_comparison_board_cutouts,
-    generate_flipflop_cutouts,
+    generate_blink_cutouts,
     generate_popup_sequence_cutouts,
     generate_scene_frames_v2,
     generate_scene_image,
@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/visuals", tags=["visuals"])
 
 METADATA_CLEAR: dict[str, object] = {}
-LAYERED_VISUAL_MODES = {"popup_sequence", "flipflop", "comparison_board", "stat_card"}
+LAYERED_VISUAL_MODES = {"popup_sequence", "blink", "comparison_board", "stat_card"}
 
 # --- Request / Response schemas ---
 
@@ -182,7 +182,7 @@ def _generate_scene_visual_layers(
     )
     if treatment not in LAYERED_VISUAL_MODES:
         return None
-    if not layers and treatment != "flipflop":
+    if not layers and treatment != "blink":
         return []
     logger.info(
         "[ANIMATION_TYPE] generating panels scene=%s animation_type=%s layers=%d",
@@ -209,8 +209,8 @@ def _generate_scene_visual_layers(
             width=width,
             height=height,
         )
-    if treatment == "flipflop":
-        return generate_flipflop_cutouts(
+    if treatment == "blink":
+        return generate_blink_cutouts(
             scene_id=scene_id,
             layers=layers,
             script_id=script_id,
@@ -362,7 +362,7 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
                 request_scene_prompt=body.visual_prompt,
                 request_contains_person=body.contains_person,
             )
-        except FlipflopRegistrationError as exc:
+        except BlinkRegistrationError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         update_scene(
             session,
@@ -507,11 +507,11 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
 
     def _requested_layered_mode(scene: BatchScene) -> str:
         if scene.visual_mode in VISUAL_MODES:
-            return scene.visual_mode if scene.visual_mode in {"popup_sequence", "flipflop", "comparison_board"} else "full_frame"
+            return scene.visual_mode if scene.visual_mode in {"popup_sequence", "blink", "comparison_board"} else "full_frame"
         stored_scene = scene_map.get(scene.scene_id)
         if stored_scene is None:
             return "full_frame"
-        if stored_scene.visual_mode in {"popup_sequence", "flipflop", "comparison_board"}:
+        if stored_scene.visual_mode in {"popup_sequence", "blink", "comparison_board"}:
             return stored_scene.visual_mode
         return "full_frame"
 

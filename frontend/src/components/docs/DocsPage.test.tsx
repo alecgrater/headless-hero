@@ -9,7 +9,7 @@ const ALL_MODES = [
   "multi_frame",
   "video",
   "popup_sequence",
-  "flipflop",
+  "blink",
   "comparison_board",
   "captions",
   "stat_card",

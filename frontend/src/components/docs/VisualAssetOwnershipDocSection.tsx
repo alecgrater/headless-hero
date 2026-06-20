@@ -18,7 +18,7 @@ const OWNERS = [
   {
     icon: Image,
     title: "Image Generation Owns Raw Visual Assets",
-    owns: "Full-frame images, multi-frame images, continuous frames, AI-video anchor images, transparent cutouts, icon cutouts, and flip-flop base cutouts.",
+    owns: "Full-frame images, multi-frame images, continuous frames, AI-video anchor images, transparent cutouts, icon cutouts, and blink base cutouts.",
     doesNotOwn: "Readable captions, stat numbers, title-card copy, subtitle text, export wrappers, or UI labels.",
     reason: "Generated images should supply visual material. Remotion owns final composition and readable text so outputs stay editable, consistent, and cacheable.",
   },
@@ -39,7 +39,7 @@ const OWNERS = [
   {
     icon: Clapperboard,
     title: "Remotion Owns Final Composition",
-    owns: "Canvas layout, subtitles, title cards, caption typography, stat-card text, comparison board columns, flip-flop micro-expression overlays, animation timing, and MP4 frames.",
+    owns: "Canvas layout, subtitles, title cards, caption typography, stat-card text, comparison board columns, blink micro-expression overlays, animation timing, and MP4 frames.",
     doesNotOwn: "LLM prompt decisions, source narration, raw asset generation, API credentials, or export folder policy.",
     reason: "Renderer-owned text and layout keep visual modes deterministic and prevent generated images from baking in copy that cannot be corrected later.",
   },
@@ -86,8 +86,8 @@ const MODE_OWNERSHIP = [
     renderer: "Stages orbiting popup items over the global canvas at voice-timed moments; scene-level camera drift and zoom punch are suppressed so the canvas stays stable.",
   },
   {
-    mode: "flipflop",
-    asset: "One transparent neutral base cutout plus flip-flop overlay anchor metadata and renderer_context metadata",
+    mode: "blink",
+    asset: "One transparent neutral base cutout plus blink overlay anchor metadata and renderer_context metadata",
     renderer: "Draws the shared renderer-owned context stage and toggles deterministic face overlays from frame zero to simulate a locked facial micro-action.",
   },
   {

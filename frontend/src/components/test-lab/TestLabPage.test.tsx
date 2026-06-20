@@ -20,11 +20,11 @@ vi.mock("../../api", () => ({
   getTestLabRuns: vi.fn().mockResolvedValue([]),
   startTestLabRun: vi.fn(),
   assetUrl: (path: string) => path,
-  analyzeFlipflopDebugAsset: vi.fn(),
+  analyzeBlinkDebugAsset: vi.fn(),
   bumpAssetVersion: vi.fn(),
-  createFlipflopFixtureAsset: vi.fn(),
-  getFlipflopDebugAssets: vi.fn().mockResolvedValue([]),
-  renderFlipflopFixturePreview: vi.fn(),
+  createBlinkFixtureAsset: vi.fn(),
+  getBlinkDebugAssets: vi.fn().mockResolvedValue([]),
+  renderBlinkFixturePreview: vi.fn(),
 }));
 
 describe("testLabPresetSubtitle", () => {
@@ -48,10 +48,10 @@ describe("testLabPresetSubtitle", () => {
     expect(testLabPresetSubtitle(preset)).toBe("Write your own test script");
   });
 
-  it("labels the flip-flop tab without debug wording", async () => {
+  it("labels the blink tab without debug wording", async () => {
     render(<TestLabPage />);
 
-    expect(await screen.findByRole("button", { name: "Flip-flop" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Flip-flop Debug" })).not.toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Blink" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Blink Debug" })).not.toBeInTheDocument();
   });
 });

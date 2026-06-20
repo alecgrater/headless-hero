@@ -35,26 +35,16 @@ export interface VideoFX {
   chapter_markers: ChapterMarker[];
 }
 
-export type VisualMode = "video" | "full_frame" | "multi_frame" | "continuous" | "popup_sequence" | "flipflop" | "comparison_board" | "captions" | "stat_card";
+export type VisualMode = "video" | "full_frame" | "multi_frame" | "continuous" | "popup_sequence" | "blink" | "comparison_board" | "captions" | "stat_card";
 export type SubtitleStyle = "auto" | "clean" | "kinetic" | "burst" | "none";
 export type RendererContext = "plain" | "desk" | "classroom" | "office" | "kitchen" | "shop" | "lab" | "street";
-export type FlipflopAction =
-  | "blink"
-  | "speaking_mouth"
-  | "eye_glance"
-  | "eyebrow_raise"
-  | "head_nod"
-  | "explaining_hand_raise"
-  | "thinking_pose"
-  | "pointing_gesture"
-  | "counting_fingers"
-  | "small_shrug";
+export type BlinkAction = "blink";
 
 export interface VisualCanvas {
   background_color: string;
 }
 
-export interface FlipflopOverlayPoint {
+export interface BlinkOverlayPoint {
   x: number;
   y: number;
   width?: number;
@@ -71,16 +61,16 @@ export interface FlipflopOverlayPoint {
   };
 }
 
-export interface FlipflopOverlayAnchor {
+export interface BlinkOverlayAnchor {
   version?: number;
   detected?: boolean;
   coordinate_space?: "normalized_layer_frame" | string;
   skin_fill?: string;
-  eye_left?: FlipflopOverlayPoint;
-  eye_right?: FlipflopOverlayPoint;
-  mouth?: FlipflopOverlayPoint;
-  brow_left?: FlipflopOverlayPoint;
-  brow_right?: FlipflopOverlayPoint;
+  eye_left?: BlinkOverlayPoint;
+  eye_right?: BlinkOverlayPoint;
+  mouth?: BlinkOverlayPoint;
+  brow_left?: BlinkOverlayPoint;
+  brow_right?: BlinkOverlayPoint;
 }
 
 export interface VisualLayer {
@@ -99,7 +89,7 @@ export interface VisualLayer {
     provider?: string;
     fallback?: boolean;
     trim_box?: number[];
-    flipflop_overlay_anchor?: FlipflopOverlayAnchor;
+    blink_overlay_anchor?: BlinkOverlayAnchor;
     [key: string]: unknown;
   } | null;
 }
@@ -130,12 +120,12 @@ export interface Scene {
   audio_url?: string;
   audio_duration_seconds?: number;
   frame_urls?: string[];
-  visual_beat?: "static" | "continuous" | "multi_frame" | "quick_cuts" | "aha_subtitle" | "montage" | "captions" | "popup_sequence" | "flipflop" | "comparison_board" | "stat_card";
+  visual_beat?: "static" | "continuous" | "multi_frame" | "quick_cuts" | "aha_subtitle" | "montage" | "captions" | "popup_sequence" | "blink" | "comparison_board" | "stat_card";
   frame_directives?: FrameDirective[];
   contains_person?: boolean;
   visual_mode?: VisualMode;
   visual_layers?: VisualLayer[];
-  flipflop_action?: FlipflopAction | "";
+  blink_action?: BlinkAction | "";
   renderer_context?: RendererContext;
   caption_text?: string;
   caption_emphasis?: string;

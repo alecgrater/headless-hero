@@ -46,7 +46,7 @@ describe("MediaReviewPanel", () => {
       "Continuous",
       "Video",
       "Popup sequence",
-      "Flipflop",
+      "Blink",
       "Comparison board",
       "Captions",
       "Stat card",

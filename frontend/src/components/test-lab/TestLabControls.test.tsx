@@ -306,24 +306,24 @@ describe("TestLabControls layout", () => {
     ]);
   });
 
-  it("shows flip-flop state controls inside Visual Mode", () => {
-    renderControls({ ...baseSettings, visual_mode: "flipflop" });
+  it("shows blink state controls inside Visual Mode", () => {
+    renderControls({ ...baseSettings, visual_mode: "blink" });
 
     const visualMode = screen.getByTestId("test-lab-section-visual-mode");
-    fireEvent.mouseEnter(within(visualMode).getByRole("button", { name: /Flip-flop/i }));
+    fireEvent.mouseEnter(within(visualMode).getByRole("button", { name: /Blink/i }));
 
     expect(within(visualMode).getByText(/one neutral transparent cutout and stages deterministic face overlays/i)).toBeInTheDocument();
-    expect(within(visualMode).getByLabelText("Flip-flop action")).toBeInTheDocument();
+    expect(within(visualMode).getByText(/always uses the renderer-owned blink action/i)).toBeInTheDocument();
     expect(within(visualMode).getByLabelText("Scene context")).toBeInTheDocument();
   });
 
-  it("shows the flip-flop action selector only for flip-flop mode", () => {
+  it("shows blink context only for blink mode", () => {
     const { rerender } = render(
       <TestLabControls
         preset={preset}
         defaultMainCharacter={null}
         visualTreatmentDefaults={defaults}
-        settings={{ ...baseSettings, visual_mode: "flipflop", flipflop_action: "blink" }}
+        settings={{ ...baseSettings, visual_mode: "blink", blink_action: "blink" }}
         voiceSummary={voiceSummary}
         subtitleSummary={subtitleSummary}
         onChange={() => undefined}
@@ -331,7 +331,7 @@ describe("TestLabControls layout", () => {
       />,
     );
 
-    expect(screen.getByLabelText("Flip-flop action")).toHaveValue("blink");
+    expect(screen.getByText(/always uses the renderer-owned blink action/i)).toBeInTheDocument();
     expect(screen.getByLabelText("Scene context")).toHaveValue("plain");
 
     rerender(
@@ -339,7 +339,7 @@ describe("TestLabControls layout", () => {
         preset={preset}
         defaultMainCharacter={null}
         visualTreatmentDefaults={defaults}
-        settings={{ ...baseSettings, visual_mode: "full_frame", flipflop_action: "" }}
+        settings={{ ...baseSettings, visual_mode: "full_frame", blink_action: "" }}
         voiceSummary={voiceSummary}
         subtitleSummary={subtitleSummary}
         onChange={() => undefined}
@@ -347,7 +347,7 @@ describe("TestLabControls layout", () => {
       />,
     );
 
-    expect(screen.queryByLabelText("Flip-flop action")).not.toBeInTheDocument();
+    expect(screen.queryByText(/always uses the renderer-owned blink action/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Scene context")).not.toBeInTheDocument();
   });
 
@@ -358,7 +358,7 @@ describe("TestLabControls layout", () => {
         preset={preset}
         defaultMainCharacter={null}
         visualTreatmentDefaults={defaults}
-        settings={{ ...baseSettings, visual_mode: "flipflop", renderer_context: "desk" }}
+        settings={{ ...baseSettings, visual_mode: "blink", renderer_context: "desk" }}
         voiceSummary={voiceSummary}
         subtitleSummary={subtitleSummary}
         onChange={onChange}
@@ -379,35 +379,7 @@ describe("TestLabControls layout", () => {
     );
   });
 
-  it("updates flip-flop action without rewriting scene text", () => {
-    const onChange = vi.fn();
-    render(
-      <TestLabControls
-        preset={preset}
-        defaultMainCharacter={null}
-        visualTreatmentDefaults={defaults}
-        settings={{ ...baseSettings, visual_mode: "flipflop", flipflop_action: "blink" }}
-        voiceSummary={voiceSummary}
-        subtitleSummary={subtitleSummary}
-        onChange={onChange}
-        onOpenSettingsSection={() => undefined}
-      />,
-    );
-
-    fireEvent.change(screen.getByLabelText("Flip-flop action"), {
-      target: { value: "eye_glance" },
-    });
-
-    expect(onChange).toHaveBeenCalledWith(
-      expect.objectContaining({
-        flipflop_action: "eye_glance",
-        narration: "Custom narration.",
-        visual_prompt: "Custom prompt.",
-      }),
-    );
-  });
-
-  it("leaves flip-flop layers empty when switching modes so backend action prompts can fill them", () => {
+  it("leaves blink layers empty when switching modes so backend action prompts can fill them", () => {
     const onChange = vi.fn();
     render(
       <TestLabControls
@@ -422,24 +394,24 @@ describe("TestLabControls layout", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /Flip-flop/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Blink/i }));
 
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({
-        visual_mode: "flipflop",
+        visual_mode: "blink",
         visual_layers: [],
       }),
     );
   });
 
-  it("preserves the last selected flip-flop action when toggling modes back to flip-flop", () => {
+  it("uses the fixed blink action when toggling modes back to blink", () => {
     const onChange = vi.fn();
     const { rerender } = render(
       <TestLabControls
         preset={preset}
         defaultMainCharacter={null}
         visualTreatmentDefaults={defaults}
-        settings={{ ...baseSettings, visual_mode: "flipflop", flipflop_action: "eye_glance" }}
+        settings={{ ...baseSettings, visual_mode: "blink", blink_action: "blink" }}
         voiceSummary={voiceSummary}
         subtitleSummary={subtitleSummary}
         onChange={onChange}
@@ -452,7 +424,7 @@ describe("TestLabControls layout", () => {
         preset={preset}
         defaultMainCharacter={null}
         visualTreatmentDefaults={defaults}
-        settings={{ ...baseSettings, visual_mode: "full_frame", flipflop_action: "" }}
+        settings={{ ...baseSettings, visual_mode: "full_frame", blink_action: "" }}
         voiceSummary={voiceSummary}
         subtitleSummary={subtitleSummary}
         onChange={onChange}
@@ -460,59 +432,54 @@ describe("TestLabControls layout", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /Flip-flop/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Blink/i }));
 
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({
-        visual_mode: "flipflop",
-        flipflop_action: "eye_glance",
+        visual_mode: "blink",
+        blink_action: "blink",
       }),
     );
   });
 
-  it("does not offer unsupported body-pose actions for deterministic flip-flop overlays", () => {
-    renderControls({ ...baseSettings, visual_mode: "flipflop" });
+  it("does not offer an action selector for deterministic blink overlays", () => {
+    renderControls({ ...baseSettings, visual_mode: "blink" });
 
-    const actionSelect = screen.getByLabelText("Flip-flop action");
-
-    expect(within(actionSelect).queryByRole("option", { name: /Head nod/i })).not.toBeInTheDocument();
-    expect(within(actionSelect).getByRole("option", { name: "Blink" })).toBeInTheDocument();
-    expect(within(actionSelect).getByRole("option", { name: "Speaking mouth" })).toBeInTheDocument();
-    expect(within(actionSelect).getByRole("option", { name: "Eye glance" })).toBeInTheDocument();
-    expect(within(actionSelect).getByRole("option", { name: "Eyebrow raise" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Blink action")).not.toBeInTheDocument();
+    expect(screen.getByText(/always uses the renderer-owned blink action/i)).toBeInTheDocument();
   });
 
-  it("coerces stale unsupported flip-flop actions when switching into flip-flop", () => {
+  it("coerces stale unsupported blink actions when switching into blink", () => {
     const onChange = vi.fn();
     render(
       <TestLabControls
         preset={preset}
         defaultMainCharacter={null}
         visualTreatmentDefaults={defaults}
-        settings={{ ...baseSettings, visual_mode: "full_frame", flipflop_action: "head_nod" }}
+        settings={{ ...baseSettings, visual_mode: "full_frame", blink_action: "walking" } as unknown as TestLabSettings}
         voiceSummary={voiceSummary}
         subtitleSummary={subtitleSummary}
         onChange={onChange}
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /Flip-flop/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Blink/i }));
 
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({
-        visual_mode: "flipflop",
-        flipflop_action: "blink",
+        visual_mode: "blink",
+        blink_action: "blink",
       }),
     );
   });
 
-  it("does not expose editable State A/State B prompts for flip-flop (action-derived in backend)", () => {
+  it("does not expose editable State A/State B prompts for blink (action-derived in backend)", () => {
     render(
       <TestLabControls
         preset={preset}
         defaultMainCharacter={null}
         visualTreatmentDefaults={defaults}
-        settings={{ ...baseSettings, visual_mode: "flipflop", visual_layers: [] }}
+        settings={{ ...baseSettings, visual_mode: "blink", visual_layers: [] }}
         voiceSummary={voiceSummary}
         subtitleSummary={subtitleSummary}
         onChange={() => undefined}
@@ -523,7 +490,7 @@ describe("TestLabControls layout", () => {
     expect(screen.queryByLabelText("State A")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("State B")).not.toBeInTheDocument();
     expect(
-      screen.getByText(/renderer-supported face actions/i),
+      screen.getByText(/renderer-owned eyelid overlays/i),
     ).toBeInTheDocument();
   });
 
@@ -587,7 +554,7 @@ describe("TestLabControls layout", () => {
   });
 
   it("does not expose layered asset generation as a pipeline option", () => {
-    renderControls({ ...baseSettings, visual_mode: "flipflop" });
+    renderControls({ ...baseSettings, visual_mode: "blink" });
 
     const pipeline = screen.getByTestId("test-lab-section-pipeline-stages");
     expect(within(pipeline).queryByRole("button", { name: /Animation assets/i })).not.toBeInTheDocument();

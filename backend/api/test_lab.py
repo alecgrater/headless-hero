@@ -30,12 +30,12 @@ from pipeline.test_lab_popup_crop import (
     generate_popup_crop_anchor,
     generate_popup_crop_item_sheet,
 )
-from pipeline.test_lab_flipflop_debug import (
-    FlipflopDebugAction,
-    analyze_flipflop_debug_asset,
-    create_flipflop_fixture_asset,
-    list_flipflop_debug_assets,
-    render_flipflop_fixture_preview,
+from pipeline.test_lab_blink_debug import (
+    BlinkDebugAction,
+    analyze_blink_debug_asset,
+    create_blink_fixture_asset,
+    list_blink_debug_assets,
+    render_blink_fixture_preview,
 )
 
 router = APIRouter(prefix="/api/test-lab", tags=["test-lab"])
@@ -113,20 +113,20 @@ class PopupCropItemSheetChromaRequest(BaseModel):
     items: list[str] = Field(default_factory=list, max_length=5)
 
 
-class FlipflopDebugAnalyzeRequest(BaseModel):
+class BlinkDebugAnalyzeRequest(BaseModel):
     asset_id: str = Field(min_length=1)
-    action: FlipflopDebugAction = "blink"
+    action: BlinkDebugAction = "blink"
 
 
-class FlipflopFixtureRequest(BaseModel):
+class BlinkFixtureRequest(BaseModel):
     visual_prompt: str = ""
     narration: str = ""
     force: bool = False
 
 
-class FlipflopFixtureRenderRequest(BaseModel):
+class BlinkFixtureRenderRequest(BaseModel):
     asset_id: str = Field(min_length=1)
-    action: FlipflopDebugAction = "blink"
+    action: BlinkDebugAction = "blink"
 
 
 def _default_main_character(session: Session) -> dict[str, str] | None:
@@ -338,24 +338,24 @@ def create_popup_crop_item_sheet_chroma(request: PopupCropItemSheetChromaRequest
         raise HTTPException(status_code=404, detail="Generate the item sheet before running chroma.") from None
 
 
-@router.get("/flipflop-debug/assets")
-def get_flipflop_debug_assets():
-    return {"assets": [asset.model_dump(mode="json") for asset in list_flipflop_debug_assets()]}
+@router.get("/blink-debug/assets")
+def get_blink_debug_assets():
+    return {"assets": [asset.model_dump(mode="json") for asset in list_blink_debug_assets()]}
 
 
-@router.post("/flipflop-debug/analyze")
-def analyze_flipflop_debug(request: FlipflopDebugAnalyzeRequest):
+@router.post("/blink-debug/analyze")
+def analyze_blink_debug(request: BlinkDebugAnalyzeRequest):
     try:
-        result = analyze_flipflop_debug_asset(asset_id=request.asset_id, action=request.action)
+        result = analyze_blink_debug_asset(asset_id=request.asset_id, action=request.action)
         return result.model_dump(mode="json")
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@router.post("/flipflop/fixture")
-def create_flipflop_fixture(request: FlipflopFixtureRequest):
+@router.post("/blink/fixture")
+def create_blink_fixture(request: BlinkFixtureRequest):
     try:
-        result = create_flipflop_fixture_asset(
+        result = create_blink_fixture_asset(
             visual_prompt=request.visual_prompt,
             narration=request.narration,
             force=request.force,
@@ -365,10 +365,10 @@ def create_flipflop_fixture(request: FlipflopFixtureRequest):
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
-@router.post("/flipflop/render")
-def render_flipflop_fixture(request: FlipflopFixtureRenderRequest):
+@router.post("/blink/render")
+def render_blink_fixture(request: BlinkFixtureRenderRequest):
     try:
-        result = render_flipflop_fixture_preview(asset_id=request.asset_id, action=request.action)
+        result = render_blink_fixture_preview(asset_id=request.asset_id, action=request.action)
         return result.model_dump(mode="json")
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

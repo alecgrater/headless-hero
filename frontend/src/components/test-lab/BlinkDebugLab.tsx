@@ -1,36 +1,33 @@
 import { AlertTriangle, CheckCircle2, Eye, Film, Loader2, RefreshCw, RotateCcw, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  analyzeFlipflopDebugAsset,
+  analyzeBlinkDebugAsset,
   assetUrl,
   bumpAssetVersion,
-  createFlipflopFixtureAsset,
-  getFlipflopDebugAssets,
-  renderFlipflopFixturePreview,
+  createBlinkFixtureAsset,
+  getBlinkDebugAssets,
+  renderBlinkFixturePreview,
 } from "../../api";
 import type {
-  FlipflopDebugAction,
-  FlipflopDebugAsset,
-  FlipflopDebugResult,
-  FlipflopFixtureRenderResult,
-  FlipflopFixtureResult,
+  BlinkDebugAction,
+  BlinkDebugAsset,
+  BlinkDebugResult,
+  BlinkFixtureRenderResult,
+  BlinkFixtureResult,
 } from "../../types/testLab";
 
-const ACTIONS: Array<{ value: FlipflopDebugAction; label: string }> = [
+const ACTIONS: Array<{ value: BlinkDebugAction; label: string }> = [
   { value: "blink", label: "Blink" },
-  { value: "speaking_mouth", label: "Speaking mouth" },
-  { value: "eye_glance", label: "Eye glance" },
-  { value: "eyebrow_raise", label: "Eyebrow raise" },
 ];
-const FIXTURE_SCRIPT_ID = "test-lab-flipflop-fixtures";
+const FIXTURE_SCRIPT_ID = "test-lab-blink-fixtures";
 
-export default function FlipflopDebugLab() {
-  const [assets, setAssets] = useState<FlipflopDebugAsset[]>([]);
+export default function BlinkDebugLab() {
+  const [assets, setAssets] = useState<BlinkDebugAsset[]>([]);
   const [selectedAssetId, setSelectedAssetId] = useState("");
-  const [action, setAction] = useState<FlipflopDebugAction>("blink");
-  const [result, setResult] = useState<FlipflopDebugResult | null>(null);
-  const [fixtureResult, setFixtureResult] = useState<FlipflopFixtureResult | null>(null);
-  const [renderResult, setRenderResult] = useState<FlipflopFixtureRenderResult | null>(null);
+  const [action, setAction] = useState<BlinkDebugAction>("blink");
+  const [result, setResult] = useState<BlinkDebugResult | null>(null);
+  const [fixtureResult, setFixtureResult] = useState<BlinkFixtureResult | null>(null);
+  const [renderResult, setRenderResult] = useState<BlinkFixtureRenderResult | null>(null);
   const [loadingAssets, setLoadingAssets] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [generatingFixture, setGeneratingFixture] = useState(false);
@@ -47,7 +44,7 @@ export default function FlipflopDebugLab() {
     setLoadingAssets(true);
     setError("");
     try {
-      const nextAssets = await getFlipflopDebugAssets();
+      const nextAssets = await getBlinkDebugAssets();
       setAssets(nextAssets);
       setSelectedAssetId((current) => (
         nextAssets.some((asset) => asset.asset_id === current) ? current : nextAssets[0]?.asset_id || ""
@@ -66,9 +63,9 @@ export default function FlipflopDebugLab() {
     setAnalyzing(true);
     setError("");
     try {
-      const next = await analyzeFlipflopDebugAsset(assetId, action);
+      const next = await analyzeBlinkDebugAsset(assetId, action);
       if (!next) {
-        setError("The selected flip-flop asset could not be analyzed.");
+        setError("The selected blink asset could not be analyzed.");
         return;
       }
       if (next.debug_url) bumpAssetVersion(next.debug_url);
@@ -83,9 +80,9 @@ export default function FlipflopDebugLab() {
     setGeneratingFixture(true);
     setError("");
     try {
-      const next = await createFlipflopFixtureAsset();
+      const next = await createBlinkFixtureAsset();
       if (!next) {
-        setError("The flip-flop fixture assets could not be generated.");
+        setError("The blink fixture assets could not be generated.");
         return;
       }
       bumpAssetVersion(next.asset.asset_url);
@@ -104,9 +101,9 @@ export default function FlipflopDebugLab() {
     setRenderingFixture(true);
     setError("");
     try {
-      const next = await renderFlipflopFixturePreview(selectedAssetId, action);
+      const next = await renderBlinkFixturePreview(selectedAssetId, action);
       if (!next) {
-        setError("The saved flip-flop fixture could not be rendered.");
+        setError("The saved blink fixture could not be rendered.");
         return;
       }
       bumpAssetVersion(next.render_url);
@@ -120,10 +117,10 @@ export default function FlipflopDebugLab() {
     <div className="grid h-full min-h-0 gap-4 overflow-hidden lg:grid-cols-[320px_minmax(0,1fr)]">
       <aside className="min-h-0 overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900/60">
         <div className="border-b border-neutral-800 p-4">
-          <p className="text-xs font-semibold uppercase text-neutral-500">Flip-flop</p>
+          <p className="text-xs font-semibold uppercase text-neutral-500">Blink</p>
           <h2 className="mt-2 text-sm font-semibold text-neutral-100">Cached saved cutouts</h2>
           <p className="mt-1 text-xs leading-5 text-neutral-500">
-            Reuse generated flip-flop bases, character cutouts, and popup anchors without new provider calls.
+            Reuse generated blink bases, character cutouts, and popup anchors without new provider calls.
           </p>
           <div className="mt-3 grid gap-2">
             <button
@@ -155,7 +152,7 @@ export default function FlipflopDebugLab() {
         <div className="min-h-0 overflow-y-auto p-3">
           {assets.length === 0 && !loadingAssets ? (
             <div className="rounded-md border border-dashed border-neutral-800 bg-neutral-950/50 p-4 text-xs leading-5 text-neutral-500">
-              No cached Test Lab cutouts found yet. Run one flip-flop or character-backed Test Lab generation once, then reuse it here.
+              No cached Test Lab cutouts found yet. Run one blink or character-backed Test Lab generation once, then reuse it here.
             </div>
           ) : (
             <div className="space-y-2">
@@ -193,10 +190,10 @@ export default function FlipflopDebugLab() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <label className="block">
-              <span className="sr-only">Flip-flop action</span>
+              <span className="sr-only">Blink action</span>
               <select
                 value={action}
-                onChange={(event) => setAction(event.target.value as FlipflopDebugAction)}
+                onChange={(event) => setAction(event.target.value as BlinkDebugAction)}
                 className="h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-xs font-medium text-neutral-100 outline-none transition-colors hover:border-neutral-700 focus:border-violet-500"
               >
                 {ACTIONS.map((option) => (
@@ -279,7 +276,7 @@ export default function FlipflopDebugLab() {
   );
 }
 
-function upsertAsset(assets: FlipflopDebugAsset[], asset: FlipflopDebugAsset): FlipflopDebugAsset[] {
+function upsertAsset(assets: BlinkDebugAsset[], asset: BlinkDebugAsset): BlinkDebugAsset[] {
   const withoutAsset = assets.filter((candidate) => candidate.asset_id !== asset.asset_id);
   return [asset, ...withoutAsset];
 }

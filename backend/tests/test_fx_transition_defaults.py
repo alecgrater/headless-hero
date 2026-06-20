@@ -95,8 +95,8 @@ def test_fx_generator_suppresses_camera_fx_for_comparison_and_popup_modes(monkey
         assert result["transition_in"] == "cut"
 
 
-def test_camera_fx_blocked_modes_include_flipflop():
-    assert "flipflop" in _CAMERA_FX_BLOCKED_VISUAL_MODES
+def test_camera_fx_blocked_modes_include_blink():
+    assert "blink" in _CAMERA_FX_BLOCKED_VISUAL_MODES
 
 
 def test_scene_fx_payload_includes_visual_mode():

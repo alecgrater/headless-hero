@@ -43,7 +43,7 @@ const WORKFLOW_STAGES = [
     goal: "Create a script whose scenes work as narration, visuals, and standalone short-form segments.",
     details: [
       "Generate the script and review the outline, segment titles, title cards, narration, and visual prompts before creating expensive media assets.",
-      "During outline generation, the app plans visual opportunities for each segment before scenes are cut, so modes like captions, flip-flop, stat cards, popup sequences, and comparison boards can get scenes shaped to the right length.",
+      "During outline generation, the app plans visual opportunities for each segment before scenes are cut, so modes like captions, blink, stat cards, popup sequences, and comparison boards can get scenes shaped to the right length.",
       "For long scripts, outline planning uses soft candidate discovery expectations for captions, popup sequences, comparison boards, and stat cards. Final mode usage remains contextual instead of quota-driven.",
       "Caption beats use normal short-scene timing as editorial punches. Before voiceover, a metadata-only audit can fill caption and stat-card fields from existing narration without rewriting the script.",
       "Check the script rating and category breakdown. Treat low ratings as a signal to regenerate or edit the script while changes are still cheap.",
@@ -73,7 +73,7 @@ const WORKFLOW_STAGES = [
       "Full-frame scenes generate one full-bleed image. Multi-frame and continuous scenes generate frame sequences. Layered modes generate cutouts, panels, stats, captions, or comparison assets instead of normal scene images.",
       "AI video scenes start from a generated anchor image, then produce motion through the configured video provider when timing, spacing, and caps allow it.",
       "Use Test Lab for risky visual behavior before spending a full project render. Test Lab should mirror production settings where the workflow depends on shared behavior.",
-      "For flip-flop iteration, use Test Lab -> Flip-flop to generate a reusable fixture once, then rerun detector or Remotion previews locally against the same saved cutout while renderer logic changes.",
+      "For blink iteration, use Test Lab -> Blink to generate a reusable fixture once, then rerun detector or Remotion previews locally against the same saved cutout while renderer logic changes.",
     ],
     done: "The timeline has all required image, frame, layer, thumbnail, and optional video assets with no stale or missing media warnings.",
   },

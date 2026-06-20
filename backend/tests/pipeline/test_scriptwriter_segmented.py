@@ -87,14 +87,14 @@ def test_segment_scene_message_preserves_trailing_context_order():
 def test_visual_opportunity_summary_counts_planned_modes():
     outline = {
         "segments": [
-            {"visual_opportunities": [{"mode": "captions"}, {"mode": "flipflop"}]},
+            {"visual_opportunities": [{"mode": "captions"}, {"mode": "blink"}]},
             {"visual_opportunities": [{"mode": "captions"}, {"mode": "stat_card"}]},
         ]
     }
 
     assert _visual_opportunity_summary(outline) == {
         "captions": 2,
-        "flipflop": 1,
+        "blink": 1,
         "stat_card": 1,
     }
 
@@ -102,12 +102,12 @@ def test_visual_opportunity_summary_counts_planned_modes():
 def test_visual_opportunity_summary_skips_malformed_entries():
     outline = {
         "segments": [
-            {"visual_opportunities": ["captions", {"mode": "flipflop"}, None]},
+            {"visual_opportunities": ["captions", {"mode": "blink"}, None]},
             {"visual_opportunities": {"mode": "stat_card"}},
         ]
     }
 
-    assert _visual_opportunity_summary(outline) == {"flipflop": 1}
+    assert _visual_opportunity_summary(outline) == {"blink": 1}
 
 
 def test_generate_outline_allows_visual_opportunity_metadata_room(monkeypatch):

@@ -55,8 +55,8 @@ _TARGETS: dict[str, VisualModeDurationTarget] = {
         ui_label="Normal target · 5-9s",
         prompt_guidance="Use about 5-9 seconds unless several concrete examples require a little more room.",
     ),
-    "flipflop": VisualModeDurationTarget(
-        visual_mode="flipflop",
+    "blink": VisualModeDurationTarget(
+        visual_mode="blink",
         profile="normal",
         min_seconds=5.0,
         target_seconds=8.0,
@@ -159,8 +159,8 @@ _OPPORTUNITY_POLICIES: dict[str, VisualModeOpportunityPolicy] = {
         ),
         avoid_when=("frames are unrelated examples", "the scene is only a static realization", "side-by-side comparison is clearer"),
     ),
-    "flipflop": VisualModeOpportunityPolicy(
-        visual_mode="flipflop",
+    "blink": VisualModeOpportunityPolicy(
+        visual_mode="blink",
         purpose="Cropped-subject character/body-language A/B micro-animation using compatible transparent cutout states for one cropped subject.",
         frequency_guidance="Common expressive rhythm opportunity in long scripts; consider several uses when a cropped subject has repeated body-language gestures or simple A/B motion.",
         opportunity_cues=(
@@ -250,7 +250,7 @@ def target_scene_seconds_for_mode(visual_mode: str | None) -> float:
 def prompt_duration_guidance() -> str:
     lines = [
         "Scene duration is driven by visual_mode, not script type, and is planned before voiceover.",
-        "Use full_frame, multi_frame, continuous, and flipflop as normal short scenes around 5-9 seconds.",
+        "Use full_frame, multi_frame, continuous, and blink as normal short scenes around 5-9 seconds.",
         "Use captions as normal short scenes around 5-9 seconds for a short editorial punch phrase.",
         "Use comparison_board around 16-24 seconds so viewers can compare the columns.",
         "Use popup_sequence around 14-20 seconds so item layers can appear clearly.",
@@ -284,7 +284,7 @@ def prompt_visual_opportunity_guidance(projected_scene_count: int | None = None)
             "If the outline falls below those soft expectations, add visual_opportunity_coverage explaining "
             "which modes were genuinely unsupported by the topic instead of omitting them silently."
         ),
-        "Treat flipflop and captions as common expressive rhythm opportunities in long scripts when the narration supports them.",
+        "Treat blink and captions as common expressive rhythm opportunities in long scripts when the narration supports them.",
         "Keep popup_sequence, comparison_board, and stat_card low-count and meaning-driven, but actively scan for them before accepting zero.",
         "Post-generation checks may validate or downgrade invalid modes, but must not redistribute modes into already-cut short scenes.",
     ]
@@ -302,7 +302,7 @@ Add a compact "visual_opportunities" array to every outline segment. Do not incl
 Also add a top-level "visual_opportunity_coverage" object that summarizes candidate discovery across the whole outline; explain any mode that falls below the soft candidate expectation.
 Each opportunity object must use this shape:
 {
-  "mode": "captions|flipflop|multi_frame|continuous|popup_sequence|comparison_board|stat_card|video|full_frame",
+  "mode": "captions|blink|multi_frame|continuous|popup_sequence|comparison_board|stat_card|video|full_frame",
   "beat": "Short natural-language description of the future scene beat.",
   "why": "Why this mode strengthens the beat without hurting script quality.",
   "duration_profile": "normal|medium|extended|planned",

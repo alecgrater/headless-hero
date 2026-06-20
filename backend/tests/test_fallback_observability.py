@@ -119,7 +119,7 @@ def test_summarize_fallback_events_includes_configured_success_ratio():
             "timestamp": datetime(2026, 6, 5, tzinfo=timezone.utc).isoformat(),
             "logger_name": "pipeline.fallback_observability",
             "category": "visual_mode",
-            "event": "flipflop_invalid_micro_action_downgraded",
+            "event": "blink_invalid_micro_action_downgraded",
             "reason": "missing action",
             "severity": "warn",
         },
@@ -128,7 +128,7 @@ def test_summarize_fallback_events_includes_configured_success_ratio():
             "timestamp": datetime(2026, 6, 5, tzinfo=timezone.utc).isoformat(),
             "logger_name": "pipeline.fallback_observability",
             "category": "visual_mode",
-            "event": "flipflop_invalid_micro_action_downgraded",
+            "event": "blink_invalid_micro_action_downgraded",
             "reason": "missing action",
             "severity": "warn",
         },
@@ -138,13 +138,13 @@ def test_summarize_fallback_events_includes_configured_success_ratio():
         events,
         window_hours=24,
         outcome_counts={
-            ("visual_mode", "flipflop_invalid_micro_action_downgraded"): 6,
+            ("visual_mode", "blink_invalid_micro_action_downgraded"): 6,
         },
     )
 
     assert summary["by_event"][0] == {
         "category": "visual_mode",
-        "event": "flipflop_invalid_micro_action_downgraded",
+        "event": "blink_invalid_micro_action_downgraded",
         "count": 2,
         "severity": "warn",
         "fallback_count": 2,
@@ -152,5 +152,5 @@ def test_summarize_fallback_events_includes_configured_success_ratio():
         "attempt_count": 8,
         "success_rate": 0.75,
         "fallback_rate": 0.25,
-        "success_event": "flipflop_assignment_succeeded",
+        "success_event": "blink_assignment_succeeded",
     }

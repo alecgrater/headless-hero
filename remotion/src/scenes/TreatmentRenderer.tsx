@@ -1,6 +1,6 @@
 import React from "react";
 import { Img, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
-import type { FlipflopOverlayAnchor, FlipflopOverlayPoint, SceneInput, VisualLayer } from "../types";
+import type { BlinkOverlayAnchor, BlinkOverlayPoint, SceneInput, VisualLayer } from "../types";
 import { RendererContextStage } from "./RendererContextStage";
 import { StatCard } from "./StatCard";
 
@@ -76,7 +76,7 @@ export const layerFrameStyle = (layer: VisualLayer): React.CSSProperties => {
   return panelPlacementStyle(layer.placement);
 };
 
-export const flipflopLayerFrameStyle = (layer: VisualLayer): React.CSSProperties => {
+export const blinkLayerFrameStyle = (layer: VisualLayer): React.CSSProperties => {
   if (layer.asset_kind !== "cutout") {
     return layerFrameStyle(layer);
   }
@@ -229,39 +229,39 @@ const PopupSequence: React.FC<Props> = ({ scene, fallbackVisualLayer }) => {
   );
 };
 
-const Flipflop: React.FC<Props> = ({ scene, fallbackVisualLayer }) => {
+const Blink: React.FC<Props> = ({ scene, fallbackVisualLayer }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const layers = validImageLayers(scene);
-  const stateLayers = flipflopStateLayers(layers);
+  const stateLayers = blinkStateLayers(layers);
 
-  logTreatmentOnce(scene, "flipflop", layers.length);
+  logTreatmentOnce(scene, "blink", layers.length);
 
   if (stateLayers.length === 0) {
     return <>{fallbackVisualLayer}</>;
   }
 
-  const deterministicOverlay = flipflopMicroOverlay(scene.flipflop_action);
-  const overlayVisible = deterministicOverlay ? flipflopOverlayVisible(frame, fps) : false;
+  const deterministicOverlay = blinkMicroOverlay(scene.blink_action);
+  const overlayVisible = deterministicOverlay ? blinkOverlayVisible(frame, fps) : false;
   const activeLayer = stateLayers.length === 1
     ? stateLayers[0]
-    : flipflopActiveLayer(stateLayers, frame, fps);
+    : blinkActiveLayer(stateLayers, frame, fps);
   if (!activeLayer) {
     return <>{fallbackVisualLayer}</>;
   }
-  const overlayAnchor = deterministicOverlay ? flipflopOverlayAnchor(activeLayer) : null;
+  const overlayAnchor = deterministicOverlay ? blinkOverlayAnchor(activeLayer) : null;
 
   return (
     <div style={{ position: "absolute", inset: 0 }}>
       <RendererContextStage context={scene.renderer_context} />
-      <div style={flipflopLayerFrameStyle(activeLayer)}>
+      <div style={blinkLayerFrameStyle(activeLayer)}>
         <div style={layerChromeStyle(activeLayer)}>
           <Img
             src={activeLayer.image_path ?? ""}
             style={layerImageStyle(activeLayer)}
           />
           {deterministicOverlay && overlayAnchor ? (
-            <FlipflopMicroExpressionOverlay
+            <BlinkMicroExpressionOverlay
               anchor={overlayAnchor}
               overlay={deterministicOverlay}
               visible={overlayVisible}
@@ -273,22 +273,22 @@ const Flipflop: React.FC<Props> = ({ scene, fallbackVisualLayer }) => {
   );
 };
 
-export const flipflopStateLayers = (layers: VisualLayer[]): VisualLayer[] => (
+export const blinkStateLayers = (layers: VisualLayer[]): VisualLayer[] => (
   layers.filter((layer) => layer.asset_kind === "cutout")
 );
 
-type FlipflopOverlay =
+type BlinkOverlay =
   | { kind: "mouth"; state: "open" }
   | { kind: "eyes"; state: "closed" }
   | { kind: "eyes"; state: "glance" }
   | { kind: "brows"; state: "raised" };
 
-type FlipflopResolvedOverlayAnchor = Required<Pick<
-  FlipflopOverlayAnchor,
+type BlinkResolvedOverlayAnchor = Required<Pick<
+  BlinkOverlayAnchor,
   "eye_left" | "eye_right" | "mouth" | "brow_left" | "brow_right"
->> & Pick<FlipflopOverlayAnchor, "skin_fill">;
+>> & Pick<BlinkOverlayAnchor, "skin_fill">;
 
-type FlipflopClosedEyeGeometry = {
+type BlinkClosedEyeGeometry = {
   mask: {
     x: number;
     y: number;
@@ -311,30 +311,24 @@ type FlipflopClosedEyeGeometry = {
   };
 };
 
-const FLIPFLOP_FALLBACK_SKIN_FILL = "#D9A374";
-const FLIPFLOP_EYELID_STROKE = "#2A1712";
+const BLINK_FALLBACK_SKIN_FILL = "#D9A374";
+const BLINK_EYELID_STROKE = "#2A1712";
 
-export const flipflopOverlayVisible = (frame: number, fps: number): boolean => {
+export const blinkOverlayVisible = (frame: number, fps: number): boolean => {
   const intervalFrames = Math.max(1, Math.round(fps * 0.5));
   return Math.floor(Math.max(0, frame) / intervalFrames) % 2 === 1;
 };
 
-export const flipflopMicroOverlay = (action?: string | null): FlipflopOverlay | null => {
+export const blinkMicroOverlay = (action?: string | null): BlinkOverlay | null => {
   switch (action) {
-    case "speaking_mouth":
-      return { kind: "mouth", state: "open" };
     case "blink":
       return { kind: "eyes", state: "closed" };
-    case "eye_glance":
-      return { kind: "eyes", state: "glance" };
-    case "eyebrow_raise":
-      return { kind: "brows", state: "raised" };
     default:
       return null;
   }
 };
 
-const validAnchorPoint = (point?: FlipflopOverlayPoint): point is FlipflopOverlayPoint => (
+const validAnchorPoint = (point?: BlinkOverlayPoint): point is BlinkOverlayPoint => (
   typeof point?.x === "number"
   && typeof point?.y === "number"
   && point.x >= 0
@@ -343,8 +337,8 @@ const validAnchorPoint = (point?: FlipflopOverlayPoint): point is FlipflopOverla
   && point.y <= 1
 );
 
-export const flipflopOverlayAnchor = (layer: VisualLayer): FlipflopResolvedOverlayAnchor | null => {
-  const anchor = layer.visual_source_metadata?.flipflop_overlay_anchor;
+export const blinkOverlayAnchor = (layer: VisualLayer): BlinkResolvedOverlayAnchor | null => {
+  const anchor = layer.visual_source_metadata?.blink_overlay_anchor;
   if (!anchor?.detected) {
     return null;
   }
@@ -367,7 +361,7 @@ export const flipflopOverlayAnchor = (layer: VisualLayer): FlipflopResolvedOverl
   };
 };
 
-const toSvgPoint = (point: FlipflopOverlayPoint): FlipflopOverlayPoint => ({
+const toSvgPoint = (point: BlinkOverlayPoint): BlinkOverlayPoint => ({
   x: point.x * 100,
   y: point.y * 100,
 });
@@ -406,22 +400,22 @@ const colorDistance = (first?: string, second?: string): number | null => {
   return Math.sqrt(redDelta * redDelta + greenDelta * greenDelta + blueDelta * blueDelta);
 };
 
-const normalizedEyeWidth = (point: FlipflopOverlayPoint): number | null => (
+const normalizedEyeWidth = (point: BlinkOverlayPoint): number | null => (
   typeof point.width === "number" && point.width > 0 ? point.width * 100 : null
 );
 
-const normalizedEyeHeight = (point: FlipflopOverlayPoint): number | null => (
+const normalizedEyeHeight = (point: BlinkOverlayPoint): number | null => (
   typeof point.height === "number" && point.height > 0 ? point.height * 100 : null
 );
 
 const eraseBoxMask = (
-  point: FlipflopOverlayPoint,
+  point: BlinkOverlayPoint,
   skinFill: string,
   index: number,
   sharedTop?: number,
   sharedBottom?: number,
-  brow?: FlipflopOverlayPoint,
-): FlipflopClosedEyeGeometry["mask"] | null => {
+  brow?: BlinkOverlayPoint,
+): BlinkClosedEyeGeometry["mask"] | null => {
   const box = point.erase_box;
   if (
     typeof box?.left !== "number"
@@ -474,12 +468,12 @@ const eraseBoxMask = (
   const verticalDistance = colorDistance(point.fill_top, point.fill_bottom);
   const useSideGradient = sideDistance !== null && (verticalDistance === null || sideDistance >= verticalDistance);
   const gradient = useSideGradient ? {
-    id: `flipflop-blink-eye-${index}-gradient`,
+    id: `blink-blink-eye-${index}-gradient`,
     top: point.fill_left as string,
     bottom: point.fill_right as string,
     orientation: "horizontal" as const,
   } : verticalDistance !== null ? {
-    id: `flipflop-blink-eye-${index}-gradient`,
+    id: `blink-blink-eye-${index}-gradient`,
     top: point.fill_top as string,
     bottom: point.fill_bottom as string,
     orientation: "vertical" as const,
@@ -495,10 +489,10 @@ const eraseBoxMask = (
   };
 };
 
-export const flipflopBlinkEyeOverlayGeometry = (
-  anchor: FlipflopResolvedOverlayAnchor,
-  skinFill = FLIPFLOP_FALLBACK_SKIN_FILL,
-): FlipflopClosedEyeGeometry[] => {
+export const blinkBlinkEyeOverlayGeometry = (
+  anchor: BlinkResolvedOverlayAnchor,
+  skinFill = BLINK_FALLBACK_SKIN_FILL,
+): BlinkClosedEyeGeometry[] => {
   const leftEye = toSvgPoint(anchor.eye_left);
   const rightEye = toSvgPoint(anchor.eye_right);
   const eyeDistance = Math.abs(rightEye.x - leftEye.x);
@@ -523,7 +517,7 @@ export const flipflopBlinkEyeOverlayGeometry = (
   const lidHalfWidth = maskRx * 0.72;
   const lidLift = maskRy * 0.24;
   const eraseBoxes = [anchor.eye_left.erase_box, anchor.eye_right.erase_box].filter(
-    (box): box is NonNullable<FlipflopOverlayPoint["erase_box"]> => (
+    (box): box is NonNullable<BlinkOverlayPoint["erase_box"]> => (
       typeof box?.top === "number"
       && typeof box.bottom === "number"
       && box.bottom > box.top
@@ -558,16 +552,16 @@ export const flipflopBlinkEyeOverlayGeometry = (
       lid: {
         d: `M${roundSvgNumber(eye.x - lidHalfWidth)} ${roundSvgNumber(lidY)} Q${roundSvgNumber(eye.x)} ${roundSvgNumber(lidY - lidLift)} ${roundSvgNumber(eye.x + lidHalfWidth)} ${roundSvgNumber(lidY)}`,
         y: roundSvgNumber(lidY),
-        stroke: FLIPFLOP_EYELID_STROKE,
+        stroke: BLINK_EYELID_STROKE,
         strokeWidth: roundSvgNumber(clamp(maskRx * 0.17, 0.95, 1.3)),
       },
     };
   });
 };
 
-const FlipflopMicroExpressionOverlay: React.FC<{
-  anchor: FlipflopResolvedOverlayAnchor;
-  overlay: FlipflopOverlay;
+const BlinkMicroExpressionOverlay: React.FC<{
+  anchor: BlinkResolvedOverlayAnchor;
+  overlay: BlinkOverlay;
   visible: boolean;
 }> = ({ anchor, overlay, visible }) => {
   const opacity = visible ? 1 : 0;
@@ -598,10 +592,10 @@ const FlipflopMicroExpressionOverlay: React.FC<{
   }
 
   if (overlay.kind === "eyes" && overlay.state === "closed") {
-    const eyeGeometry = flipflopBlinkEyeOverlayGeometry(anchor, anchor.skin_fill ?? FLIPFLOP_FALLBACK_SKIN_FILL);
+    const eyeGeometry = blinkBlinkEyeOverlayGeometry(anchor, anchor.skin_fill ?? BLINK_FALLBACK_SKIN_FILL);
     const gradients = eyeGeometry
       .map((eye) => eye.mask.gradient)
-      .filter((gradient): gradient is NonNullable<FlipflopClosedEyeGeometry["mask"]["gradient"]> => Boolean(gradient));
+      .filter((gradient): gradient is NonNullable<BlinkClosedEyeGeometry["mask"]["gradient"]> => Boolean(gradient));
     return (
       <svg viewBox="0 0 100 100" style={common}>
         {gradients.length > 0 ? (
@@ -833,8 +827,8 @@ const ComparisonBoard: React.FC<Props> = ({ scene, fallbackVisualLayer }) => {
   );
 };
 
-export const flipflopActiveLayer = (layers: VisualLayer[], frame: number, fps: number): VisualLayer | undefined => {
-  const stateLayers = flipflopStateLayers(layers);
+export const blinkActiveLayer = (layers: VisualLayer[], frame: number, fps: number): VisualLayer | undefined => {
+  const stateLayers = blinkStateLayers(layers);
   if (stateLayers.length === 0) {
     return undefined;
   }
@@ -847,8 +841,8 @@ export const TreatmentRenderer: React.FC<Props> = ({ scene, fallbackVisualLayer 
   switch (scene.visual_mode) {
     case "popup_sequence":
       return <PopupSequence scene={scene} fallbackVisualLayer={fallbackVisualLayer} />;
-    case "flipflop":
-      return <Flipflop scene={scene} fallbackVisualLayer={fallbackVisualLayer} />;
+    case "blink":
+      return <Blink scene={scene} fallbackVisualLayer={fallbackVisualLayer} />;
     case "comparison_board":
       return <ComparisonBoard scene={scene} fallbackVisualLayer={fallbackVisualLayer} />;
     case "stat_card":

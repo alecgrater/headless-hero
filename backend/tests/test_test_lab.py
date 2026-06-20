@@ -329,20 +329,20 @@ def test_test_lab_settings_preserve_subtitle_style():
     assert scene.subtitle_style == "burst"
 
 
-def test_test_lab_flipflop_settings_preserve_action():
+def test_test_lab_blink_settings_preserve_action():
     from pipeline.test_lab import build_content_from_preset
 
     content = build_content_from_preset(
         "coffee-brain",
-        {"visual_mode": "flipflop", "flipflop_action": "blink"},
+        {"visual_mode": "blink", "blink_action": "blink"},
     )
 
     scene = content.segments[0].scenes[0]
-    assert scene.visual_mode == "flipflop"
-    assert scene.flipflop_action == "blink"
+    assert scene.visual_mode == "blink"
+    assert scene.blink_action == "blink"
 
 
-def test_run_test_lab_manifest_defaults_flipflop_action(monkeypatch, tmp_path):
+def test_run_test_lab_manifest_defaults_blink_action(monkeypatch, tmp_path):
     engine, _app = _setup_app(monkeypatch, tmp_path)
 
     import pipeline.test_lab as test_lab
@@ -351,10 +351,10 @@ def test_run_test_lab_manifest_defaults_flipflop_action(monkeypatch, tmp_path):
 
     test_lab.run_test_lab(
         engine=engine,
-        run_id="run-flipflop-action-default",
+        run_id="run-blink-action-default",
         preset_id="coffee-brain",
         settings={
-            "visual_mode": "flipflop",
+            "visual_mode": "blink",
             "stages": {
                 "audio": False,
                 "visual": False,
@@ -366,21 +366,21 @@ def test_run_test_lab_manifest_defaults_flipflop_action(monkeypatch, tmp_path):
         job_id=None,
     )
 
-    manifest = test_lab.load_run_manifest("run-flipflop-action-default")
-    assert manifest.settings["visual_mode"] == "flipflop"
-    assert manifest.settings["flipflop_action"] == "blink"
+    manifest = test_lab.load_run_manifest("run-blink-action-default")
+    assert manifest.settings["visual_mode"] == "blink"
+    assert manifest.settings["blink_action"] == "blink"
 
 
-def test_resolve_flipflop_action_coerces_unsupported_test_lab_action():
+def test_resolve_blink_action_coerces_unsupported_test_lab_action():
     import pipeline.test_lab as test_lab
 
-    assert test_lab._resolve_flipflop_action_for_settings(
-        {"visual_mode": "flipflop", "flipflop_action": "head_nod"},
+    assert test_lab._resolve_blink_action_for_settings(
+        {"visual_mode": "blink", "blink_action": "walking"},
         None,
     ) == "blink"
 
 
-def test_run_test_lab_manifest_clears_flipflop_action_for_non_flipflop(monkeypatch, tmp_path):
+def test_run_test_lab_manifest_clears_blink_action_for_non_blink(monkeypatch, tmp_path):
     engine, _app = _setup_app(monkeypatch, tmp_path)
 
     import pipeline.test_lab as test_lab
@@ -391,7 +391,7 @@ def test_run_test_lab_manifest_clears_flipflop_action_for_non_flipflop(monkeypat
         preset_id="coffee-brain",
         settings={
             "visual_mode": "full_frame",
-            "flipflop_action": "head_nod",
+            "blink_action": "walking",
             "stages": {
                 "audio": False,
                 "visual": False,
@@ -405,7 +405,7 @@ def test_run_test_lab_manifest_clears_flipflop_action_for_non_flipflop(monkeypat
 
     manifest = test_lab.load_run_manifest("run-full-frame-action-clear")
     assert manifest.settings["visual_mode"] == "full_frame"
-    assert manifest.settings["flipflop_action"] == ""
+    assert manifest.settings["blink_action"] == ""
 
 
 def test_test_lab_scenes_endpoint_returns_presets(monkeypatch, tmp_path):
@@ -448,7 +448,7 @@ def test_test_lab_scenes_endpoint_returns_popup_sequence_text_defaults(monkeypat
         app.dependency_overrides.pop(get_session, None)
 
 
-def test_test_lab_scenes_endpoint_returns_flipflop_text_defaults(monkeypatch, tmp_path):
+def test_test_lab_scenes_endpoint_returns_blink_text_defaults(monkeypatch, tmp_path):
     _engine, app = _setup_app(monkeypatch, tmp_path)
     client = TestClient(app)
 
@@ -457,12 +457,12 @@ def test_test_lab_scenes_endpoint_returns_flipflop_text_defaults(monkeypatch, tm
 
         assert response.status_code == 200
         data = response.json()
-        flipflop_defaults = data["visual_treatment_defaults"]["flipflop"]
-        assert flipflop_defaults["narration"] == (
+        blink_defaults = data["visual_treatment_defaults"]["blink"]
+        assert blink_defaults["narration"] == (
             "He tried to explain the rule calmly, but the longer he talked, the harder it became "
             "to hide how tired he was"
         )
-        assert flipflop_defaults["visual_prompt"] == (
+        assert blink_defaults["visual_prompt"] == (
             "Flat 2D cartoon person standing behind a small podium in a plain community room, holding an "
             "open book in one hand and gesturing with the other while speaking to people off-camera. The "
             "character looks tired but focused, with simple overhead lighting, a few chairs in the background, "
@@ -730,12 +730,12 @@ def test_popup_crop_anchor_generate_saves_vault_and_chroma_does_not_duplicate(mo
     assert sorted((tmp_path / "projects" / "asset-vault" / "characters").glob("*.png")) == character_vault
 
 
-def test_flipflop_debug_lists_and_analyzes_cached_base_without_provider_calls(monkeypatch, tmp_path):
-    import pipeline.test_lab_flipflop_debug as flipflop_debug
+def test_blink_debug_lists_and_analyzes_cached_base_without_provider_calls(monkeypatch, tmp_path):
+    import pipeline.test_lab_blink_debug as blink_debug
 
-    monkeypatch.setattr(flipflop_debug, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(blink_debug, "DATA_DIR", tmp_path)
 
-    asset_dir = tmp_path / "projects" / "test-lab-run-1" / "flipflop_cutouts" / "scene-1"
+    asset_dir = tmp_path / "projects" / "test-lab-run-1" / "blink_cutouts" / "scene-1"
     asset_dir.mkdir(parents=True)
     base_path = asset_dir / "base_scene_1_base.png"
     image = Image.new("RGBA", (1000, 1000), (0, 0, 0, 0))
@@ -746,14 +746,14 @@ def test_flipflop_debug_lists_and_analyzes_cached_base_without_provider_calls(mo
     draw.rounded_rectangle((470, 590, 545, 600), radius=5, fill=(12, 12, 12, 255))
     image.save(base_path)
 
-    assets = flipflop_debug.list_flipflop_debug_assets()
+    assets = blink_debug.list_blink_debug_assets()
     assert [asset.asset_id for asset in assets] == [
-        "test-lab-run-1/flipflop_cutouts/scene-1/base_scene_1_base.png"
+        "test-lab-run-1/blink_cutouts/scene-1/base_scene_1_base.png"
     ]
-    assert assets[0].source_metadata["registration_algorithm_version"] == flipflop_debug.FLIPFLOP_CUTOUT_REGISTRATION_VERSION
-    assert assets[0].source_metadata["flipflop_overlay_anchor"]["skin_fill"] == "#f1c696"
+    assert assets[0].source_metadata["registration_algorithm_version"] == blink_debug.BLINK_CUTOUT_REGISTRATION_VERSION
+    assert assets[0].source_metadata["blink_overlay_anchor"]["skin_fill"] == "#f1c696"
 
-    result = flipflop_debug.analyze_flipflop_debug_asset(
+    result = blink_debug.analyze_blink_debug_asset(
         asset_id=assets[0].asset_id,
         action="blink",
     )
@@ -762,67 +762,67 @@ def test_flipflop_debug_lists_and_analyzes_cached_base_without_provider_calls(mo
     assert result.used_external_api is False
     assert result.anchor is not None
     assert result.anchor["detected"] is True
-    assert result.debug_url == "/static/projects/test-lab-run-1/flipflop_cutouts/scene-1/debug_base_scene_1_base_blink.png"
+    assert result.debug_url == "/static/projects/test-lab-run-1/blink_cutouts/scene-1/debug_base_scene_1_base_blink.png"
     assert (asset_dir / "debug_base_scene_1_base_blink.png").exists()
 
 
-def test_flipflop_debug_rejects_non_flipflop_assets(monkeypatch, tmp_path):
-    import pipeline.test_lab_flipflop_debug as flipflop_debug
+def test_blink_debug_rejects_non_blink_assets(monkeypatch, tmp_path):
+    import pipeline.test_lab_blink_debug as blink_debug
 
-    monkeypatch.setattr(flipflop_debug, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(blink_debug, "DATA_DIR", tmp_path)
     unsafe_dir = tmp_path / "projects" / "test-lab-run-1" / "images"
     unsafe_dir.mkdir(parents=True)
     Image.new("RGBA", (32, 32), (255, 0, 0, 255)).save(unsafe_dir / "base_fake.png")
 
     try:
-        flipflop_debug.analyze_flipflop_debug_asset(
+        blink_debug.analyze_blink_debug_asset(
             asset_id="test-lab-run-1/images/base_fake.png",
             action="blink",
         )
     except ValueError as exc:
-        assert "not a cached Test Lab flip-flop base cutout" in str(exc)
+        assert "not a cached Test Lab blink base cutout" in str(exc)
     else:
-        raise AssertionError("Expected non-flipflop asset to be rejected")
+        raise AssertionError("Expected non-blink asset to be rejected")
 
 
-def test_flipflop_fixture_create_reuses_valid_saved_asset_without_provider_call(monkeypatch, tmp_path):
-    import pipeline.test_lab_flipflop_debug as flipflop_debug
+def test_blink_fixture_create_reuses_valid_saved_asset_without_provider_call(monkeypatch, tmp_path):
+    import pipeline.test_lab_blink_debug as blink_debug
 
-    monkeypatch.setattr(flipflop_debug, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(blink_debug, "DATA_DIR", tmp_path)
 
     generated_calls = []
 
-    def fake_generate_flipflop_base_cutout(**kwargs):
+    def fake_generate_blink_base_cutout(**kwargs):
         generated_calls.append(kwargs)
         asset_dir = (
             tmp_path
             / "projects"
-            / flipflop_debug.FLIPFLOP_FIXTURE_SCRIPT_ID
-            / "flipflop_cutouts"
-            / flipflop_debug.FLIPFLOP_FIXTURE_SCENE_ID
+            / blink_debug.BLINK_FIXTURE_SCRIPT_ID
+            / "blink_cutouts"
+            / blink_debug.BLINK_FIXTURE_SCENE_ID
         )
         asset_dir.mkdir(parents=True, exist_ok=True)
-        base_path = asset_dir / "base_flipflop_fixture_base.png"
+        base_path = asset_dir / "base_blink_fixture_base.png"
         Image.new("RGBA", (1000, 1000), (0, 0, 0, 0)).save(base_path)
-        flipflop_debug._write_source_metadata(base_path, {
-            "source_type": "flipflop_base_cutout",
-            "registration_algorithm_version": flipflop_debug.FLIPFLOP_CUTOUT_REGISTRATION_VERSION,
+        blink_debug._write_source_metadata(base_path, {
+            "source_type": "blink_base_cutout",
+            "registration_algorithm_version": blink_debug.BLINK_CUTOUT_REGISTRATION_VERSION,
             "trim_box": [0, 0, 1000, 1000],
             "canonical_canvas": [760, 820],
             "canonical_subject_box": [160, 80, 600, 812],
-            "flipflop_overlay_anchor": {"detected": True},
+            "blink_overlay_anchor": {"detected": True},
         })
         return [{
-            "id": "flipflop_fixture_base",
+            "id": "blink_fixture_base",
             "type": "image",
             "asset_kind": "cutout",
-            "image_url": "/static/projects/test-lab-flipflop-fixtures/flipflop_cutouts/fixture-scene/base_flipflop_fixture_base.png",
+            "image_url": "/static/projects/test-lab-blink-fixtures/blink_cutouts/fixture-scene/base_blink_fixture_base.png",
         }]
 
-    monkeypatch.setattr(flipflop_debug, "generate_flipflop_base_cutout", fake_generate_flipflop_base_cutout)
+    monkeypatch.setattr(blink_debug, "generate_blink_base_cutout", fake_generate_blink_base_cutout)
 
-    created = flipflop_debug.create_flipflop_fixture_asset(visual_prompt="A tired worker", force=False)
-    reused = flipflop_debug.create_flipflop_fixture_asset(visual_prompt="A tired worker", force=False)
+    created = blink_debug.create_blink_fixture_asset(visual_prompt="A tired worker", force=False)
+    reused = blink_debug.create_blink_fixture_asset(visual_prompt="A tired worker", force=False)
 
     assert created.used_external_api is True
     assert reused.used_external_api is False
@@ -830,15 +830,21 @@ def test_flipflop_fixture_create_reuses_valid_saved_asset_without_provider_call(
     assert len(generated_calls) == 1
 
 
-def test_flipflop_fixture_render_uses_saved_asset_without_provider_call(monkeypatch, tmp_path):
-    import pipeline.test_lab_flipflop_debug as flipflop_debug
+def test_blink_fixture_render_uses_saved_asset_without_provider_call(monkeypatch, tmp_path):
+    import pipeline.test_lab_blink_debug as blink_debug
 
-    monkeypatch.setattr(flipflop_debug, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(blink_debug, "DATA_DIR", tmp_path)
 
-    asset_dir = tmp_path / "projects" / flipflop_debug.FLIPFLOP_FIXTURE_SCRIPT_ID / "flipflop_cutouts" / "fixture-scene"
+    asset_dir = tmp_path / "projects" / blink_debug.BLINK_FIXTURE_SCRIPT_ID / "blink_cutouts" / "fixture-scene"
     asset_dir.mkdir(parents=True)
-    base_path = asset_dir / "base_flipflop_fixture_base.png"
-    Image.new("RGBA", (1000, 1000), (0, 0, 0, 0)).save(base_path)
+    base_path = asset_dir / "base_blink_fixture_base.png"
+    image = Image.new("RGBA", (1000, 1000), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    draw.ellipse((250, 120, 750, 780), fill=(241, 198, 150, 255), outline=(20, 20, 20, 255), width=8)
+    draw.rounded_rectangle((388, 442, 456, 468), radius=12, fill=(12, 12, 12, 255))
+    draw.rounded_rectangle((570, 442, 638, 468), radius=12, fill=(12, 12, 12, 255))
+    draw.rounded_rectangle((470, 590, 545, 600), radius=5, fill=(12, 12, 12, 255))
+    image.save(base_path)
 
     rendered = {}
 
@@ -846,34 +852,34 @@ def test_flipflop_fixture_render_uses_saved_asset_without_provider_call(monkeypa
         rendered["script_id"] = script_id
         scene = content.segments[0].scenes[0]
         rendered["visual_mode"] = scene.visual_mode
-        rendered["flipflop_action"] = scene.flipflop_action
+        rendered["blink_action"] = scene.blink_action
         rendered["image_url"] = scene.visual_layers[0].image_url
         render_dir = tmp_path / "projects" / script_id / "renders"
         render_dir.mkdir(parents=True, exist_ok=True)
         (render_dir / "full_youtube.mp4").write_bytes(b"fake")
         return f"/static/projects/{script_id}/renders/full_youtube.mp4"
 
-    monkeypatch.setattr(flipflop_debug, "render_full_video", fake_render_full_video)
+    monkeypatch.setattr(blink_debug, "render_full_video", fake_render_full_video)
 
-    result = flipflop_debug.render_flipflop_fixture_preview(
-        asset_id="test-lab-flipflop-fixtures/flipflop_cutouts/fixture-scene/base_flipflop_fixture_base.png",
-        action="speaking_mouth",
+    result = blink_debug.render_blink_fixture_preview(
+        asset_id="test-lab-blink-fixtures/blink_cutouts/fixture-scene/base_blink_fixture_base.png",
+        action="blink",
     )
 
     assert result.used_external_api is False
-    assert result.render_url == "/static/projects/test-lab-flipflop-fixtures/renders/full_youtube.mp4"
+    assert result.render_url == "/static/projects/test-lab-blink-fixtures/renders/full_youtube.mp4"
     assert rendered == {
-        "script_id": "test-lab-flipflop-fixtures",
-        "visual_mode": "flipflop",
-        "flipflop_action": "speaking_mouth",
-        "image_url": "/static/projects/test-lab-flipflop-fixtures/flipflop_cutouts/fixture-scene/base_flipflop_fixture_base.png",
+        "script_id": "test-lab-blink-fixtures",
+        "visual_mode": "blink",
+        "blink_action": "blink",
+        "image_url": "/static/projects/test-lab-blink-fixtures/blink_cutouts/fixture-scene/base_blink_fixture_base.png",
     }
 
 
-def test_flipflop_debug_lists_and_renders_saved_character_cutouts(monkeypatch, tmp_path):
-    import pipeline.test_lab_flipflop_debug as flipflop_debug
+def test_blink_debug_lists_and_renders_saved_character_cutouts(monkeypatch, tmp_path):
+    import pipeline.test_lab_blink_debug as blink_debug
 
-    monkeypatch.setattr(flipflop_debug, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(blink_debug, "DATA_DIR", tmp_path)
 
     character_dir = tmp_path / "projects" / "test-lab-character-1" / "character"
     character_dir.mkdir(parents=True)
@@ -898,14 +904,14 @@ def test_flipflop_debug_lists_and_renders_saved_character_cutouts(monkeypatch, t
         (render_dir / "full_youtube.mp4").write_bytes(b"fake")
         return f"/static/projects/{script_id}/renders/full_youtube.mp4"
 
-    monkeypatch.setattr(flipflop_debug, "render_full_video", fake_render_full_video)
+    monkeypatch.setattr(blink_debug, "render_full_video", fake_render_full_video)
 
-    assets = flipflop_debug.list_flipflop_debug_assets()
+    assets = blink_debug.list_blink_debug_assets()
     assert [asset.asset_id for asset in assets] == ["test-lab-character-1/character/cutout.png"]
     assert assets[0].scene_id == "character"
     assert assets[0].source_metadata["source_type"] == "character_cutout"
 
-    result = flipflop_debug.render_flipflop_fixture_preview(
+    result = blink_debug.render_blink_fixture_preview(
         asset_id="test-lab-character-1/character/cutout.png",
         action="blink",
     )
@@ -914,15 +920,15 @@ def test_flipflop_debug_lists_and_renders_saved_character_cutouts(monkeypatch, t
     assert result.render_url == "/static/projects/test-lab-character-1/renders/full_youtube.mp4"
     assert rendered == {
         "script_id": "test-lab-character-1",
-        "visual_mode": "flipflop",
+        "visual_mode": "blink",
         "image_url": "/static/projects/test-lab-character-1/character/cutout.png",
     }
 
 
-def test_flipflop_debug_skips_opaque_popup_scene_crops(monkeypatch, tmp_path):
-    import pipeline.test_lab_flipflop_debug as flipflop_debug
+def test_blink_debug_skips_opaque_popup_scene_crops(monkeypatch, tmp_path):
+    import pipeline.test_lab_blink_debug as blink_debug
 
-    monkeypatch.setattr(flipflop_debug, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(blink_debug, "DATA_DIR", tmp_path)
 
     popup_dir = tmp_path / "projects" / "test-lab-popup-1" / "popup_crops" / "scene-1"
     popup_dir.mkdir(parents=True)
@@ -939,7 +945,7 @@ def test_flipflop_debug_skips_opaque_popup_scene_crops(monkeypatch, tmp_path):
     draw.rounded_rectangle((470, 590, 545, 600), radius=5, fill=(12, 12, 12, 255))
     image.save(cutout_path)
 
-    assets = flipflop_debug.list_flipflop_debug_assets()
+    assets = blink_debug.list_blink_debug_assets()
 
     assert [asset.asset_id for asset in assets] == ["test-lab-character-1/character/cutout.png"]
 
@@ -1121,7 +1127,7 @@ def test_popup_crop_split_endpoints_generate_and_chroma_separately(monkeypatch, 
         app.dependency_overrides.pop(get_session, None)
 
 
-def test_flipflop_debug_endpoints_list_and_analyze(monkeypatch, tmp_path):
+def test_blink_debug_endpoints_list_and_analyze(monkeypatch, tmp_path):
     _engine, app = _setup_app(monkeypatch, tmp_path)
 
     import api.test_lab as test_lab_api
@@ -1129,8 +1135,8 @@ def test_flipflop_debug_endpoints_list_and_analyze(monkeypatch, tmp_path):
     class FakeAsset:
         def model_dump(self, mode="python"):
             return {
-                "asset_id": "test-lab-run/flipflop_cutouts/scene/base_scene_base.png",
-                "asset_url": "/static/projects/test-lab-run/flipflop_cutouts/scene/base_scene_base.png",
+                "asset_id": "test-lab-run/blink_cutouts/scene/base_scene_base.png",
+                "asset_url": "/static/projects/test-lab-run/blink_cutouts/scene/base_scene_base.png",
                 "script_id": "test-lab-run",
                 "scene_id": "scene",
                 "filename": "base_scene_base.png",
@@ -1146,21 +1152,21 @@ def test_flipflop_debug_endpoints_list_and_analyze(monkeypatch, tmp_path):
                 "used_external_api": False,
                 "registration_algorithm_version": "test-version",
                 "anchor": {"detected": True},
-                "debug_url": "/static/projects/test-lab-run/flipflop_cutouts/scene/debug.png",
+                "debug_url": "/static/projects/test-lab-run/blink_cutouts/scene/debug.png",
                 "status": "passed",
                 "error": None,
             }
 
-    monkeypatch.setattr(test_lab_api, "list_flipflop_debug_assets", lambda: [FakeAsset()])
-    monkeypatch.setattr(test_lab_api, "analyze_flipflop_debug_asset", lambda asset_id, action: FakeResult())
+    monkeypatch.setattr(test_lab_api, "list_blink_debug_assets", lambda: [FakeAsset()])
+    monkeypatch.setattr(test_lab_api, "analyze_blink_debug_asset", lambda asset_id, action: FakeResult())
 
     client = TestClient(app)
 
     try:
-        listed = client.get("/api/test-lab/flipflop-debug/assets")
+        listed = client.get("/api/test-lab/blink-debug/assets")
         analyzed = client.post(
-            "/api/test-lab/flipflop-debug/analyze",
-            json={"asset_id": "test-lab-run/flipflop_cutouts/scene/base_scene_base.png", "action": "blink"},
+            "/api/test-lab/blink-debug/analyze",
+            json={"asset_id": "test-lab-run/blink_cutouts/scene/base_scene_base.png", "action": "blink"},
         )
 
         assert listed.status_code == 200
@@ -1174,7 +1180,7 @@ def test_flipflop_debug_endpoints_list_and_analyze(monkeypatch, tmp_path):
         app.dependency_overrides.pop(get_session, None)
 
 
-def test_flipflop_fixture_endpoints_create_and_render(monkeypatch, tmp_path):
+def test_blink_fixture_endpoints_create_and_render(monkeypatch, tmp_path):
     _engine, app = _setup_app(monkeypatch, tmp_path)
 
     import api.test_lab as test_lab_api
@@ -1182,11 +1188,11 @@ def test_flipflop_fixture_endpoints_create_and_render(monkeypatch, tmp_path):
     class FakeAsset:
         def model_dump(self, mode="python"):
             return {
-                "asset_id": "test-lab-flipflop-fixtures/flipflop_cutouts/fixture-scene/base_flipflop_fixture_base.png",
-                "asset_url": "/static/projects/test-lab-flipflop-fixtures/flipflop_cutouts/fixture-scene/base_flipflop_fixture_base.png",
-                "script_id": "test-lab-flipflop-fixtures",
+                "asset_id": "test-lab-blink-fixtures/blink_cutouts/fixture-scene/base_blink_fixture_base.png",
+                "asset_url": "/static/projects/test-lab-blink-fixtures/blink_cutouts/fixture-scene/base_blink_fixture_base.png",
+                "script_id": "test-lab-blink-fixtures",
                 "scene_id": "fixture-scene",
-                "filename": "base_flipflop_fixture_base.png",
+                "filename": "base_blink_fixture_base.png",
                 "created_at": "2026-06-12T00:00:00+00:00",
                 "source_metadata": {},
             }
@@ -1204,24 +1210,24 @@ def test_flipflop_fixture_endpoints_create_and_render(monkeypatch, tmp_path):
             return {
                 "asset": FakeAsset().model_dump(mode=mode),
                 "action": "blink",
-                "render_url": "/static/projects/test-lab-flipflop-fixtures/renders/full_youtube.mp4",
+                "render_url": "/static/projects/test-lab-blink-fixtures/renders/full_youtube.mp4",
                 "used_external_api": False,
             }
 
-    monkeypatch.setattr(test_lab_api, "create_flipflop_fixture_asset", lambda visual_prompt, narration="", force=False: FakeFixture())
-    monkeypatch.setattr(test_lab_api, "render_flipflop_fixture_preview", lambda asset_id, action: FakeRender())
+    monkeypatch.setattr(test_lab_api, "create_blink_fixture_asset", lambda visual_prompt, narration="", force=False: FakeFixture())
+    monkeypatch.setattr(test_lab_api, "render_blink_fixture_preview", lambda asset_id, action: FakeRender())
 
     client = TestClient(app)
 
     try:
         fixture = client.post(
-            "/api/test-lab/flipflop/fixture",
+            "/api/test-lab/blink/fixture",
             json={"visual_prompt": "A tired worker", "force": False},
         )
         render = client.post(
-            "/api/test-lab/flipflop/render",
+            "/api/test-lab/blink/render",
             json={
-                "asset_id": "test-lab-flipflop-fixtures/flipflop_cutouts/fixture-scene/base_flipflop_fixture_base.png",
+                "asset_id": "test-lab-blink-fixtures/blink_cutouts/fixture-scene/base_blink_fixture_base.png",
                 "action": "blink",
             },
         )
@@ -1358,9 +1364,9 @@ def test_test_lab_preset_uses_visual_canvas_background_setting():
 def test_test_lab_preset_uses_visual_treatment_setting():
     from pipeline.test_lab import build_content_from_preset
 
-    content = build_content_from_preset("coffee-brain", {"visual_treatment": "flipflop"})
+    content = build_content_from_preset("coffee-brain", {"visual_treatment": "blink"})
 
-    assert content.segments[0].scenes[0].visual_treatment == "flipflop"
+    assert content.segments[0].scenes[0].visual_treatment == "blink"
 
 
 def test_test_lab_preset_keeps_scene_text_when_multi_frame_mode_selected():
@@ -1438,7 +1444,7 @@ def test_stage_defaults_derive_treatment_assets_from_visual_mode():
 
     layered_defaults = _stage_defaults(
         {
-            "visual_mode": "flipflop",
+            "visual_mode": "blink",
             "stages": {
                 "treatment_assets": False,
             },
@@ -1472,7 +1478,7 @@ def test_test_lab_advanced_script_keeps_top_level_visual_treatment_when_scene_om
     content = build_content_from_preset(
         "coffee-brain",
         {
-            "visual_treatment": "flipflop",
+            "visual_treatment": "blink",
             "advanced_script": {
                 "segments": [
                     {
@@ -1492,7 +1498,7 @@ def test_test_lab_advanced_script_keeps_top_level_visual_treatment_when_scene_om
         },
     )
 
-    assert content.segments[0].scenes[0].visual_treatment == "flipflop"
+    assert content.segments[0].scenes[0].visual_treatment == "blink"
 
 
 def test_test_lab_preset_main_character_is_not_mutated_by_content():
@@ -2226,7 +2232,7 @@ def test_stage_treatment_assets_respects_explicit_treatment(monkeypatch, tmp_pat
             run_id="run-explicit-treatment",
             preset_id="coffee-brain",
             settings={
-                "visual_treatment": "flipflop",
+                "visual_treatment": "blink",
                 "advanced_script": {
                     "segments": [
                         {
@@ -2236,7 +2242,7 @@ def test_stage_treatment_assets_respects_explicit_treatment(monkeypatch, tmp_pat
                                     "id": "coffee-brain-scene-1",
                                     "narration": "Caffeine blocks the sleepy signal.",
                                     "visual_prompt": "Flat 2D cartoon coffee mug powering up a brain.",
-                                    "visual_treatment": "flipflop",
+                                    "visual_treatment": "blink",
                                     "visual_layers": [
                                         {
                                             "id": "panel-a",
@@ -2261,9 +2267,9 @@ def test_stage_treatment_assets_respects_explicit_treatment(monkeypatch, tmp_pat
     )
 
     def fail_panel_generation(*_args, **_kwargs):
-        raise AssertionError("flipflop should use cutout generation")
+        raise AssertionError("blink should use cutout generation")
 
-    def fake_generate_flipflop_base_cutout(**kwargs):
+    def fake_generate_blink_base_cutout(**kwargs):
         assert kwargs["scene_id"] == "coffee-brain-scene-1"
         assert kwargs["script_id"] == script_id
         assert kwargs["layers"][0]["id"] == "panel-a"
@@ -2272,10 +2278,10 @@ def test_stage_treatment_assets_respects_explicit_treatment(monkeypatch, tmp_pat
     monkeypatch.setattr(image_gen, "generate_visual_layer_panels", fail_panel_generation)
     monkeypatch.setattr(
         image_gen,
-        "generate_flipflop_cutouts",
-        lambda **_kwargs: (_ for _ in ()).throw(AssertionError("Test Lab flipflop should use one base cutout")),
+        "generate_blink_cutouts",
+        lambda **_kwargs: (_ for _ in ()).throw(AssertionError("Test Lab blink should use one base cutout")),
     )
-    monkeypatch.setattr(image_gen, "generate_flipflop_base_cutout", fake_generate_flipflop_base_cutout, raising=False)
+    monkeypatch.setattr(image_gen, "generate_blink_base_cutout", fake_generate_blink_base_cutout, raising=False)
 
     manifest = test_lab.TestLabRunManifest(
         run_id="run-explicit-treatment",
@@ -2301,13 +2307,13 @@ def test_stage_treatment_assets_respects_explicit_treatment(monkeypatch, tmp_pat
         saved = ScriptContent.model_validate(content)
 
     scene = saved.segments[0].scenes[0]
-    assert scene.visual_treatment == "flipflop"
+    assert scene.visual_treatment == "blink"
     assert scene.visual_layers
     assert scene.visual_layers[0].image_url == "/static/projects/test/layers/panel-a.png"
     assert [asset.kind for asset in manifest.assets] == ["treatment_asset"]
 
 
-def test_stage_treatment_assets_generates_fallback_flipflop_cutout_urls(monkeypatch, tmp_path):
+def test_stage_treatment_assets_generates_fallback_blink_cutout_urls(monkeypatch, tmp_path):
     engine, _app = _setup_app(monkeypatch, tmp_path)
 
     import pipeline.image_gen as image_gen
@@ -2318,10 +2324,10 @@ def test_stage_treatment_assets_generates_fallback_flipflop_cutout_urls(monkeypa
     with Session(engine) as session:
         script_id = test_lab.create_hidden_test_script(
             session,
-            run_id="run-flipflop-fallback",
+            run_id="run-blink-fallback",
             preset_id="coffee-brain",
             settings={
-                "visual_treatment": "flipflop",
+                "visual_treatment": "blink",
                 "visual_layers": [],
                 "contains_person": True,
             },
@@ -2335,9 +2341,9 @@ def test_stage_treatment_assets_generates_fallback_flipflop_cutout_urls(monkeypa
     )
 
     def fail_panel_generation(*_args, **_kwargs):
-        raise AssertionError("fallback flipflop cutouts should not use panel generation")
+        raise AssertionError("fallback blink cutouts should not use panel generation")
 
-    def fake_generate_flipflop_base_cutout(**kwargs):
+    def fake_generate_blink_base_cutout(**kwargs):
         assert kwargs["scene_id"] == "coffee-brain-scene-1"
         assert kwargs["script_id"] == script_id
         assert [layer["id"] for layer in kwargs["layers"]] == ["coffee-brain-scene-1_base"]
@@ -2350,23 +2356,23 @@ def test_stage_treatment_assets_generates_fallback_flipflop_cutout_urls(monkeypa
     monkeypatch.setattr(image_gen, "generate_visual_layer_panels", fail_panel_generation)
     monkeypatch.setattr(
         image_gen,
-        "generate_flipflop_cutouts",
-        lambda **_kwargs: (_ for _ in ()).throw(AssertionError("Test Lab flipflop should use one base cutout")),
+        "generate_blink_cutouts",
+        lambda **_kwargs: (_ for _ in ()).throw(AssertionError("Test Lab blink should use one base cutout")),
     )
-    monkeypatch.setattr(image_gen, "generate_flipflop_base_cutout", fake_generate_flipflop_base_cutout, raising=False)
+    monkeypatch.setattr(image_gen, "generate_blink_base_cutout", fake_generate_blink_base_cutout, raising=False)
 
     manifest = test_lab.TestLabRunManifest(
-        run_id="run-flipflop-fallback",
+        run_id="run-blink-fallback",
         script_id=script_id,
         preset_id="coffee-brain",
         status="running",
     )
     ctx = test_lab.TestLabRunContext(
         engine=engine,
-        run_id="run-flipflop-fallback",
+        run_id="run-blink-fallback",
         script_id=script_id,
         preset_id="coffee-brain",
-        settings={"visual_treatment": "flipflop", "visual_layers": [], "contains_person": True},
+        settings={"visual_treatment": "blink", "visual_layers": [], "contains_person": True},
         manifest=manifest,
         job_id=None,
     )
@@ -2379,12 +2385,12 @@ def test_stage_treatment_assets_generates_fallback_flipflop_cutout_urls(monkeypa
         saved = ScriptContent.model_validate(content)
 
     scene = saved.segments[0].scenes[0]
-    assert scene.visual_treatment == "flipflop"
+    assert scene.visual_treatment == "blink"
     assert [layer.image_url for layer in scene.visual_layers] == ["/static/projects/test/layers/base.png"]
     assert [asset.url for asset in manifest.assets] == ["/static/projects/test/layers/base.png"]
 
 
-def test_stage_treatment_assets_preserves_explicit_flipflop_action_without_analyzer(monkeypatch, tmp_path):
+def test_stage_treatment_assets_preserves_explicit_blink_action_without_analyzer(monkeypatch, tmp_path):
     engine, _app = _setup_app(monkeypatch, tmp_path)
 
     import pipeline.image_gen as image_gen
@@ -2395,13 +2401,13 @@ def test_stage_treatment_assets_preserves_explicit_flipflop_action_without_analy
     with Session(engine) as session:
         script_id = test_lab.create_hidden_test_script(
             session,
-            run_id="run-flipflop-action-preserve",
+            run_id="run-blink-action-preserve",
             preset_id="blank",
             settings={
-                "visual_mode": "flipflop",
+                "visual_mode": "blink",
                 "visual_prompt": "Young employee in a plain red polo and visor, isolated chest-up character.",
                 "narration": "He answers the impossible burger question.",
-                "flipflop_action": "speaking_mouth",
+                "blink_action": "blink",
                 "visual_layers": [],
             },
         )
@@ -2414,7 +2420,7 @@ def test_stage_treatment_assets_preserves_explicit_flipflop_action_without_analy
 
     captured_layers = []
 
-    def fake_generate_flipflop_base_cutout(**kwargs):
+    def fake_generate_blink_base_cutout(**kwargs):
         assert kwargs["contains_person"] is True
         captured_layers.extend(kwargs["layers"])
         return [
@@ -2424,34 +2430,34 @@ def test_stage_treatment_assets_preserves_explicit_flipflop_action_without_analy
     monkeypatch.setattr(
         visual_treatments,
         "analyze_visual_treatments",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("explicit flipflop should not analyze")),
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("explicit blink should not analyze")),
     )
     monkeypatch.setattr(
         image_gen,
-        "generate_flipflop_cutouts",
-        lambda **_kwargs: (_ for _ in ()).throw(AssertionError("Test Lab flipflop should use one base cutout")),
+        "generate_blink_cutouts",
+        lambda **_kwargs: (_ for _ in ()).throw(AssertionError("Test Lab blink should use one base cutout")),
     )
-    monkeypatch.setattr(image_gen, "generate_flipflop_base_cutout", fake_generate_flipflop_base_cutout, raising=False)
+    monkeypatch.setattr(image_gen, "generate_blink_base_cutout", fake_generate_blink_base_cutout, raising=False)
     monkeypatch.setattr(
         image_gen,
         "generate_visual_layer_panels",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("flipflop should not use panel generation")),
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("blink should not use panel generation")),
     )
 
     manifest = test_lab.TestLabRunManifest(
-        run_id="run-flipflop-action-preserve",
+        run_id="run-blink-action-preserve",
         script_id=script_id,
         preset_id="blank",
         status="running",
     )
     ctx = test_lab.TestLabRunContext(
         engine=engine,
-        run_id="run-flipflop-action-preserve",
+        run_id="run-blink-action-preserve",
         script_id=script_id,
         preset_id="blank",
         settings={
-            "visual_mode": "flipflop",
-            "flipflop_action": "speaking_mouth",
+            "visual_mode": "blink",
+            "blink_action": "blink",
             "visual_layers": [],
         },
         manifest=manifest,
@@ -2461,15 +2467,15 @@ def test_stage_treatment_assets_preserves_explicit_flipflop_action_without_analy
     test_lab._stage_treatment_assets(ctx)
 
     assert len(captured_layers) == 1
-    assert "mouth closed or lightly resting" in captured_layers[0]["prompt"]
+    assert "eyes open, neutral natural face" in captured_layers[0]["prompt"]
     assert "mouth slightly open" not in captured_layers[0]["prompt"]
 
     with Session(engine) as session:
         _record, saved = test_lab._load_content_for_script(session, script_id)
         scene = ScriptContent.model_validate(saved).segments[0].scenes[0]
 
-    assert scene.visual_mode == "flipflop"
-    assert scene.flipflop_action == "speaking_mouth"
+    assert scene.visual_mode == "blink"
+    assert scene.blink_action == "blink"
 
 
 def test_stage_treatment_assets_generates_stat_card_icon_cutout(monkeypatch, tmp_path):
@@ -2563,8 +2569,8 @@ def test_stage_treatment_assets_stat_card_no_icon_keeps_layers_empty(monkeypatch
     )
     monkeypatch.setattr(
         image_gen,
-        "generate_flipflop_cutouts",
-        lambda **_kwargs: (_ for _ in ()).throw(AssertionError("stat_card should not synthesize flipflop layers")),
+        "generate_blink_cutouts",
+        lambda **_kwargs: (_ for _ in ()).throw(AssertionError("stat_card should not synthesize blink layers")),
     )
 
     manifest = test_lab.TestLabRunManifest(
@@ -2610,7 +2616,7 @@ def test_stage_treatment_assets_skips_ai_video_scenes(monkeypatch, tmp_path):
             preset_id="coffee-brain",
             settings={
                 "media_source": "ai_video",
-                "visual_treatment": "flipflop",
+                "visual_treatment": "blink",
                 "advanced_script": {
                     "segments": [
                         {
@@ -2621,7 +2627,7 @@ def test_stage_treatment_assets_skips_ai_video_scenes(monkeypatch, tmp_path):
                                     "media_source": "ai_video",
                                     "narration": "Caffeine blocks the sleepy signal.",
                                     "visual_prompt": "Flat 2D cartoon coffee mug powering up a brain.",
-                                    "visual_treatment": "flipflop",
+                                    "visual_treatment": "blink",
                                     "visual_layers": [
                                         {
                                             "id": "panel-a",
@@ -2661,7 +2667,7 @@ def test_stage_treatment_assets_skips_ai_video_scenes(monkeypatch, tmp_path):
         run_id="run-ai-video-treatment",
         script_id=script_id,
         preset_id="coffee-brain",
-        settings={"visual_treatment": "flipflop"},
+        settings={"visual_treatment": "blink"},
         manifest=manifest,
         job_id=None,
     )
@@ -2697,7 +2703,7 @@ def test_run_test_lab_normalizes_ai_video_treatment_when_stage_skipped(monkeypat
         preset_id="coffee-brain",
         settings={
             "media_source": "ai_video",
-            "visual_treatment": "flipflop",
+            "visual_treatment": "blink",
             "visual_layers": [
                 {
                     "id": "panel-a",
@@ -2860,7 +2866,7 @@ def test_stage_treatment_assets_ignores_mismatched_assignment_for_selected_treat
         return [
             VisualTreatmentAssignment(
                 scene_id=scene.id,
-                visual_treatment="flipflop",
+                visual_treatment="blink",
                 visual_layers=[
                     VisualLayer(
                         id=f"{scene.id}_state_a",
@@ -3079,7 +3085,7 @@ def test_stage_visual_skips_scene_image_for_layered_animation_treatment(monkeypa
             run_id="run-popup-no-scene-image",
             preset_id="coffee-brain",
             settings={
-                "visual_treatment": "flipflop",
+                "visual_treatment": "blink",
             },
         )
         session.commit()
@@ -3101,7 +3107,7 @@ def test_stage_visual_skips_scene_image_for_layered_animation_treatment(monkeypa
         run_id="run-popup-no-scene-image",
         script_id=script_id,
         preset_id="coffee-brain",
-        settings={"visual_treatment": "flipflop"},
+        settings={"visual_treatment": "blink"},
         manifest=manifest,
         job_id=None,
     )
@@ -3273,7 +3279,7 @@ def test_test_lab_multi_frame_fallback_prompts_avoid_decorative_frame_language()
         assert "picture frame" not in prompt
 
 
-def test_test_lab_flipflop_fallback_prompts_avoid_decorative_frame_language():
+def test_test_lab_blink_fallback_prompts_avoid_decorative_frame_language():
     from models.script import Scene
     from pipeline.test_lab import _fallback_visual_layers_for_treatment
 
@@ -3281,7 +3287,7 @@ def test_test_lab_flipflop_fallback_prompts_avoid_decorative_frame_language():
         id="scene-1",
         narration="A face flips from calm to panic.",
         visual_prompt="Flat 2D cartoon person at a control panel.",
-        visual_mode="flipflop",
+        visual_mode="blink",
     )
 
     layers = _fallback_visual_layers_for_treatment(scene)
@@ -3294,7 +3300,7 @@ def test_test_lab_flipflop_fallback_prompts_avoid_decorative_frame_language():
         prompt = layer.prompt.lower()
         assert layer.asset_kind == "cutout"
         assert layer.animation == "none"
-        assert "flip-flop transparent cutout" in prompt
+        assert "blink transparent cutout" in prompt
         assert "solid chroma" in prompt
         assert "no full background scene" in prompt
         assert "full-bleed" not in prompt

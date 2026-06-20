@@ -51,9 +51,9 @@ Use for a central anchor cutout with separate transparent item cutouts that pop 
 
 Do not use normal scene images for popup sequence. Do not create another item-pop mode unless it needs a different staging model than anchor plus orbiting cutouts.
 
-### `flipflop`
+### `blink`
 
-Use for same-subject cropped face micro-animation where one transparent human/character base cutout stays locked over the static canvas and Remotion toggles deterministic micro-expression overlays from frame zero. Reliable renderer-owned actions are limited to `blink`, `speaking_mouth`, `eye_glance`, and `eyebrow_raise`; old two-cutout A/B assets may still render for compatibility, but new Test Lab generation must not depend on the image model drawing two matching bodies.
+Use for same-subject cropped face micro-animation where one transparent human/character base cutout stays locked over the static canvas and Remotion toggles deterministic eyelid overlays from frame zero. The only renderer-owned action is `blink`; old two-cutout A/B assets may still render for compatibility, but new Test Lab generation must not depend on the image model drawing two matching bodies.
 
 Do not use it for generic contrast between different ideas, time periods, unrelated emotional states, different locations, outcomes, full-environment changes, body repositioning, hand gestures, nods, shrugs, or object-only motion. Prefer another mode unless a visible human or character face can change with the head/body locked in place.
 
@@ -63,7 +63,7 @@ Use for renderer-controlled side-by-side comparisons of two or three subjects, c
 
 This mode stages transparent cutouts over the static canvas. The renderer owns the split-screen board, dividers, labels, VS marker, arrows, badges, and stat chips. Do not bake readable text, labels, split panels, borders, or full backgrounds into generated images.
 
-Do not use it for a single environment or event, same-subject micro-animation, ordinary item lists, or process progression. Use `flipflop` for compatible A/B motion of one subject, `popup_sequence` for item callouts around an anchor, `continuous` for progression, and `multi_frame` for independent example cuts.
+Do not use it for a single environment or event, same-subject micro-animation, ordinary item lists, or process progression. Use `blink` for compatible A/B motion of one subject, `popup_sequence` for item callouts around an anchor, `continuous` for progression, and `multi_frame` for independent example cuts.
 
 ### `captions`
 
@@ -81,7 +81,7 @@ Do not use `stat_card` when atmosphere or environment matters more than the metr
 
 Answer these questions before implementation:
 
-1. What unique visual job does this mode perform that is not already covered by `full_frame`, `multi_frame`, `continuous`, `video`, `popup_sequence`, `flipflop`, `comparison_board`, `stat_card`, or `captions`?
+1. What unique visual job does this mode perform that is not already covered by `full_frame`, `multi_frame`, `continuous`, `video`, `popup_sequence`, `blink`, `comparison_board`, `stat_card`, or `captions`?
 2. When should script generation choose this mode?
 3. When should post-voiceover visual analysis choose or preserve this mode?
 4. When should this mode be avoided in favor of an existing mode?

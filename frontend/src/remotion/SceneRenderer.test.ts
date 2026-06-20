@@ -27,7 +27,7 @@ describe("canApplyWholeSceneFx", () => {
   it("blocks whole-scene FX wrappers for renderer-owned layered boards", () => {
     expect(canApplyWholeSceneFx({ visual_mode: "comparison_board" })).toBe(false);
     expect(canApplyWholeSceneFx({ visual_mode: "popup_sequence" })).toBe(false);
-    expect(canApplyWholeSceneFx({ visual_mode: "flipflop" })).toBe(false);
+    expect(canApplyWholeSceneFx({ visual_mode: "blink" })).toBe(false);
   });
 
   it("keeps camera effects available for normal media-backed scenes", () => {

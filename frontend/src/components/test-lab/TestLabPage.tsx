@@ -11,7 +11,7 @@ import type {
   TestLabSubtitleSummary,
   TestLabVoiceSummary,
 } from "../../types/testLab";
-import FlipflopDebugLab from "./FlipflopDebugLab";
+import BlinkDebugLab from "./BlinkDebugLab";
 import PopupCropLab from "./PopupCropLab";
 import TestLabControls, { settingsWithVisualTreatmentDefaults } from "./TestLabControls";
 import TestLabRunPanel from "./TestLabRunPanel";
@@ -22,8 +22,8 @@ function visualModeFromPreset(preset: TestLabPreset | null): TestLabSettings["vi
 
 function isLayeredVisualMode(
   visualMode: TestLabSettings["visual_mode"],
-): visualMode is Extract<TestLabSettings["visual_mode"], "popup_sequence" | "flipflop" | "comparison_board" | "stat_card"> {
-  return visualMode === "popup_sequence" || visualMode === "flipflop" || visualMode === "comparison_board" || visualMode === "stat_card";
+): visualMode is Extract<TestLabSettings["visual_mode"], "popup_sequence" | "blink" | "comparison_board" | "stat_card"> {
+  return visualMode === "popup_sequence" || visualMode === "blink" || visualMode === "comparison_board" || visualMode === "stat_card";
 }
 
 function settingsWithPresetVisualMode(settings: TestLabSettings, preset: TestLabPreset | null): TestLabSettings {
@@ -69,7 +69,7 @@ type TestLabJobStatus = {
   error?: string | null;
 };
 
-type TestLabTab = "pipeline" | "popup-crop" | "flipflop-debug";
+type TestLabTab = "pipeline" | "popup-crop" | "blink-debug";
 type TestLabSettingsSection = "voice" | "subtitles";
 
 interface Props {
@@ -259,7 +259,7 @@ export default function TestLabPage({ active = true, onOpenSettingsSection }: Pr
           <div className="mt-4 inline-flex overflow-hidden rounded-md border border-neutral-800 bg-neutral-950/70">
             <TabButton active={activeTab === "pipeline"} label="Scene Pipeline" onClick={() => setActiveTab("pipeline")} />
             <TabButton active={activeTab === "popup-crop"} label="Popup Crop" onClick={() => setActiveTab("popup-crop")} />
-            <TabButton active={activeTab === "flipflop-debug"} label="Flip-flop" onClick={() => setActiveTab("flipflop-debug")} />
+            <TabButton active={activeTab === "blink-debug"} label="Blink" onClick={() => setActiveTab("blink-debug")} />
           </div>
         </div>
 
@@ -316,7 +316,7 @@ export default function TestLabPage({ active = true, onOpenSettingsSection }: Pr
           </div>
         ) : (
           <div className="min-h-0 flex-1 overflow-hidden p-4">
-            <FlipflopDebugLab />
+            <BlinkDebugLab />
           </div>
         )}
       </div>

@@ -19,24 +19,24 @@ from pipeline.character_assets import process_character_asset_bundle
 from pipeline.cutout_chroma import key_out_background, save_keyed_trimmed_cutout as save_shared_keyed_trimmed_cutout
 from pipeline.fallback_observability import record_fallback
 from pipeline.render_jobs import UserFacingJobError
-from pipeline.visual_treatments import flipflop_cutout_prompt
+from pipeline.visual_treatments import blink_cutout_prompt
 from prompts import IMAGE_CHARACTER_IN_SCENE, IMAGE_COMPOSITION_GUIDE, IMAGE_VISUAL_STYLE
 
 logger = logging.getLogger(__name__)
 
-FLIPFLOP_CUTOUT_REGISTRATION_VERSION = "alpha-mask-registration-v29"
-FLIPFLOP_SCALE_CORRECTION_MIN = 0.92
-FLIPFLOP_SCALE_CORRECTION_MAX = 1.08
-FLIPFLOP_ASPECT_RATIO_TOLERANCE = 0.12
-FLIPFLOP_BASE_CANVAS_WIDTH = 760
-FLIPFLOP_BASE_CANVAS_HEIGHT = 820
+BLINK_CUTOUT_REGISTRATION_VERSION = "alpha-mask-registration-v29"
+BLINK_SCALE_CORRECTION_MIN = 0.92
+BLINK_SCALE_CORRECTION_MAX = 1.08
+BLINK_ASPECT_RATIO_TOLERANCE = 0.12
+BLINK_BASE_CANVAS_WIDTH = 760
+BLINK_BASE_CANVAS_HEIGHT = 820
 _STYLE_GUIDE = IMAGE_COMPOSITION_GUIDE.template
 _VISUAL_STYLE = IMAGE_VISUAL_STYLE.template
 _CHARACTER_PROMPT = IMAGE_CHARACTER_IN_SCENE.template
 
 
-class FlipflopRegistrationError(UserFacingJobError):
-    """Raised when generated flipflop states cannot be safely aligned."""
+class BlinkRegistrationError(UserFacingJobError):
+    """Raised when generated blink states cannot be safely aligned."""
 
 
 _SEQUENCE_CONSISTENCY_PROMPT = """\
@@ -436,7 +436,7 @@ def generate_visual_layer_panels(
             continue
 
         prompt = _sanitize_layer_prompt_for_full_bleed(prompt)
-        prompt = _flipflop_micro_animation_prompt(prompt, index) if visual_treatment == "flipflop" else prompt
+        prompt = _blink_micro_animation_prompt(prompt, index) if visual_treatment == "blink" else prompt
         original_prompt = prompt
         filename = visual_layer_image_filename(scene_id, str(layer_id))
         local_path = images_dir / filename
@@ -448,11 +448,11 @@ def generate_visual_layer_panels(
             script_id=script_id,
             contains_person=layer_contains_person,
         )
-        if visual_treatment == "flipflop" and previous_panel_path is not None:
+        if visual_treatment == "blink" and previous_panel_path is not None:
             reference_image_path = str(previous_panel_path)
             try:
                 mtime = int(previous_panel_path.stat().st_mtime)
-                composed_prompt += f"\n[flipflop_ref:{previous_panel_path}:{mtime}]"
+                composed_prompt += f"\n[blink_ref:{previous_panel_path}:{mtime}]"
             except OSError:
                 pass
 
@@ -530,12 +530,12 @@ def _sanitize_layer_prompt_for_full_bleed(prompt: str) -> str:
     return cleaned or prompt.strip()
 
 
-def _flipflop_micro_animation_prompt(prompt: str, index: int) -> str:
+def _blink_micro_animation_prompt(prompt: str, index: int) -> str:
     base = prompt.strip()
     if index <= 0:
         return "\n".join(
             [
-                "Flip-flop micro-animation State A.",
+                "Blink micro-animation State A.",
                 "Create the first frame of a two-frame animation from this scene.",
                 "Use the same character, same camera angle, same framing, same background, and same composition that State B should preserve.",
                 "Show the character in the initial pose: controlled, readable, and just before the expression or gesture changes.",
@@ -547,7 +547,7 @@ def _flipflop_micro_animation_prompt(prompt: str, index: int) -> str:
         ).strip()
     return "\n".join(
         [
-            "Flip-flop micro-animation State B.",
+            "Blink micro-animation State B.",
             "Create the second frame of the same two-frame animation.",
             "Use the reference image as the source of truth for the same exact composition, character identity, camera angle, framing, background, lighting, and style.",
             "Only make a small pose/expression progression: slightly change the mouth, eyes, head angle, or hand gesture so it feels like the next moment in the same action.",
@@ -726,11 +726,11 @@ def _reference_fingerprint(path: str | None) -> dict[str, object] | None:
         return {"path": path, "mtime": None}
 
 
-def _flipflop_state_sheet_fingerprint(prompt: str) -> str:
+def _blink_state_sheet_fingerprint(prompt: str) -> str:
     return json.dumps(
         {
             "prompt": prompt,
-            "registration_algorithm_version": FLIPFLOP_CUTOUT_REGISTRATION_VERSION,
+            "registration_algorithm_version": BLINK_CUTOUT_REGISTRATION_VERSION,
         },
         sort_keys=True,
     )
@@ -849,7 +849,7 @@ def generate_comparison_board_cutouts(
     return processed_layers
 
 
-def generate_flipflop_cutouts(
+def generate_blink_cutouts(
     *,
     scene_id: str,
     layers: list[dict],
@@ -861,15 +861,15 @@ def generate_flipflop_cutouts(
     force: bool = False,
     contains_person: bool = False,
 ) -> list[dict]:
-    """Generate transparent state cutouts for renderer-owned flip-flop scenes."""
+    """Generate transparent state cutouts for renderer-owned blink scenes."""
 
-    layers = _normalize_flipflop_generation_layers(
+    layers = _normalize_blink_generation_layers(
         scene_id=scene_id,
         layers=layers,
         scene_prompt=scene_prompt,
         scene_narration=scene_narration,
     )
-    output_dir = DATA_DIR / "projects" / script_id / "flipflop_cutouts" / scene_id
+    output_dir = DATA_DIR / "projects" / script_id / "blink_cutouts" / scene_id
     output_dir.mkdir(parents=True, exist_ok=True)
     processed_layers: list[dict] = []
     cutout_entries: list[dict] = []
@@ -888,7 +888,7 @@ def generate_flipflop_cutouts(
         next_layer["id"] = layer_id
         prompt = str(next_layer.get("prompt") or scene_prompt or "").strip()
         if not prompt:
-            logger.info("[FLIPFLOP_CUTOUT] skipped empty prompt scene=%s layer=%s", scene_id, layer_id)
+            logger.info("[BLINK_CUTOUT] skipped empty prompt scene=%s layer=%s", scene_id, layer_id)
             processed_layers.append(next_layer)
             continue
 
@@ -897,7 +897,7 @@ def generate_flipflop_cutouts(
         local_path = output_dir / filename
         raw_path = output_dir / f"raw_{filename}"
         prompt_marker = output_dir / f"{filename}.prompt"
-        web_path = f"/static/projects/{script_id}/flipflop_cutouts/{scene_id}/{filename}"
+        web_path = f"/static/projects/{script_id}/blink_cutouts/{scene_id}/{filename}"
         next_layer["asset_kind"] = "cutout"
         next_layer["image_url"] = web_path
         processed_layers.append(next_layer)
@@ -908,7 +908,7 @@ def generate_flipflop_cutouts(
                 "prompt_marker": prompt_marker,
                 "prompt": prompt,
                 "metadata": {
-                    "source_type": "flipflop_cutout",
+                    "source_type": "blink_cutout",
                     "provider": os.environ.get("IMAGE_PROVIDER", "google"),
                     "fallback": False,
                 },
@@ -918,7 +918,7 @@ def generate_flipflop_cutouts(
         )
 
     cutout_entries.extend(
-        _generate_flipflop_state_sheet(
+        _generate_blink_state_sheet(
             scene_id=scene_id,
             state_entries=state_entries,
             scene_prompt=scene_prompt,
@@ -929,11 +929,11 @@ def generate_flipflop_cutouts(
             force=force,
         )
     )
-    _recrop_flipflop_cutouts_to_shared_bbox(cutout_entries, script_id=script_id, scene_id=scene_id)
+    _recrop_blink_cutouts_to_shared_bbox(cutout_entries, script_id=script_id, scene_id=scene_id)
     return processed_layers
 
 
-def generate_flipflop_base_cutout(
+def generate_blink_base_cutout(
     *,
     scene_id: str,
     layers: list[dict],
@@ -945,7 +945,7 @@ def generate_flipflop_base_cutout(
     force: bool = False,
     contains_person: bool = False,
 ) -> list[dict]:
-    """Generate one base cutout for renderer-owned deterministic flip-flop overlays."""
+    """Generate one base cutout for renderer-owned deterministic blink overlays."""
 
     image_layers = [
         dict(layer)
@@ -959,14 +959,14 @@ def generate_flipflop_base_cutout(
                 "id": f"{scene_id}_base",
                 "type": "image",
                 "asset_kind": "cutout",
-                "prompt": flipflop_cutout_prompt(scene_prompt, scene_narration, "state A"),
+                "prompt": blink_cutout_prompt(scene_prompt, scene_narration, "state A"),
                 "placement": "center",
                 "enter_at_seconds": 0.0,
                 "animation": "none",
             }
         ]
 
-    output_dir = DATA_DIR / "projects" / script_id / "flipflop_cutouts" / scene_id
+    output_dir = DATA_DIR / "projects" / script_id / "blink_cutouts" / scene_id
     output_dir.mkdir(parents=True, exist_ok=True)
     processed_layers: list[dict] = []
     generated = False
@@ -996,7 +996,7 @@ def generate_flipflop_base_cutout(
         raw_path = output_dir / f"raw_{filename}"
         local_path = output_dir / filename
         prompt_marker = output_dir / f"{filename}.prompt"
-        web_path = f"/static/projects/{script_id}/flipflop_cutouts/{scene_id}/{filename}"
+        web_path = f"/static/projects/{script_id}/blink_cutouts/{scene_id}/{filename}"
         composed_prompt, reference_image_path, style_reference_path = _compose_cutout_prompt_context(
             visual_prompt=(
                 f"{prompt}\n\n"
@@ -1009,16 +1009,16 @@ def generate_flipflop_base_cutout(
             script_id=script_id,
             contains_person=bool(next_layer.get("contains_person", contains_person)),
         )
-        prompt_fingerprint = _flipflop_state_sheet_fingerprint(composed_prompt)
+        prompt_fingerprint = _blink_state_sheet_fingerprint(composed_prompt)
         cache_valid = (
             not force
             and prompt_marker.exists()
             and prompt_marker.read_text(encoding="utf-8") == prompt_fingerprint
             and local_path.exists()
-            and _flipflop_base_cache_valid(local_path)
+            and _blink_base_cache_valid(local_path)
         )
         if not cache_valid:
-            logger.info("[FLIPFLOP_BASE_CUTOUT] generating base cutout scene=%s layer=%s", scene_id, layer_id)
+            logger.info("[BLINK_BASE_CUTOUT] generating base cutout scene=%s layer=%s", scene_id, layer_id)
             generated_path = Path(
                 generate_image(
                     composed_prompt,
@@ -1032,17 +1032,17 @@ def generate_flipflop_base_cutout(
             )
             shutil.copyfile(generated_path, raw_path)
             with Image.open(generated_path) as source:
-                base_metadata = _save_flipflop_canonical_base_cutout(source.convert("RGBA"), local_path)
+                base_metadata = _save_blink_canonical_base_cutout(source.convert("RGBA"), local_path)
             metadata = {
-                "source_type": "flipflop_base_cutout",
+                "source_type": "blink_base_cutout",
                 "provider": os.environ.get("IMAGE_PROVIDER", "google"),
                 "fallback": False,
                 **base_metadata,
-                "registration_algorithm_version": FLIPFLOP_CUTOUT_REGISTRATION_VERSION,
+                "registration_algorithm_version": BLINK_CUTOUT_REGISTRATION_VERSION,
             }
             _write_source_metadata(local_path, metadata)
             prompt_marker.write_text(prompt_fingerprint, encoding="utf-8")
-            save_vault_image(kind="item", label=f"Flip-flop base {layer_id}", source_path=local_path)
+            save_vault_image(kind="item", label=f"Blink base {layer_id}", source_path=local_path)
 
         source_metadata = _read_source_metadata(local_path) or {}
         next_layer["image_url"] = web_path
@@ -1053,26 +1053,26 @@ def generate_flipflop_base_cutout(
     return processed_layers
 
 
-def _flipflop_base_cache_valid(path: Path) -> bool:
+def _blink_base_cache_valid(path: Path) -> bool:
     metadata = _read_source_metadata(path)
     return bool(
         metadata
-        and metadata.get("registration_algorithm_version") == FLIPFLOP_CUTOUT_REGISTRATION_VERSION
-        and metadata.get("source_type") == "flipflop_base_cutout"
+        and metadata.get("registration_algorithm_version") == BLINK_CUTOUT_REGISTRATION_VERSION
+        and metadata.get("source_type") == "blink_base_cutout"
         and isinstance(metadata.get("trim_box"), list)
-        and metadata.get("canonical_canvas") == [FLIPFLOP_BASE_CANVAS_WIDTH, FLIPFLOP_BASE_CANVAS_HEIGHT]
+        and metadata.get("canonical_canvas") == [BLINK_BASE_CANVAS_WIDTH, BLINK_BASE_CANVAS_HEIGHT]
         and isinstance(metadata.get("canonical_subject_box"), list)
-        and isinstance(metadata.get("flipflop_overlay_anchor"), dict)
-        and metadata.get("flipflop_overlay_anchor", {}).get("detected") is True
+        and isinstance(metadata.get("blink_overlay_anchor"), dict)
+        and metadata.get("blink_overlay_anchor", {}).get("detected") is True
     )
 
 
-def _save_flipflop_canonical_base_cutout(image: Image.Image, output_path: Path) -> dict[str, object]:
+def _save_blink_canonical_base_cutout(image: Image.Image, output_path: Path) -> dict[str, object]:
     keyed = key_out_background(image.convert("RGBA"))
     bbox = keyed.getbbox()
     if bbox is None:
-        raise FlipflopRegistrationError(
-            "Flipflop base cutout has no visible subject. Regenerate the scene or use full_frame."
+        raise BlinkRegistrationError(
+            "Blink base cutout has no visible subject. Regenerate the scene or use full_frame."
         )
 
     padding = 24
@@ -1085,46 +1085,46 @@ def _save_flipflop_canonical_base_cutout(image: Image.Image, output_path: Path) 
     subject = keyed.crop(tuple(source_trim_box))
     subject_bbox = subject.getbbox()
     if subject_bbox is None:
-        raise FlipflopRegistrationError(
-            "Flipflop base cutout has no visible subject. Regenerate the scene or use full_frame."
+        raise BlinkRegistrationError(
+            "Blink base cutout has no visible subject. Regenerate the scene or use full_frame."
         )
 
-    max_width = round(FLIPFLOP_BASE_CANVAS_WIDTH * 0.88)
-    max_height = round(FLIPFLOP_BASE_CANVAS_HEIGHT * 0.96)
+    max_width = round(BLINK_BASE_CANVAS_WIDTH * 0.88)
+    max_height = round(BLINK_BASE_CANVAS_HEIGHT * 0.96)
     scale = min(max_width / subject.width, max_height / subject.height)
     scaled_width = max(1, round(subject.width * scale))
     scaled_height = max(1, round(subject.height * scale))
 
-    canvas = Image.new("RGBA", (FLIPFLOP_BASE_CANVAS_WIDTH, FLIPFLOP_BASE_CANVAS_HEIGHT), (0, 0, 0, 0))
+    canvas = Image.new("RGBA", (BLINK_BASE_CANVAS_WIDTH, BLINK_BASE_CANVAS_HEIGHT), (0, 0, 0, 0))
     resized = subject.resize((scaled_width, scaled_height), Image.Resampling.LANCZOS)
-    left = round((FLIPFLOP_BASE_CANVAS_WIDTH - scaled_width) / 2)
-    top = FLIPFLOP_BASE_CANVAS_HEIGHT - scaled_height - 8
+    left = round((BLINK_BASE_CANVAS_WIDTH - scaled_width) / 2)
+    top = BLINK_BASE_CANVAS_HEIGHT - scaled_height - 8
     canvas.alpha_composite(resized, (left, top))
     subject_box = canvas.getbbox()
     if subject_box is None:
-        raise FlipflopRegistrationError(
-            "Flipflop base cutout has no visible subject. Regenerate the scene or use full_frame."
+        raise BlinkRegistrationError(
+            "Blink base cutout has no visible subject. Regenerate the scene or use full_frame."
         )
 
-    _validate_flipflop_base_subject_box(subject_box)
+    _validate_blink_base_subject_box(subject_box)
     canvas.save(output_path)
     return {
         "trim_box": source_trim_box,
-        "canonical_canvas": [FLIPFLOP_BASE_CANVAS_WIDTH, FLIPFLOP_BASE_CANVAS_HEIGHT],
+        "canonical_canvas": [BLINK_BASE_CANVAS_WIDTH, BLINK_BASE_CANVAS_HEIGHT],
         "canonical_subject_box": list(subject_box),
-        "flipflop_overlay_anchor": _flipflop_overlay_anchor_metadata(canvas, require_detected=True),
+        "blink_overlay_anchor": _blink_overlay_anchor_metadata(canvas, require_detected=True),
     }
 
 
-def _validate_flipflop_base_subject_box(subject_box: tuple[int, int, int, int]) -> None:
+def _validate_blink_base_subject_box(subject_box: tuple[int, int, int, int]) -> None:
     left, top, right, bottom = subject_box
     width = right - left
     height = bottom - top
-    center_x = (left + right) / 2 / FLIPFLOP_BASE_CANVAS_WIDTH
-    width_ratio = width / FLIPFLOP_BASE_CANVAS_WIDTH
-    height_ratio = height / FLIPFLOP_BASE_CANVAS_HEIGHT
-    top_ratio = top / FLIPFLOP_BASE_CANVAS_HEIGHT
-    bottom_ratio = bottom / FLIPFLOP_BASE_CANVAS_HEIGHT
+    center_x = (left + right) / 2 / BLINK_BASE_CANVAS_WIDTH
+    width_ratio = width / BLINK_BASE_CANVAS_WIDTH
+    height_ratio = height / BLINK_BASE_CANVAS_HEIGHT
+    top_ratio = top / BLINK_BASE_CANVAS_HEIGHT
+    bottom_ratio = bottom / BLINK_BASE_CANVAS_HEIGHT
 
     if (
         center_x < 0.44
@@ -1136,22 +1136,22 @@ def _validate_flipflop_base_subject_box(subject_box: tuple[int, int, int, int]) 
         or top_ratio > 0.22
         or bottom_ratio < 0.92
     ):
-        raise FlipflopRegistrationError(
-            "Flipflop base cutout framing is not a centered chest-up bust, so deterministic "
+        raise BlinkRegistrationError(
+            "Blink base cutout framing is not a centered chest-up bust, so deterministic "
             "face overlays cannot be aligned safely. Regenerate the scene or use full_frame."
         )
 
 
-def _flipflop_overlay_anchor_metadata(image: Image.Image | None = None, *, require_detected: bool = False) -> dict[str, object]:
-    detected = _detect_flipflop_overlay_anchor_points(image) if image is not None else None
+def _blink_overlay_anchor_metadata(image: Image.Image | None = None, *, require_detected: bool = False) -> dict[str, object]:
+    detected = _detect_blink_overlay_anchor_points(image) if image is not None else None
     if require_detected and detected is None:
-        raise FlipflopRegistrationError(
-            "Flipflop base cutout facial landmarks could not be detected, so deterministic "
+        raise BlinkRegistrationError(
+            "Blink base cutout facial landmarks could not be detected, so deterministic "
             "face overlays cannot be aligned safely. Regenerate the scene or use full_frame."
         )
-    skin_fill = _sample_flipflop_face_skin_fill(image, detected) if image is not None and detected is not None else None
+    skin_fill = _sample_blink_face_skin_fill(image, detected) if image is not None and detected is not None else None
     layer_detected = (
-        _flipflop_anchor_to_layer_frame(detected, image.size)
+        _blink_anchor_to_layer_frame(detected, image.size)
         if image is not None and detected is not None
         else None
     )
@@ -1168,22 +1168,22 @@ def _flipflop_overlay_anchor_metadata(image: Image.Image | None = None, *, requi
     }
 
 
-def _flipflop_anchor_to_layer_frame(
+def _blink_anchor_to_layer_frame(
     detected: dict[str, dict[str, float]],
     image_size: tuple[int, int],
 ) -> dict[str, dict[str, float]]:
     image_width, image_height = image_size
     if image_width <= 0 or image_height <= 0:
         return detected
-    scale = min(FLIPFLOP_BASE_CANVAS_WIDTH / image_width, FLIPFLOP_BASE_CANVAS_HEIGHT / image_height)
+    scale = min(BLINK_BASE_CANVAS_WIDTH / image_width, BLINK_BASE_CANVAS_HEIGHT / image_height)
     rendered_width = image_width * scale
     rendered_height = image_height * scale
-    offset_x = (FLIPFLOP_BASE_CANVAS_WIDTH - rendered_width) / 2
-    offset_y = (FLIPFLOP_BASE_CANVAS_HEIGHT - rendered_height) / 2
-    x_scale = rendered_width / FLIPFLOP_BASE_CANVAS_WIDTH
-    y_scale = rendered_height / FLIPFLOP_BASE_CANVAS_HEIGHT
-    x_offset = offset_x / FLIPFLOP_BASE_CANVAS_WIDTH
-    y_offset = offset_y / FLIPFLOP_BASE_CANVAS_HEIGHT
+    offset_x = (BLINK_BASE_CANVAS_WIDTH - rendered_width) / 2
+    offset_y = (BLINK_BASE_CANVAS_HEIGHT - rendered_height) / 2
+    x_scale = rendered_width / BLINK_BASE_CANVAS_WIDTH
+    y_scale = rendered_height / BLINK_BASE_CANVAS_HEIGHT
+    x_offset = offset_x / BLINK_BASE_CANVAS_WIDTH
+    y_offset = offset_y / BLINK_BASE_CANVAS_HEIGHT
 
     def convert_x(value: float) -> float:
         return x_offset + value * x_scale
@@ -1223,7 +1223,7 @@ def _flipflop_anchor_to_layer_frame(
     return converted
 
 
-def _sample_flipflop_face_skin_fill(image: Image.Image, detected: dict[str, dict[str, float]]) -> str | None:
+def _sample_blink_face_skin_fill(image: Image.Image, detected: dict[str, dict[str, float]]) -> str | None:
     rgba = image.convert("RGBA")
     width, height = rgba.size
     left_eye = detected.get("eye_left")
@@ -1263,7 +1263,7 @@ def _sample_flipflop_face_skin_fill(image: Image.Image, detected: dict[str, dict
     return f"#{round(median(reds)):02x}{round(median(greens)):02x}{round(median(blues)):02x}"
 
 
-def _detect_flipflop_overlay_anchor_points(image: Image.Image | None) -> dict[str, dict[str, float]] | None:
+def _detect_blink_overlay_anchor_points(image: Image.Image | None) -> dict[str, dict[str, float]] | None:
     if image is None:
         return None
     rgba = image.convert("RGBA")
@@ -1391,9 +1391,9 @@ def _detect_flipflop_overlay_anchor_points(image: Image.Image | None) -> dict[st
     _has_detected_mouth, _eye_y, _alignment_score, left_eye, right_eye, mouth = best_eye_pair
     eye_y = (left_eye["cy"] + right_eye["cy"]) / 2
     brow_y = max(0.0, eye_y - 0.08)
-    left_erase_box = _flipflop_eye_erase_box(left_eye, components, rgba)
-    right_erase_box = _flipflop_eye_erase_box(right_eye, components, rgba)
-    skin_fill = _sample_flipflop_face_skin_fill(
+    left_erase_box = _blink_eye_erase_box(left_eye, components, rgba)
+    right_erase_box = _blink_eye_erase_box(right_eye, components, rgba)
+    skin_fill = _sample_blink_face_skin_fill(
         rgba,
         {
             "eye_left": {"x": left_eye["cx"], "y": left_eye["cy"]},
@@ -1401,12 +1401,12 @@ def _detect_flipflop_overlay_anchor_points(image: Image.Image | None) -> dict[st
             "mouth": {"x": mouth["cx"], "y": mouth["cy"]},
         },
     )
-    left_fill_top, left_fill_bottom, left_fill_left, left_fill_right = _flipflop_eye_fill_gradient(
+    left_fill_top, left_fill_bottom, left_fill_left, left_fill_right = _blink_eye_fill_gradient(
         left_erase_box,
         rgba,
         preferred_fill=skin_fill,
     )
-    right_fill_top, right_fill_bottom, right_fill_left, right_fill_right = _flipflop_eye_fill_gradient(
+    right_fill_top, right_fill_bottom, right_fill_left, right_fill_right = _blink_eye_fill_gradient(
         right_erase_box,
         rgba,
         preferred_fill=skin_fill,
@@ -1440,7 +1440,7 @@ def _detect_flipflop_overlay_anchor_points(image: Image.Image | None) -> dict[st
     }
 
 
-def _flipflop_eye_erase_box(
+def _blink_eye_erase_box(
     eye: dict[str, float],
     components: list[dict[str, float]],
     image: Image.Image,
@@ -1488,7 +1488,7 @@ def _flipflop_eye_erase_box(
     }
 
 
-def _flipflop_eye_fill_gradient(
+def _blink_eye_fill_gradient(
     erase_box: dict[str, float],
     image: Image.Image,
     *,
@@ -1600,7 +1600,7 @@ def _hex_to_rgb(color: str | None) -> tuple[int, int, int] | None:
         return None
 
 
-def _generate_flipflop_state_sheet(
+def _generate_blink_state_sheet(
     *,
     scene_id: str,
     state_entries: list[dict],
@@ -1615,7 +1615,7 @@ def _generate_flipflop_state_sheet(
         return []
 
     states = state_entries[:2]
-    source_prompt = _compose_flipflop_state_sheet_source_prompt(
+    source_prompt = _compose_blink_state_sheet_source_prompt(
         state_a_prompt=str(states[0]["prompt"]),
         state_b_prompt=str(states[1]["prompt"]),
         scene_prompt=scene_prompt,
@@ -1626,7 +1626,7 @@ def _generate_flipflop_state_sheet(
         contains_person=any(bool(entry.get("contains_person")) for entry in states),
     )
     prompt_marker = output_dir / "state_sheet.prompt"
-    prompt_fingerprint = _flipflop_state_sheet_fingerprint(composed_prompt)
+    prompt_fingerprint = _blink_state_sheet_fingerprint(composed_prompt)
     sheet_path = output_dir / "state_sheet.png"
     cache_valid = (
         not force
@@ -1634,18 +1634,18 @@ def _generate_flipflop_state_sheet(
         and prompt_marker.read_text(encoding="utf-8") == prompt_fingerprint
         and sheet_path.exists()
         and all(Path(entry["local_path"]).exists() and Path(entry["raw_path"]).exists() for entry in states)
-        and all(_flipflop_registration_cache_valid(Path(entry["local_path"])) for entry in states)
+        and all(_blink_registration_cache_valid(Path(entry["local_path"])) for entry in states)
     )
 
     if cache_valid:
-        logger.info("[FLIPFLOP_CUTOUT] state sheet cache hit scene=%s", scene_id)
+        logger.info("[BLINK_CUTOUT] state sheet cache hit scene=%s", scene_id)
         for entry in states:
             source_metadata = _read_source_metadata(Path(entry["local_path"])) or entry["metadata"]
             entry["metadata"] = source_metadata
             entry["layer"]["visual_source_metadata"] = source_metadata
         return states
 
-    logger.info("[FLIPFLOP_CUTOUT] generating shared state sheet scene=%s", scene_id)
+    logger.info("[BLINK_CUTOUT] generating shared state sheet scene=%s", scene_id)
     generated_path = Path(
         generate_image(
             composed_prompt,
@@ -1677,17 +1677,17 @@ def _generate_flipflop_state_sheet(
             entry["metadata"] = source_metadata
             entry["layer"]["visual_source_metadata"] = source_metadata
             Path(entry["prompt_marker"]).write_text(prompt_fingerprint, encoding="utf-8")
-            save_vault_image(kind="item", label=f"Flip-flop {entry['layer']['id']}", source_path=local_path)
+            save_vault_image(kind="item", label=f"Blink {entry['layer']['id']}", source_path=local_path)
 
     prompt_marker.write_text(prompt_fingerprint, encoding="utf-8")
     return states
 
 
-def _flipflop_registration_cache_valid(path: Path) -> bool:
+def _blink_registration_cache_valid(path: Path) -> bool:
     metadata = _read_source_metadata(path)
     return bool(
         metadata
-        and metadata.get("registration_algorithm_version") == FLIPFLOP_CUTOUT_REGISTRATION_VERSION
+        and metadata.get("registration_algorithm_version") == BLINK_CUTOUT_REGISTRATION_VERSION
         and isinstance(metadata.get("trim_box"), list)
         and isinstance(metadata.get("virtual_trim_box"), list)
         and isinstance(metadata.get("registration_box"), list)
@@ -1695,7 +1695,7 @@ def _flipflop_registration_cache_valid(path: Path) -> bool:
     )
 
 
-def _normalize_flipflop_generation_layers(
+def _normalize_blink_generation_layers(
     *,
     scene_id: str,
     layers: list[dict],
@@ -1737,7 +1737,7 @@ def _normalize_flipflop_generation_layers(
                 "id": f"{scene_id}_state_{'a' if state_index == 0 else 'b'}",
                 "type": "image",
                 "asset_kind": "cutout",
-                "prompt": flipflop_cutout_prompt(scene_prompt, scene_narration, focus),
+                "prompt": blink_cutout_prompt(scene_prompt, scene_narration, focus),
                 "placement": "center",
                 "enter_at_seconds": 0.0,
                 "animation": "none",
@@ -1747,7 +1747,7 @@ def _normalize_flipflop_generation_layers(
     return normalized + other_layers
 
 
-def _recrop_flipflop_cutouts_to_shared_bbox(
+def _recrop_blink_cutouts_to_shared_bbox(
     entries: list[dict],
     *,
     script_id: str | None = None,
@@ -1786,14 +1786,14 @@ def _recrop_flipflop_cutouts_to_shared_bbox(
         scale_factor = min(target_width / subject_width, target_height / subject_height)
         subject = keyed.crop(tuple(bbox))
         subject_aspect_ratio = subject_width / subject_height
-        scale_is_safe = FLIPFLOP_SCALE_CORRECTION_MIN <= scale_factor <= FLIPFLOP_SCALE_CORRECTION_MAX
+        scale_is_safe = BLINK_SCALE_CORRECTION_MIN <= scale_factor <= BLINK_SCALE_CORRECTION_MAX
         aspect_is_safe = (
             abs(subject_aspect_ratio - target_aspect_ratio) / max(target_aspect_ratio, 0.001)
-            <= FLIPFLOP_ASPECT_RATIO_TOLERANCE
+            <= BLINK_ASPECT_RATIO_TOLERANCE
         )
         if prepared_subjects and (not scale_is_safe or not aspect_is_safe):
-            raise FlipflopRegistrationError(
-                "Flipflop State A/B cutouts could not be aligned: generated states differ too much in scale or aspect ratio. Regenerate the scene or use full_frame."
+            raise BlinkRegistrationError(
+                "Blink State A/B cutouts could not be aligned: generated states differ too much in scale or aspect ratio. Regenerate the scene or use full_frame."
             )
         if scale_factor != 1.0:
             scaled_size = (
@@ -1832,7 +1832,7 @@ def _recrop_flipflop_cutouts_to_shared_bbox(
             "registration_box": bbox,
             "scaled_registration_box": [0, 0, subject.width, subject.height],
             "scale_factor": round(scale_factor, 4),
-            "registration_algorithm_version": FLIPFLOP_CUTOUT_REGISTRATION_VERSION,
+            "registration_algorithm_version": BLINK_CUTOUT_REGISTRATION_VERSION,
             "alpha_anchor": [round(anchor[0], 2), round(anchor[1], 2)],
             "alpha_anchor_shift": [shift[0], shift[1]],
         }
@@ -2239,14 +2239,14 @@ def _compose_comparison_subject_sheet_prompt(scene_prompt: str, labels: list[str
     ).strip()
 
 
-def _compose_flipflop_cutout_source_prompt(layer_prompt: str, scene_prompt: str) -> str:
+def _compose_blink_cutout_source_prompt(layer_prompt: str, scene_prompt: str) -> str:
     return "\n".join(
         [
-            "Generate one isolated flip-flop animation state cutout.",
+            "Generate one isolated blink animation state cutout.",
             "Use a solid flat chroma key background across the entire image.",
             "Use bright green (#00FF00) unless the subject contains green, then use bright magenta (#FF00FF).",
             "Keep exactly one clear closed-silhouette subject suitable for automatic chroma-key trimming.",
-            "For flip-flop pairs, preserve an identical pixel footprint, subject bounding box, camera distance, and canvas position across every state.",
+            "For blink pairs, preserve an identical pixel footprint, subject bounding box, camera distance, and canvas position across every state.",
             "No zoom, no tighter crop, no wider crop, no resizing, no rotation, and no subject translation between states.",
             "No full background scene, scenery, split-screen, decorative border, picture frame, mat, white margin, inset panel, UI chrome, caption box, poster edge, speech bubble, labels, or text.",
             "",
@@ -2259,10 +2259,10 @@ def _compose_flipflop_cutout_source_prompt(layer_prompt: str, scene_prompt: str)
     ).strip()
 
 
-def _compose_flipflop_state_sheet_source_prompt(*, state_a_prompt: str, state_b_prompt: str, scene_prompt: str) -> str:
+def _compose_blink_state_sheet_source_prompt(*, state_a_prompt: str, state_b_prompt: str, scene_prompt: str) -> str:
     return "\n".join(
         [
-            "Generate a two-cell contact sheet of isolated flip-flop animation state cutouts.",
+            "Generate a two-cell contact sheet of isolated blink animation state cutouts.",
             "The output image must contain exactly two equal-width vertical cells: the left cell is the first pose, the right cell is the second pose.",
             "Both cells must use the same solid flat chroma key background across the entire cell.",
             "Use bright green (#00FF00) unless the subject contains green, then use bright magenta (#FF00FF).",
@@ -2270,7 +2270,7 @@ def _compose_flipflop_state_sheet_source_prompt(*, state_a_prompt: str, state_b_
             "Make the two cells look like traced animation cels of the same drawing.",
             "Preserve identical identity, body proportions, camera distance, crop, canvas position, identical pixel footprint, and subject bounding box in both cells.",
             "No zoom, no tighter crop, no wider crop, no resizing, no rotation, and no subject translation between cells.",
-            "The ONLY visual difference between the two cells is the named flip-flop micro-action described in the state directions.",
+            "The ONLY visual difference between the two cells is the named blink micro-action described in the state directions.",
             "For face-only actions, copy the entire character from the left cell into the right cell, then only redraw the tiny target facial feature.",
             "Do not change the mouth for blinks, eye glances, or eyebrow raises. Do not change eyes for mouth or eyebrow actions. Do not change eyebrows for mouth, blink, or eye-glance actions.",
             "Do not change the head outline, jaw, chin, cheeks, ears, neck, hat, hair, collar, torso, shoulders, arms, clothing, pose, mood, or silhouette unless that body part is the named target action.",
@@ -2907,18 +2907,18 @@ def _generate_one_scene(
         if scene.get("visual_mode") == "captions":
             return result
         visual_mode = str(scene.get("visual_mode") or scene.get("visual_treatment") or "full_frame")
-        treatment = visual_mode if visual_mode in {"popup_sequence", "flipflop", "comparison_board", "stat_card"} else "full_frame"
+        treatment = visual_mode if visual_mode in {"popup_sequence", "blink", "comparison_board", "stat_card"} else "full_frame"
         layers = scene.get("visual_layers", []) or []
-        if treatment not in {"popup_sequence", "flipflop", "comparison_board", "stat_card"}:
+        if treatment not in {"popup_sequence", "blink", "comparison_board", "stat_card"}:
             return result
-        if not layers and treatment != "flipflop":
+        if not layers and treatment != "blink":
             return result
         layer_dicts = [
             layer.model_dump() if hasattr(layer, "model_dump") else dict(layer)
             for layer in layers
             if isinstance(layer, dict) or hasattr(layer, "model_dump")
         ]
-        if not layer_dicts and treatment != "flipflop":
+        if not layer_dicts and treatment != "blink":
             return result
         if treatment == "popup_sequence":
             result["visual_layers"] = generate_popup_sequence_cutouts(
@@ -2939,8 +2939,8 @@ def _generate_one_scene(
                 width=width,
                 height=height,
             )
-        elif treatment == "flipflop":
-            result["visual_layers"] = generate_flipflop_cutouts(
+        elif treatment == "blink":
+            result["visual_layers"] = generate_blink_cutouts(
                 scene_id=scene["scene_id"],
                 layers=layer_dicts,
                 script_id=script_id,
@@ -3016,7 +3016,7 @@ def _generate_one_scene(
         frame_directives = scene.get("frame_directives", [])
         frame_prompts = scene.get("frame_prompts", [])
         scene_contains_person = scene.get("contains_person", False)
-        treatment = visual_mode if visual_mode in {"popup_sequence", "flipflop", "comparison_board", "stat_card"} else "full_frame"
+        treatment = visual_mode if visual_mode in {"popup_sequence", "blink", "comparison_board", "stat_card"} else "full_frame"
 
         if treatment != "full_frame":
             return with_visual_layers({

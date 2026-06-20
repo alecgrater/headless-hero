@@ -10,7 +10,7 @@ from config import DEFAULT_ACCENT_COLOR, SEGMENT_COUNT, parse_json_array_respons
 from integrations.llm_client import chat
 from models.script import LevelMeta, MainCharacter, Scene, ScriptContent, Segment
 from pipeline.fallback_observability import record_fallback
-from pipeline.flipflop_actions import has_human_flipflop_subject, normalize_production_flipflop_action
+from pipeline.blink_actions import has_human_blink_subject, normalize_production_blink_action
 from pipeline.visual_mode_policy import (
     duration_profile_for_mode,
     max_scene_seconds_for_mode,
@@ -465,31 +465,31 @@ def _audit_visual_mode_metadata(content: ScriptContent) -> dict[str, int]:
     return counts
 
 
-def _validate_flipflop_actions(content: ScriptContent, *, script_id: str | None = None) -> dict[str, int]:
+def _validate_blink_actions(content: ScriptContent, *, script_id: str | None = None) -> dict[str, int]:
     counts = {"preserved": 0, "downgraded": 0, "cleared": 0}
     for scene in content.all_scenes():
-        if scene.visual_mode != "flipflop":
-            if scene.flipflop_action:
-                scene.flipflop_action = ""
+        if scene.visual_mode != "blink":
+            if scene.blink_action:
+                scene.blink_action = ""
                 counts["cleared"] += 1
             continue
-        action = normalize_production_flipflop_action(scene.flipflop_action)
-        if action and has_human_flipflop_subject(scene.narration, scene.visual_prompt):
-            scene.flipflop_action = action
+        action = normalize_production_blink_action(scene.blink_action)
+        if action and has_human_blink_subject(scene.narration, scene.visual_prompt):
+            scene.blink_action = action
             counts["preserved"] += 1
             continue
         scene.set_visual_mode("full_frame")
         scene.visual_layers = []
-        scene.flipflop_action = ""
+        scene.blink_action = ""
         counts["downgraded"] += 1
         record_fallback(
             category="visual_mode",
-            event="flipflop_invalid_micro_action_downgraded",
-            reason="Flipflop scene missing valid human micro-action",
+            event="blink_invalid_micro_action_downgraded",
+            reason="Blink scene missing valid human micro-action",
             severity="warn",
             script_id=script_id,
             scene_id=scene.id,
-            from_value="flipflop",
+            from_value="blink",
             to_value="full_frame",
         )
     return counts
@@ -845,9 +845,9 @@ def generate_script(
 
     content.format_id = fmt.id
     content = fmt.enforce_post_processing(content, eli_enabled=eli_enabled)
-    flipflop_action_counts = _validate_flipflop_actions(content, script_id=script_id)
-    if any(flipflop_action_counts.values()):
-        logger.info("Script flipflop action validation: %s", flipflop_action_counts)
+    blink_action_counts = _validate_blink_actions(content, script_id=script_id)
+    if any(blink_action_counts.values()):
+        logger.info("Script blink action validation: %s", blink_action_counts)
     audited_modes = _audit_visual_mode_metadata(content)
     if any(audited_modes.values()):
         logger.info("Script visual metadata audit promoted modes: %s", audited_modes)
@@ -902,7 +902,7 @@ def _segment_visual_opportunities_block(segment: dict, section_upper: str) -> st
         return (
             f"VISUAL OPPORTUNITIES FOR THIS {section_upper}: none provided. "
             "Use the canonical visual-mode rules and only choose specialized modes when the narration earns them. "
-            "Earned flipflop, captions, popup_sequence, comparison_board, and stat_card opportunities are allowed, "
+            "Earned blink, captions, popup_sequence, comparison_board, and stat_card opportunities are allowed, "
             "but not required.\n\n"
         )
     return (

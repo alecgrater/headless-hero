@@ -134,7 +134,7 @@ def test_fallback_stats_endpoint_aggregates_ratio_events_beyond_recent_limit(mon
     now = datetime.now(timezone.utc)
     fallback_payload = {
         "category": "visual_mode",
-        "event": "flipflop_invalid_micro_action_downgraded",
+        "event": "blink_invalid_micro_action_downgraded",
         "reason": "missing action",
         "severity": "warn",
     }
@@ -154,7 +154,7 @@ def test_fallback_stats_endpoint_aggregates_ratio_events_beyond_recent_limit(mon
                 timestamp=now,
                 level="INFO",
                 logger_name="pipeline.visual_treatments",
-                message="[ANIMATION_TYPE] scene=s1 animation_type=flipflop layers=3 reason=Explicit human micro-action flipflop: blink.",
+                message="[ANIMATION_TYPE] scene=s1 animation_type=blink layers=3 reason=Explicit human micro-action blink: blink.",
             )
         )
         session.commit()

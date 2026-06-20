@@ -26,7 +26,7 @@ import type {
   TestLabSubtitleSummary,
   TestLabVoiceSummary,
 } from "../../types/testLab";
-import type { FlipflopAction, RendererContext, VisualLayer, VisualMode } from "../../types/script";
+import type { RendererContext, VisualLayer, VisualMode } from "../../types/script";
 import { Tooltip } from "../ui/Tooltip";
 
 type StageKey = keyof TestLabStages;
@@ -138,8 +138,8 @@ const VISUAL_MODE_OPTIONS: Array<{
     bestFor: "Object callouts, named lists, and quick step-by-step explanations.",
   },
   {
-    value: "flipflop",
-    label: "Flip-flop",
+    value: "blink",
+    label: "Blink",
     icon: <Repeat2 className="h-4 w-4" />,
     summary: "A face cutout gets renderer-owned toggles.",
     description: "Generates one neutral transparent cutout and stages deterministic face overlays over renderer-owned scene context.",
@@ -171,17 +171,6 @@ const VISUAL_MODE_OPTIONS: Array<{
   },
 ];
 
-const FLIPFLOP_ACTION_OPTIONS: Array<{ value: FlipflopAction; label: string }> = [
-  { value: "blink", label: "Blink" },
-  { value: "speaking_mouth", label: "Speaking mouth" },
-  { value: "eye_glance", label: "Eye glance" },
-  { value: "eyebrow_raise", label: "Eyebrow raise" },
-];
-
-const isSupportedFlipflopAction = (value: string | undefined): value is FlipflopAction => (
-  FLIPFLOP_ACTION_OPTIONS.some((option) => option.value === value)
-);
-
 const RENDERER_CONTEXT_OPTIONS: Array<{ value: RendererContext; label: string }> = [
   { value: "plain", label: "Plain" },
   { value: "desk", label: "Desk" },
@@ -207,14 +196,6 @@ export default function TestLabControls({
   const narration = settings.narration ?? preset?.narration ?? "";
   const visualPrompt = settings.visual_prompt ?? preset?.visual_prompt ?? "";
   const visualMode = settings.visual_mode;
-  const [lastFlipflopAction, setLastFlipflopAction] = useState<FlipflopAction>(
-    isSupportedFlipflopAction(settings.flipflop_action) ? settings.flipflop_action : "blink",
-  );
-  useEffect(() => {
-    if (isSupportedFlipflopAction(settings.flipflop_action)) {
-      setLastFlipflopAction(settings.flipflop_action);
-    }
-  }, [settings.flipflop_action]);
   const derivedCaptionText = captionTextFromNarration(narration);
   const captionText =
     validCaptionTextOrUndefined(settings.caption_text, derivedCaptionText) ??
@@ -264,14 +245,11 @@ export default function TestLabControls({
   function updateVisualMode(nextMode: VisualMode) {
     const nextLayered = isLayeredVisualMode(nextMode);
     const shouldPreserveLayers = nextLayered && nextMode === visualMode;
-    const nextFlipflopAction = isSupportedFlipflopAction(settings.flipflop_action)
-      ? settings.flipflop_action
-      : lastFlipflopAction;
     onChange(settingsWithVisualTreatmentDefaults(
       {
         ...settings,
         visual_mode: nextMode,
-        flipflop_action: nextMode === "flipflop" ? nextFlipflopAction : "",
+        blink_action: nextMode === "blink" ? "blink" : "",
         visual_layers: shouldPreserveLayers ? settings.visual_layers : defaultLayersForMode(nextMode, visualPrompt, narration),
         frame_directives: usesFrameDirectives(nextMode)
           ? defaultFrameDirectivesForMode(nextMode, visualPrompt)
@@ -326,7 +304,6 @@ export default function TestLabControls({
             captionEmphasis={captionEmphasis}
             statValue={statValue}
             statLabel={statLabel}
-            flipflopAction={settings.flipflop_action || "blink"}
             rendererContext={settings.renderer_context || "plain"}
             frameDirectives={settings.frame_directives ?? []}
             visualLayers={settings.visual_layers}
@@ -336,7 +313,6 @@ export default function TestLabControls({
             onCaptionEmphasisChange={(value) => update({ caption_emphasis: value })}
             onStatValueChange={(value) => update({ stat_value: value })}
             onStatLabelChange={(value) => update({ stat_label: value })}
-            onFlipflopActionChange={(flipflop_action) => update({ flipflop_action })}
             onRendererContextChange={(renderer_context) => update({ renderer_context })}
             onFrameDirectivesChange={(frame_directives) => update({ frame_directives })}
             onVisualLayersChange={(visual_layers) => update({ visual_layers })}
@@ -478,7 +454,6 @@ function SceneTextFields({
   captionEmphasis,
   statValue,
   statLabel,
-  flipflopAction,
   rendererContext,
   frameDirectives,
   visualLayers,
@@ -488,7 +463,6 @@ function SceneTextFields({
   onCaptionEmphasisChange,
   onStatValueChange,
   onStatLabelChange,
-  onFlipflopActionChange,
   onRendererContextChange,
   onFrameDirectivesChange,
   onVisualLayersChange,
@@ -500,7 +474,6 @@ function SceneTextFields({
   captionEmphasis: string;
   statValue: string;
   statLabel: string;
-  flipflopAction: FlipflopAction | "";
   rendererContext: RendererContext;
   frameDirectives: Array<Record<string, unknown>>;
   visualLayers: VisualLayer[];
@@ -510,7 +483,6 @@ function SceneTextFields({
   onCaptionEmphasisChange: (value: string) => void;
   onStatValueChange: (value: string) => void;
   onStatLabelChange: (value: string) => void;
-  onFlipflopActionChange: (value: FlipflopAction) => void;
   onRendererContextChange: (value: RendererContext) => void;
   onFrameDirectivesChange: (value: Array<Record<string, unknown>>) => void;
   onVisualLayersChange: (value: VisualLayer[]) => void;
@@ -540,22 +512,11 @@ function SceneTextFields({
           onChange={onFrameDirectivesChange}
         />
       )}
-      {visualMode === "flipflop" && (
+      {visualMode === "blink" && (
         <div className="space-y-1">
-          <label className="block">
-            <span className="text-xs font-medium text-neutral-300">Flip-flop action</span>
-            <select
-              value={isSupportedFlipflopAction(flipflopAction) ? flipflopAction : "blink"}
-              onChange={(event) => onFlipflopActionChange(event.target.value as FlipflopAction)}
-              className="mt-2 w-full rounded-md border border-neutral-800 bg-neutral-950/80 px-3 py-2 text-sm text-neutral-100 outline-none transition-colors hover:border-neutral-700 focus:border-violet-500"
-            >
-              {FLIPFLOP_ACTION_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <p className="rounded-md border border-neutral-800 bg-neutral-950/60 px-3 py-2 text-xs leading-5 text-neutral-400">
+            Blink mode always uses the renderer-owned blink action.
+          </p>
           <label className="block">
             <span className="text-xs font-medium text-neutral-300">Scene context</span>
             <select
@@ -572,7 +533,7 @@ function SceneTextFields({
             </select>
           </label>
           <p className="text-xs text-neutral-500">
-            Test Lab uses the four renderer-supported face actions so the output visibly toggles instead of falling back to a static cutout.
+            Test Lab uses a locked base cutout and renderer-owned eyelid overlays so the output visibly blinks instead of falling back to a static cutout.
           </p>
         </div>
       )}
@@ -1106,7 +1067,7 @@ function getDisplayedCharacterSource(settings: TestLabSettings, defaultMainChara
 }
 
 function isLayeredVisualMode(mode: VisualMode): boolean {
-  return mode === "popup_sequence" || mode === "flipflop" || mode === "comparison_board" || mode === "stat_card";
+  return mode === "popup_sequence" || mode === "blink" || mode === "comparison_board" || mode === "stat_card";
 }
 
 function usesFrameDirectives(mode: VisualMode): boolean {
@@ -1139,7 +1100,7 @@ function defaultLayersForMode(mode: VisualMode, visualPrompt: string, narration:
   if (!isLayeredVisualMode(mode)) return [];
   if (mode === "stat_card") return [];
   const basePrompt = visualPrompt || narration;
-  if (mode === "flipflop") {
+  if (mode === "blink") {
     return [];
   }
   const labels = mode === "comparison_board" ? ["Left subject", "Right subject"] : ["Popup item 1", "Popup item 2", "Popup item 3"];

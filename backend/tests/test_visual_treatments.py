@@ -17,7 +17,7 @@ from pipeline.visual_treatments import (
     VisualTreatmentAssignment,
     analyze_visual_treatments,
     apply_visual_treatment_assignments,
-    flipflop_cutout_prompt,
+    blink_cutout_prompt,
     require_visual_treatment_voiceover,
 )
 
@@ -138,10 +138,10 @@ def test_update_visual_treatment_request_normalizes_legacy_treatment():
 
     request = UpdateVisualTreatmentRequest.model_validate({
         "scene_id": "scene_001",
-        "visual_treatment": "flipflop",
+        "visual_treatment": "blink",
     })
 
-    assert request.visual_mode == "flipflop"
+    assert request.visual_mode == "blink"
 
 
 def test_visual_treatment_assignment_preserves_video_visual_mode():
@@ -292,7 +292,7 @@ def _stub_generate_image_file(monkeypatch, image_gen_mod, captured):
     monkeypatch.setattr(image_gen_mod, "generate_image", fake_generate_image)
 
 
-def test_flipflop_overlay_anchor_metadata_uses_actual_cutout_features():
+def test_blink_overlay_anchor_metadata_uses_actual_cutout_features():
     from pipeline import image_gen as image_gen_mod
 
     image = Image.new("RGBA", (760, 820), (0, 0, 0, 0))
@@ -302,7 +302,7 @@ def test_flipflop_overlay_anchor_metadata_uses_actual_cutout_features():
     draw.ellipse((445, 365, 490, 395), fill=(10, 10, 10, 255))
     draw.rounded_rectangle((365, 520, 420, 528), radius=3, fill=(10, 10, 10, 255))
 
-    metadata = image_gen_mod._flipflop_overlay_anchor_metadata(image)
+    metadata = image_gen_mod._blink_overlay_anchor_metadata(image)
 
     assert metadata["coordinate_space"] == "normalized_layer_frame"
     assert metadata["skin_fill"] == "#f0c396"
@@ -314,7 +314,7 @@ def test_flipflop_overlay_anchor_metadata_uses_actual_cutout_features():
     assert metadata["mouth"]["y"] == pytest.approx(0.639, abs=0.02)
 
 
-def test_flipflop_overlay_anchor_metadata_includes_under_eye_wrinkles_in_erase_box():
+def test_blink_overlay_anchor_metadata_includes_under_eye_wrinkles_in_erase_box():
     from pipeline import image_gen as image_gen_mod
 
     image = Image.new("RGBA", (760, 820), (0, 0, 0, 0))
@@ -326,7 +326,7 @@ def test_flipflop_overlay_anchor_metadata_includes_under_eye_wrinkles_in_erase_b
     draw.line((448, 425, 488, 418), fill=(35, 28, 22, 255), width=4)
     draw.rounded_rectangle((365, 520, 420, 528), radius=3, fill=(10, 10, 10, 255))
 
-    metadata = image_gen_mod._flipflop_overlay_anchor_metadata(image)
+    metadata = image_gen_mod._blink_overlay_anchor_metadata(image)
 
     assert metadata["eye_left"]["erase_box"]["bottom"] == pytest.approx(0.522, abs=0.02)
     assert metadata["eye_left"]["erase_box"]["top"] == pytest.approx(0.445, abs=0.02)
@@ -334,7 +334,7 @@ def test_flipflop_overlay_anchor_metadata_includes_under_eye_wrinkles_in_erase_b
     assert metadata["eye_right"]["erase_box"]["top"] == pytest.approx(0.445, abs=0.02)
 
 
-def test_flipflop_overlay_anchor_metadata_includes_upper_eyelid_lines():
+def test_blink_overlay_anchor_metadata_includes_upper_eyelid_lines():
     from pipeline import image_gen as image_gen_mod
 
     image = Image.new("RGBA", (760, 820), (0, 0, 0, 0))
@@ -348,7 +348,7 @@ def test_flipflop_overlay_anchor_metadata_includes_upper_eyelid_lines():
     draw.line((448, 425, 488, 418), fill=(35, 28, 22, 255), width=4)
     draw.rounded_rectangle((365, 520, 420, 528), radius=3, fill=(10, 10, 10, 255))
 
-    metadata = image_gen_mod._flipflop_overlay_anchor_metadata(image)
+    metadata = image_gen_mod._blink_overlay_anchor_metadata(image)
 
     assert metadata["eye_left"]["erase_box"]["top"] < 0.415
     assert metadata["eye_left"]["erase_box"]["bottom"] == pytest.approx(0.522, abs=0.02)
@@ -356,7 +356,7 @@ def test_flipflop_overlay_anchor_metadata_includes_upper_eyelid_lines():
     assert metadata["eye_right"]["erase_box"]["bottom"] == pytest.approx(0.522, abs=0.02)
 
 
-def test_flipflop_overlay_anchor_metadata_expands_eye_erase_box_to_visible_sclera():
+def test_blink_overlay_anchor_metadata_expands_eye_erase_box_to_visible_sclera():
     from pipeline import image_gen as image_gen_mod
 
     image = Image.new("RGBA", (760, 820), (0, 0, 0, 0))
@@ -370,7 +370,7 @@ def test_flipflop_overlay_anchor_metadata_expands_eye_erase_box_to_visible_scler
     draw.ellipse((464, 382, 483, 418), fill=(10, 10, 10, 255))
     draw.rounded_rectangle((365, 520, 420, 528), radius=3, fill=(10, 10, 10, 255))
 
-    metadata = image_gen_mod._flipflop_overlay_anchor_metadata(image)
+    metadata = image_gen_mod._blink_overlay_anchor_metadata(image)
 
     assert metadata["eye_left"]["erase_box"]["top"] == pytest.approx(0.445, abs=0.02)
     assert metadata["eye_left"]["erase_box"]["bottom"] == pytest.approx(0.512, abs=0.02)
@@ -378,7 +378,7 @@ def test_flipflop_overlay_anchor_metadata_expands_eye_erase_box_to_visible_scler
     assert metadata["eye_right"]["erase_box"]["bottom"] == pytest.approx(0.512, abs=0.02)
 
 
-def test_flipflop_overlay_anchor_metadata_samples_eye_skin_gradient():
+def test_blink_overlay_anchor_metadata_samples_eye_skin_gradient():
     from pipeline import image_gen as image_gen_mod
 
     image = Image.new("RGBA", (760, 820), (0, 0, 0, 0))
@@ -394,7 +394,7 @@ def test_flipflop_overlay_anchor_metadata_samples_eye_skin_gradient():
     draw.ellipse((464, 382, 483, 418), fill=(10, 10, 10, 255))
     draw.rounded_rectangle((365, 520, 420, 528), radius=3, fill=(10, 10, 10, 255))
 
-    metadata = image_gen_mod._flipflop_overlay_anchor_metadata(image)
+    metadata = image_gen_mod._blink_overlay_anchor_metadata(image)
 
     assert metadata["eye_left"]["fill_top"] == "#f5b97d"
     assert metadata["eye_left"]["fill_bottom"] == "#c3784b"
@@ -402,7 +402,7 @@ def test_flipflop_overlay_anchor_metadata_samples_eye_skin_gradient():
     assert metadata["eye_right"]["fill_bottom"] == "#c3784b"
 
 
-def test_flipflop_overlay_anchor_metadata_samples_eye_skin_gradient_horizontally():
+def test_blink_overlay_anchor_metadata_samples_eye_skin_gradient_horizontally():
     from pipeline import image_gen as image_gen_mod
 
     image = Image.new("RGBA", (760, 820), (0, 0, 0, 0))
@@ -418,7 +418,7 @@ def test_flipflop_overlay_anchor_metadata_samples_eye_skin_gradient_horizontally
     draw.ellipse((464, 382, 483, 418), fill=(10, 10, 10, 255))
     draw.rounded_rectangle((365, 520, 420, 528), radius=3, fill=(10, 10, 10, 255))
 
-    metadata = image_gen_mod._flipflop_overlay_anchor_metadata(image)
+    metadata = image_gen_mod._blink_overlay_anchor_metadata(image)
 
     assert metadata["eye_left"]["fill_left"] == "#f5b97d"
     assert metadata["eye_left"]["fill_right"] == "#c3784b"
@@ -426,7 +426,7 @@ def test_flipflop_overlay_anchor_metadata_samples_eye_skin_gradient_horizontally
     assert metadata["eye_right"]["fill_right"] == "#c3784b"
 
 
-def test_flipflop_overlay_anchor_metadata_ignores_brows_above_eyes():
+def test_blink_overlay_anchor_metadata_ignores_brows_above_eyes():
     from pipeline import image_gen as image_gen_mod
 
     image = Image.new("RGBA", (760, 820), (0, 0, 0, 0))
@@ -438,13 +438,13 @@ def test_flipflop_overlay_anchor_metadata_ignores_brows_above_eyes():
     draw.rounded_rectangle((445, 365, 485, 392), radius=10, fill=(10, 10, 10, 255))
     draw.rounded_rectangle((365, 520, 420, 528), radius=3, fill=(10, 10, 10, 255))
 
-    metadata = image_gen_mod._flipflop_overlay_anchor_metadata(image)
+    metadata = image_gen_mod._blink_overlay_anchor_metadata(image)
 
     assert metadata["eye_left"]["y"] == pytest.approx(0.462, abs=0.02)
     assert metadata["eye_right"]["y"] == pytest.approx(0.462, abs=0.02)
 
 
-def test_flipflop_overlay_anchor_metadata_handles_half_lidded_cartoon_face():
+def test_blink_overlay_anchor_metadata_handles_half_lidded_cartoon_face():
     from pipeline import image_gen as image_gen_mod
 
     image = Image.new("RGBA", (760, 820), (0, 0, 0, 0))
@@ -458,13 +458,13 @@ def test_flipflop_overlay_anchor_metadata_handles_half_lidded_cartoon_face():
     draw.ellipse((462, 392, 482, 432), fill=(10, 10, 10, 255))
     draw.rounded_rectangle((365, 540, 420, 548), radius=3, fill=(10, 10, 10, 255))
 
-    metadata = image_gen_mod._flipflop_overlay_anchor_metadata(image)
+    metadata = image_gen_mod._blink_overlay_anchor_metadata(image)
 
     assert metadata["eye_left"]["y"] == pytest.approx(0.505, abs=0.03)
     assert metadata["eye_right"]["y"] == pytest.approx(0.505, abs=0.03)
 
 
-def test_flipflop_overlay_anchor_metadata_handles_full_body_cutout_with_high_face():
+def test_blink_overlay_anchor_metadata_handles_full_body_cutout_with_high_face():
     from pipeline import image_gen as image_gen_mod
 
     image = Image.new("RGBA", (310, 692), (0, 0, 0, 0))
@@ -478,7 +478,7 @@ def test_flipflop_overlay_anchor_metadata_handles_full_body_cutout_with_high_fac
     draw.rectangle((115, 505, 143, 650), fill=(45, 45, 50, 255))
     draw.rectangle((172, 505, 200, 650), fill=(45, 45, 50, 255))
 
-    metadata = image_gen_mod._flipflop_overlay_anchor_metadata(image, require_detected=True)
+    metadata = image_gen_mod._blink_overlay_anchor_metadata(image, require_detected=True)
 
     assert metadata["eye_left"]["x"] == pytest.approx(0.452, abs=0.03)
     assert metadata["eye_left"]["y"] == pytest.approx(0.296, abs=0.03)
@@ -488,7 +488,7 @@ def test_flipflop_overlay_anchor_metadata_handles_full_body_cutout_with_high_fac
     assert metadata["mouth"]["y"] == pytest.approx(0.381, abs=0.03)
 
 
-def test_flipflop_overlay_anchor_metadata_erases_detached_brows_on_full_body_cutout():
+def test_blink_overlay_anchor_metadata_erases_detached_brows_on_full_body_cutout():
     from pipeline import image_gen as image_gen_mod
 
     image = Image.new("RGBA", (310, 692), (0, 0, 0, 0))
@@ -504,7 +504,7 @@ def test_flipflop_overlay_anchor_metadata_erases_detached_brows_on_full_body_cut
     draw.rounded_rectangle((95, 350, 220, 505), radius=14, fill=(110, 190, 205, 255))
     draw.rounded_rectangle((175, 375, 200, 390), radius=2, fill=(10, 10, 10, 255))
 
-    metadata = image_gen_mod._flipflop_overlay_anchor_metadata(image, require_detected=True)
+    metadata = image_gen_mod._blink_overlay_anchor_metadata(image, require_detected=True)
 
     assert metadata["eye_left"]["y"] == pytest.approx(0.296, abs=0.03)
     assert metadata["eye_right"]["y"] == pytest.approx(0.296, abs=0.03)
@@ -516,7 +516,7 @@ def test_flipflop_overlay_anchor_metadata_erases_detached_brows_on_full_body_cut
     assert metadata["eye_right"]["fill_top"] == "#f0c396"
 
 
-def test_flipflop_overlay_anchor_metadata_prefers_aligned_eye_pair_over_lower_face_marks():
+def test_blink_overlay_anchor_metadata_prefers_aligned_eye_pair_over_lower_face_marks():
     from pipeline import image_gen as image_gen_mod
 
     image = Image.new("RGBA", (310, 692), (0, 0, 0, 0))
@@ -527,13 +527,13 @@ def test_flipflop_overlay_anchor_metadata_prefers_aligned_eye_pair_over_lower_fa
     draw.rounded_rectangle((168, 214, 192, 238), radius=8, fill=(10, 10, 10, 255))
     draw.rounded_rectangle((150, 260, 180, 267), radius=3, fill=(10, 10, 10, 255))
 
-    metadata = image_gen_mod._flipflop_overlay_anchor_metadata(image, require_detected=True)
+    metadata = image_gen_mod._blink_overlay_anchor_metadata(image, require_detected=True)
 
     assert metadata["eye_right"]["x"] == pytest.approx(0.580, abs=0.03)
     assert metadata["eye_right"]["y"] == pytest.approx(0.296, abs=0.03)
 
 
-def test_flipflop_overlay_anchor_metadata_handles_light_eyes_on_dark_face():
+def test_blink_overlay_anchor_metadata_handles_light_eyes_on_dark_face():
     from pipeline import image_gen as image_gen_mod
 
     image = Image.new("RGBA", (423, 727), (0, 0, 0, 0))
@@ -545,7 +545,7 @@ def test_flipflop_overlay_anchor_metadata_handles_light_eyes_on_dark_face():
     draw.rounded_rectangle((120, 365, 330, 565), radius=18, fill=(108, 128, 156, 255))
     draw.rounded_rectangle((245, 390, 275, 405), radius=2, fill=(220, 190, 90, 255))
 
-    metadata = image_gen_mod._flipflop_overlay_anchor_metadata(image, require_detected=True)
+    metadata = image_gen_mod._blink_overlay_anchor_metadata(image, require_detected=True)
 
     assert metadata["eye_left"]["y"] == pytest.approx(0.194, abs=0.03)
     assert metadata["eye_right"]["y"] == pytest.approx(0.194, abs=0.03)
@@ -553,15 +553,15 @@ def test_flipflop_overlay_anchor_metadata_handles_light_eyes_on_dark_face():
     assert metadata["eye_left"]["fill_top"] == "#2d3030"
 
 
-def test_flipflop_overlay_anchor_metadata_can_require_detected_features():
+def test_blink_overlay_anchor_metadata_can_require_detected_features():
     from pipeline import image_gen as image_gen_mod
 
     image = Image.new("RGBA", (760, 820), (0, 0, 0, 0))
     draw = ImageDraw.Draw(image)
     draw.ellipse((210, 120, 550, 650), fill=(240, 195, 150, 255))
 
-    with pytest.raises(image_gen_mod.FlipflopRegistrationError):
-        image_gen_mod._flipflop_overlay_anchor_metadata(image, require_detected=True)
+    with pytest.raises(image_gen_mod.BlinkRegistrationError):
+        image_gen_mod._blink_overlay_anchor_metadata(image, require_detected=True)
 
 
 def test_generate_visual_layer_panels_uses_composed_prompt_and_references(tmp_path, monkeypatch):
@@ -610,7 +610,7 @@ def test_generate_visual_layer_panels_uses_scene_person_fallback(tmp_path, monke
     assert captured[0]["reference_image_path"] == char_ref
 
 
-def test_generate_visual_layer_panels_expands_flipflop_micro_animation_prompts(tmp_path, monkeypatch):
+def test_generate_visual_layer_panels_expands_blink_micro_animation_prompts(tmp_path, monkeypatch):
     image_gen_mod, char_ref, _ = _stub_panel_image_context(monkeypatch, tmp_path)
     captured = []
     _stub_generate_image_file(monkeypatch, image_gen_mod, captured)
@@ -634,7 +634,7 @@ def test_generate_visual_layer_panels_expands_flipflop_micro_animation_prompts(t
             },
         ],
         "script-1",
-        visual_treatment="flipflop",
+        visual_treatment="blink",
     )
 
     assert len(captured) == 2
@@ -659,7 +659,7 @@ def test_generate_visual_layer_panels_expands_flipflop_micro_animation_prompts(t
     assert layers[1]["image_url"] == "/static/projects/script-1/images/scene_001_layer_scene_001_state_b.png"
 
 
-def test_generate_visual_layer_panels_sanitizes_stale_flipflop_frame_prompts(tmp_path, monkeypatch):
+def test_generate_visual_layer_panels_sanitizes_stale_blink_frame_prompts(tmp_path, monkeypatch):
     image_gen_mod, _char_ref, _ = _stub_panel_image_context(monkeypatch, tmp_path)
     captured = []
     _stub_generate_image_file(monkeypatch, image_gen_mod, captured)
@@ -680,7 +680,7 @@ def test_generate_visual_layer_panels_sanitizes_stale_flipflop_frame_prompts(tmp
             },
         ],
         "script-1",
-        visual_treatment="flipflop",
+        visual_treatment="blink",
     )
 
     prompt = captured[0]["prompt"].lower()
@@ -899,7 +899,7 @@ def test_phase_persist_clears_popup_sequence_scene_image(monkeypatch):
         assert scene.frame_urls == []
 
 
-def test_phase_images_forces_flipflop_cutout_regeneration(monkeypatch):
+def test_phase_images_forces_blink_cutout_regeneration(monkeypatch):
     from pipeline import image_gen as image_gen_mod
     from pipeline import render_phases as render_phases_mod
     from pipeline.render_phases import ExportContext, _phase_images
@@ -909,7 +909,7 @@ def test_phase_images_forces_flipflop_cutout_regeneration(monkeypatch):
             id="scene_001",
             narration="Panel scene.",
             visual_prompt="Panel",
-            visual_treatment="flipflop",
+            visual_treatment="blink",
             contains_person=True,
             visual_layers=[
                 VisualLayer(id="state_a", asset_kind="panel", prompt="State A prompt"),
@@ -925,21 +925,21 @@ def test_phase_images_forces_flipflop_cutout_regeneration(monkeypatch):
     monkeypatch.setattr(image_gen_mod, "generate_scene_image", fail_scene_image)
 
     def fail_popup_sequence_cutouts(**_kwargs):
-        raise AssertionError("flipflop should not use popup sequence cutouts")
+        raise AssertionError("blink should not use popup sequence cutouts")
 
     def fail_visual_layer_panels(*_args, **_kwargs):
-        raise AssertionError("flipflop should generate chroma cutouts, not visual layer panels")
+        raise AssertionError("blink should generate chroma cutouts, not visual layer panels")
 
-    def fake_generate_flipflop_cutouts(**kwargs):
+    def fake_generate_blink_cutouts(**kwargs):
         captured.update(kwargs)
         return [
-            {**kwargs["layers"][0], "asset_kind": "cutout", "image_url": "/static/projects/script-1/flipflop_cutouts/scene_001/state_a.png"},
-            {**kwargs["layers"][1], "asset_kind": "cutout", "image_url": "/static/projects/script-1/flipflop_cutouts/scene_001/state_b.png"},
+            {**kwargs["layers"][0], "asset_kind": "cutout", "image_url": "/static/projects/script-1/blink_cutouts/scene_001/state_a.png"},
+            {**kwargs["layers"][1], "asset_kind": "cutout", "image_url": "/static/projects/script-1/blink_cutouts/scene_001/state_b.png"},
         ]
 
     monkeypatch.setattr(image_gen_mod, "generate_popup_sequence_cutouts", fail_popup_sequence_cutouts)
     monkeypatch.setattr(image_gen_mod, "generate_visual_layer_panels", fail_visual_layer_panels)
-    monkeypatch.setattr(image_gen_mod, "generate_flipflop_cutouts", fake_generate_flipflop_cutouts)
+    monkeypatch.setattr(image_gen_mod, "generate_blink_cutouts", fake_generate_blink_cutouts)
     ctx = ExportContext(
         script_id="script-1",
         job=RenderJob("job-1"),
@@ -976,8 +976,8 @@ def test_phase_images_forces_flipflop_cutout_regeneration(monkeypatch):
     assert ctx.scenes[0]["_frame_urls"] == []
     assert [layer["asset_kind"] for layer in ctx.scenes[0]["_visual_layers"]] == ["cutout", "cutout"]
     assert [layer["image_url"] for layer in ctx.scenes[0]["_visual_layers"]] == [
-        "/static/projects/script-1/flipflop_cutouts/scene_001/state_a.png",
-        "/static/projects/script-1/flipflop_cutouts/scene_001/state_b.png",
+        "/static/projects/script-1/blink_cutouts/scene_001/state_a.png",
+        "/static/projects/script-1/blink_cutouts/scene_001/state_b.png",
     ]
 
 
@@ -1307,33 +1307,33 @@ def test_generate_batch_captions_with_prompt_uses_single_scene_image(monkeypatch
     assert result["video_url"] == ""
 
 
-def test_generate_batch_flipflop_routes_to_cutout_assets(monkeypatch):
+def test_generate_batch_blink_routes_to_cutout_assets(monkeypatch):
     from pipeline import image_gen as image_gen_mod
 
     def fail_scene_image(*_args, **_kwargs):
-        raise AssertionError("flipflop should not generate a full scene image")
+        raise AssertionError("blink should not generate a full scene image")
 
     def fail_panel_generation(*_args, **_kwargs):
-        raise AssertionError("flipflop cutout layers should not use panel generation")
+        raise AssertionError("blink cutout layers should not use panel generation")
 
-    def fake_generate_flipflop_cutouts(**kwargs):
+    def fake_generate_blink_cutouts(**kwargs):
         assert kwargs["scene_id"] == "scene_001"
         assert kwargs["script_id"] == "script-1"
         return [
-            {**kwargs["layers"][0], "asset_kind": "cutout", "image_url": "/static/projects/script-1/flipflop_cutouts/scene_001/state_a.png"},
-            {**kwargs["layers"][1], "asset_kind": "cutout", "image_url": "/static/projects/script-1/flipflop_cutouts/scene_001/state_b.png"},
+            {**kwargs["layers"][0], "asset_kind": "cutout", "image_url": "/static/projects/script-1/blink_cutouts/scene_001/state_a.png"},
+            {**kwargs["layers"][1], "asset_kind": "cutout", "image_url": "/static/projects/script-1/blink_cutouts/scene_001/state_b.png"},
         ]
 
     monkeypatch.setattr(image_gen_mod, "generate_scene_image", fail_scene_image)
     monkeypatch.setattr(image_gen_mod, "generate_visual_layer_panels", fail_panel_generation)
-    monkeypatch.setattr(image_gen_mod, "generate_flipflop_cutouts", fake_generate_flipflop_cutouts)
+    monkeypatch.setattr(image_gen_mod, "generate_blink_cutouts", fake_generate_blink_cutouts)
 
     results = image_gen_mod.generate_batch(
         [
             {
                 "scene_id": "scene_001",
                 "visual_prompt": "A character changes expression.",
-                "visual_treatment": "flipflop",
+                "visual_treatment": "blink",
                 "visual_layers": [
                     {
                         "id": "state_a",
@@ -1359,10 +1359,10 @@ def test_generate_batch_flipflop_routes_to_cutout_assets(monkeypatch):
     assert [layer["asset_kind"] for layer in results[0]["visual_layers"]] == ["cutout", "cutout"]
 
 
-def test_generate_batch_flipflop_with_empty_layers_synthesizes_assets(monkeypatch):
+def test_generate_batch_blink_with_empty_layers_synthesizes_assets(monkeypatch):
     from pipeline import image_gen as image_gen_mod
 
-    def fake_generate_flipflop_cutouts(**kwargs):
+    def fake_generate_blink_cutouts(**kwargs):
         assert kwargs["layers"] == []
         assert kwargs["scene_narration"] == "The cashier blinks in front of the fryer."
         return [
@@ -1371,7 +1371,7 @@ def test_generate_batch_flipflop_with_empty_layers_synthesizes_assets(monkeypatc
             {"id": "scene_001_state_b", "type": "image", "asset_kind": "cutout", "image_url": "/static/b.png"},
         ]
 
-    monkeypatch.setattr(image_gen_mod, "generate_flipflop_cutouts", fake_generate_flipflop_cutouts)
+    monkeypatch.setattr(image_gen_mod, "generate_blink_cutouts", fake_generate_blink_cutouts)
 
     results = image_gen_mod.generate_batch(
         [
@@ -1379,7 +1379,7 @@ def test_generate_batch_flipflop_with_empty_layers_synthesizes_assets(monkeypatc
                 "scene_id": "scene_001",
                 "narration": "The cashier blinks in front of the fryer.",
                 "visual_prompt": "Cartoon cashier character, no props, no background elements.",
-                "visual_treatment": "flipflop",
+                "visual_treatment": "blink",
                 "visual_layers": [],
             }
         ],
@@ -1445,7 +1445,7 @@ def test_generate_batch_persists_request_visual_treatment(monkeypatch):
                     BatchScene(
                         scene_id="scene_001",
                         visual_prompt="Person changes expression.",
-                        visual_treatment="flipflop",
+                        visual_treatment="blink",
                         visual_layers=[
                             {"id": "state_a", "type": "image", "asset_kind": "panel", "prompt": "state A"},
                             {"id": "state_b", "type": "image", "asset_kind": "panel", "prompt": "state B"},
@@ -1460,7 +1460,7 @@ def test_generate_batch_persists_request_visual_treatment(monkeypatch):
         assert stored is not None
         stored_scene = ScriptContent.model_validate_json(stored.script_json).segments[0].scenes[0]
 
-    assert stored_scene.visual_treatment == "flipflop"
+    assert stored_scene.visual_treatment == "blink"
     assert stored_scene.image_url == ""
     assert stored_scene.frame_urls == []
     assert [layer.id for layer in stored_scene.visual_layers] == ["state_a", "state_b"]
@@ -1795,14 +1795,14 @@ def test_generate_visual_persists_request_visual_treatment(monkeypatch):
     monkeypatch.setattr(
         visuals_api,
         "generate_scene_image",
-        lambda **_kwargs: (_ for _ in ()).throw(AssertionError("flipflop should not generate scene images")),
+        lambda **_kwargs: (_ for _ in ()).throw(AssertionError("blink should not generate scene images")),
     )
     monkeypatch.setattr(
         visuals_api,
-        "generate_flipflop_cutouts",
+        "generate_blink_cutouts",
         lambda scene_id, layers, script_id, **_kwargs: [
-            {**layers[0], "asset_kind": "cutout", "image_url": f"/static/projects/{script_id}/flipflop_cutouts/{scene_id}/state_a.png"},
-            {**layers[1], "asset_kind": "cutout", "image_url": f"/static/projects/{script_id}/flipflop_cutouts/{scene_id}/state_b.png"},
+            {**layers[0], "asset_kind": "cutout", "image_url": f"/static/projects/{script_id}/blink_cutouts/{scene_id}/state_a.png"},
+            {**layers[1], "asset_kind": "cutout", "image_url": f"/static/projects/{script_id}/blink_cutouts/{scene_id}/state_b.png"},
         ],
     )
 
@@ -1822,7 +1822,7 @@ def test_generate_visual_persists_request_visual_treatment(monkeypatch):
                 script_id=script_id,
                 scene_id="scene_001",
                 visual_prompt="Person changes expression.",
-                visual_treatment="flipflop",
+                visual_treatment="blink",
                 visual_layers=[
                     {"id": "state_a", "type": "image", "asset_kind": "panel", "prompt": "state A"},
                     {"id": "state_b", "type": "image", "asset_kind": "panel", "prompt": "state B"},
@@ -1835,31 +1835,31 @@ def test_generate_visual_persists_request_visual_treatment(monkeypatch):
         assert stored is not None
         stored_scene = ScriptContent.model_validate_json(stored.script_json).segments[0].scenes[0]
 
-    assert stored_scene.visual_treatment == "flipflop"
+    assert stored_scene.visual_treatment == "blink"
     assert stored_scene.image_url == ""
     assert stored_scene.frame_urls == []
     assert [layer.id for layer in stored_scene.visual_layers] == ["state_a", "state_b"]
     assert [layer.asset_kind for layer in stored_scene.visual_layers] == ["cutout", "cutout"]
     assert [layer.image_url for layer in stored_scene.visual_layers] == [
-        "/static/projects/request-treatment-panels/flipflop_cutouts/scene_001/state_a.png",
-        "/static/projects/request-treatment-panels/flipflop_cutouts/scene_001/state_b.png",
+        "/static/projects/request-treatment-panels/blink_cutouts/scene_001/state_a.png",
+        "/static/projects/request-treatment-panels/blink_cutouts/scene_001/state_b.png",
     ]
 
 
-def test_generate_visual_reports_flipflop_registration_error(monkeypatch):
+def test_generate_visual_reports_blink_registration_error(monkeypatch):
     from fastapi import HTTPException
     from api import visuals as visuals_api
     from api.visuals import GenerateVisualRequest
 
     engine = _build_test_engine()
-    script_id = "flipflop-registration-error"
+    script_id = "blink-registration-error"
     content = content_with_scenes(
         Scene(
             id="scene_001",
             narration="Before and after.",
             visual_prompt="Person changes expression.",
-            visual_mode="flipflop",
-            flipflop_action="blink",
+            visual_mode="blink",
+            blink_action="blink",
             visual_layers=[
                 VisualLayer(id="state_a", asset_kind="cutout", prompt="state A"),
                 VisualLayer(id="state_b", asset_kind="cutout", prompt="state B"),
@@ -1870,10 +1870,10 @@ def test_generate_visual_reports_flipflop_registration_error(monkeypatch):
     monkeypatch.setattr(visuals_api, "_require_character_reference_ready", lambda session, script_id: None)
     monkeypatch.setattr(
         visuals_api,
-        "generate_flipflop_cutouts",
+        "generate_blink_cutouts",
         lambda **_kwargs: (_ for _ in ()).throw(
-            visuals_api.FlipflopRegistrationError(
-                "Flipflop State A/B cutouts could not be aligned: generated states differ too much in scale or aspect ratio. Regenerate the scene or use full_frame."
+            visuals_api.BlinkRegistrationError(
+                "Blink State A/B cutouts could not be aligned: generated states differ too much in scale or aspect ratio. Regenerate the scene or use full_frame."
             )
         ),
     )
@@ -1895,7 +1895,7 @@ def test_generate_visual_reports_flipflop_registration_error(monkeypatch):
                     script_id=script_id,
                     scene_id="scene_001",
                     visual_prompt="Person changes expression.",
-                    visual_mode="flipflop",
+                    visual_mode="blink",
                 ),
                 session,
             )
@@ -1983,7 +1983,7 @@ def test_generate_visual_preserves_explicit_stat_card_and_generates_icon_layer(m
     assert stored_scene.visual_layers[0].image_url == "/static/projects/request-stat-card/stat_cards/scene_001/icon_cutout.png"
 
 
-def test_generate_visual_stat_card_mode_change_does_not_reuse_flipflop_layers(monkeypatch):
+def test_generate_visual_stat_card_mode_change_does_not_reuse_blink_layers(monkeypatch):
     from api import visuals as visuals_api
     from api.visuals import GenerateVisualRequest
 
@@ -1994,7 +1994,7 @@ def test_generate_visual_stat_card_mode_change_does_not_reuse_flipflop_layers(mo
             id="scene_001",
             narration="The number jumps to eighty percent.",
             visual_prompt="Warning icon over a bold statistic.",
-            visual_treatment="flipflop",
+            visual_treatment="blink",
             image_url="",
             visual_layers=[
                 VisualLayer(id="state_a", asset_kind="cutout", prompt="state A", image_url="/static/projects/old/state_a.png"),
@@ -2012,7 +2012,7 @@ def test_generate_visual_stat_card_mode_change_does_not_reuse_flipflop_layers(mo
     monkeypatch.setattr(
         visuals_api,
         "generate_stat_card_cutout",
-        lambda **_kwargs: (_ for _ in ()).throw(AssertionError("stat_card mode change should not reuse flipflop layers")),
+        lambda **_kwargs: (_ for _ in ()).throw(AssertionError("stat_card mode change should not reuse blink layers")),
     )
 
     with Session(engine) as session:
@@ -2407,7 +2407,7 @@ def test_generate_visual_routes_popup_sequence_to_cutout_assets(monkeypatch):
     assert layers[0]["id"] == "scene_001_anchor"
 
 
-def test_generate_visual_routes_flipflop_to_cutout_assets(monkeypatch):
+def test_generate_visual_routes_blink_to_cutout_assets(monkeypatch):
     from api import visuals as visuals_api
 
     content = content_with_scenes(
@@ -2415,7 +2415,7 @@ def test_generate_visual_routes_flipflop_to_cutout_assets(monkeypatch):
             id="scene_001",
             narration="Before and after.",
             visual_prompt="Person changes expression.",
-            visual_treatment="flipflop",
+            visual_treatment="blink",
             visual_layers=[
                 VisualLayer(id="state_a", asset_kind="cutout", prompt="state A"),
                 VisualLayer(id="state_b", asset_kind="cutout", prompt="state B"),
@@ -2426,17 +2426,17 @@ def test_generate_visual_routes_flipflop_to_cutout_assets(monkeypatch):
     captured = {}
 
     def fail_panel_generation(*_args, **_kwargs):
-        raise AssertionError("flipflop cutout layers should not use panel generation")
+        raise AssertionError("blink cutout layers should not use panel generation")
 
-    def fake_generate_flipflop_cutouts(**kwargs):
+    def fake_generate_blink_cutouts(**kwargs):
         captured.update(kwargs)
         return [
-            {**kwargs["layers"][0], "asset_kind": "cutout", "image_url": "/static/projects/script-1/flipflop_cutouts/scene_001/state_a.png"},
-            {**kwargs["layers"][1], "asset_kind": "cutout", "image_url": "/static/projects/script-1/flipflop_cutouts/scene_001/state_b.png"},
+            {**kwargs["layers"][0], "asset_kind": "cutout", "image_url": "/static/projects/script-1/blink_cutouts/scene_001/state_a.png"},
+            {**kwargs["layers"][1], "asset_kind": "cutout", "image_url": "/static/projects/script-1/blink_cutouts/scene_001/state_b.png"},
         ]
 
     monkeypatch.setattr(visuals_api, "generate_visual_layer_panels", fail_panel_generation)
-    monkeypatch.setattr(visuals_api, "generate_flipflop_cutouts", fake_generate_flipflop_cutouts)
+    monkeypatch.setattr(visuals_api, "generate_blink_cutouts", fake_generate_blink_cutouts)
 
     layers = visuals_api._generate_scene_visual_layers(
         content=content,
@@ -2450,12 +2450,12 @@ def test_generate_visual_routes_flipflop_to_cutout_assets(monkeypatch):
     assert captured["scene_prompt"] == "Person changes expression."
     assert [layer["id"] for layer in captured["layers"]] == ["state_a", "state_b"]
     assert [layer["image_url"] for layer in layers] == [
-        "/static/projects/script-1/flipflop_cutouts/scene_001/state_a.png",
-        "/static/projects/script-1/flipflop_cutouts/scene_001/state_b.png",
+        "/static/projects/script-1/blink_cutouts/scene_001/state_a.png",
+        "/static/projects/script-1/blink_cutouts/scene_001/state_b.png",
     ]
 
 
-def test_generate_visual_routes_empty_flipflop_layers_to_synthesized_assets(monkeypatch):
+def test_generate_visual_routes_empty_blink_layers_to_synthesized_assets(monkeypatch):
     from api import visuals as visuals_api
 
     content = content_with_scenes(
@@ -2463,14 +2463,14 @@ def test_generate_visual_routes_empty_flipflop_layers_to_synthesized_assets(monk
             id="scene_001",
             narration="The cashier blinks while the fryer screams behind him.",
             visual_prompt="Cartoon cashier character, no props, no background elements.",
-            visual_treatment="flipflop",
+            visual_treatment="blink",
             visual_layers=[],
         )
     )
 
     captured = {}
 
-    def fake_generate_flipflop_cutouts(**kwargs):
+    def fake_generate_blink_cutouts(**kwargs):
         captured.update(kwargs)
         return [
             {"id": "scene_001_background", "type": "image", "asset_kind": "full_frame", "image_url": "/static/bg.png"},
@@ -2478,7 +2478,7 @@ def test_generate_visual_routes_empty_flipflop_layers_to_synthesized_assets(monk
             {"id": "scene_001_state_b", "type": "image", "asset_kind": "cutout", "image_url": "/static/b.png"},
         ]
 
-    monkeypatch.setattr(visuals_api, "generate_flipflop_cutouts", fake_generate_flipflop_cutouts)
+    monkeypatch.setattr(visuals_api, "generate_blink_cutouts", fake_generate_blink_cutouts)
 
     layers = visuals_api._generate_scene_visual_layers(
         content=content,
@@ -2493,7 +2493,7 @@ def test_generate_visual_routes_empty_flipflop_layers_to_synthesized_assets(monk
     assert [layer["asset_kind"] for layer in layers] == ["full_frame", "cutout", "cutout"]
 
 
-def test_generate_flipflop_cutouts_keys_cutout_layers_and_preserves_non_images(tmp_path, monkeypatch):
+def test_generate_blink_cutouts_keys_cutout_layers_and_preserves_non_images(tmp_path, monkeypatch):
     image_gen, char_ref, style_ref = _stub_panel_image_context(monkeypatch, tmp_path)
 
     monkeypatch.setattr(image_gen, "save_vault_image", lambda **_kwargs: None)
@@ -2528,7 +2528,7 @@ def test_generate_flipflop_cutouts_keys_cutout_layers_and_preserves_non_images(t
 
     monkeypatch.setattr(image_gen, "generate_image", fake_generate_image)
 
-    layers = image_gen.generate_flipflop_cutouts(
+    layers = image_gen.generate_blink_cutouts(
         scene_id="scene_001",
         layers=[
             {"id": "state_a", "type": "image", "asset_kind": "panel", "prompt": "State A prompt", "contains_person": True},
@@ -2560,7 +2560,7 @@ def test_generate_flipflop_cutouts_keys_cutout_layers_and_preserves_non_images(t
     assert "full-bleed" not in prompt
     assert "fill the entire canvas" not in prompt
     assert "edge to edge" not in prompt
-    assert "flip-flop animation state cutouts" in prompt
+    assert "blink animation state cutouts" in prompt
     assert "chroma key background" in prompt
     assert "identical pixel footprint" in prompt
     assert "no zoom" in prompt
@@ -2568,18 +2568,18 @@ def test_generate_flipflop_cutouts_keys_cutout_layers_and_preserves_non_images(t
     assert {"id": "label_1", "type": "text", "asset_kind": "text", "text": "overlay"} in layers
     image_layers = [layer for layer in layers if layer.get("type", "image") == "image"]
     assert [layer["image_url"] for layer in image_layers] == [
-        "/static/projects/script-1/flipflop_cutouts/scene_001/state_01_scene_001_state_a.png",
-        "/static/projects/script-1/flipflop_cutouts/scene_001/state_02_scene_001_state_b.png",
+        "/static/projects/script-1/blink_cutouts/scene_001/state_01_scene_001_state_a.png",
+        "/static/projects/script-1/blink_cutouts/scene_001/state_02_scene_001_state_b.png",
     ]
     assert [layer["asset_kind"] for layer in image_layers] == ["cutout", "cutout"]
-    assert all(layer["visual_source_metadata"]["source_type"] == "flipflop_cutout" for layer in image_layers)
-    with Image.open(tmp_path / "projects" / "script-1" / "flipflop_cutouts" / "scene_001" / "state_01_scene_001_state_a.png") as cutout:
+    assert all(layer["visual_source_metadata"]["source_type"] == "blink_cutout" for layer in image_layers)
+    with Image.open(tmp_path / "projects" / "script-1" / "blink_cutouts" / "scene_001" / "state_01_scene_001_state_a.png") as cutout:
         assert cutout.mode == "RGBA"
         assert cutout.getpixel((0, 0))[3] == 0
         assert cutout.getbbox() is not None
 
 
-def test_generate_flipflop_cutouts_ignores_background_layers(tmp_path, monkeypatch):
+def test_generate_blink_cutouts_ignores_background_layers(tmp_path, monkeypatch):
     image_gen, _char_ref, style_ref = _stub_panel_image_context(monkeypatch, tmp_path)
 
     monkeypatch.setattr(image_gen, "save_vault_image", lambda **_kwargs: None)
@@ -2614,7 +2614,7 @@ def test_generate_flipflop_cutouts_ignores_background_layers(tmp_path, monkeypat
 
     monkeypatch.setattr(image_gen, "generate_image", fake_generate_image)
 
-    layers = image_gen.generate_flipflop_cutouts(
+    layers = image_gen.generate_blink_cutouts(
         scene_id="scene_001",
         layers=[
             {
@@ -2643,7 +2643,7 @@ def test_generate_flipflop_cutouts_ignores_background_layers(tmp_path, monkeypat
     assert [layer["asset_kind"] for layer in image_layers] == ["cutout", "cutout"]
 
 
-def test_generate_flipflop_cutouts_repairs_two_state_layers_without_background(tmp_path, monkeypatch):
+def test_generate_blink_cutouts_repairs_two_state_layers_without_background(tmp_path, monkeypatch):
     image_gen, _char_ref, _style_ref = _stub_panel_image_context(monkeypatch, tmp_path)
 
     monkeypatch.setattr(image_gen, "save_vault_image", lambda **_kwargs: None)
@@ -2660,7 +2660,7 @@ def test_generate_flipflop_cutouts_repairs_two_state_layers_without_background(t
 
     monkeypatch.setattr(image_gen, "generate_image", fake_generate_image)
 
-    layers = image_gen.generate_flipflop_cutouts(
+    layers = image_gen.generate_blink_cutouts(
         scene_id="scene_001",
         layers=[
             {"id": "state_a", "type": "image", "asset_kind": "cutout", "prompt": "State A prompt", "contains_person": True},
@@ -2687,7 +2687,7 @@ def test_generate_flipflop_cutouts_repairs_two_state_layers_without_background(t
     assert "two-cell contact sheet" in captured_prompts[0]
 
 
-def test_generate_flipflop_cutouts_recrops_states_to_shared_bbox(tmp_path, monkeypatch):
+def test_generate_blink_cutouts_recrops_states_to_shared_bbox(tmp_path, monkeypatch):
     image_gen, _, _ = _stub_panel_image_context(monkeypatch, tmp_path)
 
     monkeypatch.setattr(image_gen, "save_vault_image", lambda **_kwargs: None)
@@ -2709,7 +2709,7 @@ def test_generate_flipflop_cutouts_recrops_states_to_shared_bbox(tmp_path, monke
 
     monkeypatch.setattr(image_gen, "generate_image", fake_generate_image)
 
-    layers = image_gen.generate_flipflop_cutouts(
+    layers = image_gen.generate_blink_cutouts(
         scene_id="scene_001",
         layers=[
             {"id": "state_a", "type": "image", "prompt": "State A prompt", "contains_person": True},
@@ -2735,11 +2735,11 @@ def test_generate_flipflop_cutouts_recrops_states_to_shared_bbox(tmp_path, monke
     assert all("virtual_trim_box" in layer["visual_source_metadata"] for layer in image_layers)
     assert all(
         layer["visual_source_metadata"]["registration_algorithm_version"]
-        == image_gen.FLIPFLOP_CUTOUT_REGISTRATION_VERSION
+        == image_gen.BLINK_CUTOUT_REGISTRATION_VERSION
         for layer in image_layers
     )
     assert all("alpha_anchor_shift" in layer["visual_source_metadata"] for layer in image_layers)
-    output_dir = tmp_path / "projects" / "script-1" / "flipflop_cutouts" / "scene_001"
+    output_dir = tmp_path / "projects" / "script-1" / "blink_cutouts" / "scene_001"
     with Image.open(output_dir / "state_01_state_a.png") as state_a:
         state_a_size = state_a.size
         state_a_bbox = state_a.getbbox()
@@ -2752,7 +2752,7 @@ def test_generate_flipflop_cutouts_recrops_states_to_shared_bbox(tmp_path, monke
     assert (state_b_bbox[3] - state_b_bbox[1]) == (state_a_bbox[3] - state_a_bbox[1])
 
 
-def test_generate_flipflop_cutouts_keys_magenta_cells_with_contact_sheet_margins(tmp_path, monkeypatch):
+def test_generate_blink_cutouts_keys_magenta_cells_with_contact_sheet_margins(tmp_path, monkeypatch):
     image_gen, _, _ = _stub_panel_image_context(monkeypatch, tmp_path)
 
     monkeypatch.setattr(image_gen, "save_vault_image", lambda **_kwargs: None)
@@ -2778,7 +2778,7 @@ def test_generate_flipflop_cutouts_keys_magenta_cells_with_contact_sheet_margins
 
     monkeypatch.setattr(image_gen, "generate_image", fake_generate_image)
 
-    image_gen.generate_flipflop_cutouts(
+    image_gen.generate_blink_cutouts(
         scene_id="scene_001",
         layers=[
             {"id": "state_a", "type": "image", "prompt": "State A prompt", "contains_person": True},
@@ -2791,17 +2791,17 @@ def test_generate_flipflop_cutouts_keys_magenta_cells_with_contact_sheet_margins
         contains_person=True,
     )
 
-    output_dir = tmp_path / "projects" / "script-1" / "flipflop_cutouts" / "scene_001"
+    output_dir = tmp_path / "projects" / "script-1" / "blink_cutouts" / "scene_001"
     with Image.open(output_dir / "state_01_state_a.png").convert("RGBA") as state_a:
         assert state_a.getpixel((5, 5))[3] == 0
         assert bytes((244, 190, 145, 255)) in state_a.tobytes()
 
 
-def test_generate_flipflop_cutouts_errors_for_large_zoom_mismatch(tmp_path, monkeypatch):
+def test_generate_blink_cutouts_errors_for_large_zoom_mismatch(tmp_path, monkeypatch):
     image_gen, _, _ = _stub_panel_image_context(monkeypatch, tmp_path)
     from pipeline.render_jobs import UserFacingJobError
 
-    assert issubclass(image_gen.FlipflopRegistrationError, UserFacingJobError)
+    assert issubclass(image_gen.BlinkRegistrationError, UserFacingJobError)
 
     monkeypatch.setattr(image_gen, "save_vault_image", lambda **_kwargs: None)
 
@@ -2822,8 +2822,8 @@ def test_generate_flipflop_cutouts_errors_for_large_zoom_mismatch(tmp_path, monk
 
     monkeypatch.setattr(image_gen, "generate_image", fake_generate_image)
 
-    with pytest.raises(image_gen.FlipflopRegistrationError, match="could not be aligned"):
-        image_gen.generate_flipflop_cutouts(
+    with pytest.raises(image_gen.BlinkRegistrationError, match="could not be aligned"):
+        image_gen.generate_blink_cutouts(
             scene_id="scene_001",
             layers=[
                 {"id": "state_a", "type": "image", "prompt": "State A prompt", "contains_person": True},
@@ -2837,7 +2837,7 @@ def test_generate_flipflop_cutouts_errors_for_large_zoom_mismatch(tmp_path, monk
         )
 
 
-def test_generate_flipflop_cutouts_allows_small_same_height_width_drift(tmp_path, monkeypatch):
+def test_generate_blink_cutouts_allows_small_same_height_width_drift(tmp_path, monkeypatch):
     image_gen, _, _ = _stub_panel_image_context(monkeypatch, tmp_path)
 
     monkeypatch.setattr(image_gen, "save_vault_image", lambda **_kwargs: None)
@@ -2859,7 +2859,7 @@ def test_generate_flipflop_cutouts_allows_small_same_height_width_drift(tmp_path
 
     monkeypatch.setattr(image_gen, "generate_image", fake_generate_image)
 
-    layers = image_gen.generate_flipflop_cutouts(
+    layers = image_gen.generate_blink_cutouts(
         scene_id="scene_001",
         layers=[
             {"id": "state_a", "type": "image", "prompt": "State A prompt", "contains_person": True},
@@ -2875,14 +2875,14 @@ def test_generate_flipflop_cutouts_allows_small_same_height_width_drift(tmp_path
     image_layers = [layer for layer in layers if layer.get("type", "image") == "image"]
     assert image_layers[1]["visual_source_metadata"]["scale_factor"] == 0.9545
 
-    output_dir = tmp_path / "projects" / "script-1" / "flipflop_cutouts" / "scene_001"
+    output_dir = tmp_path / "projects" / "script-1" / "blink_cutouts" / "scene_001"
     with Image.open(output_dir / "state_01_state_a.png") as state_a:
         state_a_size = state_a.size
     with Image.open(output_dir / "state_02_state_b.png") as state_b:
         assert state_b.size == state_a_size
 
 
-def test_generate_flipflop_cutouts_errors_for_aspect_mismatch_above_tolerance(tmp_path, monkeypatch):
+def test_generate_blink_cutouts_errors_for_aspect_mismatch_above_tolerance(tmp_path, monkeypatch):
     image_gen, _, _ = _stub_panel_image_context(monkeypatch, tmp_path)
 
     monkeypatch.setattr(image_gen, "save_vault_image", lambda **_kwargs: None)
@@ -2904,8 +2904,8 @@ def test_generate_flipflop_cutouts_errors_for_aspect_mismatch_above_tolerance(tm
 
     monkeypatch.setattr(image_gen, "generate_image", fake_generate_image)
 
-    with pytest.raises(image_gen.FlipflopRegistrationError, match="could not be aligned"):
-        image_gen.generate_flipflop_cutouts(
+    with pytest.raises(image_gen.BlinkRegistrationError, match="could not be aligned"):
+        image_gen.generate_blink_cutouts(
             scene_id="scene_001",
             layers=[
                 {"id": "state_a", "type": "image", "prompt": "State A prompt", "contains_person": True},
@@ -2919,7 +2919,7 @@ def test_generate_flipflop_cutouts_errors_for_aspect_mismatch_above_tolerance(tm
         )
 
 
-def test_generate_flipflop_cutouts_failed_registration_does_not_cache_bad_sheet(tmp_path, monkeypatch):
+def test_generate_blink_cutouts_failed_registration_does_not_cache_bad_sheet(tmp_path, monkeypatch):
     image_gen, _, _ = _stub_panel_image_context(monkeypatch, tmp_path)
 
     monkeypatch.setattr(image_gen, "save_vault_image", lambda **_kwargs: None)
@@ -2961,21 +2961,21 @@ def test_generate_flipflop_cutouts_failed_registration_does_not_cache_bad_sheet(
         "contains_person": True,
     }
 
-    with pytest.raises(image_gen.FlipflopRegistrationError):
-        image_gen.generate_flipflop_cutouts(**kwargs)
+    with pytest.raises(image_gen.BlinkRegistrationError):
+        image_gen.generate_blink_cutouts(**kwargs)
 
-    layers = image_gen.generate_flipflop_cutouts(**kwargs)
+    layers = image_gen.generate_blink_cutouts(**kwargs)
 
     assert generated_count == 2
     image_layers = [layer for layer in layers if layer.get("type", "image") == "image"]
     assert all(
         layer["visual_source_metadata"]["registration_algorithm_version"]
-        == image_gen.FLIPFLOP_CUTOUT_REGISTRATION_VERSION
+        == image_gen.BLINK_CUTOUT_REGISTRATION_VERSION
         for layer in image_layers
     )
 
 
-def test_generate_flipflop_cutouts_shared_sheet_cache_ignores_state_cutout_mtime(tmp_path, monkeypatch):
+def test_generate_blink_cutouts_shared_sheet_cache_ignores_state_cutout_mtime(tmp_path, monkeypatch):
     image_gen, _, _ = _stub_panel_image_context(monkeypatch, tmp_path)
 
     monkeypatch.setattr(image_gen, "save_vault_image", lambda **_kwargs: None)
@@ -3013,17 +3013,17 @@ def test_generate_flipflop_cutouts_shared_sheet_cache_ignores_state_cutout_mtime
         "contains_person": True,
     }
 
-    image_gen.generate_flipflop_cutouts(**kwargs)
-    output_dir = tmp_path / "projects" / "script-1" / "flipflop_cutouts" / "scene_001"
+    image_gen.generate_blink_cutouts(**kwargs)
+    output_dir = tmp_path / "projects" / "script-1" / "blink_cutouts" / "scene_001"
     state_a_path = output_dir / "state_01_state_a.png"
     future_mtime = state_a_path.stat().st_mtime + 5
     os.utime(state_a_path, (future_mtime, future_mtime))
-    image_gen.generate_flipflop_cutouts(**kwargs)
+    image_gen.generate_blink_cutouts(**kwargs)
 
     assert generated_count == 1
 
 
-def test_generate_flipflop_cutouts_cache_tracks_registration_version(tmp_path, monkeypatch):
+def test_generate_blink_cutouts_cache_tracks_registration_version(tmp_path, monkeypatch):
     image_gen, _, _ = _stub_panel_image_context(monkeypatch, tmp_path)
 
     monkeypatch.setattr(image_gen, "save_vault_image", lambda **_kwargs: None)
@@ -3061,10 +3061,10 @@ def test_generate_flipflop_cutouts_cache_tracks_registration_version(tmp_path, m
         "contains_person": True,
     }
 
-    image_gen.generate_flipflop_cutouts(**kwargs)
-    image_gen.generate_flipflop_cutouts(**kwargs)
-    monkeypatch.setattr(image_gen, "FLIPFLOP_CUTOUT_REGISTRATION_VERSION", "alpha-mask-registration-test-v999")
-    image_gen.generate_flipflop_cutouts(**kwargs)
+    image_gen.generate_blink_cutouts(**kwargs)
+    image_gen.generate_blink_cutouts(**kwargs)
+    monkeypatch.setattr(image_gen, "BLINK_CUTOUT_REGISTRATION_VERSION", "alpha-mask-registration-test-v999")
+    image_gen.generate_blink_cutouts(**kwargs)
 
     assert generated_count == 2
 
@@ -3086,7 +3086,7 @@ def test_popup_sequence_cutout_chroma_trims_item_sheet_crop(tmp_path):
         assert cutout.getbbox() is not None
 
 
-def test_flipflop_base_cutout_is_saved_on_canonical_overlay_canvas(tmp_path):
+def test_blink_base_cutout_is_saved_on_canonical_overlay_canvas(tmp_path):
     from pipeline import image_gen
 
     image = Image.new("RGBA", (420, 520), (0, 255, 0, 255))
@@ -3098,7 +3098,7 @@ def test_flipflop_base_cutout_is_saved_on_canonical_overlay_canvas(tmp_path):
     draw.rectangle((138, 338, 282, 496), fill=(198, 91, 66, 255))
 
     output_path = tmp_path / "base.png"
-    metadata = image_gen._save_flipflop_canonical_base_cutout(image, output_path)
+    metadata = image_gen._save_blink_canonical_base_cutout(image, output_path)
 
     assert metadata["canonical_canvas"] == [760, 820]
     assert metadata["canonical_subject_box"][3] >= 754
@@ -3108,15 +3108,15 @@ def test_flipflop_base_cutout_is_saved_on_canonical_overlay_canvas(tmp_path):
         assert cutout.getpixel((0, 0))[3] == 0
 
 
-def test_flipflop_base_cutout_rejects_non_bust_framing(tmp_path):
+def test_blink_base_cutout_rejects_non_bust_framing(tmp_path):
     from pipeline import image_gen
 
     image = Image.new("RGBA", (1000, 520), (0, 255, 0, 255))
     draw = ImageDraw.Draw(image)
     draw.rectangle((20, 380, 980, 500), fill=(198, 91, 66, 255))
 
-    with pytest.raises(image_gen.FlipflopRegistrationError, match="centered chest-up bust"):
-        image_gen._save_flipflop_canonical_base_cutout(image, tmp_path / "base.png")
+    with pytest.raises(image_gen.BlinkRegistrationError, match="centered chest-up bust"):
+        image_gen._save_blink_canonical_base_cutout(image, tmp_path / "base.png")
 
 
 def test_popup_sequence_anchor_prompt_requests_standing_character_without_popup_items():
@@ -3412,7 +3412,7 @@ def test_analyze_visual_treatments_times_list_item_after_lead_in():
     assert [layer.enter_at_seconds for layer in assignment.visual_layers] == [1.05, 2.45, 3.5]
 
 
-def test_analyze_visual_treatments_does_not_assign_flipflop_for_generic_contrast():
+def test_analyze_visual_treatments_does_not_assign_blink_for_generic_contrast():
     scene = scene_with_words("s1", "At first the room is calm, but then everything becomes chaos.")
     content = content_with_scenes(scene)
 
@@ -3441,7 +3441,7 @@ def test_analyze_visual_treatments_assigns_three_column_comparison_board():
     assert [layer.label for layer in assignment.visual_layers] == ["myth", "reality", "outcome"]
 
 
-def test_analyze_visual_treatments_does_not_assign_flipflop_for_same_subject_micro_action():
+def test_analyze_visual_treatments_does_not_assign_blink_for_same_subject_micro_action():
     scene = scene_with_words("s1", "He speaks while holding the microphone.")
     scene.visual_prompt = "[REACTION] Cartoon man holding a microphone while talking."
     content = content_with_scenes(scene)
@@ -3450,71 +3450,71 @@ def test_analyze_visual_treatments_does_not_assign_flipflop_for_same_subject_mic
 
     assignment = assignments[0]
     assert assignment.scene_id == "s1"
-    assert assignment.visual_mode != "flipflop"
-    assert scene.flipflop_action == ""
+    assert assignment.visual_mode != "blink"
+    assert scene.blink_action == ""
 
 
-def test_analyze_visual_treatments_downgrades_explicit_pose_changing_flipflop_action():
+def test_analyze_visual_treatments_downgrades_explicit_pose_changing_blink_action():
     scene = scene_with_words("s1", "He nods before answering.")
     scene.visual_prompt = "[REACTION] Cartoon man at a desk before answering."
-    scene.set_visual_mode("flipflop")
-    scene.flipflop_action = "head_nod"
+    scene.set_visual_mode("blink")
+    scene.blink_action = "walking"
     content = content_with_scenes(scene)
 
     assignments = analyze_visual_treatments(content, script_id="script-pose-action")
 
     assert assignments[0].visual_mode == "full_frame"
     assert assignments[0].visual_layers == []
-    assert scene.flipflop_action == ""
+    assert scene.blink_action == ""
 
 
-def test_analyze_visual_treatments_does_not_infer_pose_changing_flipflop_action():
+def test_analyze_visual_treatments_does_not_infer_pose_changing_blink_action():
     scene = scene_with_words("s1", "He nods before answering.")
     scene.visual_prompt = "[REACTION] Cartoon man at a desk before answering."
     content = content_with_scenes(scene)
 
     assignments = analyze_visual_treatments(content, script_id="script-inferred-pose-action")
 
-    assert assignments[0].visual_mode != "flipflop"
-    assert scene.flipflop_action == ""
+    assert assignments[0].visual_mode != "blink"
+    assert scene.blink_action == ""
 
 
-def test_explicit_flipflop_layers_use_renderer_context_without_background():
+def test_explicit_blink_layers_use_renderer_context_without_background():
     scene = scene_with_words("s1", "He blinks while the kitchen noise keeps going.")
     scene.visual_prompt = "Young fast-food employee in a red polo, fast-food kitchen context."
-    scene.set_visual_mode("flipflop")
-    scene.flipflop_action = "blink"
+    scene.set_visual_mode("blink")
+    scene.blink_action = "blink"
     content = content_with_scenes(scene)
 
-    assignments = analyze_visual_treatments(content, script_id="script-flipflop-context")
+    assignments = analyze_visual_treatments(content, script_id="script-blink-context")
 
     assert assignments[0].visual_mode == "full_frame"
     assert assignments[0].visual_layers == []
-    assert content.segments[0].scenes[0].flipflop_action == ""
+    assert content.segments[0].scenes[0].blink_action == ""
 
 
-def test_explicit_flipflop_replaces_legacy_panel_layers_with_cutouts():
+def test_explicit_blink_replaces_legacy_panel_layers_with_cutouts():
     scene = scene_with_words("s1", "His hands open and close while he talks.")
     scene.visual_prompt = "[REACTION] Cartoon man speaking with expressive hands."
-    scene.set_visual_mode("flipflop")
-    scene.flipflop_action = "speaking_mouth"
+    scene.set_visual_mode("blink")
+    scene.blink_action = "talking"
     scene.visual_layers = [
         VisualLayer(id="old_a", asset_kind="panel", prompt="Old full frame A"),
         VisualLayer(id="old_b", asset_kind="panel", prompt="Old full frame B"),
     ]
     content = content_with_scenes(scene)
 
-    assignments = analyze_visual_treatments(content, script_id="script-legacy-flipflop")
+    assignments = analyze_visual_treatments(content, script_id="script-legacy-blink")
 
     assignment = assignments[0]
     assert assignment.visual_mode == "full_frame"
     assert assignment.visual_layers == []
-    assert scene.flipflop_action == ""
+    assert scene.blink_action == ""
 
 
-def test_explicit_flipflop_missing_action_downgrades_to_full_frame():
+def test_explicit_blink_missing_action_downgrades_to_full_frame():
     scene = scene_with_words("s1", "He blinks before answering.")
-    scene.set_visual_mode("flipflop")
+    scene.set_visual_mode("blink")
     content = content_with_scenes(scene)
 
     assignments = analyze_visual_treatments(content, script_id="script-missing-action")
@@ -3523,10 +3523,10 @@ def test_explicit_flipflop_missing_action_downgrades_to_full_frame():
     assert assignments[0].visual_layers == []
 
 
-def test_explicit_flipflop_non_human_downgrades_to_full_frame():
+def test_explicit_blink_non_human_downgrades_to_full_frame():
     scene = scene_with_words("s1", "The clock ticks once on the wall.")
-    scene.set_visual_mode("flipflop")
-    scene.flipflop_action = "blink"
+    scene.set_visual_mode("blink")
+    scene.blink_action = "blink"
     content = content_with_scenes(scene)
 
     assignments = analyze_visual_treatments(content, script_id="script-non-human")
@@ -3535,11 +3535,11 @@ def test_explicit_flipflop_non_human_downgrades_to_full_frame():
     assert assignments[0].visual_layers == []
 
 
-def test_explicit_flipflop_face_action_downgrades_while_production_is_disabled():
+def test_explicit_blink_face_action_downgrades_while_production_is_disabled():
     scene = scene_with_words("s1", "He blinks before answering.")
     scene.visual_prompt = "[CLOSE-UP] Cartoon man at a desk before answering."
-    scene.set_visual_mode("flipflop")
-    scene.flipflop_action = "blink"
+    scene.set_visual_mode("blink")
+    scene.blink_action = "blink"
     content = content_with_scenes(scene)
 
     assignments = analyze_visual_treatments(content, script_id="script-blink")
@@ -3547,14 +3547,14 @@ def test_explicit_flipflop_face_action_downgrades_while_production_is_disabled()
     assignment = assignments[0]
     assert assignment.visual_mode == "full_frame"
     assert assignment.visual_layers == []
-    assert scene.flipflop_action == ""
+    assert scene.blink_action == ""
 
 
-def test_explicit_flipflop_face_action_clears_existing_generic_cutout_prompts():
+def test_explicit_blink_face_action_clears_existing_generic_cutout_prompts():
     scene = scene_with_words("s1", "He blinks before answering.")
     scene.visual_prompt = "A human narrator blinks before answering."
-    scene.set_visual_mode("flipflop")
-    scene.flipflop_action = "blink"
+    scene.set_visual_mode("blink")
+    scene.blink_action = "blink"
     scene.visual_layers = [
         VisualLayer(id="old_a", asset_kind="cutout", prompt="Generic A"),
         VisualLayer(id="old_b", asset_kind="cutout", prompt="Generic B"),
@@ -3566,10 +3566,10 @@ def test_explicit_flipflop_face_action_clears_existing_generic_cutout_prompts():
     assignment = assignments[0]
     assert assignment.visual_mode == "full_frame"
     assert assignment.visual_layers == []
-    assert scene.flipflop_action == ""
+    assert scene.blink_action == ""
 
 
-def test_inferred_flipflop_sets_action():
+def test_inferred_blink_sets_action():
     scene = scene_with_words("s1", "He blinks while explaining.")
     scene.visual_prompt = "[CLOSE-UP] Cartoon man explaining at a desk."
     content = content_with_scenes(scene)
@@ -3577,8 +3577,8 @@ def test_inferred_flipflop_sets_action():
     assignments = analyze_visual_treatments(content, script_id="script-inferred-blink")
 
     assignment = assignments[0]
-    assert assignment.visual_mode != "flipflop"
-    assert scene.flipflop_action == ""
+    assert assignment.visual_mode != "blink"
+    assert scene.blink_action == ""
 
 
 def test_analyze_visual_treatments_preserves_explicit_popup_sequence_with_progression_words():
@@ -3610,9 +3610,9 @@ def test_analyze_visual_treatments_fills_explicit_popup_sequence_without_layers(
     assert [layer.enter_at_seconds for layer in assignment.visual_layers] == [0.0, 1.75, 3.15]
 
 
-def test_analyze_visual_treatments_downgrades_explicit_flipflop_with_missing_action():
+def test_analyze_visual_treatments_downgrades_explicit_blink_with_missing_action():
     scene = scene_with_words("s1", "The crack slowly spreads across the glass.")
-    scene.set_visual_mode("flipflop")
+    scene.set_visual_mode("blink")
     content = content_with_scenes(scene)
 
     assignments = analyze_visual_treatments(content, script_id="script-flip-progress")
@@ -3623,9 +3623,9 @@ def test_analyze_visual_treatments_downgrades_explicit_flipflop_with_missing_act
     assert assignment.visual_layers == []
 
 
-def test_flipflop_cutout_prompt_detects_state_b_without_matching_state_letter():
-    state_a = flipflop_cutout_prompt("Person changes expression.", "Before and after.", "state A")
-    state_b = flipflop_cutout_prompt("Person changes expression.", "Before and after.", "state B")
+def test_blink_cutout_prompt_detects_state_b_without_matching_state_letter():
+    state_a = blink_cutout_prompt("Person changes expression.", "Before and after.", "state A")
+    state_b = blink_cutout_prompt("Person changes expression.", "Before and after.", "state B")
 
     assert "Initial pose or expression" in state_a
     assert "Next compatible pose or expression" in state_b
@@ -3658,10 +3658,10 @@ def test_analyze_visual_treatments_keeps_list_mode_with_progression_words():
     assert len(assignment.visual_layers) == 2
 
 
-def test_analyze_visual_treatments_downgrades_explicit_flipflop_with_non_human_subject():
+def test_analyze_visual_treatments_downgrades_explicit_blink_with_non_human_subject():
     scene = scene_with_words("s1", "The crack starts small, but the damage spreads across the panel.")
-    scene.set_visual_mode("flipflop")
-    scene.flipflop_action = "speaking_mouth"
+    scene.set_visual_mode("blink")
+    scene.blink_action = "talking"
     content = content_with_scenes(scene)
 
     assignments = analyze_visual_treatments(content, script_id="script-contrast-progress")
@@ -3723,7 +3723,7 @@ def test_apply_visual_treatment_assignments_updates_matching_scenes():
             ),
             VisualTreatmentAssignment(
                 scene_id="missing",
-                visual_treatment="flipflop",
+                visual_treatment="blink",
                 visual_layers=[VisualLayer(id="missing_panel")],
             ),
             VisualTreatmentAssignment(
@@ -4018,13 +4018,13 @@ def test_apply_visual_treatment_assignments_enforces_non_full_frame_spacing():
         [
             VisualTreatmentAssignment(scene_id="s1", visual_mode="popup_sequence", visual_layers=[VisualLayer(id="p1")]),
             VisualTreatmentAssignment(scene_id="s2", visual_mode="comparison_board", visual_layers=[VisualLayer(id="c1")]),
-            VisualTreatmentAssignment(scene_id="s3", visual_mode="flipflop", visual_layers=[VisualLayer(id="f1")]),
+            VisualTreatmentAssignment(scene_id="s3", visual_mode="blink", visual_layers=[VisualLayer(id="f1")]),
         ],
     )
 
     assert [scene.visual_mode for scene in content.all_scenes()] == [
         "popup_sequence",
         "full_frame",
-        "flipflop",
+        "blink",
     ]
     assert second.visual_layers == []

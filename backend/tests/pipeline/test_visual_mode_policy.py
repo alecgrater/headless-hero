@@ -66,7 +66,7 @@ def test_visual_opportunity_guidance_is_script_type_agnostic_and_pre_scene():
     assert "before final scenes are written" in text
     assert "Scene boundaries, narration length, duration estimates, and mode-specific fields" in text
     assert "full_frame remains dominant" in text
-    assert "flipflop and captions" in text
+    assert "blink and captions" in text
     assert "common expressive rhythm opportunities" in text
     assert "popup_sequence, comparison_board, and stat_card" in text
     assert "actively scan" in text
@@ -80,9 +80,9 @@ def test_visual_opportunity_guidance_is_script_type_agnostic_and_pre_scene():
     assert "not final scene quotas" in text
 
 
-def test_flipflop_policy_prefers_character_body_language():
+def test_blink_policy_prefers_character_body_language():
     text = prompt_visual_opportunity_guidance(projected_scene_count=20)
-    policy = opportunity_policy_for_mode("flipflop")
+    policy = opportunity_policy_for_mode("blink")
     avoid_text = " ".join(policy.avoid_when)
 
     assert "cropped subject" in text

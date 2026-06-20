@@ -63,7 +63,7 @@ describe("TestLabRunPanel", () => {
             run_id: "run-legacy-treatment",
             settings: {
               media_source: "ai",
-              visual_treatment: "flipflop",
+              visual_treatment: "blink",
             } as Partial<TestLabSettings>,
           },
           {
@@ -81,7 +81,7 @@ describe("TestLabRunPanel", () => {
       />,
     );
 
-    expect(screen.getByRole("button", { name: /Flipflop/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Blink/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Video/i })).toBeInTheDocument();
     expect(screen.queryByText("coffee-brain")).not.toBeInTheDocument();
   });

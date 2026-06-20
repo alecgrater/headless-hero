@@ -356,7 +356,7 @@ def _scene_to_input_props(
         "phrase_timestamps": [p.model_dump() for p in scene.phrase_timestamps] if scene.phrase_timestamps and not scene.is_title_card else None,
         "visual_beat": scene.visual_beat,
         "visual_mode": scene.visual_mode,
-        "flipflop_action": scene.flipflop_action,
+        "blink_action": scene.blink_action,
         "renderer_context": scene.renderer_context,
         "subtitle_style": subtitle_style or scene.subtitle_style,
         "caption_text": scene.caption_text,
@@ -387,7 +387,7 @@ def subtitle_render_fingerprint(content: ScriptContent) -> dict[str, Any]:
                 "id": scene.id,
                 "subtitle_style": scene.subtitle_style,
                 "visual_mode": scene.visual_mode,
-                "renderer_context": scene.renderer_context if scene.visual_mode in {"flipflop", "popup_sequence", "comparison_board", "stat_card", "captions"} else "",
+                "renderer_context": scene.renderer_context if scene.visual_mode in {"blink", "popup_sequence", "comparison_board", "stat_card", "captions"} else "",
                 "stat_value": scene.stat_value if scene.visual_mode == "stat_card" else "",
                 "stat_label": scene.stat_label if scene.visual_mode == "stat_card" else "",
                 "stat_card_icon": _stat_card_icon_fingerprint(scene),
@@ -456,7 +456,7 @@ def _subtitle_punch_score(scene: Scene) -> float:
         score += 4.0
     if word_count <= 6 and re.search(r"[!?]$", scene.narration.strip()):
         score += 2.0
-    if scene.visual_mode in {"multi_frame", "popup_sequence", "flipflop", "comparison_board", "video"}:
+    if scene.visual_mode in {"multi_frame", "popup_sequence", "blink", "comparison_board", "video"}:
         score += 1.0
     return score
 

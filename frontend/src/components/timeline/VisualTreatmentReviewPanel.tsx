@@ -30,8 +30,8 @@ export const VISUAL_MODE_LABELS: Record<VisualMode, { label: string; blurb: stri
     label: "Popup sequence",
     blurb: "Two to four small illustrated panels appear on narration beats, usually left to right.",
   },
-  flipflop: {
-    label: "Flipflop",
+  blink: {
+    label: "Blink",
     blurb: "Two transparent face-action cutouts alternate over a renderer-owned context stage.",
   },
   comparison_board: {
@@ -48,15 +48,15 @@ export const VISUAL_MODE_LABELS: Record<VisualMode, { label: string; blurb: stri
   },
 };
 
-const MODE_OPTIONS: VisualMode[] = ["full_frame", "multi_frame", "continuous", "flipflop", "captions", "popup_sequence", "comparison_board", "stat_card"];
-export const VISUAL_MODE_CATALOG_OPTIONS: VisualMode[] = ["full_frame", "multi_frame", "continuous", "flipflop", "captions", "popup_sequence", "comparison_board", "stat_card", "video"];
+const MODE_OPTIONS: VisualMode[] = ["full_frame", "multi_frame", "continuous", "blink", "captions", "popup_sequence", "comparison_board", "stat_card"];
+export const VISUAL_MODE_CATALOG_OPTIONS: VisualMode[] = ["full_frame", "multi_frame", "continuous", "blink", "captions", "popup_sequence", "comparison_board", "stat_card", "video"];
 export const EMPTY_VISUAL_MODE_COUNTS: Record<VisualMode, number> = {
   video: 0,
   full_frame: 0,
   multi_frame: 0,
   continuous: 0,
   popup_sequence: 0,
-  flipflop: 0,
+  blink: 0,
   comparison_board: 0,
   stat_card: 0,
   captions: 0,
@@ -65,8 +65,8 @@ export const EMPTY_VISUAL_MODE_COUNTS: Record<VisualMode, number> = {
 const modeForAssignment = (assignment: VisualTreatmentAssignment): VisualMode =>
   assignment.visual_mode ?? "full_frame";
 const isManualMode = (mode: VisualMode) => MODE_OPTIONS.includes(mode);
-const isLayeredMode = (mode: VisualMode): mode is Extract<VisualMode, "popup_sequence" | "flipflop" | "comparison_board" | "stat_card"> =>
-  mode === "popup_sequence" || mode === "flipflop" || mode === "comparison_board" || mode === "stat_card";
+const isLayeredMode = (mode: VisualMode): mode is Extract<VisualMode, "popup_sequence" | "blink" | "comparison_board" | "stat_card"> =>
+  mode === "popup_sequence" || mode === "blink" || mode === "comparison_board" || mode === "stat_card";
 
 export function buildVisualModeCounts(assignments: VisualTreatmentAssignment[]): Record<VisualMode, number> {
   return assignments.reduce<Record<VisualMode, number>>(
@@ -146,11 +146,11 @@ export default function VisualTreatmentReviewPanel({
           <div className="space-y-1">
             <h3 className="text-sm font-semibold text-neutral-100">Visual Mode Review</h3>
             <p className="max-w-3xl text-xs leading-5 text-neutral-400">
-              Visual mode controls the scene route, duration profile, and the assets it owns: video clip, full-frame image, popup cutouts, or flip-flop state cutouts with renderer context.
+              Visual mode controls the scene route, duration profile, and the assets it owns: video clip, full-frame image, popup cutouts, or blink state cutouts with renderer context.
             </p>
             <p className="text-xs text-neutral-500">
               {summary.video} video, {summary.full_frame} full frame, {summary.multi_frame} multi-frame,{" "}
-              {summary.continuous} continuous, {summary.popup_sequence} popup sequence, {summary.flipflop} flipflop,{" "}
+              {summary.continuous} continuous, {summary.popup_sequence} popup sequence, {summary.blink} blink,{" "}
               {summary.comparison_board} comparison board, {summary.stat_card} stat card, {summary.captions} captions
             </p>
           </div>
@@ -168,7 +168,7 @@ export default function VisualTreatmentReviewPanel({
         </div>
         {hasInvalidLayerlessTreatment && (
           <p className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
-            Prepare layers before applying popup sequence, flip-flop, or comparison board modes to scenes with no generated layers.
+            Prepare layers before applying popup sequence, blink, or comparison board modes to scenes with no generated layers.
           </p>
         )}
 
@@ -193,7 +193,7 @@ export default function VisualTreatmentReviewPanel({
                     mode === "video"
                       ? "AI video is planned before voiceover, then validated after real timing exists."
                       : !hasLayers
-                          ? "Prepare layers before choosing popup sequence, flipflop, or comparison board."
+                          ? "Prepare layers before choosing popup sequence, blink, or comparison board."
                           : undefined
                   }
                   className="w-full rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs text-neutral-200 transition-colors hover:border-neutral-600 disabled:cursor-not-allowed disabled:text-neutral-500 disabled:hover:border-neutral-700"

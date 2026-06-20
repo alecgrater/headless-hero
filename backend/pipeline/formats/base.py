@@ -16,7 +16,7 @@ FULL_VISUAL_MODE_VOCABULARY: tuple[str, ...] = (
     "multi_frame",
     "video",
     "popup_sequence",
-    "flipflop",
+    "blink",
     "comparison_board",
     "captions",
     "stat_card",

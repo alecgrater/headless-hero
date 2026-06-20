@@ -15,7 +15,7 @@ from pipeline.scriptwriter import (
     _ensure_visual_beat_directives,
     _fix_visual_monotony,
     _scene_granularity_duration,
-    _validate_flipflop_actions,
+    _validate_blink_actions,
 )
 from prompts import script as script_prompt
 from prompts.script import SCRIPT_SYSTEM as SCRIPT_SYSTEM_PROMPT
@@ -159,17 +159,17 @@ def test_script_prompt_includes_popup_sequence_mode():
     assert "pop around" in prompt_text
 
 
-def test_script_prompt_defines_flipflop_as_cutout_body_language_not_contrast():
+def test_script_prompt_defines_blink_as_cutout_body_language_not_contrast():
     prompt_text = script_prompt.SCRIPT_SYSTEM.template
 
-    assert '"flipflop"' in prompt_text
+    assert '"blink"' in prompt_text
     assert "cropped-subject" in prompt_text
     assert "Test Lab-only" in prompt_text
     assert "Do not choose this mode for production script generation yet" in prompt_text
     assert "Use another visual_mode" in prompt_text
 
 
-def test_script_prompt_requires_flipflop_action_allowlist():
+def test_script_prompt_requires_blink_action_allowlist():
     prompt_text = SCRIPT_SYSTEM_PROMPT.template
 
     assert "Experimental Test Lab-only" in prompt_text
@@ -320,57 +320,57 @@ def test_visual_mode_audit_preserves_existing_specialized_modes():
     assert popup.visual_mode == "popup_sequence"
 
 
-def test_validate_flipflop_actions_downgrades_missing_action():
+def test_validate_blink_actions_downgrades_missing_action():
     scene = Scene(
         id="s1",
         narration="He blinks once.",
         visual_prompt="[CLOSE-UP] Cartoon man at a desk.",
-        visual_mode="flipflop",
+        visual_mode="blink",
     )
     content = ScriptContent(title="Test", segments=[Segment(name="One", scenes=[scene])])
 
-    counts = _validate_flipflop_actions(content, script_id="script-1")
+    counts = _validate_blink_actions(content, script_id="script-1")
 
     assert counts["downgraded"] == 1
     assert scene.visual_mode == "full_frame"
-    assert scene.flipflop_action == ""
+    assert scene.blink_action == ""
 
 
-def test_validate_flipflop_actions_downgrades_face_action_while_production_disabled():
+def test_validate_blink_actions_downgrades_face_action_while_production_disabled():
     scene = Scene(
         id="s1",
         narration="He blinks once.",
         visual_prompt="[CLOSE-UP] Cartoon man at a desk.",
-        visual_mode="flipflop",
-        flipflop_action="blink",
+        visual_mode="blink",
+        blink_action="blink",
     )
     content = ScriptContent(title="Test", segments=[Segment(name="One", scenes=[scene])])
 
-    counts = _validate_flipflop_actions(content, script_id="script-1")
+    counts = _validate_blink_actions(content, script_id="script-1")
 
     assert counts["downgraded"] == 1
     assert scene.visual_mode == "full_frame"
-    assert scene.flipflop_action == ""
+    assert scene.blink_action == ""
 
 
-def test_validate_flipflop_actions_downgrades_pose_changing_action():
+def test_validate_blink_actions_downgrades_pose_changing_action():
     scene = Scene(
         id="s1",
         narration="He nods once.",
         visual_prompt="[CLOSE-UP] Cartoon man at a desk.",
-        visual_mode="flipflop",
-        flipflop_action="head_nod",
+        visual_mode="blink",
+        blink_action="walking",
     )
     content = ScriptContent(title="Test", segments=[Segment(name="One", scenes=[scene])])
 
-    counts = _validate_flipflop_actions(content, script_id="script-1")
+    counts = _validate_blink_actions(content, script_id="script-1")
 
     assert counts["downgraded"] == 1
     assert scene.visual_mode == "full_frame"
-    assert scene.flipflop_action == ""
+    assert scene.blink_action == ""
 
 
-def test_validate_flipflop_actions_downgrades_pronoun_object_scene(monkeypatch):
+def test_validate_blink_actions_downgrades_pronoun_object_scene(monkeypatch):
     fallback_calls = []
 
     def fake_record_fallback(**kwargs):
@@ -381,45 +381,45 @@ def test_validate_flipflop_actions_downgrades_pronoun_object_scene(monkeypatch):
         id="s1",
         narration="His bank account blinks red.",
         visual_prompt="[CLOSE-UP] A blank bank account screen on a desk.",
-        visual_mode="flipflop",
-        flipflop_action="blink",
+        visual_mode="blink",
+        blink_action="blink",
     )
     content = ScriptContent(title="Test", segments=[Segment(name="One", scenes=[scene])])
 
-    counts = _validate_flipflop_actions(content, script_id="script-1")
+    counts = _validate_blink_actions(content, script_id="script-1")
 
     assert counts["downgraded"] == 1
     assert scene.visual_mode == "full_frame"
-    assert scene.flipflop_action == ""
+    assert scene.blink_action == ""
     assert fallback_calls == [
         {
             "category": "visual_mode",
-            "event": "flipflop_invalid_micro_action_downgraded",
-            "reason": "Flipflop scene missing valid human micro-action",
+            "event": "blink_invalid_micro_action_downgraded",
+            "reason": "Blink scene missing valid human micro-action",
             "severity": "warn",
             "script_id": "script-1",
             "scene_id": "s1",
-            "from_value": "flipflop",
+            "from_value": "blink",
             "to_value": "full_frame",
         }
     ]
 
 
-def test_validate_flipflop_actions_clears_non_flipflop_action():
+def test_validate_blink_actions_clears_non_blink_action():
     scene = Scene(
         id="s1",
         narration="He blinks once.",
         visual_prompt="[CLOSE-UP] Cartoon man at a desk.",
         visual_mode="full_frame",
     )
-    object.__setattr__(scene, "flipflop_action", "blink")
+    object.__setattr__(scene, "blink_action", "blink")
     content = ScriptContent(title="Test", segments=[Segment(name="One", scenes=[scene])])
 
-    counts = _validate_flipflop_actions(content, script_id="script-1")
+    counts = _validate_blink_actions(content, script_id="script-1")
 
     assert counts["cleared"] == 1
     assert scene.visual_mode == "full_frame"
-    assert scene.flipflop_action == ""
+    assert scene.blink_action == ""
 
 
 def test_visual_mode_audit_rejects_internal_renderer_terms_in_narration():
@@ -591,7 +591,7 @@ def test_life_as_a_level_prompt_uses_full_vocabulary_without_quotas():
         "continuous",
         "multi_frame",
         "popup_sequence",
-        "flipflop",
+        "blink",
         "comparison_board",
         "captions",
         "stat_card",

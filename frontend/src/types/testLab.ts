@@ -1,4 +1,4 @@
-import type { FlipflopAction, RendererContext, SceneFX, SubtitleStyle, VisualLayer, VisualMode } from "./script";
+import type { BlinkAction, RendererContext, SceneFX, SubtitleStyle, VisualLayer, VisualMode } from "./script";
 import type { MainCharacter, ScriptCostBreakdownItem } from "../api";
 
 export interface TestLabMainCharacter extends MainCharacter {
@@ -22,7 +22,7 @@ export interface TestLabPreset {
   caption_emphasis?: string;
   stat_value?: string;
   stat_label?: string;
-  flipflop_action?: FlipflopAction | "";
+  blink_action?: BlinkAction | "";
   renderer_context?: RendererContext;
   contains_person?: boolean;
   visual_beat?: string;
@@ -89,7 +89,7 @@ export interface TestLabSettings {
   caption_emphasis?: string;
   stat_value?: string;
   stat_label?: string;
-  flipflop_action?: FlipflopAction | "";
+  blink_action?: BlinkAction | "";
   renderer_context?: RendererContext;
   contains_person?: boolean;
   visual_beat?: string;
@@ -175,9 +175,9 @@ export interface PopupCropChromaResult {
   crops: PopupCropPreviewCrop[];
 }
 
-export type FlipflopDebugAction = "blink" | "speaking_mouth" | "eye_glance" | "eyebrow_raise";
+export type BlinkDebugAction = "blink";
 
-export interface FlipflopDebugAsset {
+export interface BlinkDebugAsset {
   asset_id: string;
   asset_url: string;
   script_id: string;
@@ -187,9 +187,9 @@ export interface FlipflopDebugAsset {
   source_metadata: Record<string, unknown>;
 }
 
-export interface FlipflopDebugResult {
-  asset: FlipflopDebugAsset;
-  action: FlipflopDebugAction;
+export interface BlinkDebugResult {
+  asset: BlinkDebugAsset;
+  action: BlinkDebugAction;
   used_external_api: boolean;
   registration_algorithm_version: string;
   anchor?: Record<string, unknown> | null;
@@ -198,15 +198,15 @@ export interface FlipflopDebugResult {
   error?: string | null;
 }
 
-export interface FlipflopFixtureResult {
-  asset: FlipflopDebugAsset;
+export interface BlinkFixtureResult {
+  asset: BlinkDebugAsset;
   used_external_api: boolean;
   status: "ready";
 }
 
-export interface FlipflopFixtureRenderResult {
-  asset: FlipflopDebugAsset;
-  action: FlipflopDebugAction;
+export interface BlinkFixtureRenderResult {
+  asset: BlinkDebugAsset;
+  action: BlinkDebugAction;
   render_url: string;
   used_external_api: boolean;
 }
