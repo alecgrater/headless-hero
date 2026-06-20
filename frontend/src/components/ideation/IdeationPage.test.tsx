@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   selectStylePresetCharacter,
@@ -54,6 +54,9 @@ const charactersByPreset = {
   ],
 };
 
+let activeStylePreset = presets[0] as (typeof presets)[number] | null;
+const refreshStylePreset = vi.fn(async () => undefined);
+
 vi.mock("../../api", () => ({
   default: {
     get: vi.fn(async () => ({
@@ -79,7 +82,7 @@ vi.mock("../../api", () => ({
       default_segments: 8,
     },
   ]),
-  getActiveStylePreset: vi.fn(async () => presets[0]),
+  getActiveStylePreset: vi.fn(async () => activeStylePreset),
   listStylePresetCharacters: vi.fn(async (presetId: "preset-1" | "preset-2") => charactersByPreset[presetId]),
   listStylePresets: vi.fn(async () => presets),
   selectStylePresetCharacter: vi.fn(async (_presetId: string, characterId: string) => {
@@ -93,11 +96,16 @@ vi.mock("../../contexts/StylePresetContext", () => ({
   useStylePreset: () => ({
     activePreset: presets[0],
     loading: false,
-    refresh: vi.fn(),
+    refresh: refreshStylePreset,
   }),
 }));
 
 describe("IdeationPage", () => {
+  beforeEach(() => {
+    activeStylePreset = presets[0];
+    vi.clearAllMocks();
+  });
+
   it("shows the style preset and main character selector only when style identity is selected", async () => {
     const user = userEvent.setup();
 
@@ -126,5 +134,17 @@ describe("IdeationPage", () => {
     await user.click(screen.getByRole("radio", { name: /No global style preset/i }));
 
     expect(screen.queryByTestId("ideation-style-character-selector")).not.toBeInTheDocument();
+  });
+
+  it("persists the first saved style preset before showing it as active when no active preset exists", async () => {
+    activeStylePreset = null;
+
+    render(<IdeationPage onUseIdea={vi.fn()} />);
+
+    expect(await screen.findByText("Friendly Editorial Cartoon")).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(setActiveStylePreset).toHaveBeenCalledWith("preset-1");
+    });
   });
 });

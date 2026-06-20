@@ -47,22 +47,27 @@ export function StylePresetCharacterSelector({
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([listStylePresets(), getActiveStylePreset()])
-      .then(([presetList, active]) => {
+    (async () => {
+      try {
+        const [presetList, active] = await Promise.all([listStylePresets(), getActiveStylePreset()]);
+        const fallbackPresetId = active ? null : presetList[0]?.id ?? null;
+        if (fallbackPresetId) {
+          await setActiveStylePreset(fallbackPresetId);
+          await refresh();
+        }
         if (cancelled) return;
         setPresets(presetList);
-        setActivePresetId(active?.id ?? presetList[0]?.id ?? null);
-      })
-      .catch((err) => {
+        setActivePresetId(active?.id ?? fallbackPresetId);
+      } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : String(err));
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setLoading(false);
-      });
+      }
+    })();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [refresh]);
 
   useEffect(() => {
     let cancelled = false;
