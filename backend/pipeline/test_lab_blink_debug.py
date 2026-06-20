@@ -12,6 +12,8 @@ from pydantic import BaseModel, Field
 
 from config import DATA_DIR
 from models.script import Scene, ScriptContent, Segment, VisualCanvas, VisualLayer
+from pipeline.character_assets import process_character_asset_bundle
+from pipeline.cutout_chroma import save_keyed_trimmed_cutout
 from pipeline.image_gen import (
     BLINK_CUTOUT_REGISTRATION_VERSION,
     BlinkRegistrationError,
@@ -324,6 +326,10 @@ def _is_reusable_debug_asset(path: Path) -> bool:
     if not _is_allowed_debug_asset(relative):
         return False
     parts = relative.parts
+    if _is_character_debug_asset(relative):
+        _repair_character_debug_asset_if_possible(path, relative)
+    if relative.parts[0] == "asset-vault" and relative.parts[1] == "characters":
+        _repair_vault_character_from_matching_popup_source(path)
     if _is_character_debug_asset(relative) and not _has_opaque_blink_anchor_regions(path):
         return False
     if len(parts) == 4 and parts[1] == "popup_crops" and parts[3] == "anchor_cutout.png":
@@ -341,6 +347,62 @@ def _has_detectable_blink_anchor(path: Path) -> bool:
     except BlinkRegistrationError:
         return False
     return True
+
+
+def _repair_character_debug_asset_if_possible(path: Path, relative: Path) -> None:
+    if not (len(relative.parts) == 3 and relative.parts[1] == "character" and relative.parts[2] == "cutout.png"):
+        return
+    if _has_opaque_blink_anchor_regions(path):
+        return
+    reference_path = path.with_name("reference.png")
+    metadata_path = path.with_name("metadata.json")
+    if not reference_path.exists():
+        return
+    try:
+        process_character_asset_bundle(
+            source_path=reference_path,
+            output_dir=reference_path.parent,
+            reference_filename=reference_path.name,
+            cutout_filename=path.name,
+            metadata_filename=metadata_path.name,
+        )
+    except Exception:
+        return
+
+
+def _repair_vault_character_from_matching_popup_source(path: Path) -> None:
+    match = _matching_popup_source_for_vault_character(path)
+    if match is None:
+        return
+    source_path, anchor_path = match
+    try:
+        with Image.open(source_path) as image:
+            save_keyed_trimmed_cutout(image, path)
+        with Image.open(source_path) as image:
+            save_keyed_trimmed_cutout(image, anchor_path)
+    except Exception:
+        return
+
+
+def _matching_popup_source_for_vault_character(path: Path) -> tuple[Path, Path] | None:
+    try:
+        target_hash = _file_sha256(path)
+    except OSError:
+        return None
+    if target_hash is None:
+        return None
+    projects_dir = DATA_DIR / "projects"
+    for pattern in (
+        "test-lab-*/popup_crops/*/anchor_cutout.png",
+        "test-lab-popup-crops/*/anchor_cutout.png",
+    ):
+        for candidate in projects_dir.glob(pattern):
+            if _file_sha256(candidate) != target_hash:
+                continue
+            source_path = candidate.with_name("anchor_source.png")
+            if source_path.exists():
+                return source_path, candidate
+    return None
 
 
 def _has_opaque_blink_anchor_regions(path: Path) -> bool:

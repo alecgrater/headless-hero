@@ -994,7 +994,97 @@ def test_blink_debug_lists_asset_vault_character_cutouts(monkeypatch, tmp_path):
     assert assets[0].source_metadata["source_type"] == "character_cutout"
 
 
-def test_blink_debug_skips_character_cutouts_with_transparent_face_holes(monkeypatch, tmp_path):
+def test_blink_debug_repairs_project_character_cutouts_with_transparent_face_holes(monkeypatch, tmp_path):
+    import json
+
+    import pipeline.test_lab_blink_debug as blink_debug
+
+    monkeypatch.setattr(blink_debug, "DATA_DIR", tmp_path)
+
+    project_dir = tmp_path / "projects" / "test-lab-character-bad" / "character"
+    project_dir.mkdir(parents=True)
+
+    reference_path = project_dir / "reference.png"
+    reference = Image.new("RGB", (160, 160), (238, 236, 232))
+    pixels = reference.load()
+    for y in range(40, 121):
+        for x in range(40, 121):
+            if x in (40, 120) or y in (40, 120):
+                pixels[x, y] = (12, 12, 12)
+            else:
+                pixels[x, y] = (245, 181, 132)
+    draw = ImageDraw.Draw(reference)
+    draw.rounded_rectangle((58, 72, 70, 78), radius=2, fill=(12, 12, 12))
+    draw.rounded_rectangle((90, 72, 102, 78), radius=2, fill=(12, 12, 12))
+    draw.rounded_rectangle((74, 98, 86, 102), radius=2, fill=(12, 12, 12))
+    pixels[80, 80] = (238, 236, 232)
+    reference.save(reference_path)
+
+    broken_path = project_dir / "cutout.png"
+    broken = reference.convert("RGBA")
+    for x in range(52, 108):
+        for y in range(62, 90):
+            red, green, blue, alpha = broken.getpixel((x, y))
+            if alpha and red > 180 and green > 120 and blue > 90:
+                broken.putpixel((x, y), (red, green, blue, 0))
+    broken.save(broken_path)
+
+    assets = blink_debug.list_blink_debug_assets()
+
+    assert [asset.asset_id for asset in assets] == ["test-lab-character-bad/character/cutout.png"]
+    metadata = json.loads((project_dir / "metadata.json").read_text(encoding="utf-8"))
+    repaired_x = 80 - metadata["trim_box"][0]
+    repaired_y = 80 - metadata["trim_box"][1]
+    with Image.open(broken_path) as repaired:
+        assert repaired.getpixel((repaired_x, repaired_y))[3] == 255
+
+
+def test_blink_debug_repairs_vault_character_cutouts_from_matching_popup_source(monkeypatch, tmp_path):
+    import pipeline.test_lab_blink_debug as blink_debug
+
+    monkeypatch.setattr(blink_debug, "DATA_DIR", tmp_path)
+
+    popup_dir = tmp_path / "projects" / "test-lab-popup-source" / "popup_crops" / "scene-1"
+    vault_dir = tmp_path / "projects" / "asset-vault" / "characters"
+    popup_dir.mkdir(parents=True)
+    vault_dir.mkdir(parents=True)
+
+    source_path = popup_dir / "anchor_source.png"
+    source = Image.new("RGB", (160, 160), (140, 210, 120))
+    pixels = source.load()
+    for y in range(40, 121):
+        for x in range(40, 121):
+            if x in (40, 120) or y in (40, 120):
+                pixels[x, y] = (12, 12, 12)
+            else:
+                pixels[x, y] = (225, 225, 225)
+    draw = ImageDraw.Draw(source)
+    draw.rounded_rectangle((58, 72, 70, 78), radius=2, fill=(12, 12, 12))
+    draw.rounded_rectangle((90, 72, 102, 78), radius=2, fill=(12, 12, 12))
+    draw.rounded_rectangle((74, 98, 86, 102), radius=2, fill=(12, 12, 12))
+    pixels[80, 80] = (70, 70, 70)
+    source.save(source_path)
+
+    anchor_path = popup_dir / "anchor_cutout.png"
+    broken = source.convert("RGBA")
+    broken.putpixel((80, 80), (70, 70, 70, 0))
+    broken.save(anchor_path)
+
+    vault_path = vault_dir / "character_popup_sequence_anchor_20260620_120000_abc123.png"
+    broken.save(vault_path)
+
+    assets = blink_debug.list_blink_debug_assets()
+
+    assert [asset.asset_id for asset in assets] == [
+        "test-lab-popup-source/popup_crops/scene-1/anchor_cutout.png",
+    ]
+    with Image.open(vault_path) as repaired:
+        assert repaired.getpixel((80, 80))[3] == 255
+    with Image.open(anchor_path) as repaired:
+        assert repaired.getpixel((80, 80))[3] == 255
+
+
+def test_blink_debug_skips_unrepairable_character_cutouts_with_transparent_face_holes(monkeypatch, tmp_path):
     import pipeline.test_lab_blink_debug as blink_debug
 
     monkeypatch.setattr(blink_debug, "DATA_DIR", tmp_path)
