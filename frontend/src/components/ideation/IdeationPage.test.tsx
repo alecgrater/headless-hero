@@ -106,12 +106,16 @@ describe("IdeationPage", () => {
     vi.clearAllMocks();
   });
 
-  it("shows the style preset and main character selector only when style identity is selected", async () => {
+  it("expands the style preset and main character selector only when requested", async () => {
     const user = userEvent.setup();
 
     render(<IdeationPage onUseIdea={vi.fn()} />);
 
-    expect(await screen.findByText("Friendly Editorial Cartoon")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /Select style and character/i })).toBeInTheDocument();
+    expect(screen.queryByTestId("ideation-style-character-selector")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Select style and character/i }));
+
     expect(await screen.findByText("Tyler")).toBeInTheDocument();
 
     const selector = screen.getByTestId("ideation-style-character-selector");
@@ -134,6 +138,7 @@ describe("IdeationPage", () => {
     await user.click(screen.getByRole("radio", { name: /No global style preset/i }));
 
     expect(screen.queryByTestId("ideation-style-character-selector")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Select style and character/i })).not.toBeInTheDocument();
   });
 
   it("persists the first saved style preset before showing it as active when no active preset exists", async () => {
@@ -141,7 +146,10 @@ describe("IdeationPage", () => {
 
     render(<IdeationPage onUseIdea={vi.fn()} />);
 
-    expect(await screen.findByText("Friendly Editorial Cartoon")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /Select style and character/i }));
+
+    const selector = await screen.findByTestId("ideation-style-character-selector");
+    expect(within(selector).getByRole("heading", { name: "Friendly Editorial Cartoon" })).toBeInTheDocument();
 
     await waitFor(() => {
       expect(setActiveStylePreset).toHaveBeenCalledWith("preset-1");

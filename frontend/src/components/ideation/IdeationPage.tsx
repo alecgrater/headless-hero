@@ -1,3 +1,4 @@
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import api, { fetchGenerationEstimate, getFormats } from "../../api";
 import type { GenerateIdeasResponse, VideoIdea } from "../../types/idea";
@@ -48,6 +49,7 @@ export default function IdeationPage({ onUseIdea, initialNiche, initialIdeas, au
   const [animateFromIndex, setAnimateFromIndex] = useState(0);
   const [eliEnabled, setEliEnabled] = useState<boolean>(false);
   const [stylePresetEnabled, setStylePresetEnabled] = useState<boolean>(true);
+  const [styleCharacterSelectorOpen, setStyleCharacterSelectorOpen] = useState(false);
   const inputRef = useRef<IdeationInputHandle>(null);
   const cancelledRef = useRef(false);
   const lastAutoGenerateRequestId = useRef<number | null>(null);
@@ -73,6 +75,12 @@ export default function IdeationPage({ onUseIdea, initialNiche, initialIdeas, au
   useEffect(() => {
     try { localStorage.setItem(FORMAT_KEY, selectedFormatId); } catch { /* localStorage unavailable */ }
   }, [selectedFormatId]);
+
+  useEffect(() => {
+    if (eliEnabled || !stylePresetEnabled) {
+      setStyleCharacterSelectorOpen(false);
+    }
+  }, [eliEnabled, stylePresetEnabled]);
 
   useEffect(() => {
     if (!initialIdeas) return;
@@ -202,7 +210,30 @@ export default function IdeationPage({ onUseIdea, initialNiche, initialIdeas, au
       />
 
       {!eliEnabled && stylePresetEnabled && (
-        <StylePresetCharacterSelector testId="ideation-style-character-selector" />
+        <div className="space-y-3">
+          <button
+            type="button"
+            aria-expanded={styleCharacterSelectorOpen}
+            onClick={() => setStyleCharacterSelectorOpen((open) => !open)}
+            className="flex w-full items-center justify-between gap-3 rounded-lg border border-neutral-800 bg-neutral-900/70 px-4 py-3 text-left text-sm text-neutral-200 hover:border-violet-500/70 hover:bg-neutral-900 transition-colors"
+          >
+            <span>
+              <span className="font-medium">Select style and character</span>
+              <span className="ml-2 text-xs text-neutral-500">
+                {activePreset?.name ? activePreset.name : "Choose the active visual preset and protagonist"}
+              </span>
+            </span>
+            {styleCharacterSelectorOpen ? (
+              <ChevronDown className="size-4 shrink-0 text-violet-300" />
+            ) : (
+              <ChevronRight className="size-4 shrink-0 text-violet-300" />
+            )}
+          </button>
+
+          {styleCharacterSelectorOpen && (
+            <StylePresetCharacterSelector testId="ideation-style-character-selector" />
+          )}
+        </div>
       )}
 
       <IdeationInput ref={inputRef} onGenerate={generate} onCancel={handleCancel} loading={loading} />
