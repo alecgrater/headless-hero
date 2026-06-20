@@ -488,6 +488,23 @@ def test_flipflop_overlay_anchor_metadata_handles_full_body_cutout_with_high_fac
     assert metadata["mouth"]["y"] == pytest.approx(0.381, abs=0.03)
 
 
+def test_flipflop_overlay_anchor_metadata_prefers_aligned_eye_pair_over_lower_face_marks():
+    from pipeline import image_gen as image_gen_mod
+
+    image = Image.new("RGBA", (310, 692), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    draw.ellipse((70, 95, 238, 335), fill=(240, 195, 150, 255))
+    draw.ellipse((118, 193, 131, 217), fill=(10, 10, 10, 255))
+    draw.ellipse((199, 193, 212, 217), fill=(10, 10, 10, 255))
+    draw.rounded_rectangle((168, 214, 192, 238), radius=8, fill=(10, 10, 10, 255))
+    draw.rounded_rectangle((150, 260, 180, 267), radius=3, fill=(10, 10, 10, 255))
+
+    metadata = image_gen_mod._flipflop_overlay_anchor_metadata(image, require_detected=True)
+
+    assert metadata["eye_right"]["x"] == pytest.approx(0.580, abs=0.03)
+    assert metadata["eye_right"]["y"] == pytest.approx(0.296, abs=0.03)
+
+
 def test_flipflop_overlay_anchor_metadata_handles_light_eyes_on_dark_face():
     from pipeline import image_gen as image_gen_mod
 

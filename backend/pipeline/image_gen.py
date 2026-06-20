@@ -24,7 +24,7 @@ from prompts import IMAGE_CHARACTER_IN_SCENE, IMAGE_COMPOSITION_GUIDE, IMAGE_VIS
 
 logger = logging.getLogger(__name__)
 
-FLIPFLOP_CUTOUT_REGISTRATION_VERSION = "alpha-mask-registration-v25"
+FLIPFLOP_CUTOUT_REGISTRATION_VERSION = "alpha-mask-registration-v26"
 FLIPFLOP_SCALE_CORRECTION_MIN = 0.92
 FLIPFLOP_SCALE_CORRECTION_MAX = 1.08
 FLIPFLOP_ASPECT_RATIO_TOLERANCE = 0.12
@@ -1341,7 +1341,7 @@ def _detect_flipflop_overlay_anchor_points(image: Image.Image | None) -> dict[st
         and 0.015 <= component["height"] <= 0.07
         and component["area"] >= 24
     ]
-    valid_eye_pairs: list[tuple[float, float, dict[str, float], dict[str, float], dict[str, float]]] = []
+    valid_eye_pairs: list[tuple[bool, float, float, dict[str, float], dict[str, float], dict[str, float]]] = []
     for left_eye in eye_candidates:
         for right_eye in eye_candidates:
             if left_eye is right_eye or left_eye["cx"] >= right_eye["cx"]:
@@ -1363,6 +1363,7 @@ def _detect_flipflop_overlay_anchor_points(image: Image.Image | None) -> dict[st
                 and abs(component["cx"] - midpoint) <= 0.10
             ]
             mouth = max(mouth_candidates, key=lambda component: component["area"], default=None)
+            has_detected_mouth = mouth is not None
             if mouth is None:
                 mouth = {
                     "area": 0.0,
@@ -1382,12 +1383,12 @@ def _detect_flipflop_overlay_anchor_points(image: Image.Image | None) -> dict[st
                 - abs(mouth_distance - 0.16) * 1.2
                 - y_delta
             )
-            valid_eye_pairs.append((eye_y, alignment_score, left_eye, right_eye, mouth))
-    best_eye_pair = max(valid_eye_pairs, default=None, key=lambda pair: (pair[0], pair[1]))
+            valid_eye_pairs.append((has_detected_mouth, eye_y, alignment_score, left_eye, right_eye, mouth))
+    best_eye_pair = max(valid_eye_pairs, default=None, key=lambda pair: (pair[0], pair[1], pair[2]))
     if best_eye_pair is None:
         return None
 
-    _eye_y, _alignment_score, left_eye, right_eye, mouth = best_eye_pair
+    _has_detected_mouth, _eye_y, _alignment_score, left_eye, right_eye, mouth = best_eye_pair
     eye_y = (left_eye["cy"] + right_eye["cy"]) / 2
     brow_y = max(0.0, eye_y - 0.08)
     left_erase_box = _flipflop_eye_erase_box(left_eye, components, rgba)
