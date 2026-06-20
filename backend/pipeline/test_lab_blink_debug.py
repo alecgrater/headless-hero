@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
@@ -80,6 +81,7 @@ def list_blink_debug_assets(*, limit: int = 20) -> list[BlinkDebugAsset]:
 
     projects_dir = DATA_DIR / "projects"
     patterns = (
+        "asset-vault/characters/*.png",
         "test-lab-*/blink_cutouts/*/base_*.png",
         "test-lab-*/character/cutout.png",
         "test-lab-*/popup_crops/*/anchor_cutout.png",
@@ -93,7 +95,8 @@ def list_blink_debug_assets(*, limit: int = 20) -> list[BlinkDebugAsset]:
         key=lambda path: path.stat().st_mtime if path.exists() else 0,
         reverse=True,
     )
-    return [_asset_from_path(path) for path in candidates[:limit]]
+    unique_candidates = _deduplicate_debug_assets(candidates)
+    return [_asset_from_path(path) for path in unique_candidates[:limit]]
 
 
 def create_blink_fixture_asset(
@@ -292,19 +295,21 @@ def _path_for_asset_id(asset_id: str) -> Path:
     relative = path.relative_to(projects_dir)
     if (
         not relative.parts
-        or not relative.parts[0].startswith("test-lab-")
+        or not (relative.parts[0].startswith("test-lab-") or relative.parts[0] == "asset-vault")
         or path.suffix.lower() != ".png"
         or not _is_allowed_debug_asset(relative)
         or not _is_reusable_debug_asset(path)
     ):
         raise ValueError(
-            "Selected file is not a cached Test Lab blink base cutout or saved Test Lab character cutout."
+            "Selected file is not a cached Test Lab blink base cutout or saved reusable character cutout."
         )
     return path
 
 
 def _is_allowed_debug_asset(relative: Path) -> bool:
     parts = relative.parts
+    if len(parts) == 3 and parts[0] == "asset-vault" and parts[1] == "characters":
+        return True
     if len(parts) >= 4 and parts[1] == "blink_cutouts" and parts[-1].startswith("base_"):
         return True
     if len(parts) == 3 and parts[1] == "character" and parts[2] == "cutout.png":
@@ -348,8 +353,33 @@ def _has_transparent_background(path: Path) -> bool:
     return bool(extrema and extrema[0] < 245)
 
 
+def _deduplicate_debug_assets(paths: list[Path]) -> list[Path]:
+    seen_hashes: set[str] = set()
+    unique: list[Path] = []
+    for path in paths:
+        digest = _file_sha256(path)
+        if digest is None or digest in seen_hashes:
+            continue
+        seen_hashes.add(digest)
+        unique.append(path)
+    return unique
+
+
+def _file_sha256(path: Path) -> str | None:
+    digest = hashlib.sha256()
+    try:
+        with path.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+    except OSError:
+        return None
+    return digest.hexdigest()
+
+
 def _scene_id_for_debug_asset(relative: Path) -> str:
     parts = relative.parts
+    if len(parts) >= 3 and parts[0] == "asset-vault" and parts[1] == "characters":
+        return "character"
     if len(parts) >= 4 and parts[1] in {"blink_cutouts", "popup_crops"}:
         return parts[2]
     if len(parts) >= 3 and parts[1] == "character":
@@ -360,6 +390,8 @@ def _scene_id_for_debug_asset(relative: Path) -> str:
 def _source_type_for_debug_asset(path: Path) -> str:
     relative = path.resolve().relative_to((DATA_DIR / "projects").resolve())
     parts = relative.parts
+    if len(parts) >= 3 and parts[0] == "asset-vault" and parts[1] == "characters":
+        return "character_cutout"
     if len(parts) >= 3 and parts[1] == "character":
         return "character_cutout"
     if len(parts) >= 4 and parts[1] == "popup_crops":

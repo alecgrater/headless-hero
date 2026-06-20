@@ -925,6 +925,75 @@ def test_blink_debug_lists_and_renders_saved_character_cutouts(monkeypatch, tmp_
     }
 
 
+def test_blink_debug_deduplicates_identical_character_cutouts(monkeypatch, tmp_path):
+    import pipeline.test_lab_blink_debug as blink_debug
+
+    monkeypatch.setattr(blink_debug, "DATA_DIR", tmp_path)
+
+    first_dir = tmp_path / "projects" / "test-lab-character-1" / "character"
+    second_dir = tmp_path / "projects" / "test-lab-character-2" / "character"
+    third_dir = tmp_path / "projects" / "test-lab-character-3" / "character"
+    first_dir.mkdir(parents=True)
+    second_dir.mkdir(parents=True)
+    third_dir.mkdir(parents=True)
+
+    image = Image.new("RGBA", (1000, 1000), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    draw.ellipse((250, 120, 750, 780), fill=(241, 198, 150, 255), outline=(20, 20, 20, 255), width=8)
+    draw.rounded_rectangle((388, 442, 456, 468), radius=12, fill=(12, 12, 12, 255))
+    draw.rounded_rectangle((570, 442, 638, 468), radius=12, fill=(12, 12, 12, 255))
+    draw.rounded_rectangle((470, 590, 545, 600), radius=5, fill=(12, 12, 12, 255))
+    image.save(first_dir / "cutout.png")
+    image.save(second_dir / "cutout.png")
+
+    distinct = Image.new("RGBA", (1000, 1000), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(distinct)
+    draw.ellipse((250, 120, 750, 780), fill=(190, 142, 98, 255), outline=(20, 20, 20, 255), width=8)
+    draw.rounded_rectangle((388, 442, 456, 468), radius=12, fill=(12, 12, 12, 255))
+    draw.rounded_rectangle((570, 442, 638, 468), radius=12, fill=(12, 12, 12, 255))
+    draw.rounded_rectangle((470, 590, 545, 600), radius=5, fill=(12, 12, 12, 255))
+    distinct.save(third_dir / "cutout.png")
+
+    assets = blink_debug.list_blink_debug_assets()
+    asset_ids = {asset.asset_id for asset in assets}
+
+    assert len(asset_ids) == 2
+    assert "test-lab-character-3/character/cutout.png" in asset_ids
+    assert len(
+        asset_ids
+        & {
+            "test-lab-character-1/character/cutout.png",
+            "test-lab-character-2/character/cutout.png",
+        }
+    ) == 1
+
+
+def test_blink_debug_lists_asset_vault_character_cutouts(monkeypatch, tmp_path):
+    import pipeline.test_lab_blink_debug as blink_debug
+
+    monkeypatch.setattr(blink_debug, "DATA_DIR", tmp_path)
+
+    vault_dir = tmp_path / "projects" / "asset-vault" / "characters"
+    vault_dir.mkdir(parents=True)
+    cutout_path = vault_dir / "character_anchor_character_20260524_101723_bb0930.png"
+    image = Image.new("RGBA", (1000, 1000), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    draw.ellipse((250, 120, 750, 780), fill=(241, 198, 150, 255), outline=(20, 20, 20, 255), width=8)
+    draw.rounded_rectangle((388, 442, 456, 468), radius=12, fill=(12, 12, 12, 255))
+    draw.rounded_rectangle((570, 442, 638, 468), radius=12, fill=(12, 12, 12, 255))
+    draw.rounded_rectangle((470, 590, 545, 600), radius=5, fill=(12, 12, 12, 255))
+    image.save(cutout_path)
+
+    assets = blink_debug.list_blink_debug_assets()
+
+    assert [asset.asset_id for asset in assets] == [
+        "asset-vault/characters/character_anchor_character_20260524_101723_bb0930.png"
+    ]
+    assert assets[0].script_id == "asset-vault"
+    assert assets[0].scene_id == "character"
+    assert assets[0].source_metadata["source_type"] == "character_cutout"
+
+
 def test_blink_debug_skips_opaque_popup_scene_crops(monkeypatch, tmp_path):
     import pipeline.test_lab_blink_debug as blink_debug
 
