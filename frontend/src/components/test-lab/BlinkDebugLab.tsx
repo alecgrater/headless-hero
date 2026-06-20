@@ -9,22 +9,18 @@ import {
   renderBlinkFixturePreview,
 } from "../../api";
 import type {
-  BlinkDebugAction,
   BlinkDebugAsset,
   BlinkDebugResult,
   BlinkFixtureRenderResult,
   BlinkFixtureResult,
 } from "../../types/testLab";
 
-const ACTIONS: Array<{ value: BlinkDebugAction; label: string }> = [
-  { value: "blink", label: "Blink" },
-];
 const FIXTURE_SCRIPT_ID = "test-lab-blink-fixtures";
+const BLINK_ACTION = "blink" as const;
 
 export default function BlinkDebugLab() {
   const [assets, setAssets] = useState<BlinkDebugAsset[]>([]);
   const [selectedAssetId, setSelectedAssetId] = useState("");
-  const [action, setAction] = useState<BlinkDebugAction>("blink");
   const [result, setResult] = useState<BlinkDebugResult | null>(null);
   const [fixtureResult, setFixtureResult] = useState<BlinkFixtureResult | null>(null);
   const [renderResult, setRenderResult] = useState<BlinkFixtureRenderResult | null>(null);
@@ -63,7 +59,7 @@ export default function BlinkDebugLab() {
     setAnalyzing(true);
     setError("");
     try {
-      const next = await analyzeBlinkDebugAsset(assetId, action);
+      const next = await analyzeBlinkDebugAsset(assetId, BLINK_ACTION);
       if (!next) {
         setError("The selected blink asset could not be analyzed.");
         return;
@@ -101,7 +97,7 @@ export default function BlinkDebugLab() {
     setRenderingFixture(true);
     setError("");
     try {
-      const next = await renderBlinkFixturePreview(selectedAssetId, action);
+      const next = await renderBlinkFixturePreview(selectedAssetId, BLINK_ACTION);
       if (!next) {
         setError("The saved blink fixture could not be rendered.");
         return;
@@ -157,22 +153,15 @@ export default function BlinkDebugLab() {
           ) : (
             <div className="space-y-2">
               {assets.map((asset) => (
-                <button
+                <AssetButton
                   key={asset.asset_id}
+                  asset={asset}
+                  active={selectedAssetId === asset.asset_id}
                   onClick={() => {
                     setSelectedAssetId(asset.asset_id);
                     setResult(null);
                   }}
-                  className={`w-full rounded-md border p-3 text-left transition-colors ${
-                    selectedAssetId === asset.asset_id
-                      ? "border-violet-500 bg-violet-500/15"
-                      : "border-neutral-800 bg-neutral-950/50 hover:border-neutral-700"
-                  }`}
-                >
-                  <p className="truncate text-sm font-medium text-neutral-100">{asset.filename}</p>
-                  <p className="mt-1 truncate text-xs text-neutral-500">{asset.scene_id}</p>
-                  <p className="mt-2 truncate font-mono text-[10px] text-neutral-600">{asset.script_id}</p>
-                </button>
+                />
               ))}
             </div>
           )}
@@ -189,18 +178,10 @@ export default function BlinkDebugLab() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <label className="block">
-              <span className="sr-only">Blink action</span>
-              <select
-                value={action}
-                onChange={(event) => setAction(event.target.value as BlinkDebugAction)}
-                className="h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-xs font-medium text-neutral-100 outline-none transition-colors hover:border-neutral-700 focus:border-violet-500"
-              >
-                {ACTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-            </label>
+            <span className="inline-flex h-10 items-center rounded-md border border-neutral-800 bg-neutral-950 px-3 text-xs font-medium text-neutral-100">
+              <span className="mr-1.5 text-neutral-500">Blink action:</span>
+              Blink
+            </span>
             <button
               onClick={() => runAnalysis()}
               disabled={!selectedAsset || analyzing}
@@ -274,6 +255,81 @@ export default function BlinkDebugLab() {
       </section>
     </div>
   );
+}
+
+function AssetButton({
+  asset,
+  active,
+  onClick,
+}: {
+  asset: BlinkDebugAsset;
+  active: boolean;
+  onClick: () => void;
+}) {
+  const displayName = assetDisplayName(asset);
+  return (
+    <button
+      onClick={onClick}
+      className={`flex w-full gap-3 rounded-md border p-2 text-left transition-colors ${
+        active
+          ? "border-violet-500 bg-violet-500/15"
+          : "border-neutral-800 bg-neutral-950/50 hover:border-neutral-700"
+      }`}
+    >
+      <span className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded border border-neutral-800 bg-neutral-950">
+        <img
+          src={assetUrl(asset.asset_url)}
+          alt={displayName}
+          className="h-full w-full object-contain"
+          loading="lazy"
+        />
+      </span>
+      <span className="min-w-0 flex-1 py-1">
+        <span className="block truncate text-sm font-medium text-neutral-100">{displayName}</span>
+        <span className="mt-1 block truncate text-xs text-neutral-500">{asset.filename}</span>
+        <span className="mt-2 block truncate font-mono text-[10px] text-neutral-600">{asset.script_id}</span>
+      </span>
+    </button>
+  );
+}
+
+function assetDisplayName(asset: BlinkDebugAsset): string {
+  const sourceType = assetSourceType(asset);
+  if (sourceType === "blink_base_cutout") {
+    return `Blink base: ${asset.scene_id || shortAssetId(asset.script_id)}`;
+  }
+  if (sourceType === "popup_anchor_cutout") {
+    return `Popup anchor: ${asset.scene_id || shortAssetId(asset.script_id)}`;
+  }
+  if (sourceType === "character_cutout") {
+    return `Character cutout: ${shortAssetId(asset.script_id)}`;
+  }
+  if (asset.scene_id && asset.scene_id !== "character") {
+    return `${asset.scene_id}: ${asset.filename}`;
+  }
+  return asset.filename;
+}
+
+function assetSourceType(asset: BlinkDebugAsset): string | undefined {
+  if (typeof asset.source_metadata?.source_type === "string") {
+    return asset.source_metadata.source_type;
+  }
+  const parts = asset.asset_id.split("/");
+  if (parts.includes("blink_cutouts")) {
+    return "blink_base_cutout";
+  }
+  if (parts.includes("popup_crops")) {
+    return "popup_anchor_cutout";
+  }
+  if (parts.includes("character") && asset.filename === "cutout.png") {
+    return "character_cutout";
+  }
+  return undefined;
+}
+
+function shortAssetId(scriptId: string): string {
+  const normalized = scriptId.replace(/^test-lab-/, "");
+  return normalized.length > 8 ? normalized.slice(0, 8) : normalized || "saved";
 }
 
 function upsertAsset(assets: BlinkDebugAsset[], asset: BlinkDebugAsset): BlinkDebugAsset[] {

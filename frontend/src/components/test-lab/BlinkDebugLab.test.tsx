@@ -73,7 +73,13 @@ describe("BlinkDebugLab", () => {
   it("reruns the selected cached asset through the local analyzer", async () => {
     render(<BlinkDebugLab />);
 
-    expect(await screen.findByText("base_scene_base.png")).toBeInTheDocument();
+    expect(await screen.findByText("Blink base: scene")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /blink base: scene/i })).toHaveAttribute(
+      "src",
+      "/static/projects/test-lab-run/blink_cutouts/scene/base_scene_base.png",
+    );
+    expect(screen.queryByRole("combobox", { name: /blink action/i })).not.toBeInTheDocument();
+    expect(screen.getByText("Blink action:")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /rerun detector/i }));
 
     await waitFor(() => {
@@ -92,7 +98,7 @@ describe("BlinkDebugLab", () => {
   it("creates a persistent fixture once and rerenders it locally", async () => {
     render(<BlinkDebugLab />);
 
-    expect(await screen.findByText("base_scene_base.png")).toBeInTheDocument();
+    expect(await screen.findByText("Blink base: scene")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /generate fixture assets/i }));
 
     await waitFor(() => {
@@ -117,7 +123,7 @@ describe("BlinkDebugLab", () => {
 
     render(<BlinkDebugLab />);
 
-    expect(await screen.findByText("base_blink_fixture_base.png")).toBeInTheDocument();
+    expect(await screen.findByText("Blink base: fixture-scene")).toBeInTheDocument();
     const generateButton = screen.getByRole("button", { name: /fixture assets already generated/i });
     expect(generateButton).toBeDisabled();
 
