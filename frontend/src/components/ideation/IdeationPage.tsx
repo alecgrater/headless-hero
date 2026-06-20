@@ -4,6 +4,7 @@ import type { GenerateIdeasResponse, VideoIdea } from "../../types/idea";
 import type { VideoFormat } from "../../types/format";
 import { useStylePreset } from "../../contexts/StylePresetContext";
 import GenerationProgressBar from "../GenerationProgressBar";
+import { StylePresetCharacterSelector } from "../shared/StylePresetCharacterSelector";
 import { StylePresetToggle } from "../shared/StylePresetToggle";
 import { FormatSelector } from "./FormatSelector";
 import GeneratedIdeaCard from "./GeneratedIdeaCard";
@@ -199,6 +200,10 @@ export default function IdeationPage({ onUseIdea, initialNiche, initialIdeas, au
         onChange={setStylePresetEnabled}
         activePresetName={activePreset?.name ?? null}
       />
+
+      {!eliEnabled && stylePresetEnabled && (
+        <StylePresetCharacterSelector testId="ideation-style-character-selector" />
+      )}
 
       <IdeationInput ref={inputRef} onGenerate={generate} onCancel={handleCancel} loading={loading} />
 
