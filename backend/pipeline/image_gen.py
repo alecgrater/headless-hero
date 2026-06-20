@@ -1262,7 +1262,7 @@ def _detect_flipflop_overlay_anchor_points(image: Image.Image | None) -> dict[st
     eye_candidates = [
         component
         for component in components
-        if 0.36 <= component["cy"] <= 0.54
+        if 0.26 <= component["cy"] <= 0.54
         and 0.03 <= component["width"] <= 0.12
         and 0.015 <= component["height"] <= 0.07
         and component["area"] >= 120
@@ -1283,7 +1283,7 @@ def _detect_flipflop_overlay_anchor_points(image: Image.Image | None) -> dict[st
             mouth_candidates = [
                 component
                 for component in components
-                if eye_y + 0.10 <= component["cy"] <= min(0.70, eye_y + 0.27)
+                if eye_y + 0.07 <= component["cy"] <= min(0.70, eye_y + 0.20)
                 and 0.035 <= component["width"] <= 0.14
                 and component["height"] <= 0.025
                 and abs(component["cx"] - midpoint) <= 0.10
