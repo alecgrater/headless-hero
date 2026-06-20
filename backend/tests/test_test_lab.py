@@ -919,6 +919,31 @@ def test_flipflop_debug_lists_and_renders_saved_character_cutouts(monkeypatch, t
     }
 
 
+def test_flipflop_debug_skips_opaque_popup_scene_crops(monkeypatch, tmp_path):
+    import pipeline.test_lab_flipflop_debug as flipflop_debug
+
+    monkeypatch.setattr(flipflop_debug, "DATA_DIR", tmp_path)
+
+    popup_dir = tmp_path / "projects" / "test-lab-popup-1" / "popup_crops" / "scene-1"
+    popup_dir.mkdir(parents=True)
+    Image.new("RGBA", (900, 600), (140, 210, 120, 255)).save(popup_dir / "anchor_cutout.png")
+
+    character_dir = tmp_path / "projects" / "test-lab-character-1" / "character"
+    character_dir.mkdir(parents=True)
+    cutout_path = character_dir / "cutout.png"
+    image = Image.new("RGBA", (1000, 1000), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    draw.ellipse((250, 120, 750, 780), fill=(241, 198, 150, 255), outline=(20, 20, 20, 255), width=8)
+    draw.rounded_rectangle((388, 442, 456, 468), radius=12, fill=(12, 12, 12, 255))
+    draw.rounded_rectangle((570, 442, 638, 468), radius=12, fill=(12, 12, 12, 255))
+    draw.rounded_rectangle((470, 590, 545, 600), radius=5, fill=(12, 12, 12, 255))
+    image.save(cutout_path)
+
+    assets = flipflop_debug.list_flipflop_debug_assets()
+
+    assert [asset.asset_id for asset in assets] == ["test-lab-character-1/character/cutout.png"]
+
+
 def test_asset_vault_api_lists_filename_only_cutouts(monkeypatch, tmp_path):
     _engine, app = _setup_app(monkeypatch, tmp_path)
 

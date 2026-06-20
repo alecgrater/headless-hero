@@ -488,6 +488,34 @@ def test_flipflop_overlay_anchor_metadata_handles_full_body_cutout_with_high_fac
     assert metadata["mouth"]["y"] == pytest.approx(0.381, abs=0.03)
 
 
+def test_flipflop_overlay_anchor_metadata_erases_detached_brows_on_full_body_cutout():
+    from pipeline import image_gen as image_gen_mod
+
+    image = Image.new("RGBA", (310, 692), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    draw.ellipse((70, 95, 238, 335), fill=(240, 195, 150, 255))
+    draw.rounded_rectangle((102, 118, 152, 172), radius=12, fill=(124, 85, 61, 255))
+    draw.rounded_rectangle((182, 118, 232, 172), radius=12, fill=(124, 85, 61, 255))
+    draw.arc((107, 158, 147, 178), start=195, end=345, fill=(10, 10, 10, 255), width=6)
+    draw.arc((188, 158, 228, 178), start=195, end=345, fill=(10, 10, 10, 255), width=6)
+    draw.ellipse((118, 193, 131, 217), fill=(10, 10, 10, 255))
+    draw.ellipse((199, 193, 212, 217), fill=(10, 10, 10, 255))
+    draw.rounded_rectangle((150, 260, 180, 267), radius=3, fill=(10, 10, 10, 255))
+    draw.rounded_rectangle((95, 350, 220, 505), radius=14, fill=(110, 190, 205, 255))
+    draw.rounded_rectangle((175, 375, 200, 390), radius=2, fill=(10, 10, 10, 255))
+
+    metadata = image_gen_mod._flipflop_overlay_anchor_metadata(image, require_detected=True)
+
+    assert metadata["eye_left"]["y"] == pytest.approx(0.296, abs=0.03)
+    assert metadata["eye_right"]["y"] == pytest.approx(0.296, abs=0.03)
+    assert metadata["eye_left"]["erase_box"]["top"] < 0.245
+    assert metadata["eye_right"]["erase_box"]["top"] < 0.245
+    assert metadata["eye_left"]["erase_box"]["bottom"] > 0.31
+    assert metadata["eye_right"]["erase_box"]["bottom"] > 0.31
+    assert metadata["eye_left"]["fill_top"] == "#f0c396"
+    assert metadata["eye_right"]["fill_top"] == "#f0c396"
+
+
 def test_flipflop_overlay_anchor_metadata_prefers_aligned_eye_pair_over_lower_face_marks():
     from pipeline import image_gen as image_gen_mod
 

@@ -24,7 +24,7 @@ from prompts import IMAGE_CHARACTER_IN_SCENE, IMAGE_COMPOSITION_GUIDE, IMAGE_VIS
 
 logger = logging.getLogger(__name__)
 
-FLIPFLOP_CUTOUT_REGISTRATION_VERSION = "alpha-mask-registration-v26"
+FLIPFLOP_CUTOUT_REGISTRATION_VERSION = "alpha-mask-registration-v29"
 FLIPFLOP_SCALE_CORRECTION_MIN = 0.92
 FLIPFLOP_SCALE_CORRECTION_MAX = 1.08
 FLIPFLOP_ASPECT_RATIO_TOLERANCE = 0.12
@@ -1384,7 +1384,7 @@ def _detect_flipflop_overlay_anchor_points(image: Image.Image | None) -> dict[st
                 - y_delta
             )
             valid_eye_pairs.append((has_detected_mouth, eye_y, alignment_score, left_eye, right_eye, mouth))
-    best_eye_pair = max(valid_eye_pairs, default=None, key=lambda pair: (pair[0], pair[1], pair[2]))
+    best_eye_pair = max(valid_eye_pairs, default=None, key=lambda pair: (pair[0], pair[2], pair[1]))
     if best_eye_pair is None:
         return None
 
@@ -1393,8 +1393,24 @@ def _detect_flipflop_overlay_anchor_points(image: Image.Image | None) -> dict[st
     brow_y = max(0.0, eye_y - 0.08)
     left_erase_box = _flipflop_eye_erase_box(left_eye, components, rgba)
     right_erase_box = _flipflop_eye_erase_box(right_eye, components, rgba)
-    left_fill_top, left_fill_bottom, left_fill_left, left_fill_right = _flipflop_eye_fill_gradient(left_erase_box, rgba)
-    right_fill_top, right_fill_bottom, right_fill_left, right_fill_right = _flipflop_eye_fill_gradient(right_erase_box, rgba)
+    skin_fill = _sample_flipflop_face_skin_fill(
+        rgba,
+        {
+            "eye_left": {"x": left_eye["cx"], "y": left_eye["cy"]},
+            "eye_right": {"x": right_eye["cx"], "y": right_eye["cy"]},
+            "mouth": {"x": mouth["cx"], "y": mouth["cy"]},
+        },
+    )
+    left_fill_top, left_fill_bottom, left_fill_left, left_fill_right = _flipflop_eye_fill_gradient(
+        left_erase_box,
+        rgba,
+        preferred_fill=skin_fill,
+    )
+    right_fill_top, right_fill_bottom, right_fill_left, right_fill_right = _flipflop_eye_fill_gradient(
+        right_erase_box,
+        rgba,
+        preferred_fill=skin_fill,
+    )
     return {
         "eye_left": {
             "x": round(left_eye["cx"], 4),
@@ -1435,9 +1451,9 @@ def _flipflop_eye_erase_box(
     bottom = eye["bottom"]
     width, height = image.size
     pixels = image.load()
-    search_left = max(0, round((eye["left"] - eye["width"] * 0.35) * width))
-    search_top = max(0, round((eye["top"] - eye["height"] * 1.05) * height))
-    search_right = min(width - 1, round((eye["right"] + eye["width"] * 0.35) * width))
+    search_left = max(0, round((eye["left"] - eye["width"] * 1.30) * width))
+    search_top = max(0, round((eye["top"] - max(eye["height"] * 3.10, 0.055)) * height))
+    search_right = min(width - 1, round((eye["right"] + eye["width"] * 1.30) * width))
     search_bottom = min(height - 1, round((eye["bottom"] + eye["height"] * 1.55) * height))
     feature_xs: list[int] = []
     feature_ys: list[int] = []
@@ -1461,6 +1477,7 @@ def _flipflop_eye_erase_box(
         right = max(right, max(feature_xs) / width)
         bottom = max(bottom, max(feature_ys) / height)
 
+    top = max(top, eye["cy"] - max(eye["height"] * 2.45, 0.082))
     pad_x = eye["width"] * 0.10
     pad_y = eye["height"] * 0.18
     return {
@@ -1471,7 +1488,12 @@ def _flipflop_eye_erase_box(
     }
 
 
-def _flipflop_eye_fill_gradient(erase_box: dict[str, float], image: Image.Image) -> tuple[str, str, str, str]:
+def _flipflop_eye_fill_gradient(
+    erase_box: dict[str, float],
+    image: Image.Image,
+    *,
+    preferred_fill: str | None = None,
+) -> tuple[str, str, str, str]:
     width, height = image.size
     pixels = image.load()
     left = max(0, round(erase_box["left"] * width))
@@ -1485,12 +1507,41 @@ def _flipflop_eye_fill_gradient(erase_box: dict[str, float], image: Image.Image)
     box_width = right - left + 1
     band_height = max(2, round(box_height * 0.28))
     band_width = max(2, round(box_width * 0.28))
-    top_color = _median_skin_color_in_box(pixels, left, top, right, min(bottom, top + band_height))
-    bottom_color = _median_skin_color_in_box(pixels, left, max(top, bottom - band_height), right, bottom)
-    left_color = _median_skin_color_in_box(pixels, left, top, min(right, left + band_width), bottom)
-    right_color = _median_skin_color_in_box(pixels, max(left, right - band_width), top, right, bottom)
+    preferred_rgb = _hex_to_rgb(preferred_fill)
+    top_color = _median_skin_color_in_box(
+        pixels,
+        left,
+        top,
+        right,
+        min(bottom, top + band_height),
+        preferred_rgb=preferred_rgb,
+    )
+    bottom_color = _median_skin_color_in_box(
+        pixels,
+        left,
+        max(top, bottom - band_height),
+        right,
+        bottom,
+        preferred_rgb=preferred_rgb,
+    )
+    left_color = _median_skin_color_in_box(
+        pixels,
+        left,
+        top,
+        min(right, left + band_width),
+        bottom,
+        preferred_rgb=preferred_rgb,
+    )
+    right_color = _median_skin_color_in_box(
+        pixels,
+        max(left, right - band_width),
+        top,
+        right,
+        bottom,
+        preferred_rgb=preferred_rgb,
+    )
     colors = [top_color, bottom_color, left_color, right_color]
-    fallback = next((color for color in colors if color is not None), "#d9a374")
+    fallback = preferred_fill or next((color for color in colors if color is not None), "#d9a374")
     if top_color is None:
         top_color = fallback
     if bottom_color is None:
@@ -1508,6 +1559,8 @@ def _median_skin_color_in_box(
     top: int,
     right: int,
     bottom: int,
+    *,
+    preferred_rgb: tuple[int, int, int] | None = None,
 ) -> str | None:
     reds: list[int] = []
     greens: list[int] = []
@@ -1524,12 +1577,27 @@ def _median_skin_color_in_box(
                 continue
             if channel_min > 115 and brightness > 160 and channel_max - channel_min < 75:
                 continue
+            if preferred_rgb is not None:
+                red_delta = abs(red - preferred_rgb[0])
+                green_delta = abs(green - preferred_rgb[1])
+                blue_delta = abs(blue - preferred_rgb[2])
+                if max(red_delta, green_delta, blue_delta) > 95 or red_delta + green_delta + blue_delta > 210:
+                    continue
             reds.append(red)
             greens.append(green)
             blues.append(blue)
     if not reds:
         return None
     return f"#{round(median(reds)):02x}{round(median(greens)):02x}{round(median(blues)):02x}"
+
+
+def _hex_to_rgb(color: str | None) -> tuple[int, int, int] | None:
+    if not color or not color.startswith("#") or len(color) != 7:
+        return None
+    try:
+        return int(color[1:3], 16), int(color[3:5], 16), int(color[5:7], 16)
+    except ValueError:
+        return None
 
 
 def _generate_flipflop_state_sheet(

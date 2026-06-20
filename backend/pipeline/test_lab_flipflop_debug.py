@@ -92,7 +92,7 @@ def list_flipflop_debug_assets(*, limit: int = 20) -> list[FlipflopDebugAsset]:
         for path in projects_dir.glob(pattern):
             candidate_paths[path] = None
     candidates = sorted(
-        candidate_paths,
+        (path for path in candidate_paths if _is_reusable_debug_asset(path)),
         key=lambda path: path.stat().st_mtime if path.exists() else 0,
         reverse=True,
     )
@@ -298,6 +298,7 @@ def _path_for_asset_id(asset_id: str) -> Path:
         or not relative.parts[0].startswith("test-lab-")
         or path.suffix.lower() != ".png"
         or not _is_allowed_debug_asset(relative)
+        or not _is_reusable_debug_asset(path)
     ):
         raise ValueError(
             "Selected file is not a cached Test Lab flip-flop base cutout or saved Test Lab character cutout."
@@ -314,6 +315,40 @@ def _is_allowed_debug_asset(relative: Path) -> bool:
     if len(parts) == 4 and parts[1] == "popup_crops" and parts[3] == "anchor_cutout.png":
         return True
     return False
+
+
+def _is_reusable_debug_asset(path: Path) -> bool:
+    relative = path.resolve().relative_to((DATA_DIR / "projects").resolve())
+    if not _is_allowed_debug_asset(relative):
+        return False
+    parts = relative.parts
+    if len(parts) == 4 and parts[1] == "popup_crops" and parts[3] == "anchor_cutout.png":
+        if not _has_transparent_background(path):
+            return False
+    return _has_detectable_flipflop_anchor(path)
+
+
+def _has_detectable_flipflop_anchor(path: Path) -> bool:
+    try:
+        with Image.open(path) as image:
+            _flipflop_overlay_anchor_metadata(image.convert("RGBA"), require_detected=True)
+    except OSError:
+        return False
+    except FlipflopRegistrationError:
+        return False
+    return True
+
+
+def _has_transparent_background(path: Path) -> bool:
+    try:
+        with Image.open(path) as image:
+            if image.mode != "RGBA":
+                image = image.convert("RGBA")
+            alpha = image.getchannel("A")
+            extrema = alpha.getextrema()
+    except OSError:
+        return False
+    return bool(extrema and extrema[0] < 245)
 
 
 def _scene_id_for_debug_asset(relative: Path) -> str:

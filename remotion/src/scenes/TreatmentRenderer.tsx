@@ -433,7 +433,14 @@ const eraseBoxMask = (
   ) {
     return null;
   }
-  const horizontalBounds = typeof point.width === "number" && point.width > 0
+  const boxHeight = box.bottom - box.top;
+  const usesBrowInclusiveEraseBox = (
+    typeof point.height === "number"
+    && point.height > 0
+    && boxHeight > point.height * 3
+    && box.top < point.y - point.height * 2
+  );
+  const horizontalBounds = !usesBrowInclusiveEraseBox && typeof point.width === "number" && point.width > 0
     ? {
       left: Math.max(box.left, point.x - point.width * 0.85),
       right: Math.min(box.right, point.x + point.width * 0.85),
@@ -456,7 +463,9 @@ const eraseBoxMask = (
   const browSafeTop = brow && typeof brow.y === "number" && browGap !== null
     ? brow.y + browGap * 0.30
     : requestedTop;
-  const top = Math.max(Math.min(requestedTop, browAwareTop), browSafeTop);
+  const top = usesBrowInclusiveEraseBox
+    ? requestedTop
+    : Math.max(Math.min(requestedTop, browAwareTop), browSafeTop);
   const bottom = typeof sharedBottom === "number" ? sharedBottom : box.bottom;
   const y = top * 100;
   const width = (resolvedHorizontalBounds.right - resolvedHorizontalBounds.left) * 100;
@@ -480,7 +489,7 @@ const eraseBoxMask = (
     y: roundSvgNumber(y),
     width: roundSvgNumber(width),
     height: roundSvgNumber(height),
-    rx: roundSvgNumber(height / 2),
+    rx: roundSvgNumber(usesBrowInclusiveEraseBox ? Math.min(height * 0.18, width * 0.25) : height / 2),
     fill: gradient ? `url(#${gradient.id})` : skinFill,
     ...(gradient ? { gradient } : {}),
   };

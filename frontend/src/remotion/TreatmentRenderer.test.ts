@@ -473,7 +473,7 @@ describe("flipflopBlinkEyeOverlayGeometry", () => {
     expect(geometry[1].mask.y).toBeGreaterThan(26);
   });
 
-  it("does not let broad erase boxes climb into eyebrow space", () => {
+  it("honors brow-inclusive erase boxes from the backend", () => {
     const geometry = flipflopBlinkEyeOverlayGeometry(
       {
         eye_left: {
@@ -497,8 +497,20 @@ describe("flipflopBlinkEyeOverlayGeometry", () => {
       "#D9A374",
     );
 
-    expect(geometry[0].mask.y).toBeGreaterThan(26);
-    expect(geometry[1].mask.y).toBeGreaterThan(26);
+    expect(geometry[0].mask).toMatchObject({
+      x: 39,
+      y: 22,
+      width: 6,
+      height: 18,
+      rx: 1.5,
+    });
+    expect(geometry[1].mask).toMatchObject({
+      x: 55,
+      y: 22,
+      width: 6,
+      height: 18,
+      rx: 1.5,
+    });
   });
 
   it("keeps detected upper eyelid tops that are below eyebrow space", () => {
