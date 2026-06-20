@@ -313,6 +313,10 @@ type BlinkClosedEyeGeometry = {
 
 const BLINK_FALLBACK_SKIN_FILL = "#D9A374";
 const BLINK_EYELID_STROKE = "#2A1712";
+export const BLINK_OVERLAY_SVG_PROPS = {
+  viewBox: "0 0 100 100",
+  preserveAspectRatio: "none",
+} as const;
 
 export const blinkOverlayVisible = (frame: number, fps: number): boolean => {
   const intervalFrames = Math.max(1, Math.round(fps * 0.5));
@@ -408,6 +412,15 @@ const normalizedEyeHeight = (point: BlinkOverlayPoint): number | null => (
   typeof point.height === "number" && point.height > 0 ? point.height * 100 : null
 );
 
+const isMinimalistDotEye = (point: BlinkOverlayPoint): boolean => (
+  typeof point.width === "number"
+  && typeof point.height === "number"
+  && point.width > 0
+  && point.height > 0
+  && point.width <= 0.018
+  && point.height <= 0.018
+);
+
 const eraseBoxMask = (
   point: BlinkOverlayPoint,
   skinFill: string,
@@ -416,6 +429,21 @@ const eraseBoxMask = (
   sharedBottom?: number,
   brow?: BlinkOverlayPoint,
 ): BlinkClosedEyeGeometry["mask"] | null => {
+  if (isMinimalistDotEye(point)) {
+    const eyeWidth = point.width as number;
+    const eyeHeight = point.height as number;
+    const maskWidth = clamp(eyeWidth * 100 * 2.6, 2.4, 4.0);
+    const maskHeight = clamp(eyeHeight * 100 * 2.2, 2.0, 3.2);
+    return {
+      x: roundSvgNumber(point.x * 100 - maskWidth / 2),
+      y: roundSvgNumber(point.y * 100 - maskHeight / 2),
+      width: roundSvgNumber(maskWidth),
+      height: roundSvgNumber(maskHeight),
+      rx: roundSvgNumber(maskHeight / 2),
+      fill: skinFill,
+    };
+  }
+
   const box = point.erase_box;
   if (
     typeof box?.left !== "number"
@@ -530,10 +558,19 @@ export const blinkBlinkEyeOverlayGeometry = (
     ? Math.max(...eraseBoxes.map((box) => box.bottom))
     : undefined;
   return [leftEye, rightEye].map((eye, index) => {
-    const lidY = eye.y;
+    const sourcePoint = index === 0 ? anchor.eye_left : anchor.eye_right;
+    const minimalistDotEye = isMinimalistDotEye(sourcePoint);
+    const dotEyeLift = minimalistDotEye && typeof sourcePoint.height === "number"
+      ? clamp(sourcePoint.height * 100 * 0.18, 0.12, 0.32)
+      : 0;
+    const lidY = eye.y - dotEyeLift;
+    const resolvedLidHalfWidth = minimalistDotEye && typeof sourcePoint.width === "number"
+      ? clamp(sourcePoint.width * 100 * 1.25, 1.1, 1.8)
+      : lidHalfWidth;
+    const resolvedLidLift = minimalistDotEye ? 0 : lidLift;
     const maskY = eye.y + maskRy * 1.02;
     const metadataMask = eraseBoxMask(
-      index === 0 ? anchor.eye_left : anchor.eye_right,
+      sourcePoint,
       skinFill,
       index,
       sharedEraseTop,
@@ -550,10 +587,10 @@ export const blinkBlinkEyeOverlayGeometry = (
         fill: skinFill,
       },
       lid: {
-        d: `M${roundSvgNumber(eye.x - lidHalfWidth)} ${roundSvgNumber(lidY)} Q${roundSvgNumber(eye.x)} ${roundSvgNumber(lidY - lidLift)} ${roundSvgNumber(eye.x + lidHalfWidth)} ${roundSvgNumber(lidY)}`,
+        d: `M${roundSvgNumber(eye.x - resolvedLidHalfWidth)} ${roundSvgNumber(lidY)} Q${roundSvgNumber(eye.x)} ${roundSvgNumber(lidY - resolvedLidLift)} ${roundSvgNumber(eye.x + resolvedLidHalfWidth)} ${roundSvgNumber(lidY)}`,
         y: roundSvgNumber(lidY),
         stroke: BLINK_EYELID_STROKE,
-        strokeWidth: roundSvgNumber(clamp(maskRx * 0.17, 0.95, 1.3)),
+        strokeWidth: roundSvgNumber(minimalistDotEye ? 0.68 : clamp(maskRx * 0.17, 0.95, 1.3)),
       },
     };
   });
@@ -584,7 +621,7 @@ const BlinkMicroExpressionOverlay: React.FC<{
 
   if (overlay.kind === "mouth") {
     return (
-      <svg viewBox="0 0 100 100" style={common}>
+      <svg {...BLINK_OVERLAY_SVG_PROPS} style={common}>
         <ellipse cx={mouth.x} cy={mouth.y - 0.4} rx="4.5" ry="2.4" fill="#F4BE91" />
         <ellipse cx={mouth.x} cy={mouth.y} rx="1.6" ry="2.3" fill="#4B1814" stroke="#111" strokeWidth="0.65" />
       </svg>
@@ -597,7 +634,7 @@ const BlinkMicroExpressionOverlay: React.FC<{
       .map((eye) => eye.mask.gradient)
       .filter((gradient): gradient is NonNullable<BlinkClosedEyeGeometry["mask"]["gradient"]> => Boolean(gradient));
     return (
-      <svg viewBox="0 0 100 100" style={common}>
+      <svg {...BLINK_OVERLAY_SVG_PROPS} style={common}>
         {gradients.length > 0 ? (
           <defs>
             {gradients.map((gradient) => (
@@ -630,7 +667,7 @@ const BlinkMicroExpressionOverlay: React.FC<{
 
   if (overlay.kind === "eyes" && overlay.state === "glance") {
     return (
-      <svg viewBox="0 0 100 100" style={common}>
+      <svg {...BLINK_OVERLAY_SVG_PROPS} style={common}>
         <ellipse cx={leftEye.x - 1.1} cy={leftEye.y} rx="1.7" ry="2.2" fill="#111" />
         <ellipse cx={rightEye.x - 1.1} cy={rightEye.y} rx="1.7" ry="2.2" fill="#111" />
       </svg>
@@ -638,7 +675,7 @@ const BlinkMicroExpressionOverlay: React.FC<{
   }
 
   return (
-    <svg viewBox="0 0 100 100" style={common}>
+    <svg {...BLINK_OVERLAY_SVG_PROPS} style={common}>
       <path d={`M${leftBrow.x - 4.5} ${leftBrow.y} Q${leftBrow.x} ${leftBrow.y - 1.8} ${leftBrow.x + 4.5} ${leftBrow.y - 0.6}`} fill="none" stroke="#111" strokeWidth="1.2" strokeLinecap="round" />
       <path d={`M${rightBrow.x - 4.5} ${rightBrow.y - 0.8} Q${rightBrow.x} ${rightBrow.y - 2.6} ${rightBrow.x + 4.5} ${rightBrow.y - 1.4}`} fill="none" stroke="#111" strokeWidth="1.2" strokeLinecap="round" />
     </svg>

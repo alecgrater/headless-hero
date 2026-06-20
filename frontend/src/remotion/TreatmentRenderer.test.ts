@@ -3,6 +3,7 @@ import type React from "react";
 
 import {
   comparisonBoardLayerStyle,
+  BLINK_OVERLAY_SVG_PROPS,
   comparisonLabel,
   blinkActiveLayer,
   blinkOverlayAnchor,
@@ -250,6 +251,13 @@ describe("blinkMicroOverlay", () => {
 });
 
 describe("blinkBlinkEyeOverlayGeometry", () => {
+  it("stretches blink overlays to the non-square layer frame", () => {
+    expect(BLINK_OVERLAY_SVG_PROPS).toMatchObject({
+      viewBox: "0 0 100 100",
+      preserveAspectRatio: "none",
+    });
+  });
+
   it("covers open eyes before drawing closed eyelids", () => {
     const geometry = blinkBlinkEyeOverlayGeometry(
       {
@@ -297,6 +305,56 @@ describe("blinkBlinkEyeOverlayGeometry", () => {
     expect(geometry[0].mask.x).toBeGreaterThan(38);
     expect(geometry[0].mask.width).toBeLessThan(7);
     expect(geometry[0].lid.d).toContain("Q42");
+  });
+
+  it("keeps minimalist dot-eye blink masks local to tiny eyes", () => {
+    const geometry = blinkBlinkEyeOverlayGeometry(
+      {
+        eye_left: {
+          x: 0.455,
+          y: 0.2017,
+          width: 0.012,
+          height: 0.0125,
+          erase_box: { left: 0.4335, top: 0.1382, right: 0.4764, bottom: 0.229 },
+          fill_top: "#E4DECC",
+          fill_bottom: "#9F9C90",
+          fill_left: "#9B998A",
+          fill_right: "#E4DECC",
+        },
+        eye_right: {
+          x: 0.546,
+          y: 0.2019,
+          width: 0.0135,
+          height: 0.0125,
+          erase_box: { left: 0.5204, top: 0.1382, right: 0.5711, bottom: 0.229 },
+          fill_top: "#E4DECC",
+          fill_bottom: "#A0998C",
+          fill_left: "#E4DECC",
+          fill_right: "#9F988A",
+        },
+        mouth: { x: 0.5005, y: 0.3485 },
+        brow_left: { x: 0.455, y: 0.1218 },
+        brow_right: { x: 0.546, y: 0.1218 },
+        skin_fill: "#E4DECC",
+      },
+      "#E4DECC",
+    );
+
+    expect(geometry[0].mask.width).toBeLessThan(4.5);
+    expect(geometry[0].mask.height).toBeLessThan(3.5);
+    expect(geometry[0].mask.y).toBeGreaterThan(18.5);
+    expect(geometry[0].mask.gradient).toBeUndefined();
+    expect(geometry[0].lid.strokeWidth).toBeLessThanOrEqual(0.7);
+    expect(geometry[0].lid.y).toBeLessThan(20.17);
+    expect(geometry[0].lid.d).toContain(`Q45.5 ${geometry[0].lid.y}`);
+    expect(geometry[0].lid.d).toContain("Q45.5");
+    expect(geometry[1].mask.width).toBeLessThan(4.5);
+    expect(geometry[1].mask.height).toBeLessThan(3.5);
+    expect(geometry[1].mask.gradient).toBeUndefined();
+    expect(geometry[1].lid.y).toBeLessThan(20.19);
+    expect(geometry[1].lid.strokeWidth).toBeLessThanOrEqual(0.7);
+    expect(geometry[1].lid.d).toContain(`Q54.6 ${geometry[1].lid.y}`);
+    expect(geometry[1].lid.d).toContain("Q54.6");
   });
 
   it("uses detected eye erase boxes for skin fill bounds when available", () => {
