@@ -527,7 +527,7 @@ export const flipflopBlinkEyeOverlayGeometry = (
     ? Math.max(...eraseBoxes.map((box) => box.bottom))
     : undefined;
   return [leftEye, rightEye].map((eye, index) => {
-    const lidY = eye.y + maskRy * 0.86;
+    const lidY = eye.y;
     const maskY = eye.y + maskRy * 1.02;
     const metadataMask = eraseBoxMask(
       index === 0 ? anchor.eye_left : anchor.eye_right,

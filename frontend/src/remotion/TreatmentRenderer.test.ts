@@ -529,7 +529,7 @@ describe("flipflopBlinkEyeOverlayGeometry", () => {
     expect(geometry[1].mask.y).toBe(28.5);
   });
 
-  it("uses backend eye-aperture bounds and lowers closed lashes", () => {
+  it("uses backend eye-aperture bounds and draws closed lashes at the detected eye center", () => {
     const geometry = flipflopBlinkEyeOverlayGeometry(
       {
         eye_left: {
@@ -561,8 +561,8 @@ describe("flipflopBlinkEyeOverlayGeometry", () => {
       y: 29.15,
       height: 7.85,
     });
-    expect(geometry[0].lid.y).toBeGreaterThan(34);
-    expect(geometry[1].lid.y).toBeGreaterThan(34);
+    expect(geometry[0].lid.y).toBeCloseTo(33, 1);
+    expect(geometry[1].lid.y).toBeCloseTo(33, 1);
   });
 
   it("uses per-eye skin gradients for blink masks when sampled colors are available", () => {

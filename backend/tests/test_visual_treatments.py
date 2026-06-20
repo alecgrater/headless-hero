@@ -480,9 +480,32 @@ def test_flipflop_overlay_anchor_metadata_handles_full_body_cutout_with_high_fac
 
     metadata = image_gen_mod._flipflop_overlay_anchor_metadata(image, require_detected=True)
 
+    assert metadata["eye_left"]["x"] == pytest.approx(0.452, abs=0.03)
     assert metadata["eye_left"]["y"] == pytest.approx(0.296, abs=0.03)
+    assert metadata["eye_right"]["x"] == pytest.approx(0.580, abs=0.03)
     assert metadata["eye_right"]["y"] == pytest.approx(0.296, abs=0.03)
+    assert metadata["mouth"]["x"] == pytest.approx(0.500, abs=0.03)
     assert metadata["mouth"]["y"] == pytest.approx(0.381, abs=0.03)
+
+
+def test_flipflop_overlay_anchor_metadata_handles_light_eyes_on_dark_face():
+    from pipeline import image_gen as image_gen_mod
+
+    image = Image.new("RGBA", (423, 727), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    draw.ellipse((150, 95, 325, 345), fill=(45, 48, 48, 255))
+    draw.rounded_rectangle((216, 137, 230, 148), radius=4, fill=(232, 226, 208, 255))
+    draw.rounded_rectangle((278, 137, 296, 148), radius=4, fill=(232, 226, 208, 255))
+    draw.arc((242, 225, 285, 245), start=10, end=170, fill=(12, 12, 12, 255), width=5)
+    draw.rounded_rectangle((120, 365, 330, 565), radius=18, fill=(108, 128, 156, 255))
+    draw.rounded_rectangle((245, 390, 275, 405), radius=2, fill=(220, 190, 90, 255))
+
+    metadata = image_gen_mod._flipflop_overlay_anchor_metadata(image, require_detected=True)
+
+    assert metadata["eye_left"]["y"] == pytest.approx(0.194, abs=0.03)
+    assert metadata["eye_right"]["y"] == pytest.approx(0.194, abs=0.03)
+    assert metadata["mouth"]["y"] == pytest.approx(0.326, abs=0.03)
+    assert metadata["eye_left"]["fill_top"] == "#2d3030"
 
 
 def test_flipflop_overlay_anchor_metadata_can_require_detected_features():

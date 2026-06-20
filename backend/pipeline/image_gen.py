@@ -24,7 +24,7 @@ from prompts import IMAGE_CHARACTER_IN_SCENE, IMAGE_COMPOSITION_GUIDE, IMAGE_VIS
 
 logger = logging.getLogger(__name__)
 
-FLIPFLOP_CUTOUT_REGISTRATION_VERSION = "alpha-mask-registration-v22"
+FLIPFLOP_CUTOUT_REGISTRATION_VERSION = "alpha-mask-registration-v25"
 FLIPFLOP_SCALE_CORRECTION_MIN = 0.92
 FLIPFLOP_SCALE_CORRECTION_MAX = 1.08
 FLIPFLOP_ASPECT_RATIO_TOLERANCE = 0.12
@@ -1150,17 +1150,77 @@ def _flipflop_overlay_anchor_metadata(image: Image.Image | None = None, *, requi
             "face overlays cannot be aligned safely. Regenerate the scene or use full_frame."
         )
     skin_fill = _sample_flipflop_face_skin_fill(image, detected) if image is not None and detected is not None else None
+    layer_detected = (
+        _flipflop_anchor_to_layer_frame(detected, image.size)
+        if image is not None and detected is not None
+        else None
+    )
     return {
         "version": 1,
         "detected": detected is not None,
         "coordinate_space": "normalized_layer_frame",
         **({"skin_fill": skin_fill} if skin_fill else {}),
-        "eye_left": detected.get("eye_left", {"x": 0.45, "y": 0.44}) if detected else {"x": 0.45, "y": 0.44},
-        "eye_right": detected.get("eye_right", {"x": 0.55, "y": 0.44}) if detected else {"x": 0.55, "y": 0.44},
-        "mouth": detected.get("mouth", {"x": 0.50, "y": 0.58}) if detected else {"x": 0.50, "y": 0.58},
-        "brow_left": detected.get("brow_left", {"x": 0.45, "y": 0.37}) if detected else {"x": 0.45, "y": 0.37},
-        "brow_right": detected.get("brow_right", {"x": 0.55, "y": 0.37}) if detected else {"x": 0.55, "y": 0.37},
+        "eye_left": layer_detected.get("eye_left", {"x": 0.45, "y": 0.44}) if layer_detected else {"x": 0.45, "y": 0.44},
+        "eye_right": layer_detected.get("eye_right", {"x": 0.55, "y": 0.44}) if layer_detected else {"x": 0.55, "y": 0.44},
+        "mouth": layer_detected.get("mouth", {"x": 0.50, "y": 0.58}) if layer_detected else {"x": 0.50, "y": 0.58},
+        "brow_left": layer_detected.get("brow_left", {"x": 0.45, "y": 0.37}) if layer_detected else {"x": 0.45, "y": 0.37},
+        "brow_right": layer_detected.get("brow_right", {"x": 0.55, "y": 0.37}) if layer_detected else {"x": 0.55, "y": 0.37},
     }
+
+
+def _flipflop_anchor_to_layer_frame(
+    detected: dict[str, dict[str, float]],
+    image_size: tuple[int, int],
+) -> dict[str, dict[str, float]]:
+    image_width, image_height = image_size
+    if image_width <= 0 or image_height <= 0:
+        return detected
+    scale = min(FLIPFLOP_BASE_CANVAS_WIDTH / image_width, FLIPFLOP_BASE_CANVAS_HEIGHT / image_height)
+    rendered_width = image_width * scale
+    rendered_height = image_height * scale
+    offset_x = (FLIPFLOP_BASE_CANVAS_WIDTH - rendered_width) / 2
+    offset_y = (FLIPFLOP_BASE_CANVAS_HEIGHT - rendered_height) / 2
+    x_scale = rendered_width / FLIPFLOP_BASE_CANVAS_WIDTH
+    y_scale = rendered_height / FLIPFLOP_BASE_CANVAS_HEIGHT
+    x_offset = offset_x / FLIPFLOP_BASE_CANVAS_WIDTH
+    y_offset = offset_y / FLIPFLOP_BASE_CANVAS_HEIGHT
+
+    def convert_x(value: float) -> float:
+        return x_offset + value * x_scale
+
+    def convert_y(value: float) -> float:
+        return y_offset + value * y_scale
+
+    converted: dict[str, dict[str, float]] = {}
+    for label, point in detected.items():
+        next_point: dict[str, float] = {}
+        for key, value in point.items():
+            if not isinstance(value, int | float):
+                continue
+            if key in {"x", "cx", "left", "right"}:
+                next_point[key] = round(convert_x(float(value)), 4)
+            elif key in {"y", "cy", "top", "bottom"}:
+                next_point[key] = round(convert_y(float(value)), 4)
+            elif key == "width":
+                next_point[key] = round(float(value) * x_scale, 4)
+            elif key == "height":
+                next_point[key] = round(float(value) * y_scale, 4)
+            else:
+                next_point[key] = value
+        erase_box = point.get("erase_box")
+        if isinstance(erase_box, dict):
+            next_point["erase_box"] = {
+                "left": round(convert_x(float(erase_box["left"])), 4),
+                "top": round(convert_y(float(erase_box["top"])), 4),
+                "right": round(convert_x(float(erase_box["right"])), 4),
+                "bottom": round(convert_y(float(erase_box["bottom"])), 4),
+            }
+        for color_key in ("fill_top", "fill_bottom", "fill_left", "fill_right"):
+            color_value = point.get(color_key)
+            if isinstance(color_value, str):
+                next_point[color_key] = color_value
+        converted[label] = next_point
+    return converted
 
 
 def _sample_flipflop_face_skin_fill(image: Image.Image, detected: dict[str, dict[str, float]]) -> str | None:
@@ -1208,64 +1268,78 @@ def _detect_flipflop_overlay_anchor_points(image: Image.Image | None) -> dict[st
         return None
     rgba = image.convert("RGBA")
     width, height = rgba.size
-    dark_points: set[tuple[int, int]] = set()
     pixels = rgba.load()
-    for y in range(round(height * 0.24), round(height * 0.70)):
-        for x in range(round(width * 0.18), round(width * 0.82)):
-            red, green, blue, alpha = pixels[x, y]
-            if alpha > 80 and red < 55 and green < 55 and blue < 55:
-                dark_points.add((x, y))
 
-    components: list[dict[str, float]] = []
-    seen: set[tuple[int, int]] = set()
-    for point in list(dark_points):
-        if point in seen:
-            continue
-        stack = [point]
-        seen.add(point)
-        xs: list[int] = []
-        ys: list[int] = []
-        while stack:
-            x, y = stack.pop()
-            xs.append(x)
-            ys.append(y)
-            for nx in (x - 1, x, x + 1):
-                for ny in (y - 1, y, y + 1):
-                    neighbor = (nx, ny)
-                    if neighbor != (x, y) and neighbor in dark_points and neighbor not in seen:
-                        seen.add(neighbor)
-                        stack.append(neighbor)
-        if len(xs) < 40:
-            continue
-        left = min(xs)
-        top = min(ys)
-        right = max(xs)
-        bottom = max(ys)
-        box_width = right - left + 1
-        box_height = bottom - top + 1
-        if box_width <= 0 or box_height <= 0:
-            continue
-        components.append(
-            {
-                "area": float(len(xs)),
-                "left": left / width,
-                "top": top / height,
-                "right": right / width,
-                "bottom": bottom / height,
-                "cx": (sum(xs) / len(xs)) / width,
-                "cy": (sum(ys) / len(ys)) / height,
-                "width": box_width / width,
-                "height": box_height / height,
-            }
-        )
+    def collect_components(kind: str) -> list[dict[str, float]]:
+        points: set[tuple[int, int]] = set()
+        for y in range(round(height * 0.12), round(height * 0.70)):
+            for x in range(round(width * 0.08), round(width * 0.92)):
+                red, green, blue, alpha = pixels[x, y]
+                if alpha <= 80:
+                    continue
+                if kind == "dark":
+                    matches = red < 55 and green < 55 and blue < 55
+                else:
+                    matches = red > 185 and green > 175 and blue > 150 and max(red, green, blue) - min(red, green, blue) < 85
+                if matches:
+                    points.add((x, y))
+
+        collected: list[dict[str, float]] = []
+        seen: set[tuple[int, int]] = set()
+        min_area = 40 if kind == "dark" else 24
+        for point in list(points):
+            if point in seen:
+                continue
+            stack = [point]
+            seen.add(point)
+            xs: list[int] = []
+            ys: list[int] = []
+            while stack:
+                x, y = stack.pop()
+                xs.append(x)
+                ys.append(y)
+                for nx in (x - 1, x, x + 1):
+                    for ny in (y - 1, y, y + 1):
+                        neighbor = (nx, ny)
+                        if neighbor != (x, y) and neighbor in points and neighbor not in seen:
+                            seen.add(neighbor)
+                            stack.append(neighbor)
+            if len(xs) < min_area:
+                continue
+            left = min(xs)
+            top = min(ys)
+            right = max(xs)
+            bottom = max(ys)
+            box_width = right - left + 1
+            box_height = bottom - top + 1
+            if box_width <= 0 or box_height <= 0:
+                continue
+            collected.append(
+                {
+                    "area": float(len(xs)),
+                    "left": left / width,
+                    "top": top / height,
+                    "right": right / width,
+                    "bottom": bottom / height,
+                    "cx": (sum(xs) / len(xs)) / width,
+                    "cy": (sum(ys) / len(ys)) / height,
+                    "width": box_width / width,
+                    "height": box_height / height,
+                }
+            )
+        return collected
+
+    dark_components = collect_components("dark")
+    light_components = collect_components("light")
+    components = [*dark_components, *light_components]
 
     eye_candidates = [
         component
         for component in components
-        if 0.26 <= component["cy"] <= 0.54
+        if 0.16 <= component["cy"] <= 0.54
         and 0.03 <= component["width"] <= 0.12
         and 0.015 <= component["height"] <= 0.07
-        and component["area"] >= 120
+        and component["area"] >= 24
     ]
     valid_eye_pairs: list[tuple[float, float, dict[str, float], dict[str, float], dict[str, float]]] = []
     for left_eye in eye_candidates:
@@ -1282,7 +1356,7 @@ def _detect_flipflop_overlay_anchor_points(image: Image.Image | None) -> dict[st
             eye_y = (left_eye["cy"] + right_eye["cy"]) / 2
             mouth_candidates = [
                 component
-                for component in components
+                for component in dark_components
                 if eye_y + 0.07 <= component["cy"] <= min(0.70, eye_y + 0.20)
                 and 0.035 <= component["width"] <= 0.14
                 and component["height"] <= 0.025
@@ -1290,7 +1364,17 @@ def _detect_flipflop_overlay_anchor_points(image: Image.Image | None) -> dict[st
             ]
             mouth = max(mouth_candidates, key=lambda component: component["area"], default=None)
             if mouth is None:
-                continue
+                mouth = {
+                    "area": 0.0,
+                    "left": midpoint,
+                    "top": eye_y + separation * 0.82,
+                    "right": midpoint,
+                    "bottom": eye_y + separation * 0.82,
+                    "cx": midpoint,
+                    "cy": min(0.70, eye_y + separation * 0.82),
+                    "width": 0.0,
+                    "height": 0.0,
+                }
             mouth_distance = mouth["cy"] - eye_y
             alignment_score = (
                 -abs(midpoint - 0.50) * 0.8
@@ -1435,7 +1519,7 @@ def _median_skin_color_in_box(
             channel_max = max(red, green, blue)
             channel_min = min(red, green, blue)
             brightness = (red + green + blue) / 3
-            if channel_max < 95:
+            if channel_max < 28:
                 continue
             if channel_min > 115 and brightness > 160 and channel_max - channel_min < 75:
                 continue
