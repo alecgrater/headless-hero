@@ -193,6 +193,35 @@ def test_scene_input_props_include_visual_layer_source_metadata():
     assert props["visual_layers"][0]["visual_source_metadata"]["blink_overlay_anchor"]["mouth"] == {"x": 0.5, "y": 0.46}
 
 
+def test_scene_input_props_resolves_style_preset_visual_layer_paths(tmp_path, monkeypatch):
+    monkeypatch.setattr(remotion_render, "DATA_DIR", tmp_path)
+    preset_id = "preset-billy"
+    character_id = "character-billy"
+    cutout_path = tmp_path / "style" / "presets" / preset_id / "characters" / f"{character_id}.cutout.png"
+    cutout_path.parent.mkdir(parents=True)
+    cutout_path.write_bytes(b"not a real png")
+    scene = Scene(
+        id="s1",
+        narration="Billy blinks.",
+        visual_prompt="Billy.",
+        visual_mode="blink",
+        blink_action="blink",
+        visual_layers=[
+            VisualLayer(
+                id="billy_base",
+                asset_kind="cutout",
+                image_url=f"/static/style/presets/{preset_id}/characters/{character_id}.cutout.png",
+            )
+        ],
+    )
+
+    props = remotion_render._scene_to_input_props(scene, "style-preset")
+
+    assert props["visual_layers"][0]["image_path"].endswith(
+        "/static/style/presets/preset-billy/characters/character-billy.cutout.png"
+    )
+
+
 def test_subtitle_render_fingerprint_includes_renderer_context_for_canvas_modes():
     scene = Scene(
         id="s1",

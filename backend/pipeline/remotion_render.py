@@ -26,6 +26,7 @@ REMOTION_ENTRY = REMOTION_DIR / "src" / "index.ts"
 
 
 BACKEND_STATIC_BASE = f"http://localhost:{BACKEND_PORT}/static/projects"
+BACKEND_STYLE_STATIC_BASE = f"http://localhost:{BACKEND_PORT}/static/style"
 MAX_AI_VIDEO_SLOWDOWN_RATIO = 1.25
 SUBTITLE_ROUTER_VERSION = "standard-subtitle-router-v1"
 RENDERER_CONTEXT_STAGE_VERSION = "renderer-context-stage-v1"
@@ -39,6 +40,10 @@ def _to_remotion_path(abs_path: str) -> str:
     if abs_path.startswith(projects_dir):
         relative = abs_path[len(projects_dir):]
         return f"{BACKEND_STATIC_BASE}{relative}"
+    style_dir = str(DATA_DIR / "style")
+    if abs_path.startswith(style_dir):
+        relative = abs_path[len(style_dir):]
+        return f"{BACKEND_STYLE_STATIC_BASE}{relative}"
     return abs_path
 
 
@@ -54,6 +59,9 @@ def _scene_image_path(script_id: str, scene_id: str, image_url: str | None = Non
 
     if image_url:
         resolved = _project_static_asset_path(script_id, image_url)
+        if resolved is not None:
+            return resolved
+        resolved = _style_static_asset_path(image_url)
         if resolved is not None:
             return resolved
         filename = image_url.rsplit("/", 1)[-1]
@@ -81,6 +89,22 @@ def _project_static_asset_path(script_id: str, image_url: str) -> str | None:
         return None
 
     path = DATA_DIR / "projects" / script_id / relative
+    if path.exists():
+        return _to_remotion_path(str(path))
+    return None
+
+
+def _style_static_asset_path(image_url: str) -> str | None:
+    marker = "/static/style/"
+    marker_index = image_url.find(marker)
+    if marker_index < 0:
+        return None
+
+    relative = image_url[marker_index + len(marker):]
+    if not relative or ".." in Path(relative).parts:
+        return None
+
+    path = DATA_DIR / "style" / relative
     if path.exists():
         return _to_remotion_path(str(path))
     return None
