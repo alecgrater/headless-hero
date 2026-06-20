@@ -994,6 +994,39 @@ def test_blink_debug_lists_asset_vault_character_cutouts(monkeypatch, tmp_path):
     assert assets[0].source_metadata["source_type"] == "character_cutout"
 
 
+def test_blink_debug_skips_character_cutouts_with_transparent_face_holes(monkeypatch, tmp_path):
+    import pipeline.test_lab_blink_debug as blink_debug
+
+    monkeypatch.setattr(blink_debug, "DATA_DIR", tmp_path)
+
+    good_dir = tmp_path / "projects" / "test-lab-character-good" / "character"
+    bad_dir = tmp_path / "projects" / "test-lab-character-bad" / "character"
+    good_dir.mkdir(parents=True)
+    bad_dir.mkdir(parents=True)
+
+    good_path = good_dir / "cutout.png"
+    good = Image.new("RGBA", (1000, 1000), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(good)
+    draw.ellipse((250, 120, 750, 780), fill=(241, 198, 150, 255), outline=(20, 20, 20, 255), width=8)
+    draw.rounded_rectangle((388, 442, 456, 468), radius=12, fill=(12, 12, 12, 255))
+    draw.rounded_rectangle((570, 442, 638, 468), radius=12, fill=(12, 12, 12, 255))
+    draw.rounded_rectangle((470, 590, 545, 600), radius=5, fill=(12, 12, 12, 255))
+    good.save(good_path)
+
+    bad = good.copy()
+    pixels = bad.load()
+    for x in range(370, 660):
+        for y in range(360, 520):
+            red, green, blue, alpha = pixels[x, y]
+            if alpha and red > 180 and green > 130 and blue > 90:
+                pixels[x, y] = (red, green, blue, 0)
+    bad.save(bad_dir / "cutout.png")
+
+    assets = blink_debug.list_blink_debug_assets()
+
+    assert [asset.asset_id for asset in assets] == ["test-lab-character-good/character/cutout.png"]
+
+
 def test_blink_debug_skips_opaque_popup_scene_crops(monkeypatch, tmp_path):
     import pipeline.test_lab_blink_debug as blink_debug
 

@@ -324,6 +324,8 @@ def _is_reusable_debug_asset(path: Path) -> bool:
     if not _is_allowed_debug_asset(relative):
         return False
     parts = relative.parts
+    if _is_character_debug_asset(relative) and not _has_opaque_blink_anchor_regions(path):
+        return False
     if len(parts) == 4 and parts[1] == "popup_crops" and parts[3] == "anchor_cutout.png":
         if not _has_transparent_background(path):
             return False
@@ -339,6 +341,54 @@ def _has_detectable_blink_anchor(path: Path) -> bool:
     except BlinkRegistrationError:
         return False
     return True
+
+
+def _has_opaque_blink_anchor_regions(path: Path) -> bool:
+    try:
+        with Image.open(path) as image:
+            rgba = image.convert("RGBA")
+            anchor = _blink_overlay_anchor_metadata(rgba, require_detected=True)
+    except OSError:
+        return False
+    except BlinkRegistrationError:
+        return False
+
+    for label in ("eye_left", "eye_right"):
+        raw = anchor.get(label)
+        if not isinstance(raw, dict):
+            return False
+        erase_box = raw.get("erase_box")
+        if not isinstance(erase_box, dict):
+            return False
+        box = _pixel_box_from_normalized(erase_box, width=rgba.width, height=rgba.height)
+        if box is None:
+            return False
+        alpha = rgba.crop(box).getchannel("A")
+        histogram = alpha.histogram()
+        pixel_count = sum(histogram)
+        if not pixel_count:
+            return False
+        transparent_ratio = sum(histogram[:200]) / pixel_count
+        if transparent_ratio > 0.15:
+            return False
+    return True
+
+
+def _pixel_box_from_normalized(
+    box: dict[str, object],
+    *,
+    width: int,
+    height: int,
+) -> tuple[int, int, int, int] | None:
+    values = [box.get(key) for key in ("left", "top", "right", "bottom")]
+    if not all(isinstance(value, int | float) for value in values):
+        return None
+    left, top, right, bottom = (float(value) for value in values)
+    x1 = max(0, min(width - 1, int(left * width)))
+    y1 = max(0, min(height - 1, int(top * height)))
+    x2 = max(x1 + 1, min(width, int(right * width)))
+    y2 = max(y1 + 1, min(height, int(bottom * height)))
+    return (x1, y1, x2, y2)
 
 
 def _has_transparent_background(path: Path) -> bool:
@@ -385,6 +435,13 @@ def _scene_id_for_debug_asset(relative: Path) -> str:
     if len(parts) >= 3 and parts[1] == "character":
         return "character"
     return ""
+
+
+def _is_character_debug_asset(relative: Path) -> bool:
+    parts = relative.parts
+    if len(parts) == 3 and parts[0] == "asset-vault" and parts[1] == "characters":
+        return True
+    return len(parts) == 3 and parts[1] == "character" and parts[2] == "cutout.png"
 
 
 def _source_type_for_debug_asset(path: Path) -> str:

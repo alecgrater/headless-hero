@@ -370,7 +370,7 @@ function ImagePanel({ title, src, icon }: { title: string; src: string; icon: Re
         {title}
       </div>
       <div
-        className="flex h-[min(58vh,620px)] min-h-80 items-center justify-center p-4"
+        className="flex h-[min(44vh,460px)] min-h-64 items-center justify-center p-5"
         style={{
           backgroundColor: "#171717",
           backgroundImage:
@@ -387,7 +387,7 @@ function ImagePanel({ title, src, icon }: { title: string; src: string; icon: Re
 
 function EmptyPanel({ label }: { label: string }) {
   return (
-    <div className="flex h-[min(58vh,620px)] min-h-80 items-center justify-center rounded-md border border-dashed border-neutral-800 bg-neutral-950/40 p-4 text-xs text-neutral-600">
+    <div className="flex h-[min(44vh,460px)] min-h-64 items-center justify-center rounded-md border border-dashed border-neutral-800 bg-neutral-950/40 p-5 text-xs text-neutral-600">
       {label}
     </div>
   );
