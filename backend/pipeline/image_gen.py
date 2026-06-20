@@ -1337,8 +1337,23 @@ def _detect_blink_overlay_anchor_points(image: Image.Image | None) -> dict[str, 
         component
         for component in components
         if 0.16 <= component["cy"] <= 0.54
-        and 0.03 <= component["width"] <= 0.12
-        and 0.015 <= component["height"] <= 0.07
+        and (
+            (
+                0.03 <= component["width"] <= 0.12
+                and 0.015 <= component["height"] <= 0.07
+            )
+            or (
+                0.03 <= component["width"] <= 0.095
+                and 0.006 <= component["height"] <= 0.018
+                and component["cy"] <= 0.25
+                and component["width"] / max(component["height"], 0.001) >= 3.0
+            )
+            or (
+                0.018 <= component["width"] <= 0.045
+                and 0.008 <= component["height"] <= 0.025
+                and component["cy"] <= 0.25
+            )
+        )
         and component["area"] >= 24
     ]
     valid_eye_pairs: list[tuple[bool, float, float, dict[str, float], dict[str, float], dict[str, float]]] = []
@@ -1347,7 +1362,7 @@ def _detect_blink_overlay_anchor_points(image: Image.Image | None) -> dict[str, 
             if left_eye is right_eye or left_eye["cx"] >= right_eye["cx"]:
                 continue
             separation = right_eye["cx"] - left_eye["cx"]
-            if separation < 0.12 or separation > 0.30:
+            if separation < 0.14 or separation > 0.30:
                 continue
             y_delta = abs(left_eye["cy"] - right_eye["cy"])
             if y_delta > 0.035:
@@ -1385,6 +1400,8 @@ def _detect_blink_overlay_anchor_points(image: Image.Image | None) -> dict[str, 
             )
             valid_eye_pairs.append((has_detected_mouth, eye_y, alignment_score, left_eye, right_eye, mouth))
     best_eye_pair = max(valid_eye_pairs, default=None, key=lambda pair: (pair[0], pair[2], pair[1]))
+    if best_eye_pair is None:
+        best_eye_pair = _detect_minimalist_blink_eye_pair(dark_components, rgba)
     if best_eye_pair is None:
         return None
 
@@ -1438,6 +1455,104 @@ def _detect_blink_overlay_anchor_points(image: Image.Image | None) -> dict[str, 
         "brow_left": {"x": round(left_eye["cx"], 4), "y": round(brow_y, 4)},
         "brow_right": {"x": round(right_eye["cx"], 4), "y": round(brow_y, 4)},
     }
+
+
+def _detect_minimalist_blink_eye_pair(
+    dark_components: list[dict[str, float]],
+    image: Image.Image,
+) -> tuple[bool, float, float, dict[str, float], dict[str, float], dict[str, float]] | None:
+    width, height = image.size
+    if width <= 0 or height <= 0:
+        return None
+    eye_candidates = [
+        component
+        for component in dark_components
+        if 0.12 <= component["cy"] <= 0.36
+        and 0.035 <= component["width"] <= 0.095
+        and 0.006 <= component["height"] <= 0.018
+        and component["area"] >= 32
+        and component["width"] / max(component["height"], 0.001) >= 3.0
+    ]
+    valid_pairs: list[tuple[bool, float, float, dict[str, float], dict[str, float], dict[str, float]]] = []
+    for left_eye in eye_candidates:
+        for right_eye in eye_candidates:
+            if left_eye is right_eye or left_eye["cx"] >= right_eye["cx"]:
+                continue
+            separation = right_eye["cx"] - left_eye["cx"]
+            if separation < 0.14 or separation > 0.26:
+                continue
+            y_delta = abs(left_eye["cy"] - right_eye["cy"])
+            if y_delta > 0.018:
+                continue
+            midpoint = (left_eye["cx"] + right_eye["cx"]) / 2
+            eye_y = (left_eye["cy"] + right_eye["cy"]) / 2
+            if not _minimalist_eye_pair_has_face_region(image, left_eye, right_eye):
+                continue
+            mouth_candidates = [
+                component
+                for component in dark_components
+                if eye_y + 0.07 <= component["cy"] <= min(0.42, eye_y + 0.15)
+                and 0.06 <= component["width"] <= 0.14
+                and component["height"] <= 0.018
+                and abs(component["cx"] - midpoint) <= 0.10
+            ]
+            mouth = max(mouth_candidates, key=lambda component: component["area"], default=None)
+            has_detected_mouth = mouth is not None
+            if mouth is None:
+                mouth = {
+                    "area": 0.0,
+                    "left": midpoint,
+                    "top": eye_y + separation * 0.50,
+                    "right": midpoint,
+                    "bottom": eye_y + separation * 0.50,
+                    "cx": midpoint,
+                    "cy": min(0.42, eye_y + separation * 0.50),
+                    "width": 0.0,
+                    "height": 0.0,
+                }
+            alignment_score = (
+                -abs(midpoint - 0.50) * 0.9
+                - abs(separation - 0.19) * 0.6
+                - y_delta
+            )
+            valid_pairs.append((has_detected_mouth, eye_y, alignment_score, left_eye, right_eye, mouth))
+    return max(valid_pairs, default=None, key=lambda pair: (pair[0], pair[2], pair[1]))
+
+
+def _minimalist_eye_pair_has_face_region(
+    image: Image.Image,
+    left_eye: dict[str, float],
+    right_eye: dict[str, float],
+) -> bool:
+    width, height = image.size
+    pixels = image.load()
+    eye_y = (left_eye["cy"] + right_eye["cy"]) / 2
+    separation = right_eye["cx"] - left_eye["cx"]
+    left = max(0, round((left_eye["cx"] - separation * 0.55) * width))
+    right = min(width, round((right_eye["cx"] + separation * 0.55) * width))
+    top = max(0, round((eye_y - separation * 0.50) * height))
+    bottom = min(height, round((eye_y + separation * 0.90) * height))
+    if right <= left or bottom <= top:
+        return False
+
+    sampled = 0
+    face_like = 0
+    dark = 0
+    for y in range(top, bottom):
+        for x in range(left, right):
+            red, green, blue, alpha = pixels[x, y]
+            if alpha < 160:
+                continue
+            sampled += 1
+            if red < 55 and green < 55 and blue < 55:
+                dark += 1
+                continue
+            channel_spread = max(red, green, blue) - min(red, green, blue)
+            if red >= 150 and green >= 125 and blue >= 90 and channel_spread <= 80:
+                face_like += 1
+    if sampled < 120:
+        return False
+    return face_like / sampled >= 0.45 and dark / sampled <= 0.20
 
 
 def _blink_eye_erase_box(

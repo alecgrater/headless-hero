@@ -994,6 +994,37 @@ def test_blink_debug_lists_asset_vault_character_cutouts(monkeypatch, tmp_path):
     assert assets[0].source_metadata["source_type"] == "character_cutout"
 
 
+def test_blink_debug_lists_style_preset_character_cutouts(monkeypatch, tmp_path):
+    import pipeline.test_lab_blink_debug as blink_debug
+
+    monkeypatch.setattr(blink_debug, "DATA_DIR", tmp_path)
+
+    preset_id = "preset-billy"
+    character_id = "character-billy"
+    character_dir = tmp_path / "style" / "presets" / preset_id / "characters"
+    character_dir.mkdir(parents=True)
+    cutout_path = character_dir / f"{character_id}.cutout.png"
+    image = Image.new("RGBA", (423, 727), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    draw.ellipse((96, 55, 305, 280), fill=(232, 226, 205, 255), outline=(24, 24, 24, 255), width=5)
+    draw.polygon([(125, 57), (210, 15), (294, 58), (250, 88), (160, 88)], fill=(24, 24, 24, 255))
+    draw.rounded_rectangle((147, 144, 172, 150), radius=2, fill=(24, 24, 24, 255))
+    draw.rounded_rectangle((230, 144, 255, 150), radius=2, fill=(24, 24, 24, 255))
+    draw.rounded_rectangle((179, 215, 230, 221), radius=2, fill=(24, 24, 24, 255))
+    draw.rectangle((150, 285, 270, 520), fill=(78, 88, 108, 255), outline=(24, 24, 24, 255), width=5)
+    image.save(cutout_path)
+
+    assets = blink_debug.list_blink_debug_assets()
+
+    assert [asset.asset_id for asset in assets] == [
+        "style/presets/preset-billy/characters/character-billy.cutout.png"
+    ]
+    assert assets[0].asset_url == "/static/style/presets/preset-billy/characters/character-billy.cutout.png"
+    assert assets[0].script_id == "style-preset"
+    assert assets[0].scene_id == "character"
+    assert assets[0].source_metadata["source_type"] == "style_preset_character_cutout"
+
+
 def test_blink_debug_repairs_project_character_cutouts_with_transparent_face_holes(monkeypatch, tmp_path):
     import json
 

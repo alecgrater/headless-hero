@@ -553,6 +553,50 @@ def test_blink_overlay_anchor_metadata_handles_light_eyes_on_dark_face():
     assert metadata["eye_left"]["fill_top"] == "#2d3030"
 
 
+def test_blink_overlay_anchor_metadata_handles_minimalist_style_preset_character():
+    from pipeline import image_gen as image_gen_mod
+
+    image = Image.new("RGBA", (423, 727), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    draw.ellipse((96, 55, 305, 280), fill=(232, 226, 205, 255), outline=(24, 24, 24, 255), width=5)
+    draw.polygon([(125, 57), (210, 15), (294, 58), (250, 88), (160, 88)], fill=(24, 24, 24, 255))
+    draw.ellipse((136, 141, 143, 149), fill=(24, 24, 24, 255))
+    draw.ellipse((196, 141, 204, 149), fill=(24, 24, 24, 255))
+    draw.rounded_rectangle((179, 215, 230, 221), radius=2, fill=(24, 24, 24, 255))
+    draw.rectangle((150, 285, 270, 520), fill=(78, 88, 108, 255), outline=(24, 24, 24, 255), width=5)
+    draw.line((155, 330, 70, 250), fill=(24, 24, 24, 255), width=5)
+    draw.ellipse((42, 230, 82, 265), fill=(232, 226, 205, 255), outline=(24, 24, 24, 255), width=4)
+    draw.line((268, 330, 330, 500), fill=(24, 24, 24, 255), width=5)
+    draw.ellipse((315, 492, 350, 548), fill=(232, 226, 205, 255), outline=(24, 24, 24, 255), width=4)
+    draw.line((180, 520, 175, 695), fill=(24, 24, 24, 255), width=5)
+    draw.line((245, 520, 250, 695), fill=(24, 24, 24, 255), width=5)
+
+    metadata = image_gen_mod._blink_overlay_anchor_metadata(image, require_detected=True)
+
+    assert metadata["eye_left"]["x"] == pytest.approx(0.393, abs=0.035)
+    assert metadata["eye_left"]["y"] == pytest.approx(0.202, abs=0.025)
+    assert metadata["eye_right"]["x"] == pytest.approx(0.483, abs=0.035)
+    assert metadata["eye_right"]["y"] == pytest.approx(0.202, abs=0.025)
+    assert metadata["mouth"]["y"] == pytest.approx(0.300, abs=0.04)
+    assert metadata["skin_fill"] == "#e8e2cd"
+
+
+def test_blink_overlay_anchor_metadata_rejects_minimalist_non_face_marks():
+    from pipeline import image_gen as image_gen_mod
+
+    image = Image.new("RGBA", (423, 727), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    draw.rectangle((150, 285, 270, 520), fill=(78, 88, 108, 255), outline=(24, 24, 24, 255), width=5)
+    draw.rounded_rectangle((170, 330, 195, 336), radius=2, fill=(24, 24, 24, 255))
+    draw.rounded_rectangle((225, 330, 250, 336), radius=2, fill=(24, 24, 24, 255))
+    draw.rounded_rectangle((185, 382, 235, 388), radius=2, fill=(24, 24, 24, 255))
+    draw.line((155, 520, 175, 695), fill=(24, 24, 24, 255), width=5)
+    draw.line((265, 520, 250, 695), fill=(24, 24, 24, 255), width=5)
+
+    with pytest.raises(image_gen_mod.BlinkRegistrationError):
+        image_gen_mod._blink_overlay_anchor_metadata(image, require_detected=True)
+
+
 def test_blink_overlay_anchor_metadata_can_require_detected_features():
     from pipeline import image_gen as image_gen_mod
 

@@ -82,6 +82,7 @@ def list_blink_debug_assets(*, limit: int = 20) -> list[BlinkDebugAsset]:
     """Return recent saved Test Lab cutouts that can be reprocessed locally."""
 
     projects_dir = DATA_DIR / "projects"
+    style_dir = DATA_DIR / "style"
     patterns = (
         "asset-vault/characters/*.png",
         "test-lab-*/blink_cutouts/*/base_*.png",
@@ -92,6 +93,8 @@ def list_blink_debug_assets(*, limit: int = 20) -> list[BlinkDebugAsset]:
     for pattern in patterns:
         for path in projects_dir.glob(pattern):
             candidate_paths[path] = None
+    for path in style_dir.glob("presets/*/characters/*.cutout.png"):
+        candidate_paths[path] = None
     candidates = sorted(
         (path for path in candidate_paths if _is_reusable_debug_asset(path)),
         key=lambda path: path.stat().st_mtime if path.exists() else 0,
@@ -237,9 +240,9 @@ def render_blink_fixture_preview(
 
 def _asset_from_path(path: Path) -> BlinkDebugAsset:
     path = path.resolve()
-    relative = path.relative_to((DATA_DIR / "projects").resolve())
+    relative = _asset_id_relative_path(path)
     parts = relative.parts
-    script_id = parts[0] if len(parts) > 0 else ""
+    script_id = "style-preset" if _is_style_preset_character_asset(relative) else parts[0] if len(parts) > 0 else ""
     scene_id = _scene_id_for_debug_asset(relative)
     created = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc).isoformat()
     source_metadata = _current_or_repaired_source_metadata(path)
@@ -288,16 +291,24 @@ def _current_or_repaired_source_metadata(path: Path) -> dict[str, object]:
 def _path_for_asset_id(asset_id: str) -> Path:
     if not asset_id or asset_id.startswith("/") or "\\" in asset_id:
         raise ValueError("Select a cached blink asset to debug.")
+    data_dir = DATA_DIR.resolve()
     projects_dir = (DATA_DIR / "projects").resolve()
-    path = (projects_dir / asset_id).resolve()
-    if not path.is_relative_to(projects_dir):
+    if asset_id.startswith("style/presets/"):
+        path = (data_dir / asset_id).resolve()
+    else:
+        path = (projects_dir / asset_id).resolve()
+    if not path.is_relative_to(data_dir):
         raise ValueError("Blink debug asset must live under the project data directory.")
     if not path.exists() or not path.is_file():
         raise ValueError("Selected blink debug asset does not exist.")
-    relative = path.relative_to(projects_dir)
+    relative = _asset_id_relative_path(path)
     if (
         not relative.parts
-        or not (relative.parts[0].startswith("test-lab-") or relative.parts[0] == "asset-vault")
+        or not (
+            relative.parts[0].startswith("test-lab-")
+            or relative.parts[0] == "asset-vault"
+            or _is_style_preset_character_asset(relative)
+        )
         or path.suffix.lower() != ".png"
         or not _is_allowed_debug_asset(relative)
         or not _is_reusable_debug_asset(path)
@@ -312,6 +323,8 @@ def _is_allowed_debug_asset(relative: Path) -> bool:
     parts = relative.parts
     if len(parts) == 3 and parts[0] == "asset-vault" and parts[1] == "characters":
         return True
+    if _is_style_preset_character_asset(relative):
+        return True
     if len(parts) >= 4 and parts[1] == "blink_cutouts" and parts[-1].startswith("base_"):
         return True
     if len(parts) == 3 and parts[1] == "character" and parts[2] == "cutout.png":
@@ -322,7 +335,7 @@ def _is_allowed_debug_asset(relative: Path) -> bool:
 
 
 def _is_reusable_debug_asset(path: Path) -> bool:
-    relative = path.resolve().relative_to((DATA_DIR / "projects").resolve())
+    relative = _asset_id_relative_path(path.resolve())
     if not _is_allowed_debug_asset(relative):
         return False
     parts = relative.parts
@@ -490,6 +503,8 @@ def _file_sha256(path: Path) -> str | None:
 
 def _scene_id_for_debug_asset(relative: Path) -> str:
     parts = relative.parts
+    if _is_style_preset_character_asset(relative):
+        return "character"
     if len(parts) >= 3 and parts[0] == "asset-vault" and parts[1] == "characters":
         return "character"
     if len(parts) >= 4 and parts[1] in {"blink_cutouts", "popup_crops"}:
@@ -501,14 +516,18 @@ def _scene_id_for_debug_asset(relative: Path) -> str:
 
 def _is_character_debug_asset(relative: Path) -> bool:
     parts = relative.parts
+    if _is_style_preset_character_asset(relative):
+        return True
     if len(parts) == 3 and parts[0] == "asset-vault" and parts[1] == "characters":
         return True
     return len(parts) == 3 and parts[1] == "character" and parts[2] == "cutout.png"
 
 
 def _source_type_for_debug_asset(path: Path) -> str:
-    relative = path.resolve().relative_to((DATA_DIR / "projects").resolve())
+    relative = _asset_id_relative_path(path.resolve())
     parts = relative.parts
+    if _is_style_preset_character_asset(relative):
+        return "style_preset_character_cutout"
     if len(parts) >= 3 and parts[0] == "asset-vault" and parts[1] == "characters":
         return "character_cutout"
     if len(parts) >= 3 and parts[1] == "character":
@@ -534,8 +553,30 @@ def _debug_path(asset_path: Path, action: str) -> Path:
 
 
 def _web_url_for_project_path(path: Path) -> str:
-    relative = path.resolve().relative_to((DATA_DIR / "projects").resolve())
+    relative = _asset_id_relative_path(path.resolve())
+    if relative.parts and relative.parts[0] == "style":
+        return f"/static/{relative.as_posix()}"
     return f"/static/projects/{relative.as_posix()}"
+
+
+def _asset_id_relative_path(path: Path) -> Path:
+    resolved = path.resolve()
+    projects_dir = (DATA_DIR / "projects").resolve()
+    data_dir = DATA_DIR.resolve()
+    if resolved.is_relative_to(projects_dir):
+        return resolved.relative_to(projects_dir)
+    return resolved.relative_to(data_dir)
+
+
+def _is_style_preset_character_asset(relative: Path) -> bool:
+    parts = relative.parts
+    return (
+        len(parts) == 5
+        and parts[0] == "style"
+        and parts[1] == "presets"
+        and parts[3] == "characters"
+        and parts[4].endswith(".cutout.png")
+    )
 
 
 def _save_debug_overlay(
