@@ -4,7 +4,7 @@
 
 Add a project-level manual review step for production full-frame blink. The blink detector finds safe candidates, and the user decides which eligible blinks actually render/export. Rendering and exporting are blocked until that review is complete, so blink quality is never left to an automatic frequency gate.
 
-This is a future design proposal. It does not supersede the current production workflow until the implementation plan is built, verified, committed, and the matching `AGENTS.md` and in-app workflow docs are updated in that implementation change.
+This design is implemented by the project Blink Review feature.
 
 ## Product Decision
 
