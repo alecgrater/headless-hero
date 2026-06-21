@@ -67,9 +67,8 @@ def test_smoke_report_flags_blink_policy_warning():
     assert report.summary["fail"] == 0
     blink_rows = [check for check in report.checks if check.id == "blink-production-guardrail"]
     assert len(blink_rows) == 1
-    assert blink_rows[0].status == "warn"
-    assert "policy text still presents blink" in blink_rows[0].detail
-    assert blink_rows[0].next_action
+    assert blink_rows[0].status == "pass"
+    assert "no longer encourages production selection" in blink_rows[0].detail
 
 
 def test_smoke_report_fails_when_representative_mode_missing(monkeypatch):
@@ -115,7 +114,7 @@ def test_smoke_report_reads_voice_and_subtitle_summaries(monkeypatch, tmp_path):
 
 def test_render_probes_cover_default_only_visual_modes(monkeypatch, tmp_path):
     import pipeline.test_lab_smoke as smoke
-    from pipeline.test_lab import TestLabRunManifest
+    from pipeline.test_lab import TEST_LAB_PRESETS, TestLabRunManifest
     from pipeline.test_lab_smoke import SmokeTestOptions, run_smoke_test
 
     captured: list[dict] = []
@@ -141,6 +140,10 @@ def test_render_probes_cover_default_only_visual_modes(monkeypatch, tmp_path):
 
     probed_modes = {call["settings"]["visual_mode"] for call in captured}
     assert probed_modes == set(smoke.REPRESENTATIVE_MODES)
+    full_frame_call = next(call for call in captured if call["settings"]["visual_mode"] == "full_frame")
+    full_frame_preset = next(preset for preset in TEST_LAB_PRESETS if preset.id == full_frame_call["preset_id"])
+    full_frame_narration = full_frame_call["settings"].get("narration") or full_frame_preset.narration
+    assert full_frame_narration.strip()
     assert report.summary["fail"] == 0
 
 
@@ -303,4 +306,4 @@ def test_smoke_export_brief_is_ready_for_codex(monkeypatch, tmp_path):
     assert "- Total cost: $0.0000" in data["markdown"]
     assert "## Warnings" in data["markdown"]
     assert "blink-production-guardrail" in data["markdown"]
-    assert "Align visual opportunity guidance" in data["markdown"]
+    assert "Blink is disabled for production routing" in data["markdown"]

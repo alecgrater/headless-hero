@@ -32,6 +32,15 @@ REPRESENTATIVE_MODES = (
     "blink",
 )
 CUTOUT_ASSET_MODES = {"popup_sequence", "comparison_board", "blink"}
+SMOKE_PROBE_TEXT_DEFAULTS = {
+    "full_frame": {
+        "narration": "The first clue is small, but it changes how the whole scene feels.",
+        "visual_prompt": (
+            "Flat 2D cartoon close-up of a person noticing a tiny glowing clue on a cluttered desk, "
+            "expressive face, clear single focal point, bold outlines, no readable words or letters."
+        ),
+    },
+}
 
 
 class SmokeTestOptions(BaseModel):
@@ -416,7 +425,10 @@ def _run_render_probes(*, engine, external_api: bool) -> tuple[list[SmokeTestChe
 
 def _run_single_probe(*, engine, preset_id: str, mode: str, external_api: bool) -> tuple[SmokeTestCheck, float]:
     run_id = f"smoke-{mode.replace('_', '-')}-{uuid.uuid4().hex[:8]}"
-    mode_defaults = VISUAL_TREATMENT_TEXT_DEFAULTS.get(mode, {})
+    mode_defaults = {
+        **SMOKE_PROBE_TEXT_DEFAULTS.get(mode, {}),
+        **VISUAL_TREATMENT_TEXT_DEFAULTS.get(mode, {}),
+    }
     settings = {
         "visual_mode": mode,
         **mode_defaults,

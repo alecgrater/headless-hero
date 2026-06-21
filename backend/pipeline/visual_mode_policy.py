@@ -123,6 +123,7 @@ if _missing_targets or _unknown_targets:
     )
 
 CANONICAL_VISUAL_MODES: tuple[str, ...] = tuple(mode for mode in _TARGETS if mode in VISUAL_MODES)
+PRODUCTION_OPPORTUNITY_MODES: tuple[str, ...] = tuple(mode for mode in CANONICAL_VISUAL_MODES if mode != "blink")
 
 _OPPORTUNITY_POLICIES: dict[str, VisualModeOpportunityPolicy] = {
     "full_frame": VisualModeOpportunityPolicy(
@@ -250,7 +251,7 @@ def target_scene_seconds_for_mode(visual_mode: str | None) -> float:
 def prompt_duration_guidance() -> str:
     lines = [
         "Scene duration is driven by visual_mode, not script type, and is planned before voiceover.",
-        "Use full_frame, multi_frame, continuous, and blink as normal short scenes around 5-9 seconds.",
+        "Use full_frame, multi_frame, and continuous as normal short scenes around 5-9 seconds.",
         "Use captions as normal short scenes around 5-9 seconds for a short editorial punch phrase.",
         "Use comparison_board around 16-24 seconds so viewers can compare the columns.",
         "Use popup_sequence around 14-20 seconds so item layers can appear clearly.",
@@ -284,11 +285,12 @@ def prompt_visual_opportunity_guidance(projected_scene_count: int | None = None)
             "If the outline falls below those soft expectations, add visual_opportunity_coverage explaining "
             "which modes were genuinely unsupported by the topic instead of omitting them silently."
         ),
-        "Treat blink and captions as common expressive rhythm opportunities in long scripts when the narration supports them.",
+        "Treat captions as a common expressive rhythm opportunity in long scripts when the narration supports it.",
+        "Do not plan blink for production scripts; blink remains available only in Test Lab/render compatibility paths.",
         "Keep popup_sequence, comparison_board, and stat_card low-count and meaning-driven, but actively scan for them before accepting zero.",
         "Post-generation checks may validate or downgrade invalid modes, but must not redistribute modes into already-cut short scenes.",
     ]
-    for mode in CANONICAL_VISUAL_MODES:
+    for mode in PRODUCTION_OPPORTUNITY_MODES:
         policy = opportunity_policy_for_mode(mode)
         cues = ", ".join(policy.opportunity_cues[:4])
         avoids = ", ".join(policy.avoid_when[:2])
@@ -302,7 +304,7 @@ Add a compact "visual_opportunities" array to every outline segment. Do not incl
 Also add a top-level "visual_opportunity_coverage" object that summarizes candidate discovery across the whole outline; explain any mode that falls below the soft candidate expectation.
 Each opportunity object must use this shape:
 {
-  "mode": "captions|blink|multi_frame|continuous|popup_sequence|comparison_board|stat_card|video|full_frame",
+  "mode": "captions|multi_frame|continuous|popup_sequence|comparison_board|stat_card|video|full_frame",
   "beat": "Short natural-language description of the future scene beat.",
   "why": "Why this mode strengthens the beat without hurting script quality.",
   "duration_profile": "normal|medium|extended|planned",

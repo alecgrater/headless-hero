@@ -66,8 +66,8 @@ def test_visual_opportunity_guidance_is_script_type_agnostic_and_pre_scene():
     assert "before final scenes are written" in text
     assert "Scene boundaries, narration length, duration estimates, and mode-specific fields" in text
     assert "full_frame remains dominant" in text
-    assert "blink and captions" in text
-    assert "common expressive rhythm opportunities" in text
+    assert "captions as a common expressive rhythm opportunity" in text
+    assert "Do not plan blink for production scripts" in text
     assert "popup_sequence, comparison_board, and stat_card" in text
     assert "actively scan" in text
     assert "Do not force a quota" in text
@@ -85,9 +85,11 @@ def test_blink_policy_prefers_character_body_language():
     policy = opportunity_policy_for_mode("blink")
     avoid_text = " ".join(policy.avoid_when)
 
-    assert "cropped subject" in text
-    assert "body-language" in text
-    assert "conceptual" in text
+    assert "blink: " not in text
+    assert "Do not plan blink for production scripts" in text
+    assert "cropped subject" in policy.purpose
+    assert "body-language" in policy.purpose
+    assert "conceptual" in avoid_text
     assert "time periods" in avoid_text
     assert "emotional states" in avoid_text
     assert "locations" in avoid_text
@@ -99,6 +101,7 @@ def test_visual_opportunity_schema_guidance_requests_segment_opportunities():
 
     assert '"visual_opportunities"' in text
     assert '"visual_opportunity_coverage"' in text
+    assert "captions|blink" not in text
     assert '"mode"' in text
     assert '"beat"' in text
     assert '"duration_profile"' in text
