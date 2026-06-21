@@ -61,7 +61,7 @@ def test_refresh_blink_review_creates_unreviewed_metadata(monkeypatch, tmp_path)
         image_url="/static/projects/script-1/images/scene_001.png",
     )
     content = content_with_scene(scene)
-    monkeypatch.setattr(project_blink_review, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(project_blink_review.full_frame_blink, "DATA_DIR", tmp_path)
     monkeypatch.setattr(
         project_blink_review.full_frame_blink,
         "detect_full_frame_blink_anchor",
@@ -111,7 +111,7 @@ def test_refresh_blink_review_resets_stale_review_when_image_changes(monkeypatch
         },
     )
     content = content_with_scene(scene)
-    monkeypatch.setattr(project_blink_review, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(project_blink_review.full_frame_blink, "DATA_DIR", tmp_path)
     monkeypatch.setattr(
         project_blink_review.full_frame_blink,
         "detect_full_frame_blink_anchor",
@@ -724,7 +724,10 @@ Expected: FAIL for renderer prop behavior until `_scene_to_input_props` checks r
 In `backend/pipeline/remotion_render.py`, change the `raw_blink` block:
 
 ```python
-review = raw_blink.get("review") if isinstance(raw_blink.get("review"), dict) else {}
+if isinstance(raw_blink, dict):
+    review = raw_blink.get("review") if isinstance(raw_blink.get("review"), dict) else {}
+else:
+    review = {}
 if isinstance(raw_blink, dict) and raw_blink.get("enabled") is True and review.get("status") == "enabled":
     raw_anchor = raw_blink.get("anchor")
     full_frame_blink = {
@@ -760,12 +763,14 @@ In every render/export entrypoint that starts or reuses media, load the script a
 
 ```python
 except BlinkReviewRequiredError as exc:
-    raise HTTPException(status_code=409, detail={
-        "code": "blink_review_required",
-        "message": str(exc),
-        "summary": exc.summary.model_dump(mode="json"),
-    }) from exc
+    raise HTTPException(
+        status_code=409,
+        detail=str(exc),
+        headers={"X-Headless-Hero-Error-Code": "blink_review_required"},
+    ) from exc
 ```
+
+Keep the response `detail` as a string so existing frontend API helpers preserve the useful message instead of turning an object into `"[object Object]"`. If the implementation later needs structured summary data in the 409 response, add a shared frontend error extractor at the same time that reads both `detail.message` and `detail.code`.
 
 Apply this to:
 
