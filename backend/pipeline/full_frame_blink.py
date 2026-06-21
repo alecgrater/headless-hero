@@ -16,8 +16,8 @@ from config import DATA_DIR
 from models.script import Script, ScriptContent
 from pipeline.image_gen import (
     BLINK_CUTOUT_REGISTRATION_VERSION,
-    BlinkRegistrationError,
-    _blink_overlay_anchor_metadata,
+    _detect_blink_overlay_anchor_points,
+    _sample_blink_face_skin_fill,
 )
 
 BURGER_KING_BLINK_AUDIT_SCRIPT_ID = "9dacedc774514306ae1acb85215449e1"
@@ -62,11 +62,24 @@ def detect_full_frame_blink_anchor(image_path: Path) -> FullFrameBlinkDetection:
         return FullFrameBlinkDetection(status="failed", eligible=False, reason="image_missing")
     try:
         with Image.open(image_path) as image:
-            anchor = _blink_overlay_anchor_metadata(image.convert("RGBA"), require_detected=True)
+            rgba = image.convert("RGBA")
+            detected = _detect_blink_overlay_anchor_points(rgba)
+            if detected is None:
+                return FullFrameBlinkDetection(status="failed", eligible=False, reason="face_landmarks_missing")
+            skin_fill = _sample_blink_face_skin_fill(rgba, detected)
+            anchor = {
+                "version": 1,
+                "detected": True,
+                "coordinate_space": "normalized_image",
+                **({"skin_fill": skin_fill} if skin_fill else {}),
+                "eye_left": dict(detected["eye_left"]),
+                "eye_right": dict(detected["eye_right"]),
+                "mouth": dict(detected["mouth"]),
+                "brow_left": dict(detected["brow_left"]),
+                "brow_right": dict(detected["brow_right"]),
+            }
     except OSError:
         return FullFrameBlinkDetection(status="failed", eligible=False, reason="image_unreadable")
-    except BlinkRegistrationError as exc:
-        return FullFrameBlinkDetection(status="failed", eligible=False, reason=_stable_detection_reason(str(exc)))
     if not _anchor_is_full_frame_eligible(anchor):
         return FullFrameBlinkDetection(status="failed", eligible=False, reason="anchor_not_full_frame_safe")
     return FullFrameBlinkDetection(status="passed", eligible=True, anchor=anchor)
@@ -148,17 +161,6 @@ def _anchor_is_full_frame_eligible(anchor: dict[str, object]) -> bool:
         if not isinstance(point.get("x"), int | float) or not isinstance(point.get("y"), int | float):
             return False
     return isinstance(anchor.get("skin_fill"), str)
-
-
-def _stable_detection_reason(message: str) -> str:
-    text = message.casefold()
-    if "facial landmarks" in text:
-        return "face_landmarks_missing"
-    if "no visible subject" in text:
-        return "subject_missing"
-    if "centered chest-up" in text:
-        return "face_framing_unsafe"
-    return "detector_rejected"
 
 
 def _audit_dir() -> Path:

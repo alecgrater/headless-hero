@@ -425,9 +425,23 @@ def subtitle_render_fingerprint(content: ScriptContent) -> dict[str, Any]:
                 "stat_value": scene.stat_value if scene.visual_mode == "stat_card" else "",
                 "stat_label": scene.stat_label if scene.visual_mode == "stat_card" else "",
                 "stat_card_icon": _stat_card_icon_fingerprint(scene),
+                "full_frame_blink": _full_frame_blink_fingerprint(scene),
             }
             for scene in content.all_scenes()
         ],
+    }
+
+
+def _full_frame_blink_fingerprint(scene: Scene) -> dict[str, Any] | None:
+    metadata = scene.visual_source_metadata or {}
+    raw_blink = metadata.get("full_frame_blink")
+    if not isinstance(raw_blink, dict) or raw_blink.get("enabled") is not True:
+        return None
+    raw_anchor = raw_blink.get("anchor")
+    return {
+        "enabled": True,
+        "action": "blink" if raw_blink.get("action") == "blink" else "",
+        "anchor": raw_anchor if isinstance(raw_anchor, dict) else None,
     }
 
 

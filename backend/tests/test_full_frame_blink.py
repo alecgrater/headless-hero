@@ -33,8 +33,9 @@ def test_detect_full_frame_blink_anchor_accepts_existing_detector_anchor(monkeyp
     image_path = tmp_path / "scene.png"
     Image.new("RGBA", (400, 300), (240, 210, 180, 255)).save(image_path)
     anchor = {
+        "version": 1,
         "detected": True,
-        "coordinate_space": "normalized_layer_frame",
+        "coordinate_space": "normalized_image",
         "skin_fill": "#F0D2B4",
         "eye_left": {"x": 0.45, "y": 0.4, "width": 0.03, "height": 0.02},
         "eye_right": {"x": 0.55, "y": 0.4, "width": 0.03, "height": 0.02},
@@ -42,7 +43,18 @@ def test_detect_full_frame_blink_anchor_accepts_existing_detector_anchor(monkeyp
         "brow_left": {"x": 0.45, "y": 0.35},
         "brow_right": {"x": 0.55, "y": 0.35},
     }
-    monkeypatch.setattr(full_frame_blink, "_blink_overlay_anchor_metadata", lambda *_args, **_kwargs: anchor)
+    monkeypatch.setattr(
+        full_frame_blink,
+        "_detect_blink_overlay_anchor_points",
+        lambda _image: {
+            "eye_left": anchor["eye_left"],
+            "eye_right": anchor["eye_right"],
+            "mouth": anchor["mouth"],
+            "brow_left": anchor["brow_left"],
+            "brow_right": anchor["brow_right"],
+        },
+    )
+    monkeypatch.setattr(full_frame_blink, "_sample_blink_face_skin_fill", lambda *_args, **_kwargs: "#F0D2B4")
 
     result = detect_full_frame_blink_anchor(image_path)
 
@@ -50,6 +62,31 @@ def test_detect_full_frame_blink_anchor_accepts_existing_detector_anchor(monkeyp
     assert result.status == "passed"
     assert result.anchor == anchor
     assert result.reason == ""
+
+
+def test_detect_full_frame_blink_anchor_keeps_full_image_coordinates(monkeypatch, tmp_path):
+    from pipeline import full_frame_blink
+    from pipeline.full_frame_blink import detect_full_frame_blink_anchor
+
+    image_path = tmp_path / "wide-scene.png"
+    Image.new("RGBA", (1920, 1080), (240, 210, 180, 255)).save(image_path)
+    detected = {
+        "eye_left": {"x": 0.40, "y": 0.24, "width": 0.02, "height": 0.015},
+        "eye_right": {"x": 0.48, "y": 0.24, "width": 0.02, "height": 0.015},
+        "mouth": {"x": 0.44, "y": 0.34},
+        "brow_left": {"x": 0.40, "y": 0.20},
+        "brow_right": {"x": 0.48, "y": 0.20},
+    }
+    monkeypatch.setattr(full_frame_blink, "_detect_blink_overlay_anchor_points", lambda _image: detected)
+    monkeypatch.setattr(full_frame_blink, "_sample_blink_face_skin_fill", lambda *_args, **_kwargs: "#F0D2B4")
+
+    result = detect_full_frame_blink_anchor(image_path)
+
+    assert result.eligible is True
+    assert result.anchor is not None
+    assert result.anchor["coordinate_space"] == "normalized_image"
+    assert result.anchor["eye_left"]["y"] == 0.24
+    assert result.anchor["eye_right"]["x"] == 0.48
 
 
 def test_run_full_frame_blink_audit_discovers_media_backed_scene(monkeypatch, tmp_path):

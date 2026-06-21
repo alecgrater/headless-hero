@@ -125,6 +125,7 @@ def test_subtitle_render_fingerprint_tracks_style_and_router_version():
             "stat_value": "",
             "stat_label": "",
             "stat_card_icon": None,
+            "full_frame_blink": None,
         },
         {
             "id": "scene-2",
@@ -134,8 +135,42 @@ def test_subtitle_render_fingerprint_tracks_style_and_router_version():
             "stat_value": "",
             "stat_label": "",
             "stat_card_icon": None,
+            "full_frame_blink": None,
         },
     ]
+
+
+def test_render_fingerprint_tracks_full_frame_blink_metadata_changes():
+    scene = Scene(
+        id="scene-1",
+        narration="Blink.",
+        visual_prompt="Worker.",
+        visual_mode="full_frame",
+    )
+    content = ScriptContent(title="Test", segments=[Segment(name="One", scenes=[scene])])
+    baseline = remotion_render.subtitle_render_fingerprint(content)
+
+    scene.visual_source_metadata = {
+        "full_frame_blink": {
+            "enabled": True,
+            "action": "blink",
+            "anchor": {"detected": True, "eye_left": {"x": 0.4, "y": 0.3}},
+        }
+    }
+    enabled = remotion_render.subtitle_render_fingerprint(content)
+    scene.visual_source_metadata = {
+        "full_frame_blink": {
+            "enabled": True,
+            "action": "blink",
+            "anchor": {"detected": True, "eye_left": {"x": 0.5, "y": 0.3}},
+        }
+    }
+    moved = remotion_render.subtitle_render_fingerprint(content)
+
+    assert baseline["scenes"][0]["full_frame_blink"] is None
+    assert enabled["scenes"][0]["full_frame_blink"]["anchor"]["eye_left"]["x"] == 0.4
+    assert enabled != baseline
+    assert moved != enabled
 
 
 def test_scene_input_props_include_renderer_context():
