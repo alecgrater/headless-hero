@@ -141,7 +141,7 @@ describe("RendererContextStage", () => {
   });
 
   it("defines a stable version for render fingerprints", () => {
-    expect(RENDERER_CONTEXT_STAGE_VERSION).toBe("renderer-context-stage-v2");
+    expect(RENDERER_CONTEXT_STAGE_VERSION).toBe("renderer-context-stage-v3");
   });
 
   it("exposes exactly six illustrated presets plus the plain fallback", () => {
@@ -167,8 +167,29 @@ describe("RendererContextStage", () => {
   it("renders deterministic classroom context shapes", () => {
     const elements = rendererContextElements("classroom");
 
+    expect(elements.some((element) => element.id === "classroom-wall-fill")).toBe(true);
+    expect(elements.some((element) => element.id === "classroom-floor-band")).toBe(true);
     expect(elements.some((element) => element.id === "classroom-board")).toBe(true);
-    expect(elements.some((element) => element.id === "floor-band")).toBe(true);
+    expect(elements.some((element) => element.id === "floor-band")).toBe(false);
+  });
+
+  it("renders distinct indoor stages instead of the shared outdoor-like room", () => {
+    const expectations = {
+      desk: ["desk-wall-fill", "desk-floor-band", "desk-surface", "desk-laptop"],
+      office: ["office-wall-fill", "office-floor-band", "office-window", "office-plant"],
+      kitchen: ["kitchen-wall-fill", "kitchen-floor-band", "kitchen-cabinets", "kitchen-counter"],
+      lab: ["lab-wall-fill", "lab-floor-band", "lab-bench", "lab-shelf"],
+    };
+
+    for (const [context, ids] of Object.entries(expectations)) {
+      const elementIds = rendererContextElements(context).map((element) => element.id);
+
+      for (const id of ids) {
+        expect(elementIds).toContain(id);
+      }
+      expect(elementIds).not.toContain("floor-band");
+      expect(elementIds).not.toContain("desk-band");
+    }
   });
 });
 
