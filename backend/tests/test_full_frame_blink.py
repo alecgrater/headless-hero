@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
 from PIL import Image
+from PIL import ImageDraw
 
 
 def test_deterministic_blink_gate_is_stable_and_roughly_half():
@@ -45,7 +46,7 @@ def test_detect_full_frame_blink_anchor_accepts_existing_detector_anchor(monkeyp
     }
     monkeypatch.setattr(
         full_frame_blink,
-        "_detect_blink_overlay_anchor_points",
+        "_detect_full_frame_main_face_anchor_points",
         lambda _image: {
             "eye_left": anchor["eye_left"],
             "eye_right": anchor["eye_right"],
@@ -77,7 +78,7 @@ def test_detect_full_frame_blink_anchor_keeps_full_image_coordinates(monkeypatch
         "brow_left": {"x": 0.40, "y": 0.20},
         "brow_right": {"x": 0.48, "y": 0.20},
     }
-    monkeypatch.setattr(full_frame_blink, "_detect_blink_overlay_anchor_points", lambda _image: detected)
+    monkeypatch.setattr(full_frame_blink, "_detect_full_frame_main_face_anchor_points", lambda _image: detected)
     monkeypatch.setattr(full_frame_blink, "_sample_blink_face_skin_fill", lambda *_args, **_kwargs: "#F0D2B4")
 
     result = detect_full_frame_blink_anchor(image_path)
@@ -87,6 +88,77 @@ def test_detect_full_frame_blink_anchor_keeps_full_image_coordinates(monkeypatch
     assert result.anchor["coordinate_space"] == "normalized_image"
     assert result.anchor["eye_left"]["y"] == 0.24
     assert result.anchor["eye_right"]["x"] == 0.48
+
+
+def test_detect_full_frame_blink_anchor_detects_off_center_cartoon_face(tmp_path):
+    from pipeline.full_frame_blink import detect_full_frame_blink_anchor
+
+    image_path = tmp_path / "off-center-face.png"
+    image = Image.new("RGBA", (800, 450), (188, 205, 190, 255))
+    draw = ImageDraw.Draw(image)
+    draw.ellipse((120, 72, 320, 286), fill=(236, 224, 190, 255), outline=(28, 28, 28, 255), width=5)
+    draw.ellipse((178, 162, 190, 174), fill=(26, 26, 26, 255))
+    draw.ellipse((246, 162, 258, 174), fill=(26, 26, 26, 255))
+    draw.line((210, 184, 204, 212), fill=(26, 26, 26, 255), width=4)
+    draw.line((198, 238, 242, 238), fill=(26, 26, 26, 255), width=4)
+    image.save(image_path)
+
+    result = detect_full_frame_blink_anchor(image_path)
+
+    assert result.eligible is True
+    assert result.anchor is not None
+    assert result.anchor["coordinate_space"] == "normalized_image"
+    assert 0.20 <= result.anchor["eye_left"]["x"] <= 0.25
+    assert 0.30 <= result.anchor["eye_right"]["x"] <= 0.35
+
+
+def test_detect_full_frame_blink_anchor_uses_dominant_face_not_supporting_character(tmp_path):
+    from pipeline.full_frame_blink import detect_full_frame_blink_anchor
+
+    image_path = tmp_path / "two-faces.png"
+    image = Image.new("RGBA", (1000, 560), (185, 190, 178, 255))
+    draw = ImageDraw.Draw(image)
+    draw.ellipse((330, 90, 510, 300), fill=(238, 225, 190, 255), outline=(28, 28, 28, 255), width=5)
+    draw.ellipse((386, 176, 397, 188), fill=(25, 25, 25, 255))
+    draw.ellipse((452, 176, 463, 188), fill=(25, 25, 25, 255))
+    draw.line((418, 198, 411, 222), fill=(25, 25, 25, 255), width=4)
+    draw.arc((405, 238, 455, 260), 0, 180, fill=(25, 25, 25, 255), width=4)
+    draw.ellipse((670, 230, 790, 360), fill=(238, 225, 190, 255), outline=(28, 28, 28, 255), width=4)
+    draw.arc((702, 280, 725, 294), 180, 360, fill=(25, 25, 25, 255), width=4)
+    draw.arc((740, 280, 763, 294), 180, 360, fill=(25, 25, 25, 255), width=4)
+    draw.ellipse((710, 318, 760, 348), fill=(25, 25, 25, 255))
+    image.save(image_path)
+
+    result = detect_full_frame_blink_anchor(image_path)
+
+    assert result.eligible is True
+    assert result.anchor is not None
+    assert result.anchor["eye_left"]["x"] < 0.50
+    assert result.anchor["eye_right"]["x"] < 0.50
+
+
+def test_detect_full_frame_blink_anchor_uses_eye_whites_inside_main_face(tmp_path):
+    from pipeline.full_frame_blink import detect_full_frame_blink_anchor
+
+    image_path = tmp_path / "visor-face.png"
+    image = Image.new("RGBA", (1000, 560), (185, 194, 194, 255))
+    draw = ImageDraw.Draw(image)
+    draw.ellipse((440, 120, 625, 325), fill=(242, 205, 164, 255), outline=(25, 25, 25, 255), width=5)
+    draw.pieslice((430, 88, 640, 168), 180, 360, fill=(226, 48, 48, 255), outline=(25, 25, 25, 255), width=4)
+    draw.ellipse((470, 170, 506, 224), fill=(248, 248, 246, 255), outline=(25, 25, 25, 255), width=4)
+    draw.ellipse((520, 182, 558, 238), fill=(248, 248, 246, 255), outline=(25, 25, 25, 255), width=4)
+    draw.ellipse((476, 194, 486, 206), fill=(20, 20, 20, 255))
+    draw.ellipse((526, 206, 536, 218), fill=(20, 20, 20, 255))
+    draw.arc((492, 210, 520, 252), 100, 260, fill=(25, 25, 25, 255), width=4)
+    draw.arc((500, 270, 545, 288), 200, 340, fill=(25, 25, 25, 255), width=4)
+    image.save(image_path)
+
+    result = detect_full_frame_blink_anchor(image_path)
+
+    assert result.eligible is True
+    assert result.anchor is not None
+    assert 0.46 <= result.anchor["eye_left"]["x"] <= 0.52
+    assert 0.51 <= result.anchor["eye_right"]["x"] <= 0.57
 
 
 def test_run_full_frame_blink_audit_discovers_media_backed_scene(monkeypatch, tmp_path):

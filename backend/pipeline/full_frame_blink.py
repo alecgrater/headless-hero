@@ -16,7 +16,8 @@ from config import DATA_DIR
 from models.script import Script, ScriptContent
 from pipeline.image_gen import (
     BLINK_CUTOUT_REGISTRATION_VERSION,
-    _detect_blink_overlay_anchor_points,
+    _blink_eye_erase_box,
+    _blink_eye_fill_gradient,
     _sample_blink_face_skin_fill,
 )
 
@@ -63,7 +64,7 @@ def detect_full_frame_blink_anchor(image_path: Path) -> FullFrameBlinkDetection:
     try:
         with Image.open(image_path) as image:
             rgba = image.convert("RGBA")
-            detected = _detect_blink_overlay_anchor_points(rgba)
+            detected = _detect_full_frame_main_face_anchor_points(rgba)
             if detected is None:
                 return FullFrameBlinkDetection(status="failed", eligible=False, reason="face_landmarks_missing")
             skin_fill = _sample_blink_face_skin_fill(rgba, detected)
@@ -161,6 +162,263 @@ def _anchor_is_full_frame_eligible(anchor: dict[str, object]) -> bool:
         if not isinstance(point.get("x"), int | float) or not isinstance(point.get("y"), int | float):
             return False
     return isinstance(anchor.get("skin_fill"), str)
+
+
+def _detect_full_frame_main_face_anchor_points(image: Image.Image) -> dict[str, dict[str, float]] | None:
+    width, height = image.size
+    if width <= 0 or height <= 0:
+        return None
+    skin_components = _collect_full_frame_components(image, "skin")
+    dark_components = _collect_full_frame_components(image, "dark")
+    light_eye_components = _collect_full_frame_components(image, "light_eye")
+    components = [*skin_components, *dark_components, *light_eye_components]
+    face_components = [
+        component
+        for component in skin_components
+        if component["area"] >= max(180, width * height * 0.0012)
+        and 0.045 <= component["width"] <= 0.42
+        and 0.07 <= component["height"] <= 0.58
+        and 0.42 <= component["width"] / max(component["height"], 0.001) <= 1.35
+    ]
+    ranked_faces = sorted(
+        face_components,
+        key=lambda component: (
+            component["area"],
+            -abs(component["cx"] - 0.48),
+            -component["cy"],
+        ),
+        reverse=True,
+    )
+    for face in ranked_faces:
+        anchor = _anchor_for_face_component(image, face, dark_components, light_eye_components, components)
+        if anchor is not None:
+            return anchor
+    return None
+
+
+def _collect_full_frame_components(image: Image.Image, kind: str) -> list[dict[str, float]]:
+    width, height = image.size
+    pixels = image.load()
+    points: set[tuple[int, int]] = set()
+    for y in range(round(height * 0.04), round(height * 0.82)):
+        for x in range(round(width * 0.03), round(width * 0.97)):
+            red, green, blue, alpha = pixels[x, y]
+            if kind == "skin":
+                matches = _is_full_frame_skin_pixel(red, green, blue, alpha)
+            elif kind == "dark":
+                matches = alpha > 80 and red < 70 and green < 70 and blue < 70
+            else:
+                channel_max = max(red, green, blue)
+                channel_min = min(red, green, blue)
+                brightness = (red + green + blue) / 3
+                matches = alpha > 120 and channel_min > 165 and brightness > 190 and channel_max - channel_min < 35
+            if matches:
+                points.add((x, y))
+
+    collected: list[dict[str, float]] = []
+    seen: set[tuple[int, int]] = set()
+    min_area = 60 if kind == "skin" else 8
+    for point in list(points):
+        if point in seen:
+            continue
+        stack = [point]
+        seen.add(point)
+        xs: list[int] = []
+        ys: list[int] = []
+        while stack:
+            x, y = stack.pop()
+            xs.append(x)
+            ys.append(y)
+            for nx in (x - 1, x, x + 1):
+                for ny in (y - 1, y, y + 1):
+                    neighbor = (nx, ny)
+                    if neighbor != (x, y) and neighbor in points and neighbor not in seen:
+                        seen.add(neighbor)
+                        stack.append(neighbor)
+        if len(xs) < min_area:
+            continue
+        left = min(xs)
+        top = min(ys)
+        right = max(xs)
+        bottom = max(ys)
+        box_width = right - left + 1
+        box_height = bottom - top + 1
+        if box_width <= 0 or box_height <= 0:
+            continue
+        collected.append(
+            {
+                "kind": kind,
+                "area": float(len(xs)),
+                "left": left / width,
+                "top": top / height,
+                "right": right / width,
+                "bottom": bottom / height,
+                "cx": (sum(xs) / len(xs)) / width,
+                "cy": (sum(ys) / len(ys)) / height,
+                "width": box_width / width,
+                "height": box_height / height,
+            }
+        )
+    return collected
+
+
+def _is_full_frame_skin_pixel(red: int, green: int, blue: int, alpha: int) -> bool:
+    if alpha < 140:
+        return False
+    channel_spread = max(red, green, blue) - min(red, green, blue)
+    return (
+        red >= 145
+        and green >= 115
+        and blue >= 75
+        and red >= green - 25
+        and red >= blue + 15
+        and green >= blue - 8
+        and channel_spread <= 120
+    )
+
+
+def _anchor_for_face_component(
+    image: Image.Image,
+    face: dict[str, float],
+    dark_components: list[dict[str, float]],
+    light_eye_components: list[dict[str, float]],
+    components: list[dict[str, float]],
+) -> dict[str, dict[str, float]] | None:
+    face_width = face["width"]
+    face_height = face["height"]
+    face_left = face["left"]
+    face_right = face["right"]
+    face_top = face["top"]
+    face_bottom = face["bottom"]
+    eye_components = [*dark_components, *light_eye_components]
+    eye_candidates = [
+        component
+        for component in eye_components
+        if face_left + face_width * 0.14 <= component["cx"] <= face_right - face_width * 0.14
+        and face_top + face_height * 0.12 <= component["cy"] <= face_top + face_height * 0.58
+        and 0.018 <= component["width"] / max(face_width, 0.001) <= 0.31
+        and 0.012 <= component["height"] / max(face_height, 0.001) <= 0.30
+        and component["area"] >= 8
+    ]
+    valid_pairs: list[tuple[float, dict[str, float], dict[str, float], dict[str, float]]] = []
+    for left_eye in eye_candidates:
+        for right_eye in eye_candidates:
+            if left_eye is right_eye or left_eye["cx"] >= right_eye["cx"]:
+                continue
+            separation = right_eye["cx"] - left_eye["cx"]
+            relative_separation = separation / max(face_width, 0.001)
+            if relative_separation < 0.22 or relative_separation > 0.58:
+                continue
+            y_delta = abs(left_eye["cy"] - right_eye["cy"]) / max(face_height, 0.001)
+            if y_delta > 0.12:
+                continue
+            midpoint = (left_eye["cx"] + right_eye["cx"]) / 2
+            eye_y = (left_eye["cy"] + right_eye["cy"]) / 2
+            mouth = _mouth_for_face(face, dark_components, midpoint, eye_y)
+            eye_shape_score = _eye_component_shape_score(left_eye) + _eye_component_shape_score(right_eye)
+            score = (
+                -abs(midpoint - face["cx"]) * 1.5
+                -abs(relative_separation - 0.36) * 0.4
+                -y_delta
+                + eye_shape_score
+                + min(face["area"] / 10000.0, 0.4)
+            )
+            valid_pairs.append((score, left_eye, right_eye, mouth))
+    if not valid_pairs:
+        return None
+    _score, left_eye, right_eye, mouth = max(valid_pairs, key=lambda pair: pair[0])
+    eye_y = (left_eye["cy"] + right_eye["cy"]) / 2
+    brow_y = max(face_top, eye_y - face_height * 0.17)
+    left_erase_box = _blink_eye_erase_box(left_eye, components, image)
+    right_erase_box = _blink_eye_erase_box(right_eye, components, image)
+    skin_fill = _sample_blink_face_skin_fill(
+        image,
+        {
+            "eye_left": {"x": left_eye["cx"], "y": left_eye["cy"]},
+            "eye_right": {"x": right_eye["cx"], "y": right_eye["cy"]},
+            "mouth": {"x": mouth["cx"], "y": mouth["cy"]},
+        },
+    )
+    left_fill_top, left_fill_bottom, left_fill_left, left_fill_right = _blink_eye_fill_gradient(
+        left_erase_box,
+        image,
+        preferred_fill=skin_fill,
+    )
+    right_fill_top, right_fill_bottom, right_fill_left, right_fill_right = _blink_eye_fill_gradient(
+        right_erase_box,
+        image,
+        preferred_fill=skin_fill,
+    )
+    return {
+        "eye_left": {
+            "x": round(left_eye["cx"], 4),
+            "y": round(left_eye["cy"], 4),
+            "width": round(left_eye["width"], 4),
+            "height": round(left_eye["height"], 4),
+            "erase_box": left_erase_box,
+            "fill_top": left_fill_top,
+            "fill_bottom": left_fill_bottom,
+            "fill_left": left_fill_left,
+            "fill_right": left_fill_right,
+        },
+        "eye_right": {
+            "x": round(right_eye["cx"], 4),
+            "y": round(right_eye["cy"], 4),
+            "width": round(right_eye["width"], 4),
+            "height": round(right_eye["height"], 4),
+            "erase_box": right_erase_box,
+            "fill_top": right_fill_top,
+            "fill_bottom": right_fill_bottom,
+            "fill_left": right_fill_left,
+            "fill_right": right_fill_right,
+        },
+        "mouth": {"x": round(mouth["cx"], 4), "y": round(mouth["cy"], 4)},
+        "brow_left": {"x": round(left_eye["cx"], 4), "y": round(brow_y, 4)},
+        "brow_right": {"x": round(right_eye["cx"], 4), "y": round(brow_y, 4)},
+    }
+
+
+def _eye_component_shape_score(component: dict[str, float]) -> float:
+    if component.get("kind") == "light_eye":
+        return 0.08
+    aspect = component["height"] / max(component["width"], 0.001)
+    if aspect < 0.24:
+        return -0.18
+    if aspect >= 0.45:
+        return 0.06
+    return 0.0
+
+
+def _mouth_for_face(
+    face: dict[str, float],
+    dark_components: list[dict[str, float]],
+    midpoint: float,
+    eye_y: float,
+) -> dict[str, float]:
+    face_width = face["width"]
+    face_height = face["height"]
+    mouth_candidates = [
+        component
+        for component in dark_components
+        if eye_y + face_height * 0.12 <= component["cy"] <= min(face["bottom"], eye_y + face_height * 0.38)
+        and abs(component["cx"] - midpoint) <= face_width * 0.20
+        and component["width"] <= face_width * 0.36
+        and component["height"] <= face_height * 0.18
+    ]
+    mouth = max(mouth_candidates, key=lambda component: component["area"], default=None)
+    if mouth is not None:
+        return mouth
+    return {
+        "area": 0.0,
+        "left": midpoint,
+        "top": eye_y + face_height * 0.24,
+        "right": midpoint,
+        "bottom": eye_y + face_height * 0.24,
+        "cx": midpoint,
+        "cy": min(face["bottom"], eye_y + face_height * 0.24),
+        "width": 0.0,
+        "height": 0.0,
+    }
 
 
 def _audit_dir() -> Path:
