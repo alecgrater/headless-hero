@@ -154,7 +154,9 @@ def test_render_fingerprint_tracks_full_frame_blink_metadata_changes():
         "full_frame_blink": {
             "enabled": True,
             "action": "blink",
+            "fingerprint": "abc",
             "anchor": {"detected": True, "eye_left": {"x": 0.4, "y": 0.3}},
+            "review": {"status": "enabled", "reviewed_at": "2026-06-21T00:00:00+00:00"},
         }
     }
     enabled = remotion_render.subtitle_render_fingerprint(content)
@@ -162,7 +164,9 @@ def test_render_fingerprint_tracks_full_frame_blink_metadata_changes():
         "full_frame_blink": {
             "enabled": True,
             "action": "blink",
+            "fingerprint": "def",
             "anchor": {"detected": True, "eye_left": {"x": 0.5, "y": 0.3}},
+            "review": {"status": "enabled", "reviewed_at": "2026-06-21T00:00:00+00:00"},
         }
     }
     moved = remotion_render.subtitle_render_fingerprint(content)
@@ -239,6 +243,7 @@ def test_scene_input_props_include_full_frame_blink_metadata():
                 "enabled": True,
                 "action": "blink",
                 "anchor": {"detected": True, "skin_fill": "#F0D2B4"},
+                "review": {"status": "enabled", "reviewed_at": "2026-06-21T00:00:00+00:00"},
             }
         },
     )
@@ -247,6 +252,51 @@ def test_scene_input_props_include_full_frame_blink_metadata():
 
     assert props["full_frame_blink"]["enabled"] is True
     assert props["full_frame_blink"]["action"] == "blink"
+
+
+def test_scene_input_props_suppresses_unreviewed_full_frame_blink():
+    scene = Scene(
+        id="scene_001",
+        narration="A worker waits.",
+        visual_prompt="Worker",
+        image_url="/static/projects/script-1/images/scene_001.png",
+        visual_source_metadata={
+            "full_frame_blink": {
+                "enabled": False,
+                "action": "blink",
+                "fingerprint": "abc",
+                "anchor": {"detected": True},
+                "review": {"status": "unreviewed"},
+            }
+        },
+    )
+
+    props = remotion_render._scene_to_input_props(scene, "script-1")
+
+    assert props["full_frame_blink"] is None
+
+
+def test_scene_input_props_includes_manually_enabled_full_frame_blink():
+    scene = Scene(
+        id="scene_001",
+        narration="A worker waits.",
+        visual_prompt="Worker",
+        image_url="/static/projects/script-1/images/scene_001.png",
+        visual_source_metadata={
+            "full_frame_blink": {
+                "enabled": True,
+                "action": "blink",
+                "fingerprint": "abc",
+                "anchor": {"detected": True, "eye_left": {"x": 0.4, "y": 0.3}},
+                "review": {"status": "enabled", "reviewed_at": "2026-06-21T00:00:00+00:00"},
+            }
+        },
+    )
+
+    props = remotion_render._scene_to_input_props(scene, "script-1")
+
+    assert props["full_frame_blink"]["enabled"] is True
+    assert props["full_frame_blink"]["anchor"]["eye_left"]["x"] == 0.4
 
 
 def test_scene_input_props_resolves_style_preset_visual_layer_paths(tmp_path, monkeypatch):

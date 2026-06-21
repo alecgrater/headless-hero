@@ -43,6 +43,11 @@ def test_refresh_blink_review_creates_unreviewed_metadata(monkeypatch, tmp_path)
         "detect_full_frame_blink_anchor",
         lambda _path: _eligible_detection(project_blink_review),
     )
+    detection = _eligible_detection(project_blink_review)
+    fingerprint = project_blink_review.blink_metadata_fingerprint(
+        "/static/projects/script-1/images/scene_001.png",
+        detection.anchor,
+    )
 
     summary = project_blink_review.refresh_project_blink_review(content, "script-1")
 
@@ -192,3 +197,88 @@ def test_blink_review_api_persists_decision(monkeypatch):
     blink = updated.segments[0].scenes[0].visual_source_metadata["full_frame_blink"]
     assert blink["enabled"] is True
     assert blink["review"]["status"] == "enabled"
+
+
+def test_validate_project_blink_review_blocks_unreviewed_scene(monkeypatch, tmp_path):
+    from pipeline.project_blink_review import BlinkReviewRequiredError, validate_project_blink_review_complete
+
+    image_path = tmp_path / "projects" / "script-1" / "images" / "scene_001.png"
+    image_path.parent.mkdir(parents=True)
+    image_path.write_bytes(b"fake")
+    from pipeline import project_blink_review
+
+    monkeypatch.setattr(project_blink_review.full_frame_blink, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(
+        project_blink_review.full_frame_blink,
+        "detect_full_frame_blink_anchor",
+        lambda _path: _eligible_detection(project_blink_review),
+    )
+    content = content_with_scene(
+        Scene(
+            id="scene_001",
+            narration="A worker waits.",
+            visual_prompt="Worker",
+            visual_mode="full_frame",
+            image_url="/static/projects/script-1/images/scene_001.png",
+            visual_source_metadata={
+                "full_frame_blink": {
+                    "enabled": False,
+                    "action": "blink",
+                    "fingerprint": "abc",
+                    "anchor": {"detected": True},
+                    "review": {"status": "unreviewed"},
+                }
+            },
+        )
+    )
+
+    try:
+        validate_project_blink_review_complete(content, "script-1")
+    except BlinkReviewRequiredError as exc:
+        assert exc.summary.unreviewed_count == 1
+    else:
+        raise AssertionError("Expected BlinkReviewRequiredError")
+
+
+def test_validate_project_blink_review_allows_reviewed_scene(monkeypatch, tmp_path):
+    from pipeline.project_blink_review import validate_project_blink_review_complete
+
+    image_path = tmp_path / "projects" / "script-1" / "images" / "scene_001.png"
+    image_path.parent.mkdir(parents=True)
+    image_path.write_bytes(b"fake")
+    from pipeline import project_blink_review
+
+    monkeypatch.setattr(project_blink_review.full_frame_blink, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(
+        project_blink_review.full_frame_blink,
+        "detect_full_frame_blink_anchor",
+        lambda _path: _eligible_detection(project_blink_review),
+    )
+    detection = _eligible_detection(project_blink_review)
+    fingerprint = project_blink_review.blink_metadata_fingerprint(
+        "/static/projects/script-1/images/scene_001.png",
+        detection.anchor,
+    )
+
+    content = content_with_scene(
+        Scene(
+            id="scene_001",
+            narration="A worker waits.",
+            visual_prompt="Worker",
+            visual_mode="full_frame",
+            image_url="/static/projects/script-1/images/scene_001.png",
+            visual_source_metadata={
+                "full_frame_blink": {
+                    "enabled": True,
+                    "action": "blink",
+                    "fingerprint": fingerprint,
+                    "anchor": detection.anchor,
+                    "review": {"status": "enabled", "reviewed_at": "2026-06-21T00:00:00+00:00"},
+                }
+            },
+        )
+    )
+
+    summary = validate_project_blink_review_complete(content, "script-1")
+
+    assert summary.complete is True

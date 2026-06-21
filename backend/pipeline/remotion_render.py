@@ -365,7 +365,11 @@ def _scene_to_input_props(
     chapter_overlay = metadata.get("chapter_overlay")
     full_frame_blink = None
     raw_blink = metadata.get("full_frame_blink")
-    if isinstance(raw_blink, dict) and raw_blink.get("enabled") is True:
+    if isinstance(raw_blink, dict):
+        review = raw_blink.get("review") if isinstance(raw_blink.get("review"), dict) else {}
+    else:
+        review = {}
+    if isinstance(raw_blink, dict) and raw_blink.get("enabled") is True and review.get("status") == "enabled":
         raw_anchor = raw_blink.get("anchor")
         full_frame_blink = {
             "enabled": True,
@@ -437,10 +441,15 @@ def _full_frame_blink_fingerprint(scene: Scene) -> dict[str, Any] | None:
     raw_blink = metadata.get("full_frame_blink")
     if not isinstance(raw_blink, dict) or raw_blink.get("enabled") is not True:
         return None
+    review = raw_blink.get("review") if isinstance(raw_blink.get("review"), dict) else {}
+    if review.get("status") != "enabled":
+        return None
     raw_anchor = raw_blink.get("anchor")
     return {
         "enabled": True,
         "action": "blink" if raw_blink.get("action") == "blink" else "",
+        "fingerprint": raw_blink.get("fingerprint"),
+        "review_status": review.get("status"),
         "anchor": raw_anchor if isinstance(raw_anchor, dict) else None,
     }
 
