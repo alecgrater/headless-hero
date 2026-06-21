@@ -26,6 +26,7 @@ from pipeline.image_gen import (
 )
 from pipeline.render_jobs import create_job, get_job, run_in_background
 from pipeline.formats import resolve_format
+from pipeline.visual_treatments import analyze_visual_treatments
 
 logger = logging.getLogger(__name__)
 
@@ -182,6 +183,17 @@ def _generate_scene_visual_layers(
     )
     if treatment not in LAYERED_VISUAL_MODES:
         return None
+    if not layers and treatment in {"popup_sequence", "comparison_board"}:
+        assignment = next(
+            (
+                assignment
+                for assignment in analyze_visual_treatments(content, script_id=script_id)
+                if assignment.scene_id == scene_id and assignment.visual_mode == treatment
+            ),
+            None,
+        )
+        if assignment is not None:
+            layers = [layer.model_dump() for layer in assignment.visual_layers]
     if not layers and treatment != "blink":
         return []
     logger.info(

@@ -4,6 +4,7 @@ import { fetchGenerationEstimate, recordDuration, pollTitleCardJob, bumpAssetVer
 import type { FrameDirective, Scene, ScriptContent, VisualLayer } from "../../types/script";
 import type { GenerateVisualResponse, GenerateTitleCardsResponse } from "../../types/visual";
 import type { GenerateAudioResponse } from "../../types/audio";
+import { sceneVisualAssetsComplete } from "./assetCompletion";
 
 type BatchSceneStatus = "idle" | "pending" | "generating" | "done" | "failed";
 
@@ -551,7 +552,7 @@ export function useTimelineState(
           if (sc.is_title_card) {
             if (!missingOnly || !sc.image_url) shouldGenerateTitleCards = true;
           } else if (sc.visual_prompt && !sc.is_title_card) {
-            if (missingOnly && (sc.image_url || sc.video_url || (sc.frame_urls && sc.frame_urls.length > 0))) continue;
+            if (missingOnly && sceneVisualAssetsComplete(sc)) continue;
             scenes.push({
               scene_id: sc.id,
               visual_prompt: sc.visual_prompt,

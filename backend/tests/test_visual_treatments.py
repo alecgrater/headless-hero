@@ -1831,6 +1831,76 @@ def test_generate_visual_persists_generated_visual_layers(monkeypatch):
     )
 
 
+def test_generate_visual_fills_explicit_popup_sequence_layers_before_generating(monkeypatch):
+    from api import visuals as visuals_api
+    from api.visuals import GenerateVisualRequest
+
+    engine = _build_test_engine()
+    script_id = "regular-popup-without-layers"
+    scene = scene_with_words("scene_001", "The desk holds missing keys, spoiled lunch, and an angry note.")
+    scene.visual_prompt = "Desk objects pop in around a tired worker."
+    scene.contains_person = True
+    scene.visual_mode = "popup_sequence"
+    scene.visual_layers = []
+    content = content_with_scenes(scene)
+
+    captured = {}
+    monkeypatch.setattr(visuals_api, "_require_character_reference_ready", lambda session, script_id: None)
+    monkeypatch.setattr(
+        visuals_api,
+        "generate_scene_image",
+        lambda **_kwargs: (_ for _ in ()).throw(AssertionError("popup_sequence should not generate scene images")),
+    )
+
+    def fake_generate_popup_sequence_cutouts(*, scene_id, layers, script_id, scene_prompt, **kwargs):
+        captured["layers"] = layers
+        return [
+            {
+                **layer,
+                "asset_kind": "cutout",
+                "image_url": f"/static/projects/{script_id}/popup_crops/{scene_id}/{layer['id']}.png",
+            }
+            for layer in layers
+        ]
+
+    monkeypatch.setattr(visuals_api, "generate_popup_sequence_cutouts", fake_generate_popup_sequence_cutouts)
+
+    with Session(engine) as session:
+        session.add(
+            Script(
+                id=script_id,
+                brand_id="brand",
+                topic_title="Treatment Test",
+                script_json=content.model_dump_json(),
+            )
+        )
+        session.commit()
+
+        response = visuals_api.generate_visual(
+            GenerateVisualRequest(
+                script_id=script_id,
+                scene_id="scene_001",
+                visual_prompt="Desk objects pop in around a tired worker.",
+                visual_mode="popup_sequence",
+                contains_person=False,
+                visual_layers=[],
+            ),
+            session,
+        )
+
+        stored = session.get(Script, script_id)
+        assert stored is not None
+        stored_scene = ScriptContent.model_validate_json(stored.script_json).segments[0].scenes[0]
+
+    assert [layer["placement"] for layer in captured["layers"]] == ["left", "center", "right"]
+    assert response.image_url == ""
+    assert len(response.visual_layers) == 3
+    assert all(layer["image_url"] for layer in response.visual_layers)
+    assert [layer.image_url for layer in stored_scene.visual_layers] == [
+        layer["image_url"] for layer in response.visual_layers
+    ]
+
+
 def test_generate_visual_persists_request_visual_treatment(monkeypatch):
     from api import visuals as visuals_api
     from api.visuals import GenerateVisualRequest

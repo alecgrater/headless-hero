@@ -89,6 +89,7 @@ import { LongFormThumbnailsPanel } from "./ThumbnailsPanel";
 import { YoloProgressStrip } from "./YoloProgressStrip";
 import type { ProductionTask } from "./timelineProduction";
 import type { ThumbnailPhaseItem, ThumbnailPhaseStatus } from "./ThumbnailPhaseProgress";
+import { sceneVisualAssetsComplete } from "./assetCompletion";
 
 const DEFAULT_UPLOAD_TRACKING: UploadTracking = {
   longform_youtube: false,
@@ -503,7 +504,7 @@ function getCreationStatus(content: ScriptContent, projectConfig?: ProjectConfig
 
   const titleCardsDone = titleScenes.length === 0 || titleScenes.every((sc) => sc.image_url);
   const audioDone = narratedScenes.length === 0 || narratedScenes.every((sc) => sc.audio_url);
-  const imagesDone = imageScenes.length === 0 || imageScenes.every((sc) => sc.image_url || sc.frame_urls?.length || sc.video_url);
+  const imagesDone = imageScenes.length === 0 || imageScenes.every(sceneVisualAssetsComplete);
   const fxDone = nonTitleScenes.length === 0 || nonTitleScenes.every((sc) => sc.fx);
   const eliDone = eliDisabledForProject || eliScenes.length === 0 || eliScenes.every((sc) => sc.eli_overlay);
 
@@ -1794,7 +1795,7 @@ function TimelineEditor({
   const aiScenePercent = formatScenePercent(aiSceneCount, mediaSceneTotal);
 
   // Check if assets already exist for overwrite confirmation
-  const hasExistingImages = allScenes.some((sc) => !sc.is_title_card && (sc.image_url || sc.frame_urls?.length));
+  const hasExistingImages = allScenes.some((sc) => !sc.is_title_card && sceneVisualAssetsComplete(sc));
   const hasExistingAudio = allScenes.some((sc) => sc.audio_url);
   const hasExistingFX = allScenes.some((sc) => sc.fx);
 
@@ -1844,12 +1845,12 @@ function TimelineEditor({
   const imageScenes = nonTitleScenes.filter((sc) => sc.visual_prompt);
   // Title cards complete when all title card scenes have an image
   const allTitleCardsGenerated = titleScenes.length > 0 && titleScenes.every((sc) => sc.image_url);
-  const allImagesGenerated = imageScenes.length > 0 && imageScenes.every((sc) => sc.image_url || sc.frame_urls?.length || sc.video_url);
+  const allImagesGenerated = imageScenes.length > 0 && imageScenes.every(sceneVisualAssetsComplete);
   const allAudioGenerated = narratedScenes.length > 0 && narratedScenes.every((sc) => sc.audio_url);
   const allFXGenerated = nonTitleScenes.length > 0 && nonTitleScenes.every((sc) => sc.fx);
 
   // Missing counts for "Generate Missing (N)" labels
-  const missingImageCount = imageScenes.filter((sc) => !sc.image_url && !sc.frame_urls?.length && !sc.video_url).length;
+  const missingImageCount = imageScenes.filter((sc) => !sceneVisualAssetsComplete(sc)).length;
   const missingAudioCount = narratedScenes.filter((sc) => !sc.audio_url).length;
   const missingFXCount = nonTitleScenes.filter((sc) => !sc.fx).length;
 
