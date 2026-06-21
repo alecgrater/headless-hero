@@ -24,7 +24,7 @@ from pipeline.image_gen import (
     generate_stat_card_cutout,
     generate_visual_layer_panels,
 )
-from pipeline.render_jobs import create_job, get_job, run_in_background
+from pipeline.render_jobs import UserFacingJobError, create_job, get_job, run_in_background
 from pipeline.formats import resolve_format
 from pipeline.visual_treatments import analyze_visual_treatments
 
@@ -376,6 +376,8 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
             )
         except BlinkRegistrationError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except UserFacingJobError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
         update_scene(
             session,
             body.script_id,

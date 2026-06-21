@@ -1901,6 +1901,51 @@ def test_generate_visual_fills_explicit_popup_sequence_layers_before_generating(
     ]
 
 
+def test_generate_visual_layer_planning_returns_conflict_when_voiceover_missing(monkeypatch):
+    from api import visuals as visuals_api
+    from api.visuals import GenerateVisualRequest
+    from fastapi import HTTPException
+
+    engine = _build_test_engine()
+    script_id = "regular-popup-missing-voiceover"
+    content = content_with_scenes(
+        Scene(
+            id="scene_001",
+            narration="The desk holds missing keys, spoiled lunch, and an angry note.",
+            visual_prompt="Desk objects pop in around a tired worker.",
+            visual_mode="popup_sequence",
+            visual_layers=[],
+        )
+    )
+
+    monkeypatch.setattr(visuals_api, "_require_character_reference_ready", lambda session, script_id: None)
+
+    with Session(engine) as session:
+        session.add(
+            Script(
+                id=script_id,
+                brand_id="brand",
+                topic_title="Treatment Test",
+                script_json=content.model_dump_json(),
+            )
+        )
+        session.commit()
+
+        with pytest.raises(HTTPException) as exc_info:
+            visuals_api.generate_visual(
+                GenerateVisualRequest(
+                    script_id=script_id,
+                    scene_id="scene_001",
+                    visual_prompt="Desk objects pop in around a tired worker.",
+                    visual_mode="popup_sequence",
+                ),
+                session,
+            )
+
+    assert exc_info.value.status_code == 409
+    assert "Generate voiceover first" in str(exc_info.value.detail)
+
+
 def test_generate_visual_persists_request_visual_treatment(monkeypatch):
     from api import visuals as visuals_api
     from api.visuals import GenerateVisualRequest
