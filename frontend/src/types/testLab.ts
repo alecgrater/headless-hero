@@ -238,3 +238,8 @@ export interface SmokeTestReport {
   summary: Record<SmokeTestStatus, number>;
   checks: SmokeTestCheck[];
 }
+
+export interface SmokeTestExport {
+  report_id: string;
+  markdown: string;
+}

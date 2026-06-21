@@ -41,10 +41,12 @@ def _setup_app(monkeypatch, tmp_path):
     import api.scripts as scripts_module
     import database
     import pipeline.test_lab as test_lab_module
+    import pipeline.test_lab_smoke as smoke_module
 
     monkeypatch.setattr(database, "engine", engine)
     monkeypatch.setattr(scripts_module, "engine", engine)
     monkeypatch.setattr(test_lab_module, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(smoke_module, "DATA_DIR", tmp_path)
 
     from api import app
     from database import get_session
@@ -191,3 +193,54 @@ def test_smoke_route_returns_report(monkeypatch, tmp_path):
     assert data["id"]
     assert data["summary"]["fail"] == 0
     assert any(check["id"] == "visual-mode-vocabulary" for check in data["checks"])
+
+
+def test_smoke_route_persists_history_and_loads_saved_report(monkeypatch, tmp_path):
+    engine, app = _setup_app(monkeypatch, tmp_path)
+    import api.test_lab as test_lab_api
+
+    monkeypatch.setattr(test_lab_api, "_engine", lambda: engine)
+
+    client = TestClient(app)
+    created = client.post(
+        "/api/test-lab/smoke-tests",
+        json={"render_heavy": False, "external_api": False},
+    )
+
+    assert created.status_code == 200
+    report_id = created.json()["id"]
+
+    listed = client.get("/api/test-lab/smoke-tests")
+    assert listed.status_code == 200
+    assert [item["id"] for item in listed.json()["reports"]] == [report_id]
+    assert listed.json()["reports"][0]["summary"] == created.json()["summary"]
+
+    loaded = client.get(f"/api/test-lab/smoke-tests/{report_id}")
+    assert loaded.status_code == 200
+    assert loaded.json()["id"] == report_id
+    assert loaded.json()["checks"] == created.json()["checks"]
+
+
+def test_smoke_export_brief_is_ready_for_codex(monkeypatch, tmp_path):
+    engine, app = _setup_app(monkeypatch, tmp_path)
+    import api.test_lab as test_lab_api
+
+    monkeypatch.setattr(test_lab_api, "_engine", lambda: engine)
+
+    client = TestClient(app)
+    created = client.post(
+        "/api/test-lab/smoke-tests",
+        json={"render_heavy": False, "external_api": False},
+    )
+    report_id = created.json()["id"]
+
+    exported = client.get(f"/api/test-lab/smoke-tests/{report_id}/export")
+
+    assert exported.status_code == 200
+    data = exported.json()
+    assert data["report_id"] == report_id
+    assert "Please fix the Headless Hero Smoke Test issues below." in data["markdown"]
+    assert f"Smoke Test Report `{report_id}`" in data["markdown"]
+    assert "## Warnings" in data["markdown"]
+    assert "blink-production-guardrail" in data["markdown"]
+    assert "Align visual opportunity guidance" in data["markdown"]

@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+import json
+import re
 import uuid
 from collections import Counter
 from datetime import datetime, timezone
 from typing import Literal
 
+from pathlib import Path
 from pydantic import BaseModel, Field
 from sqlmodel import Session
 
+from config import DATA_DIR
 from models.script import VISUAL_MODES
 from models.settings import AppSetting
 from pipeline.blink_actions import PRODUCTION_BLINK_ACTIONS, blink_action_prompt_guidance
@@ -17,6 +21,7 @@ from pipeline.test_lab import TEST_LAB_PRESETS, VISUAL_TREATMENT_TEXT_DEFAULTS, 
 from pipeline.visual_mode_policy import prompt_visual_opportunity_guidance
 
 SmokeStatus = Literal["pass", "warn", "fail"]
+SAFE_REPORT_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$")
 
 REPRESENTATIVE_MODES = (
     "full_frame",
@@ -55,6 +60,11 @@ class SmokeTestReport(BaseModel):
     checks: list[SmokeTestCheck]
 
 
+class SmokeTestExport(BaseModel):
+    report_id: str
+    markdown: str
+
+
 def run_smoke_test(*, engine=None, options: SmokeTestOptions | None = None) -> SmokeTestReport:
     started_at = _utc_now()
     resolved_options = options or SmokeTestOptions()
@@ -88,6 +98,95 @@ def run_smoke_test(*, engine=None, options: SmokeTestOptions | None = None) -> S
         summary=_summary(checks),
         checks=checks,
     )
+
+
+def run_and_save_smoke_test(*, engine=None, options: SmokeTestOptions | None = None) -> SmokeTestReport:
+    report = run_smoke_test(engine=engine, options=options)
+    save_smoke_report(report)
+    return report
+
+
+def save_smoke_report(report: SmokeTestReport) -> None:
+    path = smoke_report_path(report.id)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(report.model_dump_json(indent=2), encoding="utf-8")
+
+
+def list_smoke_reports() -> list[SmokeTestReport]:
+    reports: list[SmokeTestReport] = []
+    for path in smoke_reports_dir().glob("*.json"):
+        try:
+            reports.append(SmokeTestReport.model_validate_json(path.read_text(encoding="utf-8")))
+        except ValueError:
+            continue
+    return sorted(reports, key=lambda report: report.completed_at, reverse=True)
+
+
+def load_smoke_report(report_id: str) -> SmokeTestReport:
+    path = smoke_report_path(report_id)
+    if not path.exists():
+        raise FileNotFoundError(report_id)
+    return SmokeTestReport.model_validate_json(path.read_text(encoding="utf-8"))
+
+
+def export_smoke_report(report_id: str) -> SmokeTestExport:
+    report = load_smoke_report(report_id)
+    return SmokeTestExport(report_id=report.id, markdown=smoke_report_markdown(report))
+
+
+def smoke_report_markdown(report: SmokeTestReport) -> str:
+    failures = [check for check in report.checks if check.status == "fail"]
+    warnings = [check for check in report.checks if check.status == "warn"]
+    passes = [check for check in report.checks if check.status == "pass"]
+    lines = [
+        "Please fix the Headless Hero Smoke Test issues below.",
+        "",
+        f"# Smoke Test Report `{report.id}`",
+        "",
+        f"- Started: {report.started_at}",
+        f"- Completed: {report.completed_at}",
+        f"- Options: render_heavy={report.options.render_heavy}, external_api={report.options.external_api}",
+        f"- Summary: {report.summary.get('fail', 0)} failed, {report.summary.get('warn', 0)} warnings, {report.summary.get('pass', 0)} passed",
+        "",
+        "## Fix Priority",
+        "",
+        "- Fix every failure first.",
+        "- Then inspect warnings; warnings may be expected when external API asset generation was disabled.",
+        "- Use any run IDs or render URLs below to inspect local Test Lab artifacts.",
+        "",
+    ]
+    lines.extend(_markdown_check_section("Failures", failures, empty_text="No failures."))
+    lines.extend(_markdown_check_section("Warnings", warnings, empty_text="No warnings."))
+    lines.extend(_markdown_check_section("Passed Checks", passes, empty_text="No passing checks."))
+    lines.extend(
+        [
+            "## Raw Report JSON",
+            "",
+            "```json",
+            json.dumps(report.model_dump(mode="json"), indent=2),
+            "```",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def smoke_reports_dir() -> Path:
+    return DATA_DIR / "test-lab" / "smoke-tests"
+
+
+def smoke_report_path(report_id: str) -> Path:
+    safe_report_id = validate_smoke_report_id(report_id)
+    path = smoke_reports_dir() / f"{safe_report_id}.json"
+    if not _path_under(path, smoke_reports_dir()):
+        raise ValueError("report_id resolved outside Smoke Test history directory")
+    return path
+
+
+def validate_smoke_report_id(report_id: str) -> str:
+    if not SAFE_REPORT_ID_RE.match(report_id):
+        raise ValueError("Invalid Smoke Test report id")
+    return report_id
 
 
 def _append_check(checks: list[SmokeTestCheck], fn) -> None:
@@ -403,6 +502,41 @@ def _setting(engine, key: str, fallback: str) -> str:
 def _summary(checks: list[SmokeTestCheck]) -> dict[str, int]:
     counts = Counter(check.status for check in checks)
     return {status: counts.get(status, 0) for status in ("pass", "warn", "fail")}
+
+
+def _markdown_check_section(title: str, checks: list[SmokeTestCheck], *, empty_text: str) -> list[str]:
+    lines = [f"## {title}", ""]
+    if not checks:
+        lines.extend([empty_text, ""])
+        return lines
+    for index, check in enumerate(checks, start=1):
+        lines.extend(
+            [
+                f"### {index}. {check.label} (`{check.id}`)",
+                "",
+                f"- Status: {check.status.upper()}",
+                f"- Group: {check.group}",
+                f"- Detail: {check.detail}",
+            ]
+        )
+        if check.next_action:
+            lines.append(f"- Next action: {check.next_action}")
+        if check.evidence:
+            lines.append(f"- Evidence: {check.evidence}")
+        if check.run_id:
+            lines.append(f"- Test Lab run id: {check.run_id}")
+        if check.render_url:
+            lines.append(f"- Render URL: {check.render_url}")
+        lines.append("")
+    return lines
+
+
+def _path_under(path: Path, parent: Path) -> bool:
+    try:
+        path.resolve().relative_to(parent.resolve())
+        return True
+    except ValueError:
+        return False
 
 
 def _utc_now() -> str:

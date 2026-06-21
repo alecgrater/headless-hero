@@ -4,8 +4,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import SmokeTestLab from "./SmokeTestLab";
 
 const runTestLabSmokeTest = vi.fn();
+const getTestLabSmokeTests = vi.fn();
+const exportTestLabSmokeTest = vi.fn();
 
 vi.mock("../../api", () => ({
+  exportTestLabSmokeTest: (...args: unknown[]) => exportTestLabSmokeTest(...args),
+  getTestLabSmokeTests: () => getTestLabSmokeTests(),
   runTestLabSmokeTest: (...args: unknown[]) => runTestLabSmokeTest(...args),
 }));
 
@@ -54,7 +58,19 @@ const report = {
 
 describe("SmokeTestLab", () => {
   beforeEach(() => {
+    Object.assign(navigator, {
+      clipboard: {
+        writeText: vi.fn().mockResolvedValue(undefined),
+      },
+    });
+    exportTestLabSmokeTest.mockReset();
+    getTestLabSmokeTests.mockReset();
     runTestLabSmokeTest.mockReset();
+    exportTestLabSmokeTest.mockResolvedValue({
+      report_id: "smoke-1",
+      markdown: "Please fix the Headless Hero Smoke Test issues below.\n\n# Smoke Test Report `smoke-1`",
+    });
+    getTestLabSmokeTests.mockResolvedValue([]);
     runTestLabSmokeTest.mockResolvedValue(report);
   });
 
@@ -87,5 +103,23 @@ describe("SmokeTestLab", () => {
         external_api: true,
       });
     });
+  });
+
+  it("loads previous smoke tests and re-exports the selected report", async () => {
+    getTestLabSmokeTests.mockResolvedValue([report]);
+    render(<SmokeTestLab />);
+
+    expect(await screen.findByRole("button", { name: /smoke-1/i })).toBeInTheDocument();
+    expect(screen.getByText("Blink production guardrail")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /copy fix brief/i }));
+
+    await waitFor(() => {
+      expect(exportTestLabSmokeTest).toHaveBeenCalledWith("smoke-1");
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+        expect.stringContaining("Please fix the Headless Hero Smoke Test issues below."),
+      );
+    });
+    expect(await screen.findByText("Fix brief copied")).toBeInTheDocument();
   });
 });

@@ -1,6 +1,6 @@
-import { AlertTriangle, CheckCircle2, ExternalLink, Play, RotateCcw, XCircle } from "lucide-react";
-import { useMemo, useState } from "react";
-import { runTestLabSmokeTest } from "../../api";
+import { AlertTriangle, CheckCircle2, Clipboard, ExternalLink, Play, RotateCcw, XCircle } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { exportTestLabSmokeTest, getTestLabSmokeTests, runTestLabSmokeTest } from "../../api";
 import type { SmokeTestCheck, SmokeTestOptions, SmokeTestReport, SmokeTestStatus } from "../../types/testLab";
 
 const STATUS_STYLES: Record<SmokeTestStatus, { label: string; icon: typeof CheckCircle2; className: string }> = {
@@ -27,13 +27,29 @@ export default function SmokeTestLab() {
     external_api: false,
   });
   const [report, setReport] = useState<SmokeTestReport | null>(null);
+  const [history, setHistory] = useState<SmokeTestReport[]>([]);
   const [running, setRunning] = useState(false);
+  const [copying, setCopying] = useState(false);
   const [error, setError] = useState("");
+  const [copyStatus, setCopyStatus] = useState("");
+
+  useEffect(() => {
+    let mounted = true;
+    getTestLabSmokeTests().then((reports) => {
+      if (!mounted) return;
+      setHistory(reports);
+      setReport((current) => current ?? reports[0] ?? null);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   async function handleRun() {
     if (running) return;
     setRunning(true);
     setError("");
+    setCopyStatus("");
     try {
       const nextReport = await runTestLabSmokeTest(options);
       if (!nextReport) {
@@ -41,8 +57,29 @@ export default function SmokeTestLab() {
         return;
       }
       setReport(nextReport);
+      setHistory((current) => [nextReport, ...current.filter((item) => item.id !== nextReport.id)]);
     } finally {
       setRunning(false);
+    }
+  }
+
+  async function handleCopyFixBrief() {
+    if (!report || copying) return;
+    setCopying(true);
+    setError("");
+    setCopyStatus("");
+    try {
+      const exported = await exportTestLabSmokeTest(report.id);
+      if (!exported) {
+        setError("Fix brief could not be exported. Check the backend logs and try again.");
+        return;
+      }
+      await navigator.clipboard.writeText(exported.markdown);
+      setCopyStatus("Fix brief copied");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Fix brief could not be copied.");
+    } finally {
+      setCopying(false);
     }
   }
 
@@ -84,6 +121,33 @@ export default function SmokeTestLab() {
           {running ? "Running Smoke Test" : "Run Smoke Test"}
         </button>
 
+        {history.length > 0 && (
+          <div className="mt-5 border-t border-neutral-800 pt-4">
+            <p className="text-xs font-semibold uppercase text-neutral-500">Saved reports</p>
+            <div className="mt-3 space-y-2">
+              {history.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    setReport(item);
+                    setCopyStatus("");
+                  }}
+                  className={`w-full rounded-md border p-3 text-left transition-colors ${
+                    report?.id === item.id
+                      ? "border-violet-500 bg-violet-500/15"
+                      : "border-neutral-800 bg-neutral-950/50 hover:border-neutral-700"
+                  }`}
+                >
+                  <span className="block text-sm font-medium text-neutral-100">{item.id}</span>
+                  <span className="mt-1 block text-xs text-neutral-500">
+                    {item.summary.fail ?? 0} failed · {item.summary.warn ?? 0} warnings · {item.summary.pass ?? 0} passed
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {error && (
           <div className="mt-4 rounded-md border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">
             {error}
@@ -99,12 +163,27 @@ export default function SmokeTestLab() {
                 <p className="text-xs font-semibold uppercase text-neutral-500">Latest report</p>
                 <h3 className="mt-2 text-base font-semibold text-neutral-100">{report.id}</h3>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <SummaryPill status="pass" count={report.summary.pass ?? 0} />
-                <SummaryPill status="warn" count={report.summary.warn ?? 0} />
-                <SummaryPill status="fail" count={report.summary.fail ?? 0} />
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <div className="flex flex-wrap gap-2">
+                  <SummaryPill status="pass" count={report.summary.pass ?? 0} />
+                  <SummaryPill status="warn" count={report.summary.warn ?? 0} />
+                  <SummaryPill status="fail" count={report.summary.fail ?? 0} />
+                </div>
+                <button
+                  onClick={handleCopyFixBrief}
+                  disabled={copying}
+                  className="inline-flex items-center gap-2 rounded-md border border-neutral-700 bg-neutral-950 px-3 py-1.5 text-xs font-medium text-neutral-200 transition-colors hover:border-violet-500 hover:text-violet-100 disabled:cursor-not-allowed disabled:text-neutral-500"
+                >
+                  {copying ? <RotateCcw className="h-3.5 w-3.5 animate-spin" /> : <Clipboard className="h-3.5 w-3.5" />}
+                  Copy Fix Brief
+                </button>
               </div>
             </header>
+            {copyStatus && (
+              <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">
+                {copyStatus}
+              </div>
+            )}
 
             {groupedChecks.map(([group, checks]) => (
               <div key={group} className="space-y-2">

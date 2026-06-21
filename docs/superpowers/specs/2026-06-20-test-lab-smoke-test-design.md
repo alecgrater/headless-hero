@@ -13,15 +13,22 @@ The Test Lab gets a new `Smoke Test` tab next to `Scene Pipeline`, `Popup Crop`,
 
 The result view shows a checklist grouped by area, with `pass`, `warn`, or `fail` status, a short detail, optional evidence, optional render/run links, and a specific next action. A summary row counts passes, warnings, and failures.
 
+Every smoke test report is saved under `data/test-lab/smoke-tests` so reports remain browsable after reload. The tab shows saved reports in newest-first order. Selecting an old report reloads its full checklist without rerunning diagnostics.
+
+Each saved report can be re-exported as a Markdown fix brief. The brief starts with a direct request to fix the Headless Hero Smoke Test issues, then includes report id, timestamps, options, summary counts, failures, warnings, passed checks, run ids, render URLs, evidence, next actions, and raw report JSON. This is the preferred format for passing smoke-test results back into Codex.
+
 ## Backend Architecture
 
 Create `backend/pipeline/test_lab_smoke.py` as the smoke-test orchestrator. It owns the diagnostic catalog and keeps API routing thin. The first version performs deterministic local checks and optionally launches a small set of existing Test Lab runs through `run_test_lab`.
 
 The API adds:
 
-- `POST /api/test-lab/smoke-test`
+- `POST /api/test-lab/smoke-tests`
+- `GET /api/test-lab/smoke-tests`
+- `GET /api/test-lab/smoke-tests/{report_id}`
+- `GET /api/test-lab/smoke-tests/{report_id}/export`
 
-The request accepts booleans for render-heavy probes and external API probes. The response is a serializable report with an id, started/completed timestamps, summary counts, and check rows.
+The legacy `POST /api/test-lab/smoke-test` path remains as an alias for existing callers. The request accepts booleans for render-heavy probes and external API probes. The response is a serializable report with an id, started/completed timestamps, summary counts, and check rows.
 
 ## Checks
 
@@ -53,7 +60,9 @@ Frontend tests cover:
 - Smoke Test tab appears.
 - Clicking `Run Smoke Test` calls the endpoint with default options.
 - Pass/warn/fail rows and recommended actions render.
+- Saved reports are loaded, browsable, and re-exportable.
+- Copy Fix Brief writes the backend-generated Markdown to the clipboard.
 
 ## Documentation
 
-No in-app workflow page is required for the first version because the feature is self-contained inside Test Lab and does not change the production project workflow. The Test Lab UI text explains the scope directly.
+The in-app Workflow docs mention Test Lab -> Smoke Test as the broad readiness pass and direct users to copy the saved fix brief before continuing project media generation when issues appear.

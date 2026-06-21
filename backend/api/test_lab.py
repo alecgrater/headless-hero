@@ -38,7 +38,13 @@ from pipeline.test_lab_blink_debug import (
     render_blink_fixture_preview,
 )
 from pipeline.renderer_context import RendererContext, normalize_renderer_context
-from pipeline.test_lab_smoke import SmokeTestOptions, run_smoke_test
+from pipeline.test_lab_smoke import (
+    SmokeTestOptions,
+    export_smoke_report,
+    list_smoke_reports,
+    load_smoke_report,
+    run_and_save_smoke_test,
+)
 
 router = APIRouter(prefix="/api/test-lab", tags=["test-lab"])
 
@@ -388,11 +394,41 @@ def render_blink_fixture(request: BlinkFixtureRenderRequest):
 
 @router.post("/smoke-test")
 def run_test_lab_smoke_test(request: SmokeTestRequest):
-    report = run_smoke_test(
+    report = run_and_save_smoke_test(
         engine=_engine(),
         options=SmokeTestOptions(render_heavy=request.render_heavy, external_api=request.external_api),
     )
     return report.model_dump(mode="json")
+
+
+@router.post("/smoke-tests")
+def run_test_lab_smoke_test_history(request: SmokeTestRequest):
+    report = run_and_save_smoke_test(
+        engine=_engine(),
+        options=SmokeTestOptions(render_heavy=request.render_heavy, external_api=request.external_api),
+    )
+    return report.model_dump(mode="json")
+
+
+@router.get("/smoke-tests")
+def get_test_lab_smoke_tests():
+    return {"reports": [report.model_dump(mode="json") for report in list_smoke_reports()]}
+
+
+@router.get("/smoke-tests/{report_id}/export")
+def export_test_lab_smoke_test(report_id: str):
+    try:
+        return export_smoke_report(report_id).model_dump(mode="json")
+    except (FileNotFoundError, ValueError):
+        raise HTTPException(status_code=404, detail="Smoke Test report not found") from None
+
+
+@router.get("/smoke-tests/{report_id}")
+def get_test_lab_smoke_test(report_id: str):
+    try:
+        return load_smoke_report(report_id).model_dump(mode="json")
+    except (FileNotFoundError, ValueError):
+        raise HTTPException(status_code=404, detail="Smoke Test report not found") from None
 
 
 @router.get("/runs")

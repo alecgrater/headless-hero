@@ -73,6 +73,8 @@ const WORKFLOW_STAGES = [
       "Full-frame scenes generate one full-bleed image. Multi-frame and continuous scenes generate frame sequences. Layered modes generate cutouts, panels, stats, captions, or comparison assets instead of normal scene images.",
       "AI video scenes start from a generated anchor image, then produce motion through the configured video provider when timing, spacing, and caps allow it.",
       "Use Test Lab for risky visual behavior before spending a full project render. Test Lab should mirror production settings where the workflow depends on shared behavior.",
+      "Use Test Lab -> Smoke Test for a broad readiness pass. Saved reports stay browsable, and Copy Fix Brief exports the failures, warnings, run ids, render links, evidence, and raw JSON in a format ready to paste back into Codex.",
+      "When a smoke test finds issues, copy the fix brief from Smoke Test history before making more project media so the exact diagnostics remain available for repair.",
       "For blink iteration, use Test Lab -> Blink to generate a reusable fixture once, then test the outdoor and indoor renderer-owned stages against the same saved cutout while renderer logic changes.",
     ],
     done: "The timeline has all required image, frame, layer, thumbnail, and optional video assets with no stale or missing media warnings.",

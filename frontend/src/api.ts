@@ -13,6 +13,7 @@ import type {
   PopupCropPreviewResult,
   PopupCropSheetResult,
   SmokeTestOptions,
+  SmokeTestExport,
   SmokeTestReport,
   TestLabRun,
   TestLabScenes,
@@ -262,7 +263,17 @@ export async function renderBlinkFixturePreview(
 export async function runTestLabSmokeTest(
   options: SmokeTestOptions,
 ): Promise<SmokeTestReport | null> {
-  const res = await api.post<SmokeTestReport>("/api/test-lab/smoke-test", options);
+  const res = await api.post<SmokeTestReport>("/api/test-lab/smoke-tests", options);
+  return res.ok ? res.data : null;
+}
+
+export async function getTestLabSmokeTests(): Promise<SmokeTestReport[]> {
+  const res = await api.get<{ reports: SmokeTestReport[] }>("/api/test-lab/smoke-tests");
+  return res.ok ? res.data.reports : [];
+}
+
+export async function exportTestLabSmokeTest(reportId: string): Promise<SmokeTestExport | null> {
+  const res = await api.get<SmokeTestExport>(`/api/test-lab/smoke-tests/${reportId}/export`);
   return res.ok ? res.data : null;
 }
 
