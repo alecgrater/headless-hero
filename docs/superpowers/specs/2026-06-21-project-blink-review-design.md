@@ -4,6 +4,8 @@
 
 Add a project-level manual review step for production full-frame blink. The blink detector finds safe candidates, and the user decides which eligible blinks actually render/export. Rendering and exporting are blocked until that review is complete, so blink quality is never left to an automatic frequency gate.
 
+This is a future design proposal. It does not supersede the current production workflow until the implementation plan is built, verified, committed, and the matching `AGENTS.md` and in-app workflow docs are updated in that implementation change.
+
 ## Product Decision
 
 Replace automatic production blink selection with a manual project review flow.
@@ -39,6 +41,7 @@ Exact shape:
 {
   "enabled": true,
   "action": "blink",
+  "fingerprint": "sha256:image-url-and-anchor",
   "anchor": {"detected": true},
   "review": {
     "status": "enabled",
@@ -98,6 +101,7 @@ Backend tests should cover:
 - candidate refresh creates unreviewed eligible blink metadata
 - manual enable/disable decisions persist on scenes
 - stale image/anchor metadata clears prior decisions
+- blink metadata fingerprints change when scene image URL or anchor data changes
 - render/export guard blocks when eligible candidates are unreviewed
 - render/export guard passes when all eligible candidates are reviewed
 - renderer props include blink metadata only for manually enabled scenes
