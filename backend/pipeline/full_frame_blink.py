@@ -126,7 +126,7 @@ def full_frame_blink_quality_rejection_reason(anchor: dict[str, object]) -> str:
 
 def build_full_frame_blink_metadata(script_id: str, scene_id: str, image_url: str) -> dict[str, object] | None:
     """Build production full-frame blink metadata using the same detector as Blink Audit."""
-    image_path = _image_path_from_url(image_url)
+    image_path = image_path_from_static_url(image_url)
     if image_path is None:
         return None
     detection = detect_full_frame_blink_anchor(image_path)
@@ -167,7 +167,7 @@ def run_full_frame_blink_audit(
             if scene.is_title_card or scene.visual_mode not in MEDIA_BACKED_BLINK_MODES:
                 continue
             image_url = _scene_image_url(script.id, scene.id, scene.image_url)
-            image_path = _image_path_from_url(image_url)
+            image_path = image_path_from_static_url(image_url)
             if image_path is None:
                 detection = FullFrameBlinkDetection(status="failed", eligible=False, reason="image_missing")
                 resolved_path = ""
@@ -619,7 +619,7 @@ def _scene_image_url(script_id: str, scene_id: str, image_url: str) -> str:
     return image_url or f"/static/projects/{script_id}/images/{scene_id}.png"
 
 
-def _image_path_from_url(image_url: str) -> Path | None:
+def image_path_from_static_url(image_url: str) -> Path | None:
     prefix = "/static/projects/"
     if not image_url.startswith(prefix):
         return None
