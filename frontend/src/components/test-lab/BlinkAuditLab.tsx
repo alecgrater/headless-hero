@@ -45,7 +45,7 @@ export default function BlinkAuditLab() {
       <div className="flex items-center justify-between gap-4 rounded-lg border border-neutral-800 bg-neutral-900/60 p-4">
         <div>
           <p className="text-xs font-semibold uppercase text-neutral-500">Blink Audit</p>
-          <h2 className="mt-2 text-sm font-semibold text-neutral-100">Media-backed Burger King scenes</h2>
+          <h2 className="mt-2 text-sm font-semibold text-neutral-100">Full-frame Burger King scenes</h2>
           <p className="mt-1 text-xs leading-5 text-neutral-500">
             Uses the same production quality gate as Blink Review; the 50% frequency gate is shown only as a lab signal.
           </p>

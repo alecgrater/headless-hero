@@ -60,7 +60,7 @@ def test_refresh_blink_review_creates_unreviewed_metadata(monkeypatch, tmp_path)
     assert metadata["fingerprint"]
 
 
-def test_refresh_blink_review_includes_media_backed_non_full_frame_modes(monkeypatch, tmp_path):
+def test_refresh_blink_review_ignores_non_full_frame_modes(monkeypatch, tmp_path):
     from pipeline import project_blink_review
 
     for scene_id in ("scene_multi", "scene_continuous"):
@@ -108,10 +108,10 @@ def test_refresh_blink_review_includes_media_backed_non_full_frame_modes(monkeyp
 
     summary = project_blink_review.refresh_project_blink_review(content, "script-1")
 
-    assert summary.eligible_count == 2
-    assert {candidate.scene_id for candidate in summary.candidates} == {"scene_multi", "scene_continuous"}
+    assert summary.eligible_count == 0
+    assert summary.candidates == []
     assert all(
-        scene.visual_source_metadata["full_frame_blink"]["review"]["status"] == "unreviewed"
+        not (scene.visual_source_metadata or {}).get("full_frame_blink")
         for scene in content.segments[0].scenes
     )
 

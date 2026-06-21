@@ -10,12 +10,6 @@ import React from "react";
 import { Img, useCurrentFrame, useVideoConfig, interpolate } from "remotion";
 import type { SceneInput } from "../types";
 import { formatSubtitleText } from "../utils/subtitleText";
-import {
-  BlinkMicroExpressionOverlay,
-  blinkMicroOverlay,
-  blinkOverlayVisible,
-  resolveBlinkOverlayAnchor,
-} from "./BlinkOverlay";
 
 interface Props {
   scene: SceneInput;
@@ -74,18 +68,6 @@ export const MultiFrameScene: React.FC<Props> = ({ scene }) => {
   const { durationInFrames, fps } = useVideoConfig();
   const framePaths = scene.frame_paths ?? [];
   const directives = scene.frame_directives ?? [];
-  const blink = scene.full_frame_blink?.enabled ? scene.full_frame_blink : null;
-  const blinkOverlay = blinkMicroOverlay(blink?.action);
-  const blinkAnchor = blink ? resolveBlinkOverlayAnchor(blink.anchor) : null;
-  const blinkVisible = blinkOverlay ? blinkOverlayVisible(frame, fps) : false;
-  const blinkLayer = (testId = "multi-frame-blink-overlay") => blinkOverlay && blinkAnchor ? (
-    <BlinkMicroExpressionOverlay
-      anchor={blinkAnchor}
-      overlay={blinkOverlay}
-      visible={blinkVisible}
-      testId={testId}
-    />
-  ) : null;
 
   if (framePaths.length === 0) {
     return (
@@ -118,7 +100,6 @@ export const MultiFrameScene: React.FC<Props> = ({ scene }) => {
           src={framePaths[0]}
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
         />
-        {blinkLayer()}
       </div>
     );
   }
@@ -282,7 +263,6 @@ export const MultiFrameScene: React.FC<Props> = ({ scene }) => {
               src={path}
               style={{ width: "100%", height: "100%", objectFit: "cover" }}
             />
-            {i === 0 ? blinkLayer() : null}
           </div>
         );
       })}

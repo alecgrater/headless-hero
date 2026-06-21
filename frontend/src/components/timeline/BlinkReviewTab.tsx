@@ -37,7 +37,7 @@ export default function BlinkReviewTab({
               <h2 className="text-sm font-semibold text-neutral-100">Blink Review</h2>
             </div>
             <p className="mt-1 text-xs text-neutral-400">
-              Review eligible media-backed blinks before rendering or exporting.
+              Review eligible full-frame blinks before rendering or exporting.
             </p>
             {summary?.review_enabled === false && (
               <p className="mt-2 text-xs font-medium text-amber-300">
