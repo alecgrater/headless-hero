@@ -142,6 +142,38 @@ def test_render_probes_cover_default_only_visual_modes(monkeypatch, tmp_path):
     assert report.summary["fail"] == 0
 
 
+def test_render_only_layered_probes_warn_without_external_assets(monkeypatch, tmp_path):
+    import pipeline.test_lab_smoke as smoke
+    from pipeline.test_lab import TestLabRunManifest
+    from pipeline.test_lab_smoke import SmokeTestOptions, run_smoke_test
+
+    def fake_run_test_lab(**kwargs):
+        return [f"/static/projects/test-lab-{kwargs['run_id']}/renders/full_youtube.mp4"]
+
+    def fake_load_run_manifest(run_id: str):
+        return TestLabRunManifest(
+            run_id=run_id,
+            script_id=f"test-lab-{run_id}",
+            preset_id="coffee-brain",
+            status="completed",
+            render_url=f"/static/projects/test-lab-{run_id}/renders/full_youtube.mp4",
+        )
+
+    monkeypatch.setattr(smoke, "run_test_lab", fake_run_test_lab)
+    monkeypatch.setattr(smoke, "load_run_manifest", fake_load_run_manifest)
+    engine, _app = _setup_app(monkeypatch, tmp_path)
+
+    report = run_smoke_test(engine=engine, options=SmokeTestOptions(render_heavy=True, external_api=False))
+
+    layered_rows = [
+        check
+        for check in report.checks
+        if check.id in {"render-probe-popup_sequence", "render-probe-comparison_board", "render-probe-blink"}
+    ]
+    assert {row.status for row in layered_rows} == {"warn"}
+    assert all("render-only" in row.detail for row in layered_rows)
+
+
 def test_smoke_route_returns_report(monkeypatch, tmp_path):
     engine, app = _setup_app(monkeypatch, tmp_path)
     import api.test_lab as test_lab_api

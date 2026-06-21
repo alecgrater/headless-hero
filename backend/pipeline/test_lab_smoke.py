@@ -26,6 +26,7 @@ REPRESENTATIVE_MODES = (
     "stat_card",
     "blink",
 )
+CUTOUT_ASSET_MODES = {"popup_sequence", "comparison_board", "blink"}
 
 
 class SmokeTestOptions(BaseModel):
@@ -354,6 +355,21 @@ def _run_single_probe(*, engine, preset_id: str, mode: str, external_api: bool) 
             detail=f"The {mode} Test Lab probe completed without a render URL.",
             run_id=run_id,
             next_action="Check Remotion render output collection and manifest serialization.",
+        )
+    if mode in CUTOUT_ASSET_MODES and not external_api:
+        return SmokeTestCheck(
+            id=f"render-probe-{mode}",
+            label=f"{mode} render probe",
+            group="Pipeline",
+            status="warn",
+            detail=(
+                f"The {mode} render-only probe completed, but cutout asset generation was disabled. "
+                "This confirms Remotion can render the mode shell, not that generated assets are valid."
+            ),
+            run_id=run_id,
+            render_url=manifest.render_url,
+            evidence=f"{len(manifest.assets)} assets",
+            next_action="Run again with external API asset generation enabled before trusting this cutout-based mode.",
         )
     return SmokeTestCheck(
         id=f"render-probe-{mode}",
