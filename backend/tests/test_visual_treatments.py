@@ -4079,6 +4079,20 @@ def test_analyze_visual_treatments_does_not_invent_placeholder_stat_label():
     assert assignment.stat_label == ""
 
 
+def test_apply_visual_treatment_assignment_clears_stale_stat_label():
+    scene = scene_with_words("s1", "5.")
+    scene.stat_value = "5"
+    scene.stat_label = "key metric"
+    content = content_with_scenes(scene)
+    assignments = analyze_visual_treatments(content, script_id="stat-script")
+
+    apply_visual_treatment_assignments(content, assignments)
+
+    assert scene.visual_mode == "stat_card"
+    assert scene.stat_value == "5"
+    assert scene.stat_label == ""
+
+
 def test_apply_visual_treatment_assignment_accepts_stat_card_mode_with_icon_layer():
     scene = scene_with_words("s1", "Eighty-five percent churn before week one.")
     content = content_with_scenes(scene)

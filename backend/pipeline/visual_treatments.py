@@ -302,10 +302,8 @@ def apply_visual_treatment_assignments(
             scene.caption_text = caption_text
             scene.caption_emphasis = caption_emphasis
         if mode == "stat_card":
-            if assignment.stat_value:
-                scene.stat_value = assignment.stat_value
-            if assignment.stat_label:
-                scene.stat_label = assignment.stat_label
+            scene.stat_value = assignment.stat_value
+            scene.stat_label = assignment.stat_label
         scene.visual_layers = (
             list(assignment.visual_layers)
             if mode in {"popup_sequence", "blink", "comparison_board", "stat_card"}
@@ -410,6 +408,8 @@ def _analyze_scene(scene: Scene, *, script_id: str | None = None) -> VisualTreat
             visual_mode="stat_card",
             reasoning="Scene is explicitly marked for stat-card rendering; preserved.",
             visual_layers=list(scene.visual_layers),
+            stat_value=scene.stat_value,
+            stat_label=scene.stat_label,
         )
     if _is_video_or_photo_backed(scene):
         return VisualTreatmentAssignment(
