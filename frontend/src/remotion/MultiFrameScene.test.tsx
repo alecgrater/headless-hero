@@ -52,4 +52,34 @@ describe("MultiFrameScene", () => {
 
     expect(screen.getByTestId("multi-frame-blink-overlay")).toBeInTheDocument();
   });
+
+  it("keeps the first-frame blink overlay hidden once later frames are active", () => {
+    vi.mocked(useCurrentFrame).mockReturnValue(75);
+    const scene = {
+      id: "scene_001",
+      narration: "A worker waits.",
+      duration_seconds: 3,
+      is_title_card: false,
+      visual_mode: "continuous",
+      frame_paths: ["/tmp/frame-0.png", "/tmp/frame-1.png"],
+      full_frame_blink: {
+        enabled: true,
+        action: "blink",
+        anchor: {
+          detected: true,
+          skin_fill: "#F0D2B4",
+          eye_left: { x: 0.4, y: 0.3, width: 0.01, height: 0.01 },
+          eye_right: { x: 0.46, y: 0.3, width: 0.01, height: 0.01 },
+          mouth: { x: 0.43, y: 0.38, width: 0.02, height: 0.01 },
+          brow_left: { x: 0.4, y: 0.26, width: 0.02, height: 0.004 },
+          brow_right: { x: 0.46, y: 0.26, width: 0.02, height: 0.004 },
+        },
+      },
+    } satisfies SceneInput;
+
+    render(<MultiFrameScene scene={scene} />);
+
+    const overlay = screen.getByTestId("multi-frame-blink-overlay");
+    expect(overlay.parentElement).toHaveStyle({ opacity: "0" });
+  });
 });

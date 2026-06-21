@@ -78,12 +78,12 @@ export const MultiFrameScene: React.FC<Props> = ({ scene }) => {
   const blinkOverlay = blinkMicroOverlay(blink?.action);
   const blinkAnchor = blink ? resolveBlinkOverlayAnchor(blink.anchor) : null;
   const blinkVisible = blinkOverlay ? blinkOverlayVisible(frame, fps) : false;
-  const blinkLayer = blinkOverlay && blinkAnchor ? (
+  const blinkLayer = (testId = "multi-frame-blink-overlay") => blinkOverlay && blinkAnchor ? (
     <BlinkMicroExpressionOverlay
       anchor={blinkAnchor}
       overlay={blinkOverlay}
       visible={blinkVisible}
-      testId="multi-frame-blink-overlay"
+      testId={testId}
     />
   ) : null;
 
@@ -118,7 +118,7 @@ export const MultiFrameScene: React.FC<Props> = ({ scene }) => {
           src={framePaths[0]}
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
         />
-        {blinkLayer}
+        {blinkLayer()}
       </div>
     );
   }
@@ -282,10 +282,10 @@ export const MultiFrameScene: React.FC<Props> = ({ scene }) => {
               src={path}
               style={{ width: "100%", height: "100%", objectFit: "cover" }}
             />
+            {i === 0 ? blinkLayer() : null}
           </div>
         );
       })}
-      {blinkLayer}
     </div>
   );
 };
