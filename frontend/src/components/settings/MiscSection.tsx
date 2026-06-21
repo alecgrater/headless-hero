@@ -83,11 +83,13 @@ interface MiscSectionProps {
 export default function MiscSection({ showHeader = true, embedded = false }: MiscSectionProps) {
   const [hookRefinementEnabled, setHookRefinementEnabled] = useState("true");
   const [showSpeedRenderButton, setShowSpeedRenderButton] = useState("true");
+  const [blinkReviewEnabled, setBlinkReviewEnabled] = useState("true");
   const [rateLimitEnabled, setRateLimitEnabled] = useState("true");
   const [scraperFallbackEnabled, setScraperFallbackEnabled] = useState("false");
 
   const [originalHookRefinement, setOriginalHookRefinement] = useState("true");
   const [originalShowSpeedRenderButton, setOriginalShowSpeedRenderButton] = useState("true");
+  const [originalBlinkReviewEnabled, setOriginalBlinkReviewEnabled] = useState("true");
   const [originalRateLimit, setOriginalRateLimit] = useState("true");
   const [originalScraperFallback, setOriginalScraperFallback] = useState("false");
 
@@ -100,12 +102,15 @@ export default function MiscSection({ showHeader = true, embedded = false }: Mis
         const data = res.data as Record<string, { masked: string }>;
         const hrVal = settingEnabled(data.HOOK_REFINEMENT_ENABLED?.masked || "true") ? "true" : "false";
         const srVal = settingEnabled(data.SHOW_SPEED_RENDER_BUTTON?.masked || "true") ? "true" : "false";
+        const brVal = settingEnabled(data.FULL_FRAME_BLINK_REVIEW_ENABLED?.masked || "true") ? "true" : "false";
         const rlVal = settingEnabled(data.IMAGE_RATE_LIMIT_MS?.masked || "true") ? "true" : "false";
         const sfVal = settingEnabled(data.IMAGE_SCRAPER_FALLBACK_ENABLED?.masked || "false") ? "true" : "false";
         setHookRefinementEnabled(hrVal);
         setOriginalHookRefinement(hrVal);
         setShowSpeedRenderButton(srVal);
         setOriginalShowSpeedRenderButton(srVal);
+        setBlinkReviewEnabled(brVal);
+        setOriginalBlinkReviewEnabled(brVal);
         setRateLimitEnabled(rlVal);
         setOriginalRateLimit(rlVal);
         setScraperFallbackEnabled(sfVal);
@@ -118,6 +123,7 @@ export default function MiscSection({ showHeader = true, embedded = false }: Mis
   const hasChanges =
     hookRefinementEnabled !== originalHookRefinement ||
     showSpeedRenderButton !== originalShowSpeedRenderButton ||
+    blinkReviewEnabled !== originalBlinkReviewEnabled ||
     rateLimitEnabled !== originalRateLimit ||
     scraperFallbackEnabled !== originalScraperFallback;
 
@@ -126,6 +132,7 @@ export default function MiscSection({ showHeader = true, embedded = false }: Mis
     const res = await api.put("/api/settings/keys", {
       HOOK_REFINEMENT_ENABLED: hookRefinementEnabled,
       SHOW_SPEED_RENDER_BUTTON: showSpeedRenderButton,
+      FULL_FRAME_BLINK_REVIEW_ENABLED: blinkReviewEnabled,
       IMAGE_RATE_LIMIT_MS: rateLimitEnabled === "true" ? "10000" : "0",
       IMAGE_SCRAPER_FALLBACK_ENABLED: scraperFallbackEnabled,
     });
@@ -133,14 +140,16 @@ export default function MiscSection({ showHeader = true, embedded = false }: Mis
     if (res.ok) {
       setOriginalHookRefinement(hookRefinementEnabled);
       setOriginalShowSpeedRenderButton(showSpeedRenderButton);
+      setOriginalBlinkReviewEnabled(blinkReviewEnabled);
       setOriginalRateLimit(rateLimitEnabled);
       setOriginalScraperFallback(scraperFallbackEnabled);
     }
     return res.ok;
-  }, [hookRefinementEnabled, rateLimitEnabled, scraperFallbackEnabled, showSpeedRenderButton]);
+  }, [blinkReviewEnabled, hookRefinementEnabled, rateLimitEnabled, scraperFallbackEnabled, showSpeedRenderButton]);
 
   useDebouncedAutosave(hasChanges && !saving && !loading, handleSave, [
     hookRefinementEnabled,
+    blinkReviewEnabled,
     showSpeedRenderButton,
     rateLimitEnabled,
     scraperFallbackEnabled,
@@ -190,6 +199,16 @@ export default function MiscSection({ showHeader = true, embedded = false }: Mis
           compact={embedded}
         />
         <div className="space-y-3">
+          <SettingsRow
+            title="Full-frame Blink Review"
+            description="Detects safe full-frame blink candidates after images are generated, then requires manual enable/disable decisions before render/export. Turning this off keeps production full-frame scenes static and removes the review block."
+          >
+            <SettingsSwitch
+              checked={blinkReviewEnabled === "true"}
+              label="Toggle full-frame Blink Review"
+              onChange={() => setBlinkReviewEnabled(blinkReviewEnabled === "true" ? "false" : "true")}
+            />
+          </SettingsRow>
           <SettingsRow
             title="1.25x Render Button"
             description='Shows or hides the "Render YouTube Video (1.25x Speed)" button in the Export window. The regular render button always stays visible.'

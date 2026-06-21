@@ -1,6 +1,7 @@
 import { showToast } from "./components/ToastContainer";
 import { BACKEND_PORT } from "./constants";
 import type { ScriptContent, UploadTracking, VisualLayer, VisualMode } from "./types/script";
+import type { BlinkReviewSummary } from "./types/blinkReview";
 import type { VideoFormat } from "./types/format";
 import type {
   BlinkDebugAction,
@@ -1054,6 +1055,25 @@ export async function analyzeVisualTreatments(scriptId: string): Promise<{ job_i
 export async function getVisualTreatmentStatus(jobId: string): Promise<VisualTreatmentStatus> {
   const res = await api.get<VisualTreatmentStatus>(`/api/visual-treatments/analyze/status/${jobId}`);
   if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to check visual mode status");
+  return res.data;
+}
+
+export async function getBlinkReview(scriptId: string): Promise<BlinkReviewSummary> {
+  const res = await api.get<BlinkReviewSummary>(`/api/blink-review/${encodeURIComponent(scriptId)}`);
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to load Blink Review");
+  return res.data;
+}
+
+export async function updateBlinkReviewDecision(
+  scriptId: string,
+  sceneId: string,
+  status: "enabled" | "disabled",
+): Promise<BlinkReviewSummary> {
+  const res = await api.post<BlinkReviewSummary>(
+    `/api/blink-review/${encodeURIComponent(scriptId)}/scenes/${encodeURIComponent(sceneId)}`,
+    { status },
+  );
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to update Blink Review");
   return res.data;
 }
 
