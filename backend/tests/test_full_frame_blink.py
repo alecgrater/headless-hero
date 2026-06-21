@@ -165,6 +165,64 @@ def test_detect_full_frame_blink_anchor_uses_eye_whites_inside_main_face(tmp_pat
         assert erase_box["bottom"] - erase_box["top"] <= 0.11
 
 
+def test_detect_full_frame_blink_anchor_rejects_asymmetric_eye_pair(tmp_path):
+    from pipeline.full_frame_blink import detect_full_frame_blink_anchor
+
+    image_path = tmp_path / "asymmetric-eyes.png"
+    image = Image.new("RGBA", (1000, 560), (188, 194, 190, 255))
+    draw = ImageDraw.Draw(image)
+    draw.ellipse((390, 115, 585, 330), fill=(238, 225, 190, 255), outline=(25, 25, 25, 255), width=5)
+    draw.ellipse((438, 205, 449, 220), fill=(24, 24, 24, 255))
+    draw.ellipse((500, 196, 548, 226), fill=(24, 24, 24, 255))
+    draw.arc((440, 260, 520, 290), 190, 350, fill=(24, 24, 24, 255), width=4)
+    image.save(image_path)
+
+    result = detect_full_frame_blink_anchor(image_path)
+
+    assert result.eligible is False
+    assert result.reason == "face_landmarks_missing"
+
+
+def test_detect_full_frame_blink_anchor_rejects_top_cropped_face(tmp_path):
+    from pipeline.full_frame_blink import detect_full_frame_blink_anchor
+
+    image_path = tmp_path / "top-cropped-face.png"
+    image = Image.new("RGBA", (1000, 560), (56, 62, 64, 255))
+    draw = ImageDraw.Draw(image)
+    draw.ellipse((560, -70, 870, 210), fill=(238, 225, 190, 255), outline=(25, 25, 25, 255), width=5)
+    draw.ellipse((640, 55, 652, 70), fill=(24, 24, 24, 255))
+    draw.ellipse((745, 55, 757, 70), fill=(24, 24, 24, 255))
+    draw.line((690, 82, 680, 128), fill=(24, 24, 24, 255), width=5)
+    draw.arc((655, 150, 760, 180), 190, 350, fill=(24, 24, 24, 255), width=5)
+    image.save(image_path)
+
+    result = detect_full_frame_blink_anchor(image_path)
+
+    assert result.eligible is False
+    assert result.reason == "face_landmarks_missing"
+
+
+def test_detect_full_frame_blink_anchor_rejects_busy_upper_face(tmp_path):
+    from pipeline.full_frame_blink import detect_full_frame_blink_anchor
+
+    image_path = tmp_path / "busy-upper-face.png"
+    image = Image.new("RGBA", (1000, 560), (205, 170, 145, 255))
+    draw = ImageDraw.Draw(image)
+    draw.ellipse((395, 80, 615, 330), fill=(238, 225, 190, 255), outline=(25, 25, 25, 255), width=5)
+    for y, left, right in [(112, 475, 530), (128, 455, 545), (152, 438, 478), (152, 520, 560)]:
+        draw.line((left, y, right, y), fill=(24, 24, 24, 255), width=3)
+    draw.ellipse((448, 190, 460, 204), fill=(24, 24, 24, 255))
+    draw.ellipse((535, 190, 547, 204), fill=(24, 24, 24, 255))
+    draw.line((493, 210, 484, 252), fill=(24, 24, 24, 255), width=4)
+    draw.arc((462, 268, 545, 298), 190, 350, fill=(24, 24, 24, 255), width=4)
+    image.save(image_path)
+
+    result = detect_full_frame_blink_anchor(image_path)
+
+    assert result.eligible is False
+    assert result.reason == "face_landmarks_missing"
+
+
 def test_run_full_frame_blink_audit_discovers_media_backed_scene(monkeypatch, tmp_path):
     from models.script import Scene, Script, ScriptContent, Segment
     from pipeline import full_frame_blink

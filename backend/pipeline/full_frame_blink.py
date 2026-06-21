@@ -203,11 +203,9 @@ def _detect_full_frame_main_face_anchor_points(image: Image.Image) -> dict[str, 
         ),
         reverse=True,
     )
-    for face in ranked_faces:
-        anchor = _anchor_for_face_component(image, face, dark_components, light_eye_components, components)
-        if anchor is not None:
-            return anchor
-    return None
+    if not ranked_faces:
+        return None
+    return _anchor_for_face_component(image, ranked_faces[0], dark_components, light_eye_components, components)
 
 
 def _collect_full_frame_components(image: Image.Image) -> dict[str, list[dict[str, float]]]:
@@ -336,9 +334,13 @@ def _anchor_for_face_component(
         and component["area"] >= 8
     ]
     valid_pairs: list[tuple[float, dict[str, float], dict[str, float], dict[str, float]]] = []
+    if face_top < 0.055 or _full_frame_face_has_busy_forehead(face, dark_components):
+        return None
     for left_eye in eye_candidates:
         for right_eye in eye_candidates:
             if left_eye is right_eye or left_eye["cx"] >= right_eye["cx"]:
+                continue
+            if not _full_frame_eye_pair_is_symmetric(left_eye, right_eye):
                 continue
             separation = right_eye["cx"] - left_eye["cx"]
             relative_separation = separation / max(face_width, 0.001)
@@ -350,6 +352,10 @@ def _anchor_for_face_component(
             midpoint = (left_eye["cx"] + right_eye["cx"]) / 2
             eye_y = (left_eye["cy"] + right_eye["cy"]) / 2
             relative_eye_y = (eye_y - face_top) / max(face_height, 0.001)
+            if relative_eye_y < 0.25 or relative_eye_y > 0.46:
+                continue
+            if _full_frame_face_has_busy_upper_expression(face, dark_components, left_eye, right_eye, eye_y):
+                continue
             mouth = _mouth_for_face(face, dark_components, midpoint, eye_y)
             eye_shape_score = (
                 _eye_component_shape_score(left_eye, face)
@@ -416,6 +422,64 @@ def _anchor_for_face_component(
         "brow_left": {"x": round(left_eye["cx"], 4), "y": round(brow_y, 4)},
         "brow_right": {"x": round(right_eye["cx"], 4), "y": round(brow_y, 4)},
     }
+
+
+def _full_frame_face_has_busy_forehead(face: dict[str, float], dark_components: list[dict[str, float]]) -> bool:
+    face_width = face["width"]
+    face_height = face["height"]
+    horizontal_marks = 0
+    for component in dark_components:
+        if not (
+            face["left"] <= component["cx"] <= face["right"]
+            and face["top"] <= component["cy"] <= face["bottom"]
+        ):
+            continue
+        relative_y = (component["cy"] - face["top"]) / max(face_height, 0.001)
+        relative_width = component["width"] / max(face_width, 0.001)
+        aspect = component["width"] / max(component["height"], 0.001)
+        if relative_y < 0.29 and aspect >= 4.0 and relative_width >= 0.08:
+            horizontal_marks += 1
+    return horizontal_marks > 2
+
+
+def _full_frame_face_has_busy_upper_expression(
+    face: dict[str, float],
+    dark_components: list[dict[str, float]],
+    left_eye: dict[str, float],
+    right_eye: dict[str, float],
+    eye_y: float,
+) -> bool:
+    face_width = face["width"]
+    face_height = face["height"]
+    eye_relative_y = (eye_y - face["top"]) / max(face_height, 0.001)
+    horizontal_marks = 0
+    for component in dark_components:
+        if not (
+            face["left"] <= component["cx"] <= face["right"]
+            and face["top"] <= component["cy"] <= face["bottom"]
+        ):
+            continue
+        relative_y = (component["cy"] - face["top"]) / max(face_height, 0.001)
+        if relative_y >= eye_relative_y - 0.06:
+            continue
+        near_selected_eye = abs(component["cy"] - eye_y) < face_height * 0.08 and (
+            abs(component["cx"] - left_eye["cx"]) < face_width * 0.13
+            or abs(component["cx"] - right_eye["cx"]) < face_width * 0.13
+        )
+        if near_selected_eye:
+            continue
+        relative_width = component["width"] / max(face_width, 0.001)
+        aspect = component["width"] / max(component["height"], 0.001)
+        if aspect >= 4.0 and relative_width >= 0.08:
+            horizontal_marks += 1
+    return horizontal_marks > 2
+
+
+def _full_frame_eye_pair_is_symmetric(left_eye: dict[str, float], right_eye: dict[str, float]) -> bool:
+    width_ratio = min(left_eye["width"], right_eye["width"]) / max(left_eye["width"], right_eye["width"], 0.001)
+    height_ratio = min(left_eye["height"], right_eye["height"]) / max(left_eye["height"], right_eye["height"], 0.001)
+    area_ratio = min(left_eye["area"], right_eye["area"]) / max(left_eye["area"], right_eye["area"], 1.0)
+    return width_ratio >= 0.42 and height_ratio >= 0.42 and area_ratio >= 0.22
 
 
 def _full_frame_eye_erase_box(eye: dict[str, float], face: dict[str, float]) -> dict[str, float]:
