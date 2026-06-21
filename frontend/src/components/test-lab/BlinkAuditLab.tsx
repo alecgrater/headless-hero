@@ -47,7 +47,7 @@ export default function BlinkAuditLab() {
           <p className="text-xs font-semibold uppercase text-neutral-500">Blink Audit</p>
           <h2 className="mt-2 text-sm font-semibold text-neutral-100">Full-frame Burger King scenes</h2>
           <p className="mt-1 text-xs leading-5 text-neutral-500">
-            Checks real generated scene images for safe in-place blink anchors.
+            Uses the same production quality gate and 50% frequency gate that new project renders use.
           </p>
         </div>
         <button
@@ -96,6 +96,10 @@ export default function BlinkAuditLab() {
                   <p className="mt-1 text-xs text-neutral-500">
                     {eligibleCount}/{activeReport.candidates.length} eligible
                     {eligibleOnly ? ` · showing ${visibleCandidates.length}` : ""}
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-neutral-600">
+                    Eligible scenes passed eye symmetry, alignment, and anchor safety checks; the 50% gate only decides
+                    how often safe scenes blink.
                   </p>
                 </div>
                 <label className="inline-flex items-center gap-2 rounded-md border border-neutral-800 bg-neutral-950/50 px-3 py-2 text-xs font-medium text-neutral-300">
@@ -150,15 +154,34 @@ function BlinkAuditCard({ candidate }: { candidate: FullFrameBlinkCandidate }) {
         </div>
         <p className="line-clamp-2 text-xs leading-5 text-neutral-500">{candidate.scene_label}</p>
         {!candidate.detection.eligible ? (
-          <p className="text-xs text-amber-300">{candidate.detection.reason}</p>
+          <p className="text-xs text-amber-300">Quality gate: {blinkAuditReasonLabel(candidate.detection.reason)}</p>
         ) : (
-          <p className="text-xs text-emerald-300">
-            {candidate.blink_enabled ? "50% gate: blink enabled" : "50% gate: blink skipped"}
+          <p className="text-xs leading-5 text-emerald-300">
+            Quality gate passed. {candidate.blink_enabled ? "50% frequency gate: blink enabled" : "50% frequency gate: blink skipped"}
           </p>
         )}
       </div>
     </div>
   );
+}
+
+function blinkAuditReasonLabel(reason: string): string {
+  switch (reason) {
+    case "blink_quality_eye_pair_asymmetric":
+      return "rejected because the detected eyes are too different in size.";
+    case "blink_quality_eye_pair_misaligned":
+      return "rejected because the detected eyes are vertically misaligned.";
+    case "anchor_not_full_frame_safe":
+      return "rejected because the detected anchor is not safe enough for production.";
+    case "face_landmarks_missing":
+      return "rejected because no safe main-character eye pair was found.";
+    case "image_missing":
+      return "rejected because the scene image is missing.";
+    case "image_unreadable":
+      return "rejected because the scene image could not be read.";
+    default:
+      return reason || "rejected by the production blink quality gate.";
+  }
 }
 
 function PreviewPane({ candidate, blink }: { candidate: FullFrameBlinkCandidate; blink: boolean }) {

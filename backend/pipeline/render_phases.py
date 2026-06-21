@@ -105,6 +105,7 @@ def _phase_images(ctx: ExportContext) -> None:
         generate_stat_card_cutout,
         generate_visual_layer_panels,
     )
+    from pipeline import full_frame_blink as full_frame_blink_mod
 
     non_tc = [sc for sc in ctx.scenes if not sc.get("is_title_card")]
     scene_count = len(non_tc)
@@ -163,6 +164,15 @@ def _phase_images(ctx: ExportContext) -> None:
             image_url, _, _ = generate_scene_image(sid, sc_info["visual_prompt"], ctx.script_id, force=True)
             sc_info["_image_url"] = image_url
             sc_info["_frame_urls"] = None
+        sc_info["_full_frame_blink"] = None
+        if visual_mode in full_frame_blink_mod.MEDIA_BACKED_BLINK_MODES:
+            blink_image_url = sc_info.get("_image_url") or ""
+            if blink_image_url:
+                sc_info["_full_frame_blink"] = full_frame_blink_mod.build_full_frame_blink_metadata(
+                    ctx.script_id,
+                    sid,
+                    blink_image_url,
+                )
         if treatment in {"popup_sequence", "blink", "comparison_board", "stat_card"} and (visual_layers or treatment == "blink"):
             logger.info(
                 "[ANIMATION_TYPE] generating panels scene=%s animation_type=%s layers=%d",
@@ -294,6 +304,13 @@ def _phase_persist(ctx: ExportContext) -> None:
             sc.phrase_timestamps = sc_info.get("_phrase_timestamps", sc.phrase_timestamps)
             if "_visual_layers" in sc_info:
                 sc.visual_layers = [VisualLayer.model_validate(layer) for layer in sc_info["_visual_layers"]]
+            if "_full_frame_blink" in sc_info:
+                metadata = dict(sc.visual_source_metadata or {})
+                if sc_info["_full_frame_blink"]:
+                    metadata["full_frame_blink"] = sc_info["_full_frame_blink"]
+                else:
+                    metadata.pop("full_frame_blink", None)
+                sc.visual_source_metadata = metadata or None
             if "_visual_mode_override" in sc_info:
                 sc.set_visual_mode(sc_info["_visual_mode_override"])
 

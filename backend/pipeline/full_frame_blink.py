@@ -80,9 +80,70 @@ def detect_full_frame_blink_anchor(image_path: Path) -> FullFrameBlinkDetection:
             }
     except OSError:
         return FullFrameBlinkDetection(status="failed", eligible=False, reason="image_unreadable")
-    if not _anchor_is_full_frame_eligible(anchor):
-        return FullFrameBlinkDetection(status="failed", eligible=False, reason="anchor_not_full_frame_safe")
+    rejection_reason = full_frame_blink_quality_rejection_reason(anchor)
+    if rejection_reason:
+        return FullFrameBlinkDetection(status="failed", eligible=False, reason=rejection_reason)
     return FullFrameBlinkDetection(status="passed", eligible=True, anchor=anchor)
+
+
+def full_frame_blink_quality_rejection_reason(anchor: dict[str, object]) -> str:
+    """Return a stable reason when an anchor is not safe enough for production blink."""
+    required = ("eye_left", "eye_right", "mouth", "brow_left", "brow_right")
+    if anchor.get("detected") is not True:
+        return "anchor_not_full_frame_safe"
+    for key in required:
+        point = anchor.get(key)
+        if not isinstance(point, dict):
+            return "anchor_not_full_frame_safe"
+        if not isinstance(point.get("x"), int | float) or not isinstance(point.get("y"), int | float):
+            return "anchor_not_full_frame_safe"
+    if not isinstance(anchor.get("skin_fill"), str):
+        return "anchor_not_full_frame_safe"
+
+    left_eye = anchor["eye_left"]
+    right_eye = anchor["eye_right"]
+    if not isinstance(left_eye, dict) or not isinstance(right_eye, dict):
+        return "anchor_not_full_frame_safe"
+    left_width = _anchor_dimension(left_eye, "width")
+    right_width = _anchor_dimension(right_eye, "width")
+    left_height = _anchor_dimension(left_eye, "height")
+    right_height = _anchor_dimension(right_eye, "height")
+    if left_width <= 0 or right_width <= 0 or left_height <= 0 or right_height <= 0:
+        return "anchor_not_full_frame_safe"
+
+    width_ratio = min(left_width, right_width) / max(left_width, right_width)
+    height_ratio = min(left_height, right_height) / max(left_height, right_height)
+    if width_ratio < 0.65 or height_ratio < 0.65:
+        return "blink_quality_eye_pair_asymmetric"
+
+    left_y = float(left_eye["y"])
+    right_y = float(right_eye["y"])
+    if abs(left_y - right_y) > 0.008:
+        return "blink_quality_eye_pair_misaligned"
+
+    return ""
+
+
+def build_full_frame_blink_metadata(script_id: str, scene_id: str, image_url: str) -> dict[str, object] | None:
+    """Build production full-frame blink metadata using the same detector as Blink Audit."""
+    image_path = _image_path_from_url(image_url)
+    if image_path is None:
+        return None
+    detection = detect_full_frame_blink_anchor(image_path)
+    if not detection.eligible or detection.anchor is None:
+        return None
+    if not deterministic_blink_enabled(script_id, scene_id):
+        return None
+    return {
+        "enabled": True,
+        "action": "blink",
+        "anchor": detection.anchor,
+    }
+
+
+def _anchor_dimension(point: dict[str, object], key: str) -> float:
+    value = point.get(key)
+    return float(value) if isinstance(value, int | float) else 0.0
 
 
 def run_full_frame_blink_audit(
@@ -151,16 +212,7 @@ def save_blink_audit_report(report: FullFrameBlinkAuditReport) -> None:
 
 
 def _anchor_is_full_frame_eligible(anchor: dict[str, object]) -> bool:
-    required = ("eye_left", "eye_right", "mouth", "brow_left", "brow_right")
-    if anchor.get("detected") is not True:
-        return False
-    for key in required:
-        point = anchor.get(key)
-        if not isinstance(point, dict):
-            return False
-        if not isinstance(point.get("x"), int | float) or not isinstance(point.get("y"), int | float):
-            return False
-    return isinstance(anchor.get("skin_fill"), str)
+    return full_frame_blink_quality_rejection_reason(anchor) == ""
 
 
 def _full_frame_detection_image(image: Image.Image) -> Image.Image:

@@ -75,7 +75,7 @@ const WORKFLOW_STAGES = [
       "Use Test Lab for risky visual behavior before spending a full project render. Test Lab should mirror production settings where the workflow depends on shared behavior.",
       "Use Test Lab -> Smoke Test for a broad readiness pass. Saved reports stay browsable, and Copy Fix Brief exports the failures, warnings, run ids, render links, evidence, and raw JSON in a format ready to paste back into Codex.",
       "When a smoke test finds issues, copy the fix brief from Smoke Test history before making more project media so the exact diagnostics remain available for repair.",
-      "Use Test Lab -> Blink -> Blink Audit to validate full-frame character blink eligibility on real generated scenes before enabling automatic production blink.",
+      "Use Test Lab -> Blink -> Blink Audit to validate full-frame character blink eligibility on real generated scenes. The audit uses the same production eye-quality gate and 50% frequency gate that new project renders use.",
       "For blink iteration, use Test Lab -> Blink to generate a reusable fixture once, then test the outdoor and indoor renderer-owned stages against the same saved cutout while renderer logic changes.",
     ],
     done: "The timeline has all required image, frame, layer, thumbnail, and optional video assets with no stale or missing media warnings.",

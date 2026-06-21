@@ -81,8 +81,8 @@ describe("BlinkAuditLab", () => {
 
     expect(await screen.findByText("scene-1")).toBeInTheDocument();
     expect(screen.getByText("Eligible")).toBeInTheDocument();
-    expect(screen.getByText("face_landmarks_missing")).toBeInTheDocument();
-    expect(screen.getByText("50% gate: blink enabled")).toBeInTheDocument();
+    expect(screen.getByText(/rejected because no safe main-character eye pair was found/i)).toBeInTheDocument();
+    expect(screen.getByText(/50% frequency gate: blink enabled/i)).toBeInTheDocument();
   });
 
   it("filters the active report to eligible scenes", async () => {

@@ -90,6 +90,73 @@ def test_detect_full_frame_blink_anchor_keeps_full_image_coordinates(monkeypatch
     assert result.anchor["eye_right"]["x"] == 0.48
 
 
+def test_detect_full_frame_blink_anchor_rejects_misaligned_eye_pair(monkeypatch, tmp_path):
+    from pipeline import full_frame_blink
+    from pipeline.full_frame_blink import detect_full_frame_blink_anchor
+
+    image_path = tmp_path / "misaligned-eyes.png"
+    Image.new("RGBA", (1000, 560), (240, 210, 180, 255)).save(image_path)
+    detected = {
+        "eye_left": {"x": 0.5015, "y": 0.3282, "width": 0.0323, "height": 0.0601},
+        "eye_right": {"x": 0.5495, "y": 0.3503, "width": 0.0354, "height": 0.0638},
+        "mouth": {"x": 0.5199, "y": 0.4208},
+        "brow_left": {"x": 0.5015, "y": 0.2953},
+        "brow_right": {"x": 0.5495, "y": 0.2953},
+    }
+    monkeypatch.setattr(full_frame_blink, "_detect_full_frame_main_face_anchor_points", lambda _image: detected)
+    monkeypatch.setattr(full_frame_blink, "_sample_blink_face_skin_fill", lambda *_args, **_kwargs: "#F0D2B4")
+
+    result = detect_full_frame_blink_anchor(image_path)
+
+    assert result.eligible is False
+    assert result.reason == "blink_quality_eye_pair_misaligned"
+
+
+def test_detect_full_frame_blink_anchor_rejects_asymmetric_detected_anchor(monkeypatch, tmp_path):
+    from pipeline import full_frame_blink
+    from pipeline.full_frame_blink import detect_full_frame_blink_anchor
+
+    image_path = tmp_path / "anchor-asymmetry.png"
+    Image.new("RGBA", (1000, 560), (240, 210, 180, 255)).save(image_path)
+    detected = {
+        "eye_left": {"x": 0.4577, "y": 0.3273, "width": 0.0146, "height": 0.0346},
+        "eye_right": {"x": 0.4992, "y": 0.3310, "width": 0.0083, "height": 0.0146},
+        "mouth": {"x": 0.4728, "y": 0.3994},
+        "brow_left": {"x": 0.4577, "y": 0.2870},
+        "brow_right": {"x": 0.4992, "y": 0.2870},
+    }
+    monkeypatch.setattr(full_frame_blink, "_detect_full_frame_main_face_anchor_points", lambda _image: detected)
+    monkeypatch.setattr(full_frame_blink, "_sample_blink_face_skin_fill", lambda *_args, **_kwargs: "#F0D2B4")
+
+    result = detect_full_frame_blink_anchor(image_path)
+
+    assert result.eligible is False
+    assert result.reason == "blink_quality_eye_pair_asymmetric"
+
+
+def test_detect_full_frame_blink_anchor_accepts_symmetric_dot_eye_anchor(monkeypatch, tmp_path):
+    from pipeline import full_frame_blink
+    from pipeline.full_frame_blink import detect_full_frame_blink_anchor
+
+    image_path = tmp_path / "good-dot-eyes.png"
+    Image.new("RGBA", (1000, 560), (240, 210, 180, 255)).save(image_path)
+    detected = {
+        "eye_left": {"x": 0.4011, "y": 0.2435, "width": 0.0073, "height": 0.0109},
+        "eye_right": {"x": 0.4427, "y": 0.2433, "width": 0.0073, "height": 0.0109},
+        "mouth": {"x": 0.4202, "y": 0.2872},
+        "brow_left": {"x": 0.4011, "y": 0.2124},
+        "brow_right": {"x": 0.4427, "y": 0.2124},
+    }
+    monkeypatch.setattr(full_frame_blink, "_detect_full_frame_main_face_anchor_points", lambda _image: detected)
+    monkeypatch.setattr(full_frame_blink, "_sample_blink_face_skin_fill", lambda *_args, **_kwargs: "#F0D2B4")
+
+    result = detect_full_frame_blink_anchor(image_path)
+
+    assert result.eligible is True
+    assert result.anchor is not None
+    assert result.anchor["eye_left"]["x"] == 0.4011
+
+
 def test_detect_full_frame_blink_anchor_detects_off_center_cartoon_face(tmp_path):
     from pipeline.full_frame_blink import detect_full_frame_blink_anchor
 
@@ -146,9 +213,9 @@ def test_detect_full_frame_blink_anchor_uses_eye_whites_inside_main_face(tmp_pat
     draw.ellipse((440, 120, 625, 325), fill=(242, 205, 164, 255), outline=(25, 25, 25, 255), width=5)
     draw.pieslice((430, 88, 640, 168), 180, 360, fill=(226, 48, 48, 255), outline=(25, 25, 25, 255), width=4)
     draw.ellipse((470, 170, 506, 224), fill=(248, 248, 246, 255), outline=(25, 25, 25, 255), width=4)
-    draw.ellipse((520, 182, 558, 238), fill=(248, 248, 246, 255), outline=(25, 25, 25, 255), width=4)
+    draw.ellipse((520, 170, 558, 224), fill=(248, 248, 246, 255), outline=(25, 25, 25, 255), width=4)
     draw.ellipse((476, 194, 486, 206), fill=(20, 20, 20, 255))
-    draw.ellipse((526, 206, 536, 218), fill=(20, 20, 20, 255))
+    draw.ellipse((526, 194, 536, 206), fill=(20, 20, 20, 255))
     draw.arc((492, 210, 520, 252), 100, 260, fill=(25, 25, 25, 255), width=4)
     draw.arc((500, 270, 545, 288), 200, 340, fill=(25, 25, 25, 255), width=4)
     image.save(image_path)

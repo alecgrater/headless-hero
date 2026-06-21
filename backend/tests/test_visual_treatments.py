@@ -1105,6 +1105,138 @@ def test_phase_images_regenerates_frame_sequence_for_multi_frame_mode(monkeypatc
     ]
 
 
+def test_phase_images_attaches_production_full_frame_blink_metadata(monkeypatch):
+    from pipeline import full_frame_blink as full_frame_blink_mod
+    from pipeline import image_gen as image_gen_mod
+    from pipeline import render_phases as render_phases_mod
+    from pipeline.render_phases import ExportContext, _phase_images
+
+    content = content_with_scenes(
+        Scene(
+            id="scene_001",
+            narration="A worker waits.",
+            visual_prompt="A worker in a kitchen.",
+            visual_mode="full_frame",
+        )
+    )
+    monkeypatch.setattr(render_phases_mod, "_reload_content", lambda script_id: content)
+    monkeypatch.setattr(
+        image_gen_mod,
+        "generate_scene_image",
+        lambda *_args, **_kwargs: ("/static/projects/script-1/images/scene_001.png", "", {}),
+    )
+    monkeypatch.setattr(full_frame_blink_mod, "deterministic_blink_enabled", lambda *_args: True)
+    monkeypatch.setattr(
+        full_frame_blink_mod,
+        "detect_full_frame_blink_anchor",
+        lambda _path: full_frame_blink_mod.FullFrameBlinkDetection(
+            status="passed",
+            eligible=True,
+            anchor={"detected": True, "skin_fill": "#F0D2B4", "eye_left": {"x": 0.4, "y": 0.3}},
+        ),
+    )
+
+    ctx = ExportContext(
+        script_id="script-1",
+        job=RenderJob("job-1"),
+        scenes=[
+            {
+                "scene_id": "scene_001",
+                "visual_prompt": "A worker in a kitchen.",
+                "is_title_card": False,
+                "visual_mode": "full_frame",
+            }
+        ],
+        seg_name="Segment",
+        total_scenes=1,
+        voice_id="voice",
+        brand_dict={},
+        project_title="Treatment Test",
+        title="Segment",
+        total_segments=1,
+        regen_images=True,
+        regen_audio=False,
+        regen_fx=False,
+        regen_eli=False,
+        phase_ranges={"images": (0.0, 1.0)},
+    )
+
+    _phase_images(ctx)
+
+    assert ctx.scenes[0]["_full_frame_blink"] == {
+        "enabled": True,
+        "action": "blink",
+        "anchor": {"detected": True, "skin_fill": "#F0D2B4", "eye_left": {"x": 0.4, "y": 0.3}},
+    }
+
+
+def test_phase_persist_writes_full_frame_blink_metadata(monkeypatch):
+    import database
+    from pipeline.render_phases import ExportContext, _phase_persist
+
+    engine = _build_test_engine()
+    content = content_with_scenes(
+        Scene(
+            id="scene_001",
+            narration="A worker waits.",
+            visual_prompt="A worker in a kitchen.",
+            visual_mode="full_frame",
+        )
+    )
+    with Session(engine) as session:
+        session.add(
+            Script(
+                id="script-1",
+                brand_id="brand",
+                topic_title="Treatment Test",
+                script_json=content.model_dump_json(),
+            )
+        )
+        session.commit()
+
+    monkeypatch.setattr(database, "engine", engine)
+    ctx = ExportContext(
+        script_id="script-1",
+        job=RenderJob("job-1"),
+        scenes=[
+            {
+                "scene_id": "scene_001",
+                "_full_frame_blink": {
+                    "enabled": True,
+                    "action": "blink",
+                    "anchor": {"detected": True, "skin_fill": "#F0D2B4"},
+                },
+            }
+        ],
+        seg_name="Segment",
+        total_scenes=1,
+        voice_id="voice",
+        brand_dict={},
+        project_title="Treatment Test",
+        title="Segment",
+        total_segments=1,
+        regen_images=True,
+        regen_audio=False,
+        regen_fx=False,
+        regen_eli=False,
+        phase_ranges={"persist": (0.0, 1.0)},
+    )
+
+    _phase_persist(ctx)
+
+    with Session(engine) as session:
+        stored = session.get(Script, "script-1")
+        assert stored is not None
+        stored_content = ScriptContent.model_validate_json(stored.script_json)
+        assert stored_content.segments[0].scenes[0].visual_source_metadata == {
+            "full_frame_blink": {
+                "enabled": True,
+                "action": "blink",
+                "anchor": {"detected": True, "skin_fill": "#F0D2B4"},
+            }
+        }
+
+
 def test_phase_images_skips_scene_image_for_video_mode(monkeypatch):
     from pipeline import image_gen as image_gen_mod
     from pipeline import render_phases as render_phases_mod
