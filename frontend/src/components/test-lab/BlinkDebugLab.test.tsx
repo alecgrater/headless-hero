@@ -10,17 +10,21 @@ const renderBlinkFixturePreview = vi.fn();
 const bumpAssetVersion = vi.fn();
 
 vi.mock("../../api", () => ({
-  analyzeBlinkDebugAsset: (...args: unknown[]) => analyzeBlinkDebugAsset(...args),
+  analyzeBlinkDebugAsset: (...args: unknown[]) =>
+    analyzeBlinkDebugAsset(...args),
   assetUrl: (path: string) => path,
   bumpAssetVersion: (...args: unknown[]) => bumpAssetVersion(...args),
-  createBlinkFixtureAsset: (...args: unknown[]) => createBlinkFixtureAsset(...args),
+  createBlinkFixtureAsset: (...args: unknown[]) =>
+    createBlinkFixtureAsset(...args),
   getBlinkDebugAssets: () => getBlinkDebugAssets(),
-  renderBlinkFixturePreview: (...args: unknown[]) => renderBlinkFixturePreview(...args),
+  renderBlinkFixturePreview: (...args: unknown[]) =>
+    renderBlinkFixturePreview(...args),
 }));
 
 const cachedAsset = {
   asset_id: "test-lab-run/blink_cutouts/scene/base_scene_base.png",
-  asset_url: "/static/projects/test-lab-run/blink_cutouts/scene/base_scene_base.png",
+  asset_url:
+    "/static/projects/test-lab-run/blink_cutouts/scene/base_scene_base.png",
   script_id: "test-lab-run",
   scene_id: "scene",
   filename: "base_scene_base.png",
@@ -32,8 +36,10 @@ const cachedAsset = {
 
 const fixtureAsset = {
   ...cachedAsset,
-  asset_id: "test-lab-blink-fixtures/blink_cutouts/fixture-scene/base_blink_fixture_base.png",
-  asset_url: "/static/projects/test-lab-blink-fixtures/blink_cutouts/fixture-scene/base_blink_fixture_base.png",
+  asset_id:
+    "test-lab-blink-fixtures/blink_cutouts/fixture-scene/base_blink_fixture_base.png",
+  asset_url:
+    "/static/projects/test-lab-blink-fixtures/blink_cutouts/fixture-scene/base_blink_fixture_base.png",
   script_id: "test-lab-blink-fixtures",
   scene_id: "fixture-scene",
   filename: "base_blink_fixture_base.png",
@@ -55,7 +61,8 @@ describe("BlinkDebugLab", () => {
     renderBlinkFixturePreview.mockResolvedValue({
       asset: cachedAsset,
       action: "blink",
-      render_url: "/static/projects/test-lab-blink-fixtures/renders/full_youtube.mp4",
+      render_url:
+        "/static/projects/test-lab-blink-fixtures/renders/full_youtube.mp4",
       used_external_api: false,
     });
     analyzeBlinkDebugAsset.mockResolvedValue({
@@ -64,7 +71,8 @@ describe("BlinkDebugLab", () => {
       used_external_api: false,
       registration_algorithm_version: "alpha-mask-registration-v10",
       anchor: { detected: true },
-      debug_url: "/static/projects/test-lab-run/blink_cutouts/scene/debug_base_scene_base_blink.png",
+      debug_url:
+        "/static/projects/test-lab-run/blink_cutouts/scene/debug_base_scene_base_blink.png",
       status: "passed",
       error: null,
     });
@@ -74,16 +82,25 @@ describe("BlinkDebugLab", () => {
     render(<BlinkDebugLab />);
 
     expect(await screen.findByText("Blink base: scene")).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: /blink base: scene/i })).toHaveAttribute(
+    expect(
+      screen.getByRole("img", { name: /blink base: scene/i }),
+    ).toHaveAttribute(
       "src",
       "/static/projects/test-lab-run/blink_cutouts/scene/base_scene_base.png?t=1781222400000",
     );
-    expect(screen.getByRole("img", { name: /cached base png/i })).toHaveAttribute(
+    expect(
+      screen.getByRole("img", { name: /cached base png/i }),
+    ).toHaveAttribute(
       "src",
       "/static/projects/test-lab-run/blink_cutouts/scene/base_scene_base.png?t=1781222400000",
     );
-    expect(screen.getByRole("img", { name: /cached base png/i })).toHaveClass("max-h-full", "max-w-full");
-    expect(screen.queryByRole("combobox", { name: /blink action/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /cached base png/i })).toHaveClass(
+      "max-h-full",
+      "max-w-full",
+    );
+    expect(
+      screen.queryByRole("combobox", { name: /blink action/i }),
+    ).not.toBeInTheDocument();
     expect(screen.getByText("Blink action:")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /rerun detector/i }));
 
@@ -96,7 +113,9 @@ describe("BlinkDebugLab", () => {
     expect(bumpAssetVersion).toHaveBeenCalledWith(
       "/static/projects/test-lab-run/blink_cutouts/scene/debug_base_scene_base_blink.png",
     );
-    expect(await screen.findByText("alpha-mask-registration-v10")).toBeInTheDocument();
+    expect(
+      await screen.findByText("alpha-mask-registration-v10"),
+    ).toBeInTheDocument();
     expect(screen.getByText("None")).toBeInTheDocument();
   });
 
@@ -108,7 +127,9 @@ describe("BlinkDebugLab", () => {
     fireEvent.change(screen.getByLabelText("Background"), {
       target: { value: "outdoor" },
     });
-    fireEvent.click(screen.getByRole("button", { name: /generate fixture assets/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /generate fixture assets/i }),
+    );
 
     await waitFor(() => {
       expect(createBlinkFixtureAsset).toHaveBeenCalled();
@@ -133,12 +154,42 @@ describe("BlinkDebugLab", () => {
 
     render(<BlinkDebugLab />);
 
-    expect(await screen.findByText("Blink base: fixture-scene")).toBeInTheDocument();
-    const generateButton = screen.getByRole("button", { name: /fixture assets already generated/i });
+    expect(
+      await screen.findByText("Blink base: fixture-scene"),
+    ).toBeInTheDocument();
+    const generateButton = screen.getByRole("button", {
+      name: /fixture assets already generated/i,
+    });
     expect(generateButton).toBeDisabled();
 
     fireEvent.click(generateButton);
 
     expect(createBlinkFixtureAsset).not.toHaveBeenCalled();
+  });
+
+  it("shows a dedicated background inspector tab with all six stages", async () => {
+    render(<BlinkDebugLab />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Backgrounds" }));
+
+    expect(await screen.findByText("Renderer backgrounds")).toBeInTheDocument();
+    for (const label of [
+      "Outdoor",
+      "Desk",
+      "Classroom",
+      "Office",
+      "Kitchen",
+      "Lab",
+    ]) {
+      expect(screen.getAllByText(label).length).toBeGreaterThan(0);
+    }
+    expect(
+      screen.getByText(
+        "Inspect the renderer-owned stages without rerendering a fixture.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /rerender fixture/i }),
+    ).not.toBeInTheDocument();
   });
 });
