@@ -64,9 +64,10 @@ describe("testLabPresetSubtitle", () => {
     expect(await screen.findByRole("button", { name: "Smoke Test" })).toBeInTheDocument();
   });
 
-  it("shows the Blink Audit tab", async () => {
+  it("nests the Blink Audit view under the Blink tab", async () => {
     render(<TestLabPage />);
 
-    expect(await screen.findByRole("button", { name: "Blink Audit" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Blink" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Blink Audit" })).not.toBeInTheDocument();
   });
 });

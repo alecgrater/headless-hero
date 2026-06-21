@@ -57,4 +57,50 @@ describe("BlinkAuditLab", () => {
     expect(screen.getByText("face_landmarks_missing")).toBeInTheDocument();
     expect(screen.getByText("50% gate: blink enabled")).toBeInTheDocument();
   });
+
+  it("filters the active report to eligible scenes", async () => {
+    vi.mocked(api.getBlinkAuditReports).mockResolvedValue([
+      {
+        id: "audit-1",
+        script_id: "burger-script",
+        title: "Burger King",
+        created_at: "2026-06-21T00:00:00+00:00",
+        candidates: [
+          {
+            script_id: "burger-script",
+            scene_id: "scene-eligible",
+            segment_name: "Level 1",
+            scene_label: "He waits.",
+            visual_mode: "full_frame",
+            image_url: "/static/projects/burger-script/images/scene-eligible.png",
+            image_path: "/tmp/scene-eligible.png",
+            blink_enabled: true,
+            detection: { status: "passed", eligible: true, reason: "", anchor: { detected: true } },
+          },
+          {
+            script_id: "burger-script",
+            scene_id: "scene-rejected",
+            segment_name: "Level 2",
+            scene_label: "The room is empty.",
+            visual_mode: "full_frame",
+            image_url: "/static/projects/burger-script/images/scene-rejected.png",
+            image_path: "/tmp/scene-rejected.png",
+            blink_enabled: false,
+            detection: { status: "failed", eligible: false, reason: "face_landmarks_missing", anchor: null },
+          },
+        ],
+      },
+    ]);
+    vi.mocked(api.runBlinkAudit).mockResolvedValue(null);
+
+    render(<BlinkAuditLab />);
+
+    expect(await screen.findByText("scene-eligible")).toBeInTheDocument();
+    expect(screen.getByText("scene-rejected")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("checkbox", { name: /eligible only/i }));
+
+    expect(screen.getByText("scene-eligible")).toBeInTheDocument();
+    expect(screen.queryByText("scene-rejected")).not.toBeInTheDocument();
+  });
 });

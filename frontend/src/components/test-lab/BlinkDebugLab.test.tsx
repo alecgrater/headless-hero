@@ -6,7 +6,9 @@ import BlinkDebugLab from "./BlinkDebugLab";
 const analyzeBlinkDebugAsset = vi.fn();
 const createBlinkFixtureAsset = vi.fn();
 const getBlinkDebugAssets = vi.fn();
+const getBlinkAuditReports = vi.fn();
 const renderBlinkFixturePreview = vi.fn();
+const runBlinkAudit = vi.fn();
 const bumpAssetVersion = vi.fn();
 
 vi.mock("../../api", () => ({
@@ -16,9 +18,11 @@ vi.mock("../../api", () => ({
   bumpAssetVersion: (...args: unknown[]) => bumpAssetVersion(...args),
   createBlinkFixtureAsset: (...args: unknown[]) =>
     createBlinkFixtureAsset(...args),
+  getBlinkAuditReports: () => getBlinkAuditReports(),
   getBlinkDebugAssets: () => getBlinkDebugAssets(),
   renderBlinkFixturePreview: (...args: unknown[]) =>
     renderBlinkFixturePreview(...args),
+  runBlinkAudit: (...args: unknown[]) => runBlinkAudit(...args),
 }));
 
 const cachedAsset = {
@@ -49,9 +53,12 @@ describe("BlinkDebugLab", () => {
   beforeEach(() => {
     analyzeBlinkDebugAsset.mockReset();
     createBlinkFixtureAsset.mockReset();
+    getBlinkAuditReports.mockReset();
     getBlinkDebugAssets.mockReset();
     renderBlinkFixturePreview.mockReset();
+    runBlinkAudit.mockReset();
     bumpAssetVersion.mockReset();
+    getBlinkAuditReports.mockResolvedValue([]);
     getBlinkDebugAssets.mockResolvedValue([cachedAsset]);
     createBlinkFixtureAsset.mockResolvedValue({
       asset: cachedAsset,
@@ -187,5 +194,13 @@ describe("BlinkDebugLab", () => {
     expect(
       screen.queryByRole("button", { name: /rerender fixture/i }),
     ).not.toBeInTheDocument();
+  });
+
+  it("shows the blink audit as a nested blink tab", async () => {
+    render(<BlinkDebugLab />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Blink Audit" }));
+
+    expect(await screen.findByRole("button", { name: /run blink audit/i })).toBeInTheDocument();
   });
 });

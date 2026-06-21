@@ -32,6 +32,7 @@ import type {
   BlinkFixtureResult,
 } from "../../types/testLab";
 import type { RendererContext } from "../../types/script";
+import BlinkAuditLab from "./BlinkAuditLab";
 
 const FIXTURE_SCRIPT_ID = "test-lab-blink-fixtures";
 const BLINK_ACTION = "blink" as const;
@@ -39,7 +40,7 @@ const BACKGROUND_OPTIONS: Array<{ value: RendererContext; label: string }> = [
   { value: "outdoor", label: "Outdoor" },
   { value: "indoor", label: "Indoor" },
 ];
-type BlinkDebugView = "cutouts" | "backgrounds";
+type BlinkDebugView = "cutouts" | "backgrounds" | "audit";
 
 export default function BlinkDebugLab() {
   const [assets, setAssets] = useState<BlinkDebugAsset[]>([]);
@@ -159,8 +160,15 @@ export default function BlinkDebugLab() {
           label="Backgrounds"
           onClick={() => setActiveView("backgrounds")}
         />
+        <BlinkDebugTabButton
+          active={activeView === "audit"}
+          label="Blink Audit"
+          onClick={() => setActiveView("audit")}
+        />
       </div>
-      {activeView === "backgrounds" ? (
+      {activeView === "audit" ? (
+        <BlinkAuditLab />
+      ) : activeView === "backgrounds" ? (
         <BackgroundInspector
           selected={rendererContext}
           onSelect={setRendererContext}

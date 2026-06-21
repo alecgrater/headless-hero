@@ -7,6 +7,7 @@ export default function BlinkAuditLab() {
   const [reports, setReports] = useState<FullFrameBlinkAuditReport[]>([]);
   const [activeReport, setActiveReport] = useState<FullFrameBlinkAuditReport | null>(null);
   const [running, setRunning] = useState(false);
+  const [eligibleOnly, setEligibleOnly] = useState(false);
 
   async function refreshReports() {
     const next = await getBlinkAuditReports();
@@ -33,6 +34,10 @@ export default function BlinkAuditLab() {
   const eligibleCount = useMemo(
     () => activeReport?.candidates.filter((candidate) => candidate.detection.eligible).length ?? 0,
     [activeReport],
+  );
+  const visibleCandidates = useMemo(
+    () => activeReport?.candidates.filter((candidate) => !eligibleOnly || candidate.detection.eligible) ?? [],
+    [activeReport, eligibleOnly],
   );
 
   return (
@@ -90,14 +95,30 @@ export default function BlinkAuditLab() {
                   <h3 className="text-sm font-semibold text-neutral-100">{activeReport.title}</h3>
                   <p className="mt-1 text-xs text-neutral-500">
                     {eligibleCount}/{activeReport.candidates.length} eligible
+                    {eligibleOnly ? ` · showing ${visibleCandidates.length}` : ""}
                   </p>
                 </div>
+                <label className="inline-flex items-center gap-2 rounded-md border border-neutral-800 bg-neutral-950/50 px-3 py-2 text-xs font-medium text-neutral-300">
+                  <input
+                    type="checkbox"
+                    checked={eligibleOnly}
+                    onChange={(event) => setEligibleOnly(event.target.checked)}
+                    className="h-4 w-4 rounded border-neutral-700 bg-neutral-950 text-violet-500"
+                  />
+                  Eligible only
+                </label>
               </div>
-              <div className="grid gap-3 xl:grid-cols-2">
-                {activeReport.candidates.map((candidate) => (
-                  <BlinkAuditCard key={candidate.scene_id} candidate={candidate} />
-                ))}
-              </div>
+              {visibleCandidates.length > 0 ? (
+                <div className="grid gap-3 xl:grid-cols-2">
+                  {visibleCandidates.map((candidate) => (
+                    <BlinkAuditCard key={candidate.scene_id} candidate={candidate} />
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-md border border-dashed border-neutral-800 bg-neutral-950/50 p-6 text-sm text-neutral-500">
+                  No scenes match the current filter.
+                </div>
+              )}
             </>
           ) : (
             <div className="rounded-md border border-dashed border-neutral-800 bg-neutral-950/50 p-6 text-sm text-neutral-500">
