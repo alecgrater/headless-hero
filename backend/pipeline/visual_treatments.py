@@ -323,8 +323,6 @@ def _stat_fields_for_scene(scene: Scene) -> tuple[str, str] | None:
     label = re.sub(re.escape(stat_value), "", text, count=1, flags=re.IGNORECASE)
     label = re.sub(r"^\s*(?:by|in|after|before|around|about|nearly|almost|roughly)\b\s*", "", label, flags=re.IGNORECASE)
     label = re.sub(r"\s+", " ", label.strip(" .,:;—–-"))
-    if not label:
-        label = "key metric"
     words = label.split()
     if len(words) > 10:
         label = " ".join(words[-10:])

@@ -295,6 +295,30 @@ def test_visual_mode_audit_promotes_stat_card_from_life_story_number():
     assert stat_scenes[0].stat_label
 
 
+def test_visual_mode_audit_does_not_invent_placeholder_stat_label():
+    content = ScriptContent(
+        title="Test",
+        segments=[
+            Segment(
+                name="Level 1",
+                scenes=[
+                    Scene(id="scene_001", narration="You keep walking home after close.", visual_prompt="[ESTABLISHING] A sidewalk after close.", visual_mode="full_frame"),
+                    Scene(id="scene_002", narration="Five hours.", visual_prompt="[TEXTURE] A shift clock over a flat background.", visual_mode="full_frame"),
+                    Scene(id="scene_003", narration="The doors lock behind you.", visual_prompt="[CLOSE-UP] Locked restaurant doors.", visual_mode="full_frame"),
+                ],
+            ),
+        ],
+    )
+
+    counts = _audit_visual_mode_metadata(content)
+
+    assert counts["stat_card"] == 1
+    stat_scene = content.segments[0].scenes[1]
+    assert stat_scene.visual_mode == "stat_card"
+    assert stat_scene.stat_value == "Five hours"
+    assert stat_scene.stat_label == ""
+
+
 def test_visual_mode_audit_preserves_existing_specialized_modes():
     popup = Scene(
         id="scene_001",

@@ -393,7 +393,7 @@ def _stat_candidate_for_scene(scene: Scene) -> tuple[str, str] | None:
     words = label.split()
     if len(words) > 10:
         label = " ".join(words[-10:])
-    return stat_value, label or "key metric"
+    return stat_value, label
 
 
 def _audit_can_promote(scene: Scene, previous_mode: str, next_mode: str) -> bool:
