@@ -8,7 +8,14 @@ import {
   RotateCcw,
   Sparkles,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { RendererContextStage } from "@remotion-src/scenes/RendererContextStage";
 import {
   analyzeBlinkDebugAsset,
@@ -488,9 +495,33 @@ function RendererStagePreview({
   context: RendererContext;
   size: "large" | "thumb";
 }) {
-  const scale = size === "large" ? 0.5 : 0.2;
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [scale, setScale] = useState(size === "large" ? 0.5 : 0.2);
+
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const updateScale = () => {
+      const bounds = container.getBoundingClientRect();
+      const nextScale = Math.min(bounds.width / 1920, bounds.height / 1080);
+      setScale(Number.isFinite(nextScale) && nextScale > 0 ? nextScale : 0.2);
+    };
+
+    updateScale();
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", updateScale);
+      return () => window.removeEventListener("resize", updateScale);
+    }
+
+    const observer = new ResizeObserver(updateScale);
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <div
+      ref={containerRef}
       className={`relative aspect-video w-full overflow-hidden bg-neutral-950 ${size === "large" ? "min-h-[360px]" : ""}`}
     >
       <div
