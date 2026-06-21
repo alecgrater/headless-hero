@@ -88,7 +88,7 @@ const MODE_OWNERSHIP = [
   {
     mode: "blink",
     asset: "One transparent neutral base cutout plus blink overlay anchor metadata and renderer_context metadata",
-    renderer: "Draws the shared renderer-owned context stage and toggles deterministic face overlays from frame zero to simulate a locked facial micro-action.",
+    renderer: "Draws one of six flat illustrated setting stages behind the cutout, then toggles deterministic face overlays from frame zero to simulate a locked facial micro-action.",
   },
   {
     mode: "comparison_board",

@@ -196,7 +196,7 @@ def render_blink_fixture_preview(
         contains_person=True,
         visual_mode="blink",
         blink_action=action,
-        renderer_context="shop",
+        renderer_context="kitchen",
         visual_layers=[
             VisualLayer(
                 id=BLINK_FIXTURE_LAYER_ID,

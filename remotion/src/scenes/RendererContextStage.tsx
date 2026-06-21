@@ -1,26 +1,46 @@
 import React from "react";
 import type { RendererContext } from "../types";
 
-export const RENDERER_CONTEXT_STAGE_VERSION = "renderer-context-stage-v1";
+export const RENDERER_CONTEXT_STAGE_VERSION = "renderer-context-stage-v2";
 
-const CONTEXTS = new Set(["plain", "desk", "classroom", "office", "kitchen", "shop", "lab", "street"]);
+export const RENDERER_CONTEXTS = [
+  "plain",
+  "outdoor",
+  "desk",
+  "classroom",
+  "office",
+  "kitchen",
+  "lab",
+] as const satisfies readonly RendererContext[];
+
+const CONTEXTS = new Set<RendererContext>(RENDERER_CONTEXTS);
 
 export interface ContextElement {
   id: string;
   style: React.CSSProperties;
 }
 
-export const normalizeRendererContext = (value: unknown): RendererContext => (
-  typeof value === "string" && CONTEXTS.has(value) ? value as RendererContext : "plain"
-);
+export const normalizeRendererContext = (value: unknown): RendererContext => {
+  if (typeof value !== "string") return "plain";
+  const candidate = value as RendererContext;
+  return CONTEXTS.has(candidate) ? candidate : "plain";
+};
 
-const baseElements = (): ContextElement[] => [
+const lineStyle = (extra: React.CSSProperties): React.CSSProperties => ({
+  position: "absolute",
+  height: 5,
+  borderRadius: 999,
+  background: "rgba(16, 18, 20, 0.72)",
+  ...extra,
+});
+
+const roomBaseElements = (wall = "#9cc7ef", floor = "#89bd7e"): ContextElement[] => [
   {
-    id: "wall-wash",
+    id: "wall-fill",
     style: {
       position: "absolute",
       inset: 0,
-      background: "linear-gradient(180deg, rgba(255,255,255,0.16), rgba(0,0,0,0.08))",
+      background: wall,
     },
   },
   {
@@ -30,27 +50,75 @@ const baseElements = (): ContextElement[] => [
       left: 0,
       right: 0,
       bottom: 0,
-      height: 260,
-      background: "rgba(0,0,0,0.14)",
+      height: 250,
+      background: floor,
     },
+  },
+  {
+    id: "horizon-line",
+    style: lineStyle({
+      left: -40,
+      right: -40,
+      bottom: 248,
+      transform: "rotate(-0.6deg)",
+    }),
+  },
+];
+
+const outdoorElements = (): ContextElement[] => [
+  {
+    id: "sky-fill",
+    style: {
+      position: "absolute",
+      inset: 0,
+      background: "#8fc0ee",
+    },
+  },
+  {
+    id: "grass-band",
+    style: {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      bottom: 0,
+      height: 255,
+      background: "#91c987",
+    },
+  },
+  {
+    id: "horizon-line",
+    style: lineStyle({
+      left: -60,
+      right: -60,
+      bottom: 252,
+      transform: "rotate(-0.8deg)",
+    }),
   },
 ];
 
 export const rendererContextElements = (context: unknown): ContextElement[] => {
   const normalized = normalizeRendererContext(context);
-  const elements = baseElements();
+  if (normalized === "outdoor") {
+    return outdoorElements();
+  }
 
-  if (normalized === "desk" || normalized === "office" || normalized === "classroom") {
+  const elements = roomBaseElements(
+    normalized === "plain" ? "#8fc0ee" : "#99c4ec",
+    normalized === "plain" ? "#91c987" : "#7fb07b",
+  );
+
+  if (normalized === "desk" || normalized === "office" || normalized === "classroom" || normalized === "lab") {
     elements.push({
       id: "desk-band",
       style: {
         position: "absolute",
-        left: 250,
-        right: 250,
-        bottom: 155,
-        height: 88,
-        borderRadius: 18,
-        background: "rgba(88, 60, 36, 0.34)",
+        left: 260,
+        right: 260,
+        bottom: 175,
+        height: 92,
+        borderRadius: "18px 18px 10px 10px",
+        borderTop: "5px solid rgba(20, 18, 16, 0.72)",
+        background: normalized === "lab" ? "#d2dfe2" : "#8f6848",
       },
     });
   }
@@ -66,9 +134,9 @@ export const rendererContextElements = (context: unknown): ContextElement[] => {
         maxWidth: 820,
         height: 235,
         transform: "translateX(-50%)",
-        borderRadius: 10,
-        border: "10px solid rgba(80, 55, 36, 0.5)",
-        background: "rgba(246, 241, 219, 0.62)",
+        borderRadius: 8,
+        border: "5px solid rgba(16, 18, 20, 0.72)",
+        background: "#f0e9c9",
       },
     });
   }
@@ -83,51 +151,64 @@ export const rendererContextElements = (context: unknown): ContextElement[] => {
         width: 250,
         height: 220,
         borderRadius: 8,
-        background: "rgba(160, 200, 215, 0.26)",
+        border: "5px solid rgba(16, 18, 20, 0.72)",
+        background: "#b7d7ef",
       },
     });
   }
 
-  if (normalized === "kitchen" || normalized === "shop") {
+  if (normalized === "kitchen") {
     elements.push({
-      id: `${normalized}-counter`,
+      id: "kitchen-counter",
       style: {
         position: "absolute",
         left: 180,
         right: 180,
         bottom: 190,
         height: 105,
-        borderRadius: 16,
-        background: "rgba(126, 91, 58, 0.38)",
+        borderRadius: "18px 18px 10px 10px",
+        borderTop: "5px solid rgba(16, 18, 20, 0.72)",
+        background: "#b4865f",
       },
+    });
+    elements.push({
+      id: "kitchen-shelf",
+      style: lineStyle({
+        left: 430,
+        right: 430,
+        top: 185,
+      }),
     });
   }
 
   if (normalized === "lab") {
     elements.push({
-      id: "lab-bench",
+      id: "lab-flask",
       style: {
         position: "absolute",
-        left: 220,
-        right: 220,
-        bottom: 180,
-        height: 95,
-        borderRadius: 16,
-        background: "rgba(210, 226, 230, 0.32)",
+        right: 485,
+        bottom: 272,
+        width: 58,
+        height: 76,
+        borderRadius: "8px 8px 24px 24px",
+        border: "5px solid rgba(16, 18, 20, 0.72)",
+        background: "#bfe5e2",
       },
     });
   }
 
-  if (normalized === "street") {
+  if (normalized === "desk") {
     elements.push({
-      id: "street-horizon",
+      id: "desk-paper",
       style: {
         position: "absolute",
-        left: 0,
-        right: 0,
-        bottom: 260,
-        height: 80,
-        background: "rgba(70, 80, 90, 0.18)",
+        left: 500,
+        bottom: 288,
+        width: 120,
+        height: 72,
+        borderRadius: 6,
+        border: "4px solid rgba(16, 18, 20, 0.68)",
+        background: "#f4f0da",
       },
     });
   }

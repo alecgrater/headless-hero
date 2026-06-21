@@ -16,6 +16,7 @@ import {
   popupOrbitFrameStyle,
 } from "@remotion-src/scenes/TreatmentRenderer";
 import {
+  RENDERER_CONTEXTS,
   RENDERER_CONTEXT_STAGE_VERSION,
   normalizeRendererContext,
   rendererContextElements,
@@ -133,12 +134,34 @@ describe("layerChromeStyle", () => {
 describe("RendererContextStage", () => {
   it("normalizes unknown contexts to plain", () => {
     expect(normalizeRendererContext("classroom")).toBe("classroom");
+    expect(normalizeRendererContext("outdoor")).toBe("outdoor");
     expect(normalizeRendererContext("unknown")).toBe("plain");
+    expect(normalizeRendererContext("street")).toBe("plain");
     expect(normalizeRendererContext(undefined)).toBe("plain");
   });
 
   it("defines a stable version for render fingerprints", () => {
-    expect(RENDERER_CONTEXT_STAGE_VERSION).toBe("renderer-context-stage-v1");
+    expect(RENDERER_CONTEXT_STAGE_VERSION).toBe("renderer-context-stage-v2");
+  });
+
+  it("exposes exactly six illustrated presets plus the plain fallback", () => {
+    expect(RENDERER_CONTEXTS).toEqual([
+      "plain",
+      "outdoor",
+      "desk",
+      "classroom",
+      "office",
+      "kitchen",
+      "lab",
+    ]);
+  });
+
+  it("renders screenshot-inspired outdoor context shapes", () => {
+    const elements = rendererContextElements("outdoor");
+
+    expect(elements.some((element) => element.id === "sky-fill")).toBe(true);
+    expect(elements.some((element) => element.id === "grass-band")).toBe(true);
+    expect(elements.some((element) => element.id === "horizon-line")).toBe(true);
   });
 
   it("renders deterministic classroom context shapes", () => {

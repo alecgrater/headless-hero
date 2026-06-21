@@ -29,7 +29,7 @@ BACKEND_STATIC_BASE = f"http://localhost:{BACKEND_PORT}/static/projects"
 BACKEND_STYLE_STATIC_BASE = f"http://localhost:{BACKEND_PORT}/static/style"
 MAX_AI_VIDEO_SLOWDOWN_RATIO = 1.25
 SUBTITLE_ROUTER_VERSION = "standard-subtitle-router-v1"
-RENDERER_CONTEXT_STAGE_VERSION = "renderer-context-stage-v1"
+RENDERER_CONTEXT_STAGE_VERSION = "renderer-context-stage-v2"
 SUBTITLE_COVERAGE_MODES = {"all", "punchy"}
 SUBTITLE_STYLES = ("clean", "kinetic", "burst")
 

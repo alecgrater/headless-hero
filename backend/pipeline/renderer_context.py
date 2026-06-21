@@ -7,35 +7,32 @@ from typing import Literal
 
 RendererContext = Literal[
     "plain",
+    "outdoor",
     "desk",
     "classroom",
     "office",
     "kitchen",
-    "shop",
     "lab",
-    "street",
 ]
 
 RENDERER_CONTEXTS: tuple[RendererContext, ...] = (
     "plain",
+    "outdoor",
     "desk",
     "classroom",
     "office",
     "kitchen",
-    "shop",
     "lab",
-    "street",
 )
 
 _CONTEXT_SET = set(RENDERER_CONTEXTS)
 
 _CONTEXT_KEYWORDS: tuple[tuple[RendererContext, tuple[str, ...]], ...] = (
-    ("kitchen", ("kitchen", "restaurant", "cooking", "chef", "fryer", "food service", "burger")),
-    ("shop", ("store", "cashier", "customer", "register", "retail", "bar", "cafe", "line three")),
+    ("kitchen", ("kitchen", "restaurant", "cooking", "chef", "fryer", "food service", "burger", "counter")),
     ("lab", ("lab", "scientist", "experiment", "microscope", "clinic", "medical", "doctor", "nurse")),
     ("classroom", ("classroom", "school", "teacher", "student", "whiteboard", "lecture", "homework")),
     ("office", ("office", "meeting", "spreadsheet", "document", "email", "desk job", "cubicle")),
-    ("street", ("street", "sidewalk", "city", "car", "bus", "outside")),
+    ("outdoor", ("outdoor", "outside", "grass", "sky", "park", "field", "street", "sidewalk", "city", "car", "bus")),
     ("desk", ("laptop", "computer", "books", "paperwork", "study", "writing", "desk")),
 )
 

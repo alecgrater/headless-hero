@@ -173,13 +173,12 @@ const VISUAL_MODE_OPTIONS: Array<{
 
 const RENDERER_CONTEXT_OPTIONS: Array<{ value: RendererContext; label: string }> = [
   { value: "plain", label: "Plain" },
+  { value: "outdoor", label: "Outdoor" },
   { value: "desk", label: "Desk" },
   { value: "classroom", label: "Classroom" },
   { value: "office", label: "Office" },
   { value: "kitchen", label: "Kitchen" },
-  { value: "shop", label: "Shop" },
   { value: "lab", label: "Lab" },
-  { value: "street", label: "Street" },
 ];
 
 export default function TestLabControls({
