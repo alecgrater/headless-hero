@@ -275,6 +275,15 @@ def analyze_visual_treatments(
     return _space_non_repeatable_modes(assignments, scenes)
 
 
+def analyze_visual_treatment_scene(
+    scene: Scene,
+    *,
+    script_id: str,
+) -> VisualTreatmentAssignment:
+    """Plan renderer-owned fields for one scene without whole-script spacing enforcement."""
+    return _analyze_scene(scene, script_id=script_id)
+
+
 def apply_visual_treatment_assignments(
     content: ScriptContent,
     assignments: list[VisualTreatmentAssignment],

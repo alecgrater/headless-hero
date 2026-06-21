@@ -1901,6 +1901,75 @@ def test_generate_visual_fills_explicit_popup_sequence_layers_before_generating(
     ]
 
 
+def test_generate_visual_fills_explicit_comparison_layers_after_non_repeatable_scene(monkeypatch):
+    from api import visuals as visuals_api
+    from api.visuals import GenerateVisualRequest
+
+    engine = _build_test_engine()
+    script_id = "regular-comparison-after-multi-frame"
+    previous_scene = scene_with_words("scene_001", "Several moments cut together.")
+    previous_scene.visual_mode = "multi_frame"
+    scene = scene_with_words("scene_002", "Then vs. now.")
+    scene.visual_prompt = "Left side young worker, right side older manager."
+    scene.visual_mode = "comparison_board"
+    scene.visual_layers = []
+    content = content_with_scenes(previous_scene, scene)
+
+    captured = {}
+    monkeypatch.setattr(visuals_api, "_require_character_reference_ready", lambda session, script_id: None)
+    monkeypatch.setattr(
+        visuals_api,
+        "generate_scene_image",
+        lambda **_kwargs: (_ for _ in ()).throw(AssertionError("comparison_board should not generate scene images")),
+    )
+
+    def fake_generate_comparison_board_cutouts(*, scene_id, layers, script_id, scene_prompt, **kwargs):
+        captured["layers"] = layers
+        return [
+            {
+                **layer,
+                "asset_kind": "cutout",
+                "image_url": f"/static/projects/{script_id}/comparison_boards/{scene_id}/{layer['id']}.png",
+            }
+            for layer in layers
+        ]
+
+    monkeypatch.setattr(visuals_api, "generate_comparison_board_cutouts", fake_generate_comparison_board_cutouts)
+
+    with Session(engine) as session:
+        session.add(
+            Script(
+                id=script_id,
+                brand_id="brand",
+                topic_title="Treatment Test",
+                script_json=content.model_dump_json(),
+            )
+        )
+        session.commit()
+
+        response = visuals_api.generate_visual(
+            GenerateVisualRequest(
+                script_id=script_id,
+                scene_id="scene_002",
+                visual_prompt="Left side young worker, right side older manager.",
+                visual_mode="comparison_board",
+            ),
+            session,
+        )
+
+        stored = session.get(Script, script_id)
+        assert stored is not None
+        stored_scene = ScriptContent.model_validate_json(stored.script_json).segments[0].scenes[1]
+
+    assert [layer["placement"] for layer in captured["layers"]] == ["left", "right"]
+    assert len(response.visual_layers) == 2
+    assert all(layer["image_url"] for layer in response.visual_layers)
+    assert stored_scene.visual_mode == "comparison_board"
+    assert [layer.image_url for layer in stored_scene.visual_layers] == [
+        layer["image_url"] for layer in response.visual_layers
+    ]
+
+
 def test_generate_visual_layer_planning_returns_conflict_when_voiceover_missing(monkeypatch):
     from api import visuals as visuals_api
     from api.visuals import GenerateVisualRequest
