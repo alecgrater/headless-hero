@@ -77,7 +77,7 @@ const WORKFLOW_STAGES = [
       "When a smoke test finds issues, copy the fix brief from Smoke Test history before making more project media so the exact diagnostics remain available for repair.",
       "Use Test Lab -> Blink -> Blink Audit for detector tuning. For real projects, complete the Timeline -> Blink Review tab after images are generated; rendering and exporting are blocked until eligible blink candidates are reviewed.",
       "Render/export uses only manually enabled blink candidates. Disabled candidates stay static, and unreviewed candidates block the job instead of silently blinking or skipping.",
-      "Settings -> General -> Advanced can disable Full-frame Blink Review. When disabled, production full-frame scenes stay static and render/export no longer requires Blink Review.",
+      "Settings -> General -> Advanced can disable media-backed Blink Review. When disabled, production full-frame, multi-frame, and continuous scenes stay static and render/export no longer requires Blink Review.",
       "For blink iteration, use Test Lab -> Blink to generate a reusable fixture once, then test the outdoor and indoor renderer-owned stages against the same saved cutout while renderer logic changes.",
     ],
     done: "The timeline has all required image, frame, layer, thumbnail, and optional video assets with no stale or missing media warnings.",

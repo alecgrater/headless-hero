@@ -60,6 +60,62 @@ def test_refresh_blink_review_creates_unreviewed_metadata(monkeypatch, tmp_path)
     assert metadata["fingerprint"]
 
 
+def test_refresh_blink_review_includes_media_backed_non_full_frame_modes(monkeypatch, tmp_path):
+    from pipeline import project_blink_review
+
+    for scene_id in ("scene_multi", "scene_continuous"):
+        image_path = tmp_path / "projects" / "script-1" / "images" / f"{scene_id}_f0.png"
+        image_path.parent.mkdir(parents=True, exist_ok=True)
+        image_path.write_bytes(b"fake")
+    content = ScriptContent(
+        title="Blink Review",
+        segments=[
+            Segment(
+                name="Segment",
+                scenes=[
+                    Scene(
+                        id="scene_multi",
+                        narration="A worker turns toward a locker.",
+                        visual_prompt="A worker in a hallway.",
+                        visual_mode="multi_frame",
+                        image_url="/static/projects/script-1/images/scene_multi_f0.png",
+                        frame_urls=[
+                            "/static/projects/script-1/images/scene_multi_f0.png",
+                            "/static/projects/script-1/images/scene_multi_f1.png",
+                        ],
+                    ),
+                    Scene(
+                        id="scene_continuous",
+                        narration="A worker waits under the fluorescent light.",
+                        visual_prompt="A worker in a kitchen.",
+                        visual_mode="continuous",
+                        image_url="/static/projects/script-1/images/scene_continuous_f0.png",
+                        frame_urls=[
+                            "/static/projects/script-1/images/scene_continuous_f0.png",
+                            "/static/projects/script-1/images/scene_continuous_f1.png",
+                        ],
+                    ),
+                ],
+            )
+        ],
+    )
+    monkeypatch.setattr(project_blink_review.full_frame_blink, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(
+        project_blink_review.full_frame_blink,
+        "detect_full_frame_blink_anchor",
+        lambda _path: _eligible_detection(project_blink_review),
+    )
+
+    summary = project_blink_review.refresh_project_blink_review(content, "script-1")
+
+    assert summary.eligible_count == 2
+    assert {candidate.scene_id for candidate in summary.candidates} == {"scene_multi", "scene_continuous"}
+    assert all(
+        scene.visual_source_metadata["full_frame_blink"]["review"]["status"] == "unreviewed"
+        for scene in content.segments[0].scenes
+    )
+
+
 def test_refresh_blink_review_resets_stale_review_when_image_changes(monkeypatch, tmp_path):
     from pipeline import project_blink_review
 

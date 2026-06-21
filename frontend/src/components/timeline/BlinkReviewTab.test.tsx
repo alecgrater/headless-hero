@@ -24,7 +24,12 @@ describe("BlinkReviewTab", () => {
               image_url: "/static/projects/script-1/images/scene_001.png",
               eligible: true,
               reason: "",
-              anchor: { detected: true, skin_fill: "#F0D2B4" },
+              anchor: {
+                detected: true,
+                skin_fill: "#F0D2B4",
+                eye_left: { x: 0.4, y: 0.3, width: 0.01, height: 0.01 },
+                eye_right: { x: 0.46, y: 0.3, width: 0.01, height: 0.01 },
+              },
               fingerprint: "abc",
               review_status: "unreviewed",
               enabled: false,
@@ -39,6 +44,7 @@ describe("BlinkReviewTab", () => {
     );
 
     expect(screen.getByText("scene_001")).toBeInTheDocument();
+    expect(screen.getByTestId("full-frame-blink-preview-overlay")).toBeInTheDocument();
     expect(screen.getAllByText(/needs review/i).length).toBeGreaterThan(0);
     await userEvent.click(screen.getByRole("button", { name: /enable blink/i }));
     expect(onDecision).toHaveBeenCalledWith("scene_001", "enabled");

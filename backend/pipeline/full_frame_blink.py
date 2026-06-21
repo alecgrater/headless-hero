@@ -21,7 +21,7 @@ from pipeline.image_gen import (
 )
 
 BURGER_KING_BLINK_AUDIT_SCRIPT_ID = "9dacedc774514306ae1acb85215449e1"
-MEDIA_BACKED_BLINK_MODES = {"full_frame"}
+MEDIA_BACKED_BLINK_MODES = {"full_frame", "multi_frame", "continuous"}
 
 
 class FullFrameBlinkDetection(BaseModel):

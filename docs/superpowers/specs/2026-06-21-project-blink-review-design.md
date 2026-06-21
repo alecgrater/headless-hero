@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Add a project-level manual review step for production full-frame blink. The blink detector finds safe candidates, and the user decides which eligible blinks actually render/export. Rendering and exporting are blocked until that review is complete, so blink quality is never left to an automatic frequency gate.
+Add a project-level manual review step for production media-backed blink. The blink detector finds safe candidates, and the user decides which eligible blinks actually render/export. Rendering and exporting are blocked until that review is complete, so blink quality is never left to an automatic frequency gate.
 
 This design is implemented by the project Blink Review feature.
 
@@ -16,7 +16,7 @@ The existing Blink Audit remains the lab/debug surface for checking detector beh
 
 Add a project tab named `Blink Review`.
 
-The tab shows current-project full-frame blink candidates after scene images exist. It uses the same backend detector and preview geometry as production render/export. It does not introduce separate preview-only eligibility logic.
+The tab shows current-project media-backed blink candidates after scene images exist. It uses the same backend detector and preview geometry as production render/export. It does not introduce separate preview-only eligibility logic.
 
 Each eligible scene card shows:
 

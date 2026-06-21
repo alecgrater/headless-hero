@@ -1,6 +1,6 @@
 import { Check, Eye, RefreshCw, X } from "lucide-react";
 
-import { assetUrl } from "../../api";
+import FullFrameBlinkPreview from "../blink/FullFrameBlinkPreview";
 import type { BlinkReviewSummary, BlinkReviewStatus } from "../../types/blinkReview";
 
 interface Props {
@@ -16,28 +16,6 @@ function statusLabel(status: BlinkReviewStatus) {
   if (status === "enabled") return "Enabled";
   if (status === "disabled") return "Disabled";
   return "Rejected";
-}
-
-function BlinkPreview({ imageUrl, blink }: { imageUrl: string; blink: boolean }) {
-  return (
-    <div className="relative min-h-0 overflow-hidden bg-neutral-950">
-      <img
-        src={assetUrl(imageUrl)}
-        alt=""
-        className="aspect-video h-auto w-full object-cover"
-      />
-      {blink && (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-neutral-950/0">
-          <div className="rounded-full border border-neutral-950/20 bg-neutral-950/70 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-neutral-100">
-            Blink preview
-          </div>
-        </div>
-      )}
-      <span className="absolute left-2 top-2 rounded bg-neutral-950/70 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-neutral-200">
-        {blink ? "Blink" : "Still"}
-      </span>
-    </div>
-  );
 }
 
 export default function BlinkReviewTab({
@@ -59,7 +37,7 @@ export default function BlinkReviewTab({
               <h2 className="text-sm font-semibold text-neutral-100">Blink Review</h2>
             </div>
             <p className="mt-1 text-xs text-neutral-400">
-              Review eligible full-frame blinks before rendering or exporting.
+              Review eligible media-backed blinks before rendering or exporting.
             </p>
             {summary?.review_enabled === false && (
               <p className="mt-2 text-xs font-medium text-amber-300">
@@ -107,8 +85,8 @@ export default function BlinkReviewTab({
             return (
               <div key={candidate.scene_id} className="overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900">
                 <div className="grid grid-cols-2">
-                  <BlinkPreview imageUrl={candidate.image_url} blink={false} />
-                  <BlinkPreview imageUrl={candidate.image_url} blink />
+                  <FullFrameBlinkPreview imageUrl={candidate.image_url} blink={false} anchor={candidate.anchor} />
+                  <FullFrameBlinkPreview imageUrl={candidate.image_url} blink anchor={candidate.anchor} />
                 </div>
                 <div className="p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">

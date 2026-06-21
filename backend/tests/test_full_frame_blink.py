@@ -20,7 +20,7 @@ def test_deterministic_blink_gate_is_stable_and_roughly_half():
 def test_media_backed_blink_modes_only_include_render_supported_modes():
     from pipeline.full_frame_blink import MEDIA_BACKED_BLINK_MODES
 
-    assert MEDIA_BACKED_BLINK_MODES == {"full_frame"}
+    assert MEDIA_BACKED_BLINK_MODES == {"full_frame", "multi_frame", "continuous"}
 
 
 def test_detect_full_frame_blink_anchor_rejects_missing_file(tmp_path):

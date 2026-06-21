@@ -59,7 +59,8 @@ export const BlinkMicroExpressionOverlay: React.FC<{
   anchor: BlinkResolvedOverlayAnchor;
   overlay: BlinkOverlay;
   visible: boolean;
-}> = ({ anchor, overlay, visible }) => {
+  testId?: string;
+}> = ({ anchor, overlay, visible, testId }) => {
   const opacity = visible ? 1 : 0;
   const common: React.CSSProperties = {
     position: "absolute",
@@ -80,7 +81,7 @@ export const BlinkMicroExpressionOverlay: React.FC<{
 
   if (overlay.kind === "mouth") {
     return (
-      <svg {...BLINK_OVERLAY_SVG_PROPS} style={common}>
+      <svg {...BLINK_OVERLAY_SVG_PROPS} style={common} data-testid={testId}>
         <ellipse cx={mouth.x} cy={mouth.y - 0.4} rx="4.5" ry="2.4" fill="#F4BE91" />
         <ellipse cx={mouth.x} cy={mouth.y} rx="1.6" ry="2.3" fill="#4B1814" stroke="#111" strokeWidth="0.65" />
       </svg>
@@ -93,7 +94,7 @@ export const BlinkMicroExpressionOverlay: React.FC<{
       .map((eye) => eye.mask.gradient)
       .filter((gradient): gradient is NonNullable<(typeof eyeGeometry)[number]["mask"]["gradient"]> => Boolean(gradient));
     return (
-      <svg {...BLINK_OVERLAY_SVG_PROPS} style={common}>
+      <svg {...BLINK_OVERLAY_SVG_PROPS} style={common} data-testid={testId}>
         {gradients.length > 0 ? (
           <defs>
             {gradients.map((gradient) => (
@@ -126,7 +127,7 @@ export const BlinkMicroExpressionOverlay: React.FC<{
 
   if (overlay.kind === "eyes" && overlay.state === "glance") {
     return (
-      <svg {...BLINK_OVERLAY_SVG_PROPS} style={common}>
+      <svg {...BLINK_OVERLAY_SVG_PROPS} style={common} data-testid={testId}>
         <ellipse cx={leftEye.x - 1.1} cy={leftEye.y} rx="1.7" ry="2.2" fill="#111" />
         <ellipse cx={rightEye.x - 1.1} cy={rightEye.y} rx="1.7" ry="2.2" fill="#111" />
       </svg>
@@ -134,7 +135,7 @@ export const BlinkMicroExpressionOverlay: React.FC<{
   }
 
   return (
-    <svg {...BLINK_OVERLAY_SVG_PROPS} style={common}>
+    <svg {...BLINK_OVERLAY_SVG_PROPS} style={common} data-testid={testId}>
       <path d={`M${leftBrow.x - 4.5} ${leftBrow.y} Q${leftBrow.x} ${leftBrow.y - 1.8} ${leftBrow.x + 4.5} ${leftBrow.y - 0.6}`} fill="none" stroke="#111" strokeWidth="1.2" strokeLinecap="round" />
       <path d={`M${rightBrow.x - 4.5} ${rightBrow.y - 0.8} Q${rightBrow.x} ${rightBrow.y - 2.6} ${rightBrow.x + 4.5} ${rightBrow.y - 1.4}`} fill="none" stroke="#111" strokeWidth="1.2" strokeLinecap="round" />
     </svg>
