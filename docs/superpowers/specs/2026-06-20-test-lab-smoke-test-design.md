@@ -13,9 +13,9 @@ The Test Lab gets a new `Smoke Test` tab next to `Scene Pipeline`, `Popup Crop`,
 
 The result view shows a checklist grouped by area, with `pass`, `warn`, or `fail` status, a short detail, optional evidence, optional render/run links, and a specific next action. A summary row counts passes, warnings, and failures.
 
-Every smoke test report is saved under `data/test-lab/smoke-tests` so reports remain browsable after reload. The tab shows saved reports in newest-first order. Selecting an old report reloads its full checklist without rerunning diagnostics.
+Every smoke test report is saved under `data/test-lab/smoke-tests` so reports remain browsable after reload. The tab shows saved reports in newest-first order, including each report's total tracked cost. Selecting an old report reloads its full checklist without rerunning diagnostics.
 
-Each saved report can be re-exported as a Markdown fix brief. The brief starts with a direct request to fix the Headless Hero Smoke Test issues, then includes report id, timestamps, options, summary counts, failures, warnings, passed checks, run ids, render URLs, evidence, next actions, and raw report JSON. This is the preferred format for passing smoke-test results back into Codex.
+Each saved report can be re-exported as a Markdown fix brief. The brief starts with a direct request to fix the Headless Hero Smoke Test issues, then includes report id, timestamps, options, summary counts, total cost, failures, warnings, passed checks, run ids, render URLs, evidence, next actions, and raw report JSON. This is the preferred format for passing smoke-test results back into Codex.
 
 ## Backend Architecture
 
@@ -41,6 +41,7 @@ The first version checks:
 - Active style preset character availability is reported as pass or warning, not failure.
 - Optional render-heavy probes run representative existing Test Lab presets and verify manifests complete and expose expected assets/render URLs.
 - Optional external probes may create/reuse the blink fixture and render contexts once the user opts in.
+- Total cost is the sum of `total_cost` from hidden Test Lab manifests launched by the smoke test. Local-only checks normally report `$0.0000`; external API probes carry actual tracked provider usage.
 
 ## Error Handling
 

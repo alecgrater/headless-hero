@@ -19,6 +19,7 @@ const report = {
   completed_at: "2026-06-20T12:01:00+00:00",
   options: { render_heavy: true, external_api: false },
   summary: { pass: 1, warn: 1, fail: 1 },
+  total_cost: 0.0375,
   checks: [
     {
       id: "visual-mode-vocabulary",
@@ -86,6 +87,7 @@ describe("SmokeTestLab", () => {
       });
     });
     expect(await screen.findByText("1 failed")).toBeInTheDocument();
+    expect(screen.getByText("$0.0375")).toBeInTheDocument();
     expect(screen.getByText("Blink production guardrail")).toBeInTheDocument();
     expect(screen.getByText("Align visual opportunity guidance.")).toBeInTheDocument();
     expect(screen.getByText("smoke-stat-card")).toBeInTheDocument();
@@ -110,6 +112,7 @@ describe("SmokeTestLab", () => {
     render(<SmokeTestLab />);
 
     expect(await screen.findByRole("button", { name: /smoke-1/i })).toBeInTheDocument();
+    expect(screen.getByText(/cost \$0.0375/i)).toBeInTheDocument();
     expect(screen.getByText("Blink production guardrail")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /copy fix brief/i }));

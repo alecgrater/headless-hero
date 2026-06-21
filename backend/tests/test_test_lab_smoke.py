@@ -176,6 +176,36 @@ def test_render_only_layered_probes_warn_without_external_assets(monkeypatch, tm
     assert all("render-only" in row.detail for row in layered_rows)
 
 
+def test_smoke_report_sums_probe_manifest_costs(monkeypatch, tmp_path):
+    import pipeline.test_lab_smoke as smoke
+    from pipeline.test_lab import TestLabRunManifest
+    from pipeline.test_lab_smoke import SmokeTestOptions, run_and_save_smoke_test, load_smoke_report
+
+    def fake_run_test_lab(**kwargs):
+        return [f"/static/projects/test-lab-{kwargs['run_id']}/renders/full_youtube.mp4"]
+
+    def fake_load_run_manifest(run_id: str):
+        total_cost = 0.0123 if "full-frame" in run_id else 0.0044
+        return TestLabRunManifest(
+            run_id=run_id,
+            script_id=f"test-lab-{run_id}",
+            preset_id="coffee-brain",
+            status="completed",
+            render_url=f"/static/projects/test-lab-{run_id}/renders/full_youtube.mp4",
+            total_cost=total_cost,
+        )
+
+    monkeypatch.setattr(smoke, "REPRESENTATIVE_MODES", ("full_frame", "captions"))
+    monkeypatch.setattr(smoke, "run_test_lab", fake_run_test_lab)
+    monkeypatch.setattr(smoke, "load_run_manifest", fake_load_run_manifest)
+    engine, _app = _setup_app(monkeypatch, tmp_path)
+
+    report = run_and_save_smoke_test(engine=engine, options=SmokeTestOptions(render_heavy=True, external_api=True))
+
+    assert report.total_cost == 0.0167
+    assert load_smoke_report(report.id).total_cost == 0.0167
+
+
 def test_smoke_route_returns_report(monkeypatch, tmp_path):
     engine, app = _setup_app(monkeypatch, tmp_path)
     import api.test_lab as test_lab_api
@@ -241,6 +271,7 @@ def test_smoke_export_brief_is_ready_for_codex(monkeypatch, tmp_path):
     assert data["report_id"] == report_id
     assert "Please fix the Headless Hero Smoke Test issues below." in data["markdown"]
     assert f"Smoke Test Report `{report_id}`" in data["markdown"]
+    assert "- Total cost: $0.0000" in data["markdown"]
     assert "## Warnings" in data["markdown"]
     assert "blink-production-guardrail" in data["markdown"]
     assert "Align visual opportunity guidance" in data["markdown"]

@@ -57,6 +57,7 @@ class SmokeTestReport(BaseModel):
     completed_at: str
     options: SmokeTestOptions
     summary: dict[str, int]
+    total_cost: float = 0.0
     checks: list[SmokeTestCheck]
 
 
@@ -77,8 +78,10 @@ def run_smoke_test(*, engine=None, options: SmokeTestOptions | None = None) -> S
     _append_check(checks, lambda: _check_subtitle_settings(engine))
     _append_check(checks, lambda: _check_style_character(engine))
 
+    total_cost = 0.0
     if resolved_options.render_heavy:
-        checks.extend(_run_render_probes(engine=engine, external_api=resolved_options.external_api))
+        render_checks, total_cost = _run_render_probes(engine=engine, external_api=resolved_options.external_api)
+        checks.extend(render_checks)
     else:
         checks.append(
             SmokeTestCheck(
@@ -96,6 +99,7 @@ def run_smoke_test(*, engine=None, options: SmokeTestOptions | None = None) -> S
         completed_at=_utc_now(),
         options=resolved_options,
         summary=_summary(checks),
+        total_cost=round(float(total_cost), 4),
         checks=checks,
     )
 
@@ -147,6 +151,7 @@ def smoke_report_markdown(report: SmokeTestReport) -> str:
         f"- Completed: {report.completed_at}",
         f"- Options: render_heavy={report.options.render_heavy}, external_api={report.options.external_api}",
         f"- Summary: {report.summary.get('fail', 0)} failed, {report.summary.get('warn', 0)} warnings, {report.summary.get('pass', 0)} passed",
+        f"- Total cost: ${report.total_cost:.4f}",
         "",
         "## Fix Priority",
         "",
@@ -382,28 +387,34 @@ def _check_style_character(engine) -> SmokeTestCheck:
     )
 
 
-def _run_render_probes(*, engine, external_api: bool) -> list[SmokeTestCheck]:
+def _run_render_probes(*, engine, external_api: bool) -> tuple[list[SmokeTestCheck], float]:
     if engine is None:
-        return [
-            SmokeTestCheck(
-                id="render-probes",
-                label="Render probes",
-                group="Pipeline",
-                status="fail",
-                detail="Render-heavy probes need a database engine.",
-                next_action="Run Smoke Test from the app so the endpoint can use the configured database engine.",
-            )
-        ]
+        return (
+            [
+                SmokeTestCheck(
+                    id="render-probes",
+                    label="Render probes",
+                    group="Pipeline",
+                    status="fail",
+                    detail="Render-heavy probes need a database engine.",
+                    next_action="Run Smoke Test from the app so the endpoint can use the configured database engine.",
+                )
+            ],
+            0.0,
+        )
     checks: list[SmokeTestCheck] = []
+    total_cost = 0.0
     for mode in REPRESENTATIVE_MODES:
         preset = _probe_preset_for_mode(mode)
         if preset is None:
             continue
-        checks.append(_run_single_probe(engine=engine, preset_id=preset.id, mode=mode, external_api=external_api))
-    return checks
+        check, cost = _run_single_probe(engine=engine, preset_id=preset.id, mode=mode, external_api=external_api)
+        checks.append(check)
+        total_cost += cost
+    return checks, round(float(total_cost), 4)
 
 
-def _run_single_probe(*, engine, preset_id: str, mode: str, external_api: bool) -> SmokeTestCheck:
+def _run_single_probe(*, engine, preset_id: str, mode: str, external_api: bool) -> tuple[SmokeTestCheck, float]:
     run_id = f"smoke-{mode.replace('_', '-')}-{uuid.uuid4().hex[:8]}"
     mode_defaults = VISUAL_TREATMENT_TEXT_DEFAULTS.get(mode, {})
     settings = {
@@ -425,60 +436,76 @@ def _run_single_probe(*, engine, preset_id: str, mode: str, external_api: bool) 
         run_test_lab(engine=engine, run_id=run_id, preset_id=preset_id, settings=settings, job_id=None)
         manifest = load_run_manifest(run_id)
     except Exception as exc:
-        return SmokeTestCheck(
-            id=f"render-probe-{mode}",
-            label=f"{mode} render probe",
-            group="Pipeline",
-            status="fail",
-            detail=f"The {mode} Test Lab probe failed.",
-            evidence=str(exc),
-            run_id=run_id,
-            next_action=f"Open Test Lab run {run_id} and backend logs; fix the failing {mode} pipeline stage.",
+        return (
+            SmokeTestCheck(
+                id=f"render-probe-{mode}",
+                label=f"{mode} render probe",
+                group="Pipeline",
+                status="fail",
+                detail=f"The {mode} Test Lab probe failed.",
+                evidence=str(exc),
+                run_id=run_id,
+                next_action=f"Open Test Lab run {run_id} and backend logs; fix the failing {mode} pipeline stage.",
+            ),
+            0.0,
         )
+    probe_cost = round(float(manifest.total_cost or 0.0), 4)
     if manifest.status != "completed":
-        return SmokeTestCheck(
-            id=f"render-probe-{mode}",
-            label=f"{mode} render probe",
-            group="Pipeline",
-            status="fail",
-            detail=f"The {mode} Test Lab probe ended with status {manifest.status}.",
-            run_id=run_id,
-            next_action=f"Open Test Lab run {run_id} and inspect stage logs.",
+        return (
+            SmokeTestCheck(
+                id=f"render-probe-{mode}",
+                label=f"{mode} render probe",
+                group="Pipeline",
+                status="fail",
+                detail=f"The {mode} Test Lab probe ended with status {manifest.status}.",
+                run_id=run_id,
+                next_action=f"Open Test Lab run {run_id} and inspect stage logs.",
+            ),
+            probe_cost,
         )
     if not manifest.render_url:
-        return SmokeTestCheck(
-            id=f"render-probe-{mode}",
-            label=f"{mode} render probe",
-            group="Pipeline",
-            status="fail",
-            detail=f"The {mode} Test Lab probe completed without a render URL.",
-            run_id=run_id,
-            next_action="Check Remotion render output collection and manifest serialization.",
+        return (
+            SmokeTestCheck(
+                id=f"render-probe-{mode}",
+                label=f"{mode} render probe",
+                group="Pipeline",
+                status="fail",
+                detail=f"The {mode} Test Lab probe completed without a render URL.",
+                run_id=run_id,
+                next_action="Check Remotion render output collection and manifest serialization.",
+            ),
+            probe_cost,
         )
     if mode in CUTOUT_ASSET_MODES and not external_api:
-        return SmokeTestCheck(
+        return (
+            SmokeTestCheck(
+                id=f"render-probe-{mode}",
+                label=f"{mode} render probe",
+                group="Pipeline",
+                status="warn",
+                detail=(
+                    f"The {mode} render-only probe completed, but cutout asset generation was disabled. "
+                    "This confirms Remotion can render the mode shell, not that generated assets are valid."
+                ),
+                run_id=run_id,
+                render_url=manifest.render_url,
+                evidence=f"{len(manifest.assets)} assets",
+                next_action="Run again with external API asset generation enabled before trusting this cutout-based mode.",
+            ),
+            probe_cost,
+        )
+    return (
+        SmokeTestCheck(
             id=f"render-probe-{mode}",
             label=f"{mode} render probe",
             group="Pipeline",
-            status="warn",
-            detail=(
-                f"The {mode} render-only probe completed, but cutout asset generation was disabled. "
-                "This confirms Remotion can render the mode shell, not that generated assets are valid."
-            ),
+            status="pass",
+            detail=f"The {mode} Test Lab probe completed and produced a render.",
             run_id=run_id,
             render_url=manifest.render_url,
             evidence=f"{len(manifest.assets)} assets",
-            next_action="Run again with external API asset generation enabled before trusting this cutout-based mode.",
-        )
-    return SmokeTestCheck(
-        id=f"render-probe-{mode}",
-        label=f"{mode} render probe",
-        group="Pipeline",
-        status="pass",
-        detail=f"The {mode} Test Lab probe completed and produced a render.",
-        run_id=run_id,
-        render_url=manifest.render_url,
-        evidence=f"{len(manifest.assets)} assets",
+        ),
+        probe_cost,
     )
 
 

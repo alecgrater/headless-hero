@@ -236,6 +236,7 @@ export interface SmokeTestReport {
   completed_at: string;
   options: SmokeTestOptions;
   summary: Record<SmokeTestStatus, number>;
+  total_cost?: number;
   checks: SmokeTestCheck[];
 }
 

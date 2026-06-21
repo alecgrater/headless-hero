@@ -142,6 +142,9 @@ export default function SmokeTestLab() {
                   <span className="mt-1 block text-xs text-neutral-500">
                     {item.summary.fail ?? 0} failed · {item.summary.warn ?? 0} warnings · {item.summary.pass ?? 0} passed
                   </span>
+                  <span className="mt-1 block text-xs text-neutral-500">
+                    Cost {formatCost(item.total_cost)}
+                  </span>
                 </button>
               ))}
             </div>
@@ -162,6 +165,7 @@ export default function SmokeTestLab() {
               <div>
                 <p className="text-xs font-semibold uppercase text-neutral-500">Latest report</p>
                 <h3 className="mt-2 text-base font-semibold text-neutral-100">{report.id}</h3>
+                <p className="mt-1 text-sm font-medium text-emerald-200">{formatCost(report.total_cost)}</p>
               </div>
               <div className="flex flex-wrap items-center justify-end gap-2">
                 <div className="flex flex-wrap gap-2">
@@ -298,4 +302,8 @@ function groupChecks(checks: SmokeTestCheck[]): Array<[string, SmokeTestCheck[]]
     grouped.set(check.group, group);
   }
   return Array.from(grouped.entries());
+}
+
+function formatCost(cost: number | undefined): string {
+  return `$${(cost ?? 0).toFixed(4)}`;
 }
