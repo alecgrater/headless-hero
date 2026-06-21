@@ -210,3 +210,31 @@ export interface BlinkFixtureRenderResult {
   render_url: string;
   used_external_api: boolean;
 }
+
+export interface SmokeTestOptions {
+  render_heavy: boolean;
+  external_api: boolean;
+}
+
+export type SmokeTestStatus = "pass" | "warn" | "fail";
+
+export interface SmokeTestCheck {
+  id: string;
+  label: string;
+  group: string;
+  status: SmokeTestStatus;
+  detail: string;
+  next_action: string;
+  evidence: string;
+  run_id: string;
+  render_url: string;
+}
+
+export interface SmokeTestReport {
+  id: string;
+  started_at: string;
+  completed_at: string;
+  options: SmokeTestOptions;
+  summary: Record<SmokeTestStatus, number>;
+  checks: SmokeTestCheck[];
+}

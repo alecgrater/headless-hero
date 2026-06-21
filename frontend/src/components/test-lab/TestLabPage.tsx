@@ -13,6 +13,7 @@ import type {
 } from "../../types/testLab";
 import BlinkDebugLab from "./BlinkDebugLab";
 import PopupCropLab from "./PopupCropLab";
+import SmokeTestLab from "./SmokeTestLab";
 import TestLabControls, { settingsWithVisualTreatmentDefaults } from "./TestLabControls";
 import TestLabRunPanel from "./TestLabRunPanel";
 
@@ -69,7 +70,7 @@ type TestLabJobStatus = {
   error?: string | null;
 };
 
-type TestLabTab = "pipeline" | "popup-crop" | "blink-debug";
+type TestLabTab = "pipeline" | "popup-crop" | "blink-debug" | "smoke-test";
 type TestLabSettingsSection = "voice" | "subtitles";
 
 interface Props {
@@ -260,6 +261,7 @@ export default function TestLabPage({ active = true, onOpenSettingsSection }: Pr
             <TabButton active={activeTab === "pipeline"} label="Scene Pipeline" onClick={() => setActiveTab("pipeline")} />
             <TabButton active={activeTab === "popup-crop"} label="Popup Crop" onClick={() => setActiveTab("popup-crop")} />
             <TabButton active={activeTab === "blink-debug"} label="Blink" onClick={() => setActiveTab("blink-debug")} />
+            <TabButton active={activeTab === "smoke-test"} label="Smoke Test" onClick={() => setActiveTab("smoke-test")} />
           </div>
         </div>
 
@@ -314,9 +316,13 @@ export default function TestLabPage({ active = true, onOpenSettingsSection }: Pr
           <div className="min-h-0 flex-1 overflow-hidden p-4">
             <PopupCropLab />
           </div>
-        ) : (
+        ) : activeTab === "blink-debug" ? (
           <div className="min-h-0 flex-1 overflow-hidden p-4">
             <BlinkDebugLab />
+          </div>
+        ) : (
+          <div className="min-h-0 flex-1 overflow-hidden p-4">
+            <SmokeTestLab />
           </div>
         )}
       </div>

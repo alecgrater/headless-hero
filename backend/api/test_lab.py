@@ -38,6 +38,7 @@ from pipeline.test_lab_blink_debug import (
     render_blink_fixture_preview,
 )
 from pipeline.renderer_context import RendererContext, normalize_renderer_context
+from pipeline.test_lab_smoke import SmokeTestOptions, run_smoke_test
 
 router = APIRouter(prefix="/api/test-lab", tags=["test-lab"])
 
@@ -129,6 +130,11 @@ class BlinkFixtureRenderRequest(BaseModel):
     asset_id: str = Field(min_length=1)
     action: BlinkDebugAction = "blink"
     renderer_context: RendererContext | str = "outdoor"
+
+
+class SmokeTestRequest(BaseModel):
+    render_heavy: bool = True
+    external_api: bool = False
 
 
 def _default_main_character(session: Session) -> dict[str, str] | None:
@@ -378,6 +384,15 @@ def render_blink_fixture(request: BlinkFixtureRenderRequest):
         return result.model_dump(mode="json")
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/smoke-test")
+def run_test_lab_smoke_test(request: SmokeTestRequest):
+    report = run_smoke_test(
+        engine=_engine(),
+        options=SmokeTestOptions(render_heavy=request.render_heavy, external_api=request.external_api),
+    )
+    return report.model_dump(mode="json")
 
 
 @router.get("/runs")

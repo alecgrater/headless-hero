@@ -12,6 +12,8 @@ import type {
   PopupCropChromaResult,
   PopupCropPreviewResult,
   PopupCropSheetResult,
+  SmokeTestOptions,
+  SmokeTestReport,
   TestLabRun,
   TestLabScenes,
   TestLabSettings,
@@ -254,6 +256,13 @@ export async function renderBlinkFixturePreview(
     action,
     renderer_context: rendererContext,
   });
+  return res.ok ? res.data : null;
+}
+
+export async function runTestLabSmokeTest(
+  options: SmokeTestOptions,
+): Promise<SmokeTestReport | null> {
+  const res = await api.post<SmokeTestReport>("/api/test-lab/smoke-test", options);
   return res.ok ? res.data : null;
 }
 
