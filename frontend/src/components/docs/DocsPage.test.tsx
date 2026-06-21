@@ -51,6 +51,7 @@ describe("DocsPage", () => {
     expect(screen.getByText(/caption beats use normal short-scene timing/i)).toBeInTheDocument();
     expect(screen.getByText(/metadata-only audit/i)).toBeInTheDocument();
     expect(screen.getByText(/copy the fix brief from Smoke Test history/i)).toBeInTheDocument();
+    expect(screen.getByText(/Test Lab -> Blink Audit/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Script Types" }));
     await waitFor(() => expect(screen.getByText("Format Comes First")).toBeInTheDocument());

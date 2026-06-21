@@ -363,6 +363,15 @@ def _scene_to_input_props(
     # Cinematic-chapters chapter overlay (sourced from visual_source_metadata)
     metadata = scene.visual_source_metadata or {}
     chapter_overlay = metadata.get("chapter_overlay")
+    full_frame_blink = None
+    raw_blink = metadata.get("full_frame_blink")
+    if isinstance(raw_blink, dict) and raw_blink.get("enabled") is True:
+        raw_anchor = raw_blink.get("anchor")
+        full_frame_blink = {
+            "enabled": True,
+            "action": "blink" if raw_blink.get("action") == "blink" else "",
+            "anchor": raw_anchor if isinstance(raw_anchor, dict) else None,
+        }
 
     return {
         "id": scene.id,
@@ -381,6 +390,7 @@ def _scene_to_input_props(
         "visual_beat": scene.visual_beat,
         "visual_mode": scene.visual_mode,
         "blink_action": scene.blink_action,
+        "full_frame_blink": full_frame_blink,
         "renderer_context": scene.renderer_context,
         "subtitle_style": subtitle_style or scene.subtitle_style,
         "caption_text": scene.caption_text,

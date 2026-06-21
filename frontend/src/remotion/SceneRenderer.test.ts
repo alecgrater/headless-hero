@@ -35,4 +35,8 @@ describe("canApplyWholeSceneFx", () => {
     expect(canApplyWholeSceneFx({ visual_mode: "multi_frame" })).toBe(true);
     expect(canApplyWholeSceneFx({ visual_mode: "continuous" })).toBe(true);
   });
+
+  it("keeps camera effects available for full-frame scenes with blink metadata", () => {
+    expect(canApplyWholeSceneFx({ visual_mode: "full_frame" })).toBe(true);
+  });
 });

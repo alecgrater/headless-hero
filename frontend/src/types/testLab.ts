@@ -211,6 +211,34 @@ export interface BlinkFixtureRenderResult {
   used_external_api: boolean;
 }
 
+export interface FullFrameBlinkDetection {
+  status: "passed" | "failed";
+  eligible: boolean;
+  reason: string;
+  anchor?: Record<string, unknown> | null;
+  registration_algorithm_version?: string;
+}
+
+export interface FullFrameBlinkCandidate {
+  script_id: string;
+  scene_id: string;
+  segment_name: string;
+  scene_label: string;
+  visual_mode: VisualMode;
+  image_url: string;
+  image_path: string;
+  detection: FullFrameBlinkDetection;
+  blink_enabled: boolean;
+}
+
+export interface FullFrameBlinkAuditReport {
+  id: string;
+  script_id: string;
+  title: string;
+  created_at: string;
+  candidates: FullFrameBlinkCandidate[];
+}
+
 export interface SmokeTestOptions {
   render_heavy: boolean;
   external_api: boolean;

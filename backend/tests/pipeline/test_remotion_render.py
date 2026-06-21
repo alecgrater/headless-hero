@@ -193,6 +193,27 @@ def test_scene_input_props_include_visual_layer_source_metadata():
     assert props["visual_layers"][0]["visual_source_metadata"]["blink_overlay_anchor"]["mouth"] == {"x": 0.5, "y": 0.46}
 
 
+def test_scene_input_props_include_full_frame_blink_metadata():
+    scene = Scene(
+        id="s1",
+        narration="He blinks.",
+        visual_prompt="Worker.",
+        visual_mode="full_frame",
+        visual_source_metadata={
+            "full_frame_blink": {
+                "enabled": True,
+                "action": "blink",
+                "anchor": {"detected": True, "skin_fill": "#F0D2B4"},
+            }
+        },
+    )
+
+    props = remotion_render._scene_to_input_props(scene, "script-1")
+
+    assert props["full_frame_blink"]["enabled"] is True
+    assert props["full_frame_blink"]["action"] == "blink"
+
+
 def test_scene_input_props_resolves_style_preset_visual_layer_paths(tmp_path, monkeypatch):
     monkeypatch.setattr(remotion_render, "DATA_DIR", tmp_path)
     preset_id = "preset-billy"

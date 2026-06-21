@@ -24,7 +24,9 @@ vi.mock("../../api", () => ({
   bumpAssetVersion: vi.fn(),
   createBlinkFixtureAsset: vi.fn(),
   getBlinkDebugAssets: vi.fn().mockResolvedValue([]),
+  getBlinkAuditReports: vi.fn().mockResolvedValue([]),
   renderBlinkFixturePreview: vi.fn(),
+  runBlinkAudit: vi.fn(),
   runTestLabSmokeTest: vi.fn(),
 }));
 
@@ -60,5 +62,11 @@ describe("testLabPresetSubtitle", () => {
     render(<TestLabPage />);
 
     expect(await screen.findByRole("button", { name: "Smoke Test" })).toBeInTheDocument();
+  });
+
+  it("shows the Blink Audit tab", async () => {
+    render(<TestLabPage />);
+
+    expect(await screen.findByRole("button", { name: "Blink Audit" })).toBeInTheDocument();
   });
 });

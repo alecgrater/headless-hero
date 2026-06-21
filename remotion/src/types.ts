@@ -92,6 +92,12 @@ export interface BlinkOverlayAnchor {
   brow_right?: BlinkOverlayPoint;
 }
 
+export interface FullFrameBlinkOverlay {
+  action: "blink";
+  anchor: BlinkOverlayAnchor;
+  enabled: boolean;
+}
+
 export interface VisualLayer {
   id: string;
   type: "image";
@@ -166,6 +172,7 @@ export interface SceneInput {
   frame_directives?: FrameDirective[] | null;
   visual_mode?: VisualMode;
   blink_action?: "blink" | "" | null;
+  full_frame_blink?: FullFrameBlinkOverlay | null;
   visual_layers?: VisualLayer[] | null;
   renderer_context?: RendererContext;
   caption_text?: string | null;

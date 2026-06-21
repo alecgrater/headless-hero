@@ -94,6 +94,12 @@ export interface VisualLayer {
   } | null;
 }
 
+export interface FullFrameBlinkOverlay {
+  action: BlinkAction;
+  anchor: BlinkOverlayAnchor;
+  enabled: boolean;
+}
+
 export interface FrameDirective {
   prompt: string;
   source: "ai_generated" | "subtitle";
@@ -149,6 +155,7 @@ export interface Scene {
     license_note?: string;
     opt_in_setting?: string;
     fallback?: boolean;
+    full_frame_blink?: FullFrameBlinkOverlay;
   } | null;
 }
 

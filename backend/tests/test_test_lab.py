@@ -126,6 +126,57 @@ def test_list_scripts_excludes_test_lab_scripts(monkeypatch, tmp_path):
         app.dependency_overrides.pop(get_session, None)
 
 
+def test_blink_audit_endpoint_runs_report(monkeypatch, tmp_path):
+    engine, app = _setup_app(monkeypatch, tmp_path)
+    _seed_script(engine, "burger-script", is_test_lab=False, title="Your Life At Every Level Of Working At Burger King")
+
+    import api.test_lab as test_lab_api
+    import pipeline.full_frame_blink as full_frame_blink
+
+    monkeypatch.setattr(full_frame_blink, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(test_lab_api, "BURGER_KING_BLINK_AUDIT_SCRIPT_ID", "burger-script")
+    client = TestClient(app)
+
+    try:
+        response = client.post("/api/test-lab/blink-audits", json={})
+
+        assert response.status_code == 200
+        assert response.json()["script_id"] == "burger-script"
+    finally:
+        from database import get_session
+
+        app.dependency_overrides.pop(get_session, None)
+
+
+def test_blink_audit_history_endpoint_lists_reports(monkeypatch, tmp_path):
+    _engine, app = _setup_app(monkeypatch, tmp_path)
+
+    import pipeline.full_frame_blink as full_frame_blink
+    from pipeline.full_frame_blink import FullFrameBlinkAuditReport, save_blink_audit_report
+
+    monkeypatch.setattr(full_frame_blink, "DATA_DIR", tmp_path)
+    save_blink_audit_report(
+        FullFrameBlinkAuditReport(
+            id="audit-1",
+            script_id="script-1",
+            title="Title",
+            created_at="2026-06-21T00:00:00+00:00",
+            candidates=[],
+        )
+    )
+    client = TestClient(app)
+
+    try:
+        response = client.get("/api/test-lab/blink-audits")
+
+        assert response.status_code == 200
+        assert response.json()["reports"][0]["id"] == "audit-1"
+    finally:
+        from database import get_session
+
+        app.dependency_overrides.pop(get_session, None)
+
+
 def test_generate_dedup_ignores_recent_test_lab_scripts(monkeypatch, tmp_path):
     engine, app = _setup_app(monkeypatch, tmp_path)
     _seed_script(engine, "test-lab-same-topic", is_test_lab=True, title="Same Topic")

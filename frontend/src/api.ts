@@ -8,6 +8,7 @@ import type {
   BlinkDebugResult,
   BlinkFixtureRenderResult,
   BlinkFixtureResult,
+  FullFrameBlinkAuditReport,
   PopupCropAnchorResult,
   PopupCropChromaResult,
   PopupCropPreviewResult,
@@ -258,6 +259,19 @@ export async function renderBlinkFixturePreview(
     renderer_context: rendererContext,
   });
   return res.ok ? res.data : null;
+}
+
+export async function runBlinkAudit(scriptId?: string): Promise<FullFrameBlinkAuditReport | null> {
+  const res = await api.post<FullFrameBlinkAuditReport>(
+    "/api/test-lab/blink-audits",
+    scriptId ? { script_id: scriptId } : {},
+  );
+  return res.ok ? res.data : null;
+}
+
+export async function getBlinkAuditReports(): Promise<FullFrameBlinkAuditReport[]> {
+  const res = await api.get<{ reports: FullFrameBlinkAuditReport[] }>("/api/test-lab/blink-audits");
+  return res.ok ? res.data.reports : [];
 }
 
 export async function runTestLabSmokeTest(

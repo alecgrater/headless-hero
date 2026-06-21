@@ -11,6 +11,7 @@ import type {
   TestLabSubtitleSummary,
   TestLabVoiceSummary,
 } from "../../types/testLab";
+import BlinkAuditLab from "./BlinkAuditLab";
 import BlinkDebugLab from "./BlinkDebugLab";
 import PopupCropLab from "./PopupCropLab";
 import SmokeTestLab from "./SmokeTestLab";
@@ -70,7 +71,7 @@ type TestLabJobStatus = {
   error?: string | null;
 };
 
-type TestLabTab = "pipeline" | "popup-crop" | "blink-debug" | "smoke-test";
+type TestLabTab = "pipeline" | "popup-crop" | "blink-debug" | "blink-audit" | "smoke-test";
 type TestLabSettingsSection = "voice" | "subtitles";
 
 interface Props {
@@ -261,6 +262,7 @@ export default function TestLabPage({ active = true, onOpenSettingsSection }: Pr
             <TabButton active={activeTab === "pipeline"} label="Scene Pipeline" onClick={() => setActiveTab("pipeline")} />
             <TabButton active={activeTab === "popup-crop"} label="Popup Crop" onClick={() => setActiveTab("popup-crop")} />
             <TabButton active={activeTab === "blink-debug"} label="Blink" onClick={() => setActiveTab("blink-debug")} />
+            <TabButton active={activeTab === "blink-audit"} label="Blink Audit" onClick={() => setActiveTab("blink-audit")} />
             <TabButton active={activeTab === "smoke-test"} label="Smoke Test" onClick={() => setActiveTab("smoke-test")} />
           </div>
         </div>
@@ -319,6 +321,10 @@ export default function TestLabPage({ active = true, onOpenSettingsSection }: Pr
         ) : activeTab === "blink-debug" ? (
           <div className="min-h-0 flex-1 overflow-hidden p-4">
             <BlinkDebugLab />
+          </div>
+        ) : activeTab === "blink-audit" ? (
+          <div className="min-h-0 flex-1 overflow-hidden p-4">
+            <BlinkAuditLab />
           </div>
         ) : (
           <div className="min-h-0 flex-1 overflow-hidden p-4">

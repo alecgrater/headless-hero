@@ -37,6 +37,12 @@ from pipeline.test_lab_blink_debug import (
     list_blink_debug_assets,
     render_blink_fixture_preview,
 )
+from pipeline.full_frame_blink import (
+    BURGER_KING_BLINK_AUDIT_SCRIPT_ID,
+    list_blink_audit_reports,
+    load_blink_audit_report,
+    run_full_frame_blink_audit,
+)
 from pipeline.renderer_context import RendererContext, normalize_renderer_context
 from pipeline.test_lab_smoke import (
     SmokeTestOptions,
@@ -136,6 +142,10 @@ class BlinkFixtureRenderRequest(BaseModel):
     asset_id: str = Field(min_length=1)
     action: BlinkDebugAction = "blink"
     renderer_context: RendererContext | str = "outdoor"
+
+
+class BlinkAuditRequest(BaseModel):
+    script_id: str = ""
 
 
 class SmokeTestRequest(BaseModel):
@@ -390,6 +400,28 @@ def render_blink_fixture(request: BlinkFixtureRenderRequest):
         return result.model_dump(mode="json")
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/blink-audits")
+def run_blink_audit(request: BlinkAuditRequest, session: Session = Depends(get_session)):
+    try:
+        script_id = request.script_id or BURGER_KING_BLINK_AUDIT_SCRIPT_ID
+        return run_full_frame_blink_audit(session=session, script_id=script_id).model_dump(mode="json")
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Blink audit source script not found") from None
+
+
+@router.get("/blink-audits")
+def get_blink_audits():
+    return {"reports": [report.model_dump(mode="json") for report in list_blink_audit_reports()]}
+
+
+@router.get("/blink-audits/{report_id}")
+def get_blink_audit(report_id: str):
+    try:
+        return load_blink_audit_report(report_id).model_dump(mode="json")
+    except (FileNotFoundError, ValueError):
+        raise HTTPException(status_code=404, detail="Blink Audit report not found") from None
 
 
 @router.post("/smoke-test")
