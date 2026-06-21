@@ -125,6 +125,7 @@ def ensure_project_blink_review_complete_for_script(record: Script) -> None:
 
 def _refresh_scene(script_id: str, scene: Scene) -> BlinkReviewCandidate | None:
     if scene.is_title_card or scene.visual_mode not in full_frame_blink.MEDIA_BACKED_BLINK_MODES:
+        _clear_scene_blink(scene)
         return None
     image_url = scene.image_url or ""
     if not image_url:

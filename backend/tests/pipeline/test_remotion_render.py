@@ -299,6 +299,34 @@ def test_scene_input_props_includes_manually_enabled_full_frame_blink():
     assert props["full_frame_blink"]["anchor"]["eye_left"]["x"] == 0.4
 
 
+def test_scene_input_props_suppresses_stale_non_full_frame_blink_metadata():
+    scene = Scene(
+        id="scene_001",
+        narration="A worker waits.",
+        visual_prompt="Worker",
+        visual_mode="multi_frame",
+        image_url="/static/projects/script-1/images/scene_001_f0.png",
+        frame_urls=[
+            "/static/projects/script-1/images/scene_001_f0.png",
+            "/static/projects/script-1/images/scene_001_f1.png",
+        ],
+        visual_source_metadata={
+            "full_frame_blink": {
+                "enabled": True,
+                "action": "blink",
+                "fingerprint": "stale",
+                "anchor": {"detected": True, "eye_left": {"x": 0.4, "y": 0.3}},
+                "review": {"status": "enabled", "reviewed_at": "2026-06-21T00:00:00+00:00"},
+            }
+        },
+    )
+
+    props = remotion_render._scene_to_input_props(scene, "script-1")
+
+    assert props["full_frame_blink"] is None
+    assert remotion_render._full_frame_blink_fingerprint(scene) is None
+
+
 def test_scene_input_props_resolves_style_preset_visual_layer_paths(tmp_path, monkeypatch):
     monkeypatch.setattr(remotion_render, "DATA_DIR", tmp_path)
     preset_id = "preset-billy"

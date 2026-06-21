@@ -369,7 +369,12 @@ def _scene_to_input_props(
         review = raw_blink.get("review") if isinstance(raw_blink.get("review"), dict) else {}
     else:
         review = {}
-    if isinstance(raw_blink, dict) and raw_blink.get("enabled") is True and review.get("status") == "enabled":
+    if (
+        scene.visual_mode == "full_frame"
+        and isinstance(raw_blink, dict)
+        and raw_blink.get("enabled") is True
+        and review.get("status") == "enabled"
+    ):
         raw_anchor = raw_blink.get("anchor")
         full_frame_blink = {
             "enabled": True,
@@ -437,6 +442,8 @@ def subtitle_render_fingerprint(content: ScriptContent) -> dict[str, Any]:
 
 
 def _full_frame_blink_fingerprint(scene: Scene) -> dict[str, Any] | None:
+    if scene.visual_mode != "full_frame":
+        return None
     metadata = scene.visual_source_metadata or {}
     raw_blink = metadata.get("full_frame_blink")
     if not isinstance(raw_blink, dict) or raw_blink.get("enabled") is not True:

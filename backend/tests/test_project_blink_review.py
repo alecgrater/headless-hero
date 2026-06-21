@@ -116,6 +116,34 @@ def test_refresh_blink_review_ignores_non_full_frame_modes(monkeypatch, tmp_path
     )
 
 
+def test_refresh_blink_review_clears_stale_non_full_frame_metadata():
+    from pipeline import project_blink_review
+
+    content = content_with_scene(
+        Scene(
+            id="scene_multi",
+            narration="A worker changes frames.",
+            visual_prompt="A worker in a hallway.",
+            visual_mode="multi_frame",
+            image_url="/static/projects/script-1/images/scene_multi_f0.png",
+            visual_source_metadata={
+                "full_frame_blink": {
+                    "enabled": True,
+                    "action": "blink",
+                    "fingerprint": "stale",
+                    "anchor": {"detected": True},
+                    "review": {"status": "enabled"},
+                },
+            },
+        )
+    )
+
+    summary = project_blink_review.refresh_project_blink_review(content, "script-1")
+
+    assert summary.candidates == []
+    assert content.segments[0].scenes[0].visual_source_metadata is None
+
+
 def test_refresh_blink_review_resets_stale_review_when_image_changes(monkeypatch, tmp_path):
     from pipeline import project_blink_review
 
