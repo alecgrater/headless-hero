@@ -180,7 +180,7 @@ class Scene(BaseModel):
     visual_mode: VisualMode = "full_frame"
     visual_layers: list[VisualLayer] = PydanticField(default_factory=list)
     blink_action: BlinkActionValue | str = ""
-    renderer_context: RendererContextValue | str = "plain"
+    renderer_context: RendererContextValue | str = "outdoor"
     caption_text: str = ""
     caption_emphasis: str = ""
     stat_value: str = ""

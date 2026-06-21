@@ -184,7 +184,7 @@ def render_blink_fixture_preview(
     *,
     asset_id: str,
     action: BlinkDebugAction = "blink",
-    renderer_context: RendererContext | str = "kitchen",
+    renderer_context: RendererContext | str = "outdoor",
 ) -> BlinkFixtureRenderResult:
     """Render a real Remotion preview from a saved fixture asset without provider calls."""
 

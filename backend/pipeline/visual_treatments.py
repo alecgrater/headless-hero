@@ -736,7 +736,7 @@ def _blink_layers(scene: Scene) -> list[VisualLayer]:
 
 def _ensure_renderer_context(scene: Scene) -> None:
     context = normalize_renderer_context(scene.renderer_context)
-    if context == "plain":
+    if not scene.renderer_context:
         context = infer_renderer_context(narration=scene.narration, visual_prompt=scene.visual_prompt)
     scene.renderer_context = context
 

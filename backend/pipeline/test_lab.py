@@ -155,7 +155,7 @@ class TestLabPreset(BaseModel):
     stat_value: str = ""
     stat_label: str = ""
     blink_action: str = "blink"
-    renderer_context: str = "plain"
+    renderer_context: str = "outdoor"
     duration_estimate_seconds: float = 7.0
     main_character: MainCharacter | None = None
 
@@ -552,14 +552,11 @@ def _resolve_blink_action_for_settings(
 
 
 def _renderer_context_from_settings(settings: dict, preset: TestLabPreset | None) -> str:
-    context = normalize_renderer_context(settings.get("renderer_context"))
-    if context != "plain":
-        return context
+    if "renderer_context" in settings:
+        return normalize_renderer_context(settings.get("renderer_context"))
     if preset is not None:
-        context = normalize_renderer_context(preset.renderer_context)
-        if context != "plain":
-            return context
-    return "plain"
+        return normalize_renderer_context(preset.renderer_context)
+    return "outdoor"
 
 
 def _subtitle_style_from_settings(settings: dict) -> str:
@@ -1239,7 +1236,7 @@ def _fallback_visual_layers_for_treatment(scene: Scene) -> list[VisualLayer]:
     if scene.visual_mode == "stat_card":
         return []
     context = normalize_renderer_context(scene.renderer_context)
-    if context == "plain":
+    if not scene.renderer_context:
         context = infer_renderer_context(narration=scene.narration, visual_prompt=scene.visual_prompt)
     scene.renderer_context = context
     return [

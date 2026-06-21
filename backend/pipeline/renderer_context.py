@@ -6,39 +6,49 @@ import re
 from typing import Literal
 
 RendererContext = Literal[
-    "plain",
     "outdoor",
-    "desk",
-    "classroom",
-    "office",
-    "kitchen",
-    "lab",
+    "indoor",
 ]
 
 RENDERER_CONTEXTS: tuple[RendererContext, ...] = (
-    "plain",
     "outdoor",
-    "desk",
-    "classroom",
-    "office",
-    "kitchen",
-    "lab",
+    "indoor",
 )
 
 _CONTEXT_SET = set(RENDERER_CONTEXTS)
+_LEGACY_INDOOR_CONTEXTS = {"desk", "classroom", "office", "kitchen", "lab"}
 
 _CONTEXT_KEYWORDS: tuple[tuple[RendererContext, tuple[str, ...]], ...] = (
-    ("kitchen", ("kitchen", "restaurant", "cooking", "chef", "fryer", "food service", "burger", "counter")),
-    ("lab", ("lab", "scientist", "experiment", "microscope", "clinic", "medical", "doctor", "nurse")),
-    ("classroom", ("classroom", "school", "teacher", "student", "whiteboard", "lecture", "homework")),
-    ("office", ("office", "meeting", "spreadsheet", "document", "email", "desk job", "cubicle")),
-    ("outdoor", ("outdoor", "outside", "grass", "sky", "park", "field", "street", "sidewalk", "city", "car", "bus")),
-    ("desk", ("laptop", "computer", "books", "paperwork", "study", "writing", "desk")),
+    (
+        "outdoor",
+        (
+            "outdoor", "outside", "grass", "sky", "park", "field", "street",
+            "sidewalk", "city", "car", "bus",
+        ),
+    ),
+    (
+        "indoor",
+        (
+            "kitchen", "restaurant", "cooking", "chef", "fryer", "food service",
+            "burger", "counter", "store", "cashier", "customer", "register",
+            "retail", "bar", "cafe", "lab", "scientist", "experiment",
+            "microscope", "clinic", "medical", "doctor", "nurse", "classroom",
+            "school", "teacher", "student", "whiteboard", "lecture", "homework",
+            "office", "meeting", "spreadsheet", "document", "email", "desk job",
+            "cubicle", "laptop", "computer", "books", "paperwork", "study",
+            "writing", "desk",
+        ),
+    ),
 )
 
 
 def normalize_renderer_context(value: object) -> RendererContext:
-    return value if isinstance(value, str) and value in _CONTEXT_SET else "plain"  # type: ignore[return-value]
+    if isinstance(value, str):
+        if value in _CONTEXT_SET:
+            return value  # type: ignore[return-value]
+        if value in _LEGACY_INDOOR_CONTEXTS:
+            return "indoor"
+    return "outdoor"
 
 
 def infer_renderer_context(*, narration: str, visual_prompt: str) -> RendererContext:
@@ -46,4 +56,4 @@ def infer_renderer_context(*, narration: str, visual_prompt: str) -> RendererCon
     for context, keywords in _CONTEXT_KEYWORDS:
         if any(re.search(rf"\b{re.escape(keyword)}\b", text) for keyword in keywords):
             return context
-    return "plain"
+    return "outdoor"

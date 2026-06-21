@@ -172,13 +172,8 @@ const VISUAL_MODE_OPTIONS: Array<{
 ];
 
 const RENDERER_CONTEXT_OPTIONS: Array<{ value: RendererContext; label: string }> = [
-  { value: "plain", label: "Plain" },
   { value: "outdoor", label: "Outdoor" },
-  { value: "desk", label: "Desk" },
-  { value: "classroom", label: "Classroom" },
-  { value: "office", label: "Office" },
-  { value: "kitchen", label: "Kitchen" },
-  { value: "lab", label: "Lab" },
+  { value: "indoor", label: "Indoor" },
 ];
 
 export default function TestLabControls({
@@ -303,7 +298,7 @@ export default function TestLabControls({
             captionEmphasis={captionEmphasis}
             statValue={statValue}
             statLabel={statLabel}
-            rendererContext={settings.renderer_context || "plain"}
+            rendererContext={settings.renderer_context || "outdoor"}
             frameDirectives={settings.frame_directives ?? []}
             visualLayers={settings.visual_layers}
             onNarrationChange={updateNarration}
@@ -520,7 +515,7 @@ function SceneTextFields({
             <span className="text-xs font-medium text-neutral-300">Scene context</span>
             <select
               aria-label="Scene context"
-              value={rendererContext || "plain"}
+              value={rendererContext || "outdoor"}
               onChange={(event) => onRendererContextChange(event.target.value as RendererContext)}
               className="mt-2 w-full rounded-md border border-neutral-800 bg-neutral-950/80 px-3 py-2 text-sm text-neutral-100 outline-none transition-colors hover:border-neutral-700 focus:border-violet-500"
             >

@@ -332,7 +332,7 @@ describe("TestLabControls layout", () => {
     );
 
     expect(screen.getByText(/always uses the renderer-owned blink action/i)).toBeInTheDocument();
-    expect(screen.getByLabelText("Scene context")).toHaveValue("plain");
+    expect(screen.getByLabelText("Scene context")).toHaveValue("outdoor");
 
     rerender(
       <TestLabControls
@@ -358,7 +358,7 @@ describe("TestLabControls layout", () => {
         preset={preset}
         defaultMainCharacter={null}
         visualTreatmentDefaults={defaults}
-        settings={{ ...baseSettings, visual_mode: "blink", renderer_context: "desk" }}
+        settings={{ ...baseSettings, visual_mode: "blink", renderer_context: "outdoor" }}
         voiceSummary={voiceSummary}
         subtitleSummary={subtitleSummary}
         onChange={onChange}
@@ -367,12 +367,12 @@ describe("TestLabControls layout", () => {
     );
 
     fireEvent.change(screen.getByLabelText("Scene context"), {
-      target: { value: "office" },
+      target: { value: "indoor" },
     });
 
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({
-        renderer_context: "office",
+        renderer_context: "indoor",
         narration: "Custom narration.",
         visual_prompt: "Custom prompt.",
       }),

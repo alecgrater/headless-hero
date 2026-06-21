@@ -123,9 +123,9 @@ describe("BlinkDebugLab", () => {
     render(<BlinkDebugLab />);
 
     expect(await screen.findByText("Blink base: scene")).toBeInTheDocument();
-    expect(screen.getByLabelText("Background")).toHaveValue("kitchen");
+    expect(screen.getByLabelText("Background")).toHaveValue("outdoor");
     fireEvent.change(screen.getByLabelText("Background"), {
-      target: { value: "outdoor" },
+      target: { value: "indoor" },
     });
     fireEvent.click(
       screen.getByRole("button", { name: /generate fixture assets/i }),
@@ -142,7 +142,7 @@ describe("BlinkDebugLab", () => {
       expect(renderBlinkFixturePreview).toHaveBeenCalledWith(
         "test-lab-run/blink_cutouts/scene/base_scene_base.png",
         "blink",
-        "outdoor",
+        "indoor",
       );
     });
     expect(await screen.findByText("Remotion preview")).toBeInTheDocument();
@@ -167,21 +167,17 @@ describe("BlinkDebugLab", () => {
     expect(createBlinkFixtureAsset).not.toHaveBeenCalled();
   });
 
-  it("shows a dedicated background inspector tab with all six stages", async () => {
+  it("shows a dedicated background inspector tab with indoor and outdoor stages", async () => {
     render(<BlinkDebugLab />);
 
     fireEvent.click(screen.getByRole("button", { name: "Backgrounds" }));
 
     expect(await screen.findByText("Renderer backgrounds")).toBeInTheDocument();
-    for (const label of [
-      "Outdoor",
-      "Desk",
-      "Classroom",
-      "Office",
-      "Kitchen",
-      "Lab",
-    ]) {
+    for (const label of ["Outdoor", "Indoor"]) {
       expect(screen.getAllByText(label).length).toBeGreaterThan(0);
+    }
+    for (const removedLabel of ["Desk", "Classroom", "Office", "Kitchen", "Lab"]) {
+      expect(screen.queryByText(removedLabel)).not.toBeInTheDocument();
     }
     expect(
       screen.getByText(

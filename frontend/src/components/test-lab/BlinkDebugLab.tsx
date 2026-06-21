@@ -37,11 +37,7 @@ const FIXTURE_SCRIPT_ID = "test-lab-blink-fixtures";
 const BLINK_ACTION = "blink" as const;
 const BACKGROUND_OPTIONS: Array<{ value: RendererContext; label: string }> = [
   { value: "outdoor", label: "Outdoor" },
-  { value: "desk", label: "Desk" },
-  { value: "classroom", label: "Classroom" },
-  { value: "office", label: "Office" },
-  { value: "kitchen", label: "Kitchen" },
-  { value: "lab", label: "Lab" },
+  { value: "indoor", label: "Indoor" },
 ];
 type BlinkDebugView = "cutouts" | "backgrounds";
 
@@ -55,7 +51,7 @@ export default function BlinkDebugLab() {
   const [renderResult, setRenderResult] =
     useState<BlinkFixtureRenderResult | null>(null);
   const [rendererContext, setRendererContext] =
-    useState<RendererContext>("kitchen");
+    useState<RendererContext>("outdoor");
   const [activeView, setActiveView] = useState<BlinkDebugView>("cutouts");
   const [loadingAssets, setLoadingAssets] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);

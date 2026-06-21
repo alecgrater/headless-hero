@@ -128,7 +128,7 @@ class BlinkFixtureRequest(BaseModel):
 class BlinkFixtureRenderRequest(BaseModel):
     asset_id: str = Field(min_length=1)
     action: BlinkDebugAction = "blink"
-    renderer_context: RendererContext | str = "kitchen"
+    renderer_context: RendererContext | str = "outdoor"
 
 
 def _default_main_character(session: Session) -> dict[str, str] | None:

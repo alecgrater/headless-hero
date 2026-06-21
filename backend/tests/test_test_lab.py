@@ -1440,7 +1440,7 @@ def test_blink_fixture_endpoints_create_and_render(monkeypatch, tmp_path):
     monkeypatch.setattr(test_lab_api, "create_blink_fixture_asset", lambda visual_prompt, narration="", force=False: FakeFixture())
     render_calls = []
 
-    def fake_render_blink_fixture_preview(asset_id, action, renderer_context="plain"):
+    def fake_render_blink_fixture_preview(asset_id, action, renderer_context="outdoor"):
         render_calls.append(
             {
                 "asset_id": asset_id,
@@ -1464,7 +1464,7 @@ def test_blink_fixture_endpoints_create_and_render(monkeypatch, tmp_path):
             json={
                 "asset_id": "test-lab-blink-fixtures/blink_cutouts/fixture-scene/base_blink_fixture_base.png",
                 "action": "blink",
-                "renderer_context": "outdoor",
+                "renderer_context": "indoor",
             },
         )
 
@@ -1477,7 +1477,7 @@ def test_blink_fixture_endpoints_create_and_render(monkeypatch, tmp_path):
             {
                 "asset_id": "test-lab-blink-fixtures/blink_cutouts/fixture-scene/base_blink_fixture_base.png",
                 "action": "blink",
-                "renderer_context": "outdoor",
+                "renderer_context": "indoor",
             }
         ]
     finally:
@@ -3538,7 +3538,7 @@ def test_test_lab_blink_fallback_prompts_avoid_decorative_frame_language():
     assert len(layers) == 1
     assert [layer.asset_kind for layer in layers] == ["cutout"]
     assert [layer.enter_at_seconds for layer in layers] == [0.0]
-    assert scene.renderer_context == "plain"
+    assert scene.renderer_context == "outdoor"
     for layer in layers:
         prompt = layer.prompt.lower()
         assert layer.asset_kind == "cutout"

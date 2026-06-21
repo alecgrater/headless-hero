@@ -57,7 +57,7 @@ export interface VideoFX {
 }
 
 export type VisualMode = "video" | "full_frame" | "multi_frame" | "continuous" | "popup_sequence" | "blink" | "comparison_board" | "captions" | "stat_card";
-export type RendererContext = "plain" | "outdoor" | "desk" | "classroom" | "office" | "kitchen" | "lab";
+export type RendererContext = "outdoor" | "indoor";
 
 export interface VisualCanvas {
   background_color: string;

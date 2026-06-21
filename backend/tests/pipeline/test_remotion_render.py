@@ -145,12 +145,12 @@ def test_scene_input_props_include_renderer_context():
         visual_prompt="Teacher character.",
         visual_mode="blink",
         blink_action="blink",
-        renderer_context="classroom",
+        renderer_context="indoor",
     )
 
     props = remotion_render._scene_to_input_props(scene, "script-1")
 
-    assert props["renderer_context"] == "classroom"
+    assert props["renderer_context"] == "indoor"
 
 
 def test_scene_input_props_include_blink_action():
@@ -229,14 +229,14 @@ def test_subtitle_render_fingerprint_includes_renderer_context_for_canvas_modes(
         visual_prompt="Teacher character.",
         visual_mode="blink",
         blink_action="blink",
-        renderer_context="classroom",
+        renderer_context="indoor",
     )
     content = ScriptContent(title="T", segments=[Segment(name="S", scenes=[scene])])
 
     fingerprint = remotion_render.subtitle_render_fingerprint(content)
 
-    assert fingerprint["renderer_context_stage_version"] == "renderer-context-stage-v3"
-    assert fingerprint["scenes"][0]["renderer_context"] == "classroom"
+    assert fingerprint["renderer_context_stage_version"] == "renderer-context-stage-v4"
+    assert fingerprint["scenes"][0]["renderer_context"] == "indoor"
 
 
 def test_subtitle_settings_from_env_normalize_values(monkeypatch):

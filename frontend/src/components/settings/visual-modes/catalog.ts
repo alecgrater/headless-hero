@@ -157,7 +157,7 @@ export const VISUAL_MODE_CATALOG: VisualModeEntry[] = [
     label: "Flip Flop",
     shortDescription: "Experimental human cutout with renderer-owned micro-expression toggles.",
     longDescription:
-      "A transparent neutral human/character base cutout is keyed onto one of six renderer-owned setting stages, then Remotion toggles deterministic eyelid overlays for the blink action. The stages use flat cartoon backgrounds with sparse cues, such as outdoor grass/sky or simple desk, classroom, office, kitchen, and lab props. This mode is currently Test Lab-only; production scriptwriting and visual analysis choose another visual mode. Legacy two-state assets can still render, but new Test Lab runs avoid shared A/B sheet registration.",
+      "A transparent neutral human/character base cutout is keyed onto an outdoor or indoor renderer-owned stage, then Remotion toggles deterministic eyelid overlays for the blink action. The stages use the same sparse flat cartoon layout; indoor swaps the palette and adds a simple window pane. This mode is currently Test Lab-only; production scriptwriting and visual analysis choose another visual mode. Legacy two-state assets can still render, but new Test Lab runs avoid shared A/B sheet registration.",
     previewSrc: "/visual-modes/blink.mp4",
     durationProfile: "normal",
     durationLabel: "Normal target · 5-9s",

@@ -132,28 +132,22 @@ describe("layerChromeStyle", () => {
 });
 
 describe("RendererContextStage", () => {
-  it("normalizes unknown contexts to plain", () => {
-    expect(normalizeRendererContext("classroom")).toBe("classroom");
+  it("normalizes contexts to the two-stage vocabulary", () => {
+    expect(normalizeRendererContext("indoor")).toBe("indoor");
+    expect(normalizeRendererContext("classroom")).toBe("indoor");
+    expect(normalizeRendererContext("kitchen")).toBe("indoor");
     expect(normalizeRendererContext("outdoor")).toBe("outdoor");
-    expect(normalizeRendererContext("unknown")).toBe("plain");
-    expect(normalizeRendererContext("street")).toBe("plain");
-    expect(normalizeRendererContext(undefined)).toBe("plain");
+    expect(normalizeRendererContext("unknown")).toBe("outdoor");
+    expect(normalizeRendererContext("street")).toBe("outdoor");
+    expect(normalizeRendererContext(undefined)).toBe("outdoor");
   });
 
   it("defines a stable version for render fingerprints", () => {
-    expect(RENDERER_CONTEXT_STAGE_VERSION).toBe("renderer-context-stage-v3");
+    expect(RENDERER_CONTEXT_STAGE_VERSION).toBe("renderer-context-stage-v4");
   });
 
-  it("exposes exactly six illustrated presets plus the plain fallback", () => {
-    expect(RENDERER_CONTEXTS).toEqual([
-      "plain",
-      "outdoor",
-      "desk",
-      "classroom",
-      "office",
-      "kitchen",
-      "lab",
-    ]);
+  it("exposes only outdoor and indoor renderer contexts", () => {
+    expect(RENDERER_CONTEXTS).toEqual(["outdoor", "indoor"]);
   });
 
   it("renders screenshot-inspired outdoor context shapes", () => {
@@ -164,32 +158,20 @@ describe("RendererContextStage", () => {
     expect(elements.some((element) => element.id === "horizon-line")).toBe(true);
   });
 
-  it("renders deterministic classroom context shapes", () => {
-    const elements = rendererContextElements("classroom");
+  it("renders indoor as alternate colors plus a window pane", () => {
+    const elements = rendererContextElements("indoor");
+    const elementIds = elements.map((element) => element.id);
 
-    expect(elements.some((element) => element.id === "classroom-wall-fill")).toBe(true);
-    expect(elements.some((element) => element.id === "classroom-floor-band")).toBe(true);
-    expect(elements.some((element) => element.id === "classroom-board")).toBe(true);
-    expect(elements.some((element) => element.id === "floor-band")).toBe(false);
-  });
-
-  it("renders distinct indoor stages instead of the shared outdoor-like room", () => {
-    const expectations = {
-      desk: ["desk-wall-fill", "desk-floor-band", "desk-surface", "desk-laptop"],
-      office: ["office-wall-fill", "office-floor-band", "office-window", "office-plant"],
-      kitchen: ["kitchen-wall-fill", "kitchen-floor-band", "kitchen-cabinets", "kitchen-counter"],
-      lab: ["lab-wall-fill", "lab-floor-band", "lab-bench", "lab-shelf"],
-    };
-
-    for (const [context, ids] of Object.entries(expectations)) {
-      const elementIds = rendererContextElements(context).map((element) => element.id);
-
-      for (const id of ids) {
-        expect(elementIds).toContain(id);
-      }
-      expect(elementIds).not.toContain("floor-band");
-      expect(elementIds).not.toContain("desk-band");
-    }
+    expect(elementIds).toEqual([
+      "indoor-wall-fill",
+      "indoor-floor-band",
+      "indoor-horizon-line",
+      "indoor-window-frame",
+      "indoor-window-vertical-pane",
+      "indoor-window-horizontal-pane",
+    ]);
+    expect(elements.some((element) => element.id === "sky-fill")).toBe(false);
+    expect(elements.some((element) => element.id === "grass-band")).toBe(false);
   });
 });
 

@@ -542,13 +542,13 @@ def test_scene_accepts_renderer_context():
         visual_prompt="Teacher character near a board.",
         visual_mode="blink",
         blink_action="blink",
-        renderer_context="classroom",
+        renderer_context="indoor",
     )
 
-    assert scene.renderer_context == "classroom"
+    assert scene.renderer_context == "indoor"
 
 
-def test_scene_normalizes_invalid_renderer_context_to_plain():
+def test_scene_normalizes_invalid_renderer_context_to_outdoor():
     scene = Scene(
         id="s1",
         narration="He blinks.",
@@ -558,7 +558,7 @@ def test_scene_normalizes_invalid_renderer_context_to_plain():
         renderer_context="unknown",
     )
 
-    assert scene.renderer_context == "plain"
+    assert scene.renderer_context == "outdoor"
 
 
 def test_scene_clears_blink_action_when_not_blink():
