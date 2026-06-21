@@ -181,25 +181,22 @@ function BlinkAnchorOverlay({ anchor }: { anchor?: Record<string, unknown> | nul
   return (
     <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
       {[left, right].map((eye, index) => {
-        const width = Math.max((eye.width ?? 0.028) * 130, 3.4);
-        const height = Math.max((eye.height ?? 0.018) * 160, 2.3);
-        const x = eye.x * 100;
-        const y = eye.y * 100;
+        const geometry = blinkAuditEyeOverlayGeometry(eye);
         return (
           <g key={index}>
             <rect
-              x={x - width / 2}
-              y={y - height / 2}
-              width={width}
-              height={height}
-              rx={height / 2}
+              x={geometry.mask.x}
+              y={geometry.mask.y}
+              width={geometry.mask.width}
+              height={geometry.mask.height}
+              rx={geometry.mask.rx}
               fill={skinFill}
             />
             <path
-              d={`M${x - width * 0.36} ${y} Q${x} ${y - height * 0.22} ${x + width * 0.36} ${y}`}
+              d={`M${geometry.lid.left} ${geometry.lid.y} Q${geometry.lid.center} ${geometry.lid.liftedY} ${geometry.lid.right} ${geometry.lid.y}`}
               fill="none"
               stroke="#2A1712"
-              strokeWidth="0.8"
+              strokeWidth={geometry.lid.strokeWidth}
               strokeLinecap="round"
             />
           </g>
@@ -208,6 +205,57 @@ function BlinkAnchorOverlay({ anchor }: { anchor?: Record<string, unknown> | nul
     </svg>
   );
 }
+
+export function blinkAuditEyeOverlayGeometry(eye: BlinkAuditAnchorPoint) {
+  const eyeWidth = eye.width ?? 0.028;
+  const eyeHeight = eye.height ?? 0.018;
+  const minimalistDotEye = eyeWidth <= 0.018 && eyeHeight <= 0.018;
+  const maskWidth = minimalistDotEye
+    ? clamp(eyeWidth * 100 * 2.6, 1.2, 2.6)
+    : clamp(eyeWidth * 100 * 1.75, 2.4, 6.6);
+  const maskHeight = minimalistDotEye
+    ? clamp(eyeHeight * 100 * 2.0, 1.0, 2.4)
+    : clamp(eyeHeight * 100 * 1.18, 1.6, 7.4);
+  const centerX = eye.x * 100;
+  const centerY = eye.y * 100;
+  const lidHalfWidth = minimalistDotEye
+    ? clamp(eyeWidth * 100 * 1.15, 0.9, 1.45)
+    : clamp(maskWidth * 0.34, 1.1, 2.3);
+  const lidLift = minimalistDotEye ? 0 : clamp(maskHeight * 0.12, 0.12, 0.42);
+  const strokeWidth = minimalistDotEye ? 0.48 : 0.62;
+  return {
+    mask: {
+      x: roundSvgNumber(centerX - maskWidth / 2),
+      y: roundSvgNumber(centerY - maskHeight / 2),
+      width: roundSvgNumber(maskWidth),
+      height: roundSvgNumber(maskHeight),
+      rx: roundSvgNumber(maskHeight / 2),
+    },
+    lid: {
+      left: roundSvgNumber(centerX - lidHalfWidth),
+      center: roundSvgNumber(centerX),
+      right: roundSvgNumber(centerX + lidHalfWidth),
+      y: roundSvgNumber(centerY),
+      liftedY: roundSvgNumber(centerY - lidLift),
+      strokeWidth,
+    },
+  };
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function roundSvgNumber(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+type BlinkAuditAnchorPoint = {
+  x: number;
+  y: number;
+  width?: number;
+  height?: number;
+};
 
 function pointFromAnchor(anchor: Record<string, unknown> | null | undefined, key: string) {
   const raw = anchor?.[key];

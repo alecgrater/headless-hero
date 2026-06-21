@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import * as api from "../../api";
-import BlinkAuditLab from "./BlinkAuditLab";
+import BlinkAuditLab, { blinkAuditEyeOverlayGeometry } from "./BlinkAuditLab";
 
 vi.mock("../../api", async () => {
   const actual = await vi.importActual<typeof import("../../api")>("../../api");
@@ -16,6 +16,33 @@ vi.mock("../../api", async () => {
 });
 
 describe("BlinkAuditLab", () => {
+  it("keeps minimalist dot-eye blink previews close to the detected eye size", () => {
+    const geometry = blinkAuditEyeOverlayGeometry({
+      x: 0.5129,
+      y: 0.2435,
+      width: 0.0083,
+      height: 0.0146,
+    });
+
+    expect(geometry.mask.width).toBeLessThanOrEqual(2.6);
+    expect(geometry.mask.height).toBeLessThanOrEqual(2.4);
+    expect(geometry.lid.right - geometry.lid.left).toBeLessThanOrEqual(2.9);
+    expect(geometry.lid.strokeWidth).toBeLessThanOrEqual(0.5);
+  });
+
+  it("keeps larger open-eye blink previews wide enough to cover the original eyes", () => {
+    const geometry = blinkAuditEyeOverlayGeometry({
+      x: 0.4802,
+      y: 0.5026,
+      width: 0.0323,
+      height: 0.0601,
+    });
+
+    expect(geometry.mask.width).toBeGreaterThan(5);
+    expect(geometry.mask.height).toBeGreaterThan(6);
+    expect(geometry.lid.right - geometry.lid.left).toBeLessThan(5);
+  });
+
   it("runs and displays a blink audit report", async () => {
     vi.mocked(api.getBlinkAuditReports).mockResolvedValue([]);
     vi.mocked(api.runBlinkAudit).mockResolvedValue({
