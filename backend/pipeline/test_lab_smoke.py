@@ -436,6 +436,12 @@ def _run_single_probe(*, engine, preset_id: str, mode: str, external_api: bool) 
         run_test_lab(engine=engine, run_id=run_id, preset_id=preset_id, settings=settings, job_id=None)
         manifest = load_run_manifest(run_id)
     except Exception as exc:
+        probe_cost = 0.0
+        try:
+            manifest = load_run_manifest(run_id)
+            probe_cost = round(float(manifest.total_cost or 0.0), 4)
+        except Exception:
+            pass
         return (
             SmokeTestCheck(
                 id=f"render-probe-{mode}",
@@ -447,7 +453,7 @@ def _run_single_probe(*, engine, preset_id: str, mode: str, external_api: bool) 
                 run_id=run_id,
                 next_action=f"Open Test Lab run {run_id} and backend logs; fix the failing {mode} pipeline stage.",
             ),
-            0.0,
+            probe_cost,
         )
     probe_cost = round(float(manifest.total_cost or 0.0), 4)
     if manifest.status != "completed":

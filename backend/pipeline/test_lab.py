@@ -1448,10 +1448,7 @@ def run_test_lab(
             log_stage(manifest, stage, "completed", f"Completed {stage}")
             save_run_manifest(manifest)
 
-        with Session(engine) as session:
-            cost = build_cost_breakdown(session, script_id)
-        manifest.cost_breakdown = cost
-        manifest.total_cost = cost["total_cost"]
+        _update_manifest_cost(engine, manifest, script_id)
         manifest.status = "completed"
         save_run_manifest(manifest)
         if job_id:
@@ -1473,17 +1470,30 @@ def run_test_lab(
             cancelled = is_cancelled(job_id)
         if cancelled:
             log_stage(manifest, "run", "cancelled", str(exc))
+            _update_manifest_cost(engine, manifest, manifest.script_id)
             manifest.status = "cancelled"
             save_run_manifest(manifest)
             if job_id:
                 update_job(job_id, status="cancelled", error=str(exc), current_step="Test Lab run cancelled")
         else:
             log_stage(manifest, "run", "failed", str(exc))
+            _update_manifest_cost(engine, manifest, manifest.script_id)
             manifest.status = "failed"
             save_run_manifest(manifest)
             if job_id:
                 update_job(job_id, status="failed", error=str(exc), current_step="Test Lab run failed")
         raise
+
+
+def _update_manifest_cost(engine, manifest: TestLabRunManifest, script_id: str) -> None:
+    try:
+        with Session(engine) as session:
+            cost = build_cost_breakdown(session, script_id)
+    except Exception:
+        logger.exception("Failed to update Test Lab cost for run %s", manifest.run_id)
+        return
+    manifest.cost_breakdown = cost
+    manifest.total_cost = cost["total_cost"]
 
 
 def manifest_path(run_id: str) -> Path:

@@ -206,6 +206,35 @@ def test_smoke_report_sums_probe_manifest_costs(monkeypatch, tmp_path):
     assert load_smoke_report(report.id).total_cost == 0.0167
 
 
+def test_smoke_report_counts_failed_probe_manifest_cost(monkeypatch, tmp_path):
+    import pipeline.test_lab_smoke as smoke
+    from pipeline.test_lab import TestLabRunManifest
+    from pipeline.test_lab_smoke import SmokeTestOptions, run_smoke_test
+
+    def fake_run_test_lab(**_kwargs):
+        raise RuntimeError("render failed after paid asset generation")
+
+    def fake_load_run_manifest(run_id: str):
+        return TestLabRunManifest(
+            run_id=run_id,
+            script_id=f"test-lab-{run_id}",
+            preset_id="coffee-brain",
+            status="failed",
+            total_cost=0.0456,
+        )
+
+    monkeypatch.setattr(smoke, "REPRESENTATIVE_MODES", ("full_frame",))
+    monkeypatch.setattr(smoke, "run_test_lab", fake_run_test_lab)
+    monkeypatch.setattr(smoke, "load_run_manifest", fake_load_run_manifest)
+    engine, _app = _setup_app(monkeypatch, tmp_path)
+
+    report = run_smoke_test(engine=engine, options=SmokeTestOptions(render_heavy=True, external_api=True))
+
+    row = next(check for check in report.checks if check.id == "render-probe-full_frame")
+    assert row.status == "fail"
+    assert report.total_cost == 0.0456
+
+
 def test_smoke_route_returns_report(monkeypatch, tmp_path):
     engine, app = _setup_app(monkeypatch, tmp_path)
     import api.test_lab as test_lab_api

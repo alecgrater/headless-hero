@@ -3757,6 +3757,20 @@ def test_run_test_lab_preserves_cancelled_job_status(monkeypatch, tmp_path):
     job = create_job(scene_count=1)
 
     def fake_audio(ctx):
+        from models.api_usage import ApiUsage
+
+        with Session(ctx.engine) as session:
+            session.add(
+                ApiUsage(
+                    service="elevenlabs",
+                    operation="tts",
+                    model="eleven_v3",
+                    characters=120,
+                    cost_estimate=0.0123,
+                    script_id=ctx.script_id,
+                )
+            )
+            session.commit()
         cancel_job(ctx.job_id)
         test_lab._check_cancelled(ctx)
 
@@ -3785,6 +3799,7 @@ def test_run_test_lab_preserves_cancelled_job_status(monkeypatch, tmp_path):
     assert updated_job is not None
     assert updated_job.status == "cancelled"
     assert manifest.status == "cancelled"
+    assert manifest.total_cost == 0.0123
     assert "cancelled" in manifest.logs[-1].message
 
 
