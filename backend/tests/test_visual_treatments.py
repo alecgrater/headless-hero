@@ -2033,6 +2033,168 @@ def test_generate_visual_fills_explicit_popup_sequence_layers_before_generating(
     ]
 
 
+def test_generate_visual_attaches_full_frame_blink_metadata(monkeypatch):
+    from api import visuals as visuals_api
+    from api.visuals import GenerateVisualRequest
+
+    engine = _build_test_engine()
+    script_id = "regular-full-frame-blink"
+    content = content_with_scenes(
+        Scene(
+            id="scene_001",
+            narration="The worker waits.",
+            visual_prompt="A worker in a kitchen.",
+            visual_mode="full_frame",
+        )
+    )
+
+    monkeypatch.setattr(visuals_api, "_require_character_reference_ready", lambda session, script_id: None)
+    monkeypatch.setattr(
+        visuals_api,
+        "generate_scene_image",
+        lambda **_kwargs: (
+            "/static/projects/regular-full-frame-blink/images/scene_001.png",
+            "Prompt",
+            {"source_type": "ai_generated"},
+        ),
+    )
+    monkeypatch.setattr(
+        visuals_api.full_frame_blink_mod,
+        "build_full_frame_blink_metadata",
+        lambda script_id_arg, scene_id, image_url: {
+            "enabled": True,
+            "action": "blink",
+            "anchor": {"detected": True, "skin_fill": "#F0D2B4", "image_url": image_url},
+        },
+    )
+
+    with Session(engine) as session:
+        session.add(
+            Script(
+                id=script_id,
+                brand_id="brand",
+                topic_title="Treatment Test",
+                script_json=content.model_dump_json(),
+            )
+        )
+        session.commit()
+
+        response = visuals_api.generate_visual(
+            GenerateVisualRequest(
+                script_id=script_id,
+                scene_id="scene_001",
+                visual_prompt="A worker in a kitchen.",
+                visual_mode="full_frame",
+            ),
+            session,
+        )
+
+        stored = session.get(Script, script_id)
+        assert stored is not None
+        stored_scene = ScriptContent.model_validate_json(stored.script_json).segments[0].scenes[0]
+
+    assert response.visual_source_metadata == {
+        "source_type": "ai_generated",
+        "full_frame_blink": {
+            "enabled": True,
+            "action": "blink",
+            "anchor": {
+                "detected": True,
+                "skin_fill": "#F0D2B4",
+                "image_url": "/static/projects/regular-full-frame-blink/images/scene_001.png",
+            },
+        },
+    }
+    assert stored_scene.visual_source_metadata == response.visual_source_metadata
+
+
+def test_generate_visual_batch_attaches_full_frame_blink_metadata(monkeypatch):
+    from api import visuals as visuals_api
+    from api.visuals import BatchResultItem, GenerateBatchRequest, BatchScene
+
+    engine = _build_test_engine()
+    script_id = "batch-full-frame-blink"
+    content = content_with_scenes(
+        Scene(
+            id="scene_001",
+            narration="The worker waits.",
+            visual_prompt="A worker in a kitchen.",
+            visual_mode="full_frame",
+        )
+    )
+
+    monkeypatch.setattr(visuals_api, "_require_character_reference_ready", lambda session, script_id: None)
+    monkeypatch.setattr(
+        visuals_api,
+        "generate_batch",
+        lambda **_kwargs: [
+            {
+                "scene_id": "scene_001",
+                "image_url": "/static/projects/batch-full-frame-blink/images/scene_001.png",
+                "frame_urls": [],
+                "video_url": None,
+                "prompt_used": "Prompt",
+                "visual_source_metadata": {"source_type": "ai_generated"},
+                "visual_layers": [],
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        visuals_api.full_frame_blink_mod,
+        "build_full_frame_blink_metadata",
+        lambda script_id_arg, scene_id, image_url: {
+            "enabled": True,
+            "action": "blink",
+            "anchor": {"detected": True, "skin_fill": "#F0D2B4", "image_url": image_url},
+        },
+    )
+
+    with Session(engine) as session:
+        session.add(
+            Script(
+                id=script_id,
+                brand_id="brand",
+                topic_title="Treatment Test",
+                script_json=content.model_dump_json(),
+            )
+        )
+        session.commit()
+
+        response = visuals_api.generate_visual_batch(
+            GenerateBatchRequest(
+                script_id=script_id,
+                scenes=[
+                    BatchScene(
+                        scene_id="scene_001",
+                        visual_prompt="A worker in a kitchen.",
+                        visual_mode="full_frame",
+                    )
+                ],
+            ),
+            session,
+        )
+
+        stored = session.get(Script, script_id)
+        assert stored is not None
+        stored_scene = ScriptContent.model_validate_json(stored.script_json).segments[0].scenes[0]
+
+    expected_metadata = {
+        "source_type": "ai_generated",
+        "full_frame_blink": {
+            "enabled": True,
+            "action": "blink",
+            "anchor": {
+                "detected": True,
+                "skin_fill": "#F0D2B4",
+                "image_url": "/static/projects/batch-full-frame-blink/images/scene_001.png",
+            },
+        },
+    }
+    assert isinstance(response.results[0], BatchResultItem)
+    assert response.results[0].visual_source_metadata == expected_metadata
+    assert stored_scene.visual_source_metadata == expected_metadata
+
+
 def test_generate_visual_fills_explicit_comparison_layers_after_non_repeatable_scene(monkeypatch):
     from api import visuals as visuals_api
     from api.visuals import GenerateVisualRequest

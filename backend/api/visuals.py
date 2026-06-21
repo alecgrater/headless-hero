@@ -24,6 +24,7 @@ from pipeline.image_gen import (
     generate_stat_card_cutout,
     generate_visual_layer_panels,
 )
+from pipeline import full_frame_blink as full_frame_blink_mod
 from pipeline.render_jobs import UserFacingJobError, create_job, get_job, run_in_background
 from pipeline.formats import resolve_format
 from pipeline.visual_treatments import analyze_visual_treatment_scene, require_visual_treatment_voiceover
@@ -277,6 +278,23 @@ def _layered_mode_for_request(
     scene_mode = getattr(scene, "visual_mode", "full_frame") if scene is not None else "full_frame"
     return scene_mode if scene_mode in LAYERED_VISUAL_MODES else "full_frame"
 
+
+def _metadata_with_full_frame_blink(
+    *,
+    script_id: str,
+    scene_id: str,
+    visual_mode: str,
+    image_url: str,
+    source_metadata: dict | None,
+) -> dict | None:
+    metadata = dict(source_metadata or {})
+    metadata.pop("full_frame_blink", None)
+    if visual_mode in full_frame_blink_mod.MEDIA_BACKED_BLINK_MODES and image_url:
+        blink_metadata = full_frame_blink_mod.build_full_frame_blink_metadata(script_id, scene_id, image_url)
+        if blink_metadata:
+            metadata["full_frame_blink"] = blink_metadata
+    return metadata or None
+
 # --- Endpoints ---
 
 @router.post("/generate", response_model=GenerateVisualResponse)
@@ -423,6 +441,14 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
         frame_urls = [url for url, _, _ in frame_results]
         source_metadata = next((metadata for url, _, metadata in frame_results if url and metadata), None)
         first_image = next((u for u in frame_urls if u), "")
+        media_mode = _media_visual_mode(visual_mode, scene, explicit=explicit_visual_mode)
+        source_metadata = _metadata_with_full_frame_blink(
+            script_id=body.script_id,
+            scene_id=body.scene_id,
+            visual_mode=media_mode,
+            image_url=first_image,
+            source_metadata=source_metadata,
+        )
         if frame_urls:
             _update_scene_with_frames(
                 session,
@@ -431,7 +457,7 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
                 **_with_visual_layers(
                     {
                         "video_url": "",
-                        "visual_mode": _media_visual_mode(visual_mode, scene, explicit=explicit_visual_mode),
+                        "visual_mode": media_mode,
                         "frame_urls": frame_urls,
                         "visual_source_metadata": source_metadata,
                         "visual_layers": visual_layers or [],
@@ -459,6 +485,14 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
         height=body.height,
         contains_person=body.contains_person,
     )
+    media_mode = _media_visual_mode(visual_mode, scene, explicit=explicit_visual_mode)
+    source_metadata = _metadata_with_full_frame_blink(
+        script_id=body.script_id,
+        scene_id=body.scene_id,
+        visual_mode=media_mode,
+        image_url=image_url,
+        source_metadata=source_metadata,
+    )
     visual_layers = _generate_scene_visual_layers(
         content=content,
         scene_id=body.scene_id,
@@ -479,7 +513,7 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
             {
                 "image_url": image_url,
                 "frame_urls": [],
-                "visual_mode": _media_visual_mode(visual_mode, scene, explicit=explicit_visual_mode),
+                "visual_mode": media_mode,
                 "video_url": "",
                 "visual_source_metadata": source_metadata,
                 "visual_layers": visual_layers or [],
@@ -583,7 +617,17 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
             sc.visual_layers = []
         elif r.get("visual_layers"):
             sc.visual_layers = r["visual_layers"]
-        sc.visual_source_metadata = r.get("visual_source_metadata") or METADATA_CLEAR
+        source_metadata = r.get("visual_source_metadata")
+        blink_image_url = sc.image_url if sc.visual_mode in full_frame_blink_mod.MEDIA_BACKED_BLINK_MODES else ""
+        merged_metadata = _metadata_with_full_frame_blink(
+            script_id=body.script_id,
+            scene_id=sc.id,
+            visual_mode=sc.visual_mode,
+            image_url=blink_image_url,
+            source_metadata=source_metadata,
+        )
+        r["visual_source_metadata"] = merged_metadata
+        sc.visual_source_metadata = merged_metadata or METADATA_CLEAR
     record.script_json = content.model_dump_json()
     session.add(record)
     session.commit()
