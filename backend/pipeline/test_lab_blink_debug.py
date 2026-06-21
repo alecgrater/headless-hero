@@ -24,6 +24,7 @@ from pipeline.image_gen import (
     generate_blink_base_cutout,
 )
 from pipeline.remotion_render import render_full_video
+from pipeline.renderer_context import RendererContext, normalize_renderer_context
 
 BlinkDebugAction = Literal["blink"]
 BLINK_FIXTURE_SCRIPT_ID = "test-lab-blink-fixtures"
@@ -183,6 +184,7 @@ def render_blink_fixture_preview(
     *,
     asset_id: str,
     action: BlinkDebugAction = "blink",
+    renderer_context: RendererContext | str = "kitchen",
 ) -> BlinkFixtureRenderResult:
     """Render a real Remotion preview from a saved fixture asset without provider calls."""
 
@@ -196,7 +198,7 @@ def render_blink_fixture_preview(
         contains_person=True,
         visual_mode="blink",
         blink_action=action,
-        renderer_context="kitchen",
+        renderer_context=normalize_renderer_context(renderer_context),
         visual_layers=[
             VisualLayer(
                 id=BLINK_FIXTURE_LAYER_ID,

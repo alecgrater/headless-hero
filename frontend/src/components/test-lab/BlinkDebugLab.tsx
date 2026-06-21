@@ -14,9 +14,18 @@ import type {
   BlinkFixtureRenderResult,
   BlinkFixtureResult,
 } from "../../types/testLab";
+import type { RendererContext } from "../../types/script";
 
 const FIXTURE_SCRIPT_ID = "test-lab-blink-fixtures";
 const BLINK_ACTION = "blink" as const;
+const BACKGROUND_OPTIONS: Array<{ value: RendererContext; label: string }> = [
+  { value: "outdoor", label: "Outdoor" },
+  { value: "desk", label: "Desk" },
+  { value: "classroom", label: "Classroom" },
+  { value: "office", label: "Office" },
+  { value: "kitchen", label: "Kitchen" },
+  { value: "lab", label: "Lab" },
+];
 
 export default function BlinkDebugLab() {
   const [assets, setAssets] = useState<BlinkDebugAsset[]>([]);
@@ -24,6 +33,7 @@ export default function BlinkDebugLab() {
   const [result, setResult] = useState<BlinkDebugResult | null>(null);
   const [fixtureResult, setFixtureResult] = useState<BlinkFixtureResult | null>(null);
   const [renderResult, setRenderResult] = useState<BlinkFixtureRenderResult | null>(null);
+  const [rendererContext, setRendererContext] = useState<RendererContext>("kitchen");
   const [loadingAssets, setLoadingAssets] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [generatingFixture, setGeneratingFixture] = useState(false);
@@ -97,7 +107,7 @@ export default function BlinkDebugLab() {
     setRenderingFixture(true);
     setError("");
     try {
-      const next = await renderBlinkFixturePreview(selectedAssetId, BLINK_ACTION);
+      const next = await renderBlinkFixturePreview(selectedAssetId, BLINK_ACTION, rendererContext);
       if (!next) {
         setError("The saved blink fixture could not be rendered.");
         return;
@@ -182,6 +192,24 @@ export default function BlinkDebugLab() {
               <span className="mr-1.5 text-neutral-500">Blink action:</span>
               Blink
             </span>
+            <label className="inline-flex h-10 items-center gap-2 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-xs font-medium text-neutral-100 transition-colors hover:border-neutral-700 focus-within:border-violet-500">
+              <span className="text-neutral-500">Background</span>
+              <select
+                aria-label="Background"
+                value={rendererContext}
+                onChange={(event) => {
+                  setRendererContext(event.target.value as RendererContext);
+                  setRenderResult(null);
+                }}
+                className="bg-transparent text-xs font-semibold text-neutral-100 outline-none"
+              >
+                {BACKGROUND_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
             <button
               onClick={() => runAnalysis()}
               disabled={!selectedAsset || analyzing}

@@ -104,6 +104,10 @@ describe("BlinkDebugLab", () => {
     render(<BlinkDebugLab />);
 
     expect(await screen.findByText("Blink base: scene")).toBeInTheDocument();
+    expect(screen.getByLabelText("Background")).toHaveValue("kitchen");
+    fireEvent.change(screen.getByLabelText("Background"), {
+      target: { value: "outdoor" },
+    });
     fireEvent.click(screen.getByRole("button", { name: /generate fixture assets/i }));
 
     await waitFor(() => {
@@ -117,6 +121,7 @@ describe("BlinkDebugLab", () => {
       expect(renderBlinkFixturePreview).toHaveBeenCalledWith(
         "test-lab-run/blink_cutouts/scene/base_scene_base.png",
         "blink",
+        "outdoor",
       );
     });
     expect(await screen.findByText("Remotion preview")).toBeInTheDocument();

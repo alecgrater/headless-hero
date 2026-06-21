@@ -247,10 +247,12 @@ export async function createBlinkFixtureAsset(): Promise<BlinkFixtureResult | nu
 export async function renderBlinkFixturePreview(
   assetId: string,
   action: BlinkDebugAction,
+  rendererContext: string,
 ): Promise<BlinkFixtureRenderResult | null> {
   const res = await api.post<BlinkFixtureRenderResult>("/api/test-lab/blink/render", {
     asset_id: assetId,
     action,
+    renderer_context: rendererContext,
   });
   return res.ok ? res.data : null;
 }

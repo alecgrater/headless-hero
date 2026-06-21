@@ -1438,7 +1438,19 @@ def test_blink_fixture_endpoints_create_and_render(monkeypatch, tmp_path):
             }
 
     monkeypatch.setattr(test_lab_api, "create_blink_fixture_asset", lambda visual_prompt, narration="", force=False: FakeFixture())
-    monkeypatch.setattr(test_lab_api, "render_blink_fixture_preview", lambda asset_id, action: FakeRender())
+    render_calls = []
+
+    def fake_render_blink_fixture_preview(asset_id, action, renderer_context="plain"):
+        render_calls.append(
+            {
+                "asset_id": asset_id,
+                "action": action,
+                "renderer_context": renderer_context,
+            }
+        )
+        return FakeRender()
+
+    monkeypatch.setattr(test_lab_api, "render_blink_fixture_preview", fake_render_blink_fixture_preview)
 
     client = TestClient(app)
 
@@ -1452,6 +1464,7 @@ def test_blink_fixture_endpoints_create_and_render(monkeypatch, tmp_path):
             json={
                 "asset_id": "test-lab-blink-fixtures/blink_cutouts/fixture-scene/base_blink_fixture_base.png",
                 "action": "blink",
+                "renderer_context": "outdoor",
             },
         )
 
@@ -1460,6 +1473,13 @@ def test_blink_fixture_endpoints_create_and_render(monkeypatch, tmp_path):
         assert render.status_code == 200
         assert render.json()["used_external_api"] is False
         assert render.json()["render_url"].endswith("/full_youtube.mp4")
+        assert render_calls == [
+            {
+                "asset_id": "test-lab-blink-fixtures/blink_cutouts/fixture-scene/base_blink_fixture_base.png",
+                "action": "blink",
+                "renderer_context": "outdoor",
+            }
+        ]
     finally:
         from database import get_session
 

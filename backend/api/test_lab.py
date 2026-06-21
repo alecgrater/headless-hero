@@ -37,6 +37,7 @@ from pipeline.test_lab_blink_debug import (
     list_blink_debug_assets,
     render_blink_fixture_preview,
 )
+from pipeline.renderer_context import RendererContext, normalize_renderer_context
 
 router = APIRouter(prefix="/api/test-lab", tags=["test-lab"])
 
@@ -127,6 +128,7 @@ class BlinkFixtureRequest(BaseModel):
 class BlinkFixtureRenderRequest(BaseModel):
     asset_id: str = Field(min_length=1)
     action: BlinkDebugAction = "blink"
+    renderer_context: RendererContext | str = "kitchen"
 
 
 def _default_main_character(session: Session) -> dict[str, str] | None:
@@ -368,7 +370,11 @@ def create_blink_fixture(request: BlinkFixtureRequest):
 @router.post("/blink/render")
 def render_blink_fixture(request: BlinkFixtureRenderRequest):
     try:
-        result = render_blink_fixture_preview(asset_id=request.asset_id, action=request.action)
+        result = render_blink_fixture_preview(
+            asset_id=request.asset_id,
+            action=request.action,
+            renderer_context=normalize_renderer_context(request.renderer_context),
+        )
         return result.model_dump(mode="json")
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
