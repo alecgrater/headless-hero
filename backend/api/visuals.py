@@ -25,6 +25,7 @@ from pipeline.image_gen import (
     generate_visual_layer_panels,
 )
 from pipeline import full_frame_blink as full_frame_blink_mod
+from pipeline import project_blink_review
 from pipeline.render_jobs import UserFacingJobError, create_job, get_job, run_in_background
 from pipeline.formats import resolve_format
 from pipeline.visual_treatments import analyze_visual_treatment_scene, require_visual_treatment_voiceover
@@ -290,7 +291,7 @@ def _metadata_with_full_frame_blink(
     metadata = dict(source_metadata or {})
     metadata.pop("full_frame_blink", None)
     if visual_mode in full_frame_blink_mod.MEDIA_BACKED_BLINK_MODES and image_url:
-        blink_metadata = full_frame_blink_mod.build_full_frame_blink_metadata(script_id, scene_id, image_url)
+        blink_metadata = project_blink_review.build_unreviewed_full_frame_blink_metadata(script_id, scene_id, image_url)
         if blink_metadata:
             metadata["full_frame_blink"] = blink_metadata
     return metadata or None

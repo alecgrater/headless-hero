@@ -106,6 +106,7 @@ def _phase_images(ctx: ExportContext) -> None:
         generate_visual_layer_panels,
     )
     from pipeline import full_frame_blink as full_frame_blink_mod
+    from pipeline import project_blink_review
 
     non_tc = [sc for sc in ctx.scenes if not sc.get("is_title_card")]
     scene_count = len(non_tc)
@@ -168,7 +169,7 @@ def _phase_images(ctx: ExportContext) -> None:
         if visual_mode in full_frame_blink_mod.MEDIA_BACKED_BLINK_MODES:
             blink_image_url = sc_info.get("_image_url") or ""
             if blink_image_url:
-                sc_info["_full_frame_blink"] = full_frame_blink_mod.build_full_frame_blink_metadata(
+                sc_info["_full_frame_blink"] = project_blink_review.build_unreviewed_full_frame_blink_metadata(
                     ctx.script_id,
                     sid,
                     blink_image_url,

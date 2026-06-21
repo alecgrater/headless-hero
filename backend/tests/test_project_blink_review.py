@@ -91,3 +91,104 @@ def test_refresh_blink_review_resets_stale_review_when_image_changes(monkeypatch
     assert metadata["fingerprint"] != "old-fingerprint"
     assert metadata["enabled"] is False
     assert metadata["review"]["status"] == "unreviewed"
+
+
+def test_blink_review_api_returns_project_candidates(monkeypatch):
+    from api.blink_review import get_blink_review
+    import pipeline.project_blink_review as review
+    from sqlmodel import Session, SQLModel, create_engine
+    from sqlmodel.pool import StaticPool
+
+    import models.brand  # noqa: F401
+    import models.script  # noqa: F401
+
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    SQLModel.metadata.create_all(engine)
+    content = content_with_scene(
+        Scene(
+            id="scene_001",
+            narration="A worker waits.",
+            visual_prompt="Worker",
+            visual_mode="full_frame",
+            image_url="/static/projects/script-1/images/scene_001.png",
+        )
+    )
+    monkeypatch.setattr(
+        review,
+        "refresh_project_blink_review",
+        lambda content, script_id: review.BlinkReviewSummary(
+            script_id=script_id,
+            candidates=[
+                review.BlinkReviewCandidate(
+                    scene_id="scene_001",
+                    scene_label="A worker waits.",
+                    image_url="/static/projects/script-1/images/scene_001.png",
+                    eligible=True,
+                    fingerprint="abc",
+                    review_status="unreviewed",
+                )
+            ],
+            eligible_count=1,
+            unreviewed_count=1,
+            complete=False,
+        ),
+    )
+    with Session(engine) as session:
+        session.add(Script(id="script-1", brand_id="brand", script_json=content.model_dump_json(), created_at=datetime.now(timezone.utc)))
+        session.commit()
+        response = get_blink_review("script-1", session)
+
+    assert response["eligible_count"] == 1
+    assert response["complete"] is False
+
+
+def test_blink_review_api_persists_decision(monkeypatch):
+    from api.blink_review import UpdateBlinkReviewDecisionRequest, update_blink_review_decision
+    from sqlmodel import Session, SQLModel, create_engine
+    from sqlmodel.pool import StaticPool
+
+    import models.brand  # noqa: F401
+    import models.script  # noqa: F401
+
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    SQLModel.metadata.create_all(engine)
+    content = content_with_scene(
+        Scene(
+            id="scene_001",
+            narration="A worker waits.",
+            visual_prompt="Worker",
+            visual_mode="full_frame",
+            image_url="/static/projects/script-1/images/scene_001.png",
+            visual_source_metadata={
+                "full_frame_blink": {
+                    "enabled": False,
+                    "action": "blink",
+                    "fingerprint": "abc",
+                    "anchor": {"detected": True},
+                    "review": {"status": "unreviewed"},
+                }
+            },
+        )
+    )
+    monkeypatch.setattr(
+        "pipeline.project_blink_review.refresh_project_blink_review",
+        lambda content, script_id: __import__(
+            "pipeline.project_blink_review",
+            fromlist=["BlinkReviewSummary"],
+        ).BlinkReviewSummary(script_id=script_id, candidates=[], complete=True),
+    )
+    with Session(engine) as session:
+        session.add(Script(id="script-1", brand_id="brand", script_json=content.model_dump_json(), created_at=datetime.now(timezone.utc)))
+        session.commit()
+        update_blink_review_decision(
+            "script-1",
+            "scene_001",
+            UpdateBlinkReviewDecisionRequest(status="enabled"),
+            session,
+        )
+        stored = session.get(Script, "script-1")
+        updated = ScriptContent.model_validate_json(stored.script_json)
+
+    blink = updated.segments[0].scenes[0].visual_source_metadata["full_frame_blink"]
+    assert blink["enabled"] is True
+    assert blink["review"]["status"] == "enabled"

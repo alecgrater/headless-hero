@@ -1106,8 +1106,8 @@ def test_phase_images_regenerates_frame_sequence_for_multi_frame_mode(monkeypatc
 
 
 def test_phase_images_attaches_production_full_frame_blink_metadata(monkeypatch):
-    from pipeline import full_frame_blink as full_frame_blink_mod
     from pipeline import image_gen as image_gen_mod
+    from pipeline import project_blink_review
     from pipeline import render_phases as render_phases_mod
     from pipeline.render_phases import ExportContext, _phase_images
 
@@ -1125,15 +1125,16 @@ def test_phase_images_attaches_production_full_frame_blink_metadata(monkeypatch)
         "generate_scene_image",
         lambda *_args, **_kwargs: ("/static/projects/script-1/images/scene_001.png", "", {}),
     )
-    monkeypatch.setattr(full_frame_blink_mod, "deterministic_blink_enabled", lambda *_args: True)
     monkeypatch.setattr(
-        full_frame_blink_mod,
-        "detect_full_frame_blink_anchor",
-        lambda _path: full_frame_blink_mod.FullFrameBlinkDetection(
-            status="passed",
-            eligible=True,
-            anchor={"detected": True, "skin_fill": "#F0D2B4", "eye_left": {"x": 0.4, "y": 0.3}},
-        ),
+        project_blink_review,
+        "build_unreviewed_full_frame_blink_metadata",
+        lambda script_id, scene_id, image_url: {
+            "enabled": False,
+            "action": "blink",
+            "fingerprint": "abc",
+            "anchor": {"detected": True, "skin_fill": "#F0D2B4", "eye_left": {"x": 0.4, "y": 0.3}},
+            "review": {"status": "unreviewed"},
+        },
     )
 
     ctx = ExportContext(
@@ -1164,9 +1165,11 @@ def test_phase_images_attaches_production_full_frame_blink_metadata(monkeypatch)
     _phase_images(ctx)
 
     assert ctx.scenes[0]["_full_frame_blink"] == {
-        "enabled": True,
+        "enabled": False,
         "action": "blink",
+        "fingerprint": "abc",
         "anchor": {"detected": True, "skin_fill": "#F0D2B4", "eye_left": {"x": 0.4, "y": 0.3}},
+        "review": {"status": "unreviewed"},
     }
 
 
@@ -1202,9 +1205,11 @@ def test_phase_persist_writes_full_frame_blink_metadata(monkeypatch):
             {
                 "scene_id": "scene_001",
                 "_full_frame_blink": {
-                    "enabled": True,
+                    "enabled": False,
                     "action": "blink",
+                    "fingerprint": "abc",
                     "anchor": {"detected": True, "skin_fill": "#F0D2B4"},
+                    "review": {"status": "unreviewed"},
                 },
             }
         ],
@@ -1230,9 +1235,11 @@ def test_phase_persist_writes_full_frame_blink_metadata(monkeypatch):
         stored_content = ScriptContent.model_validate_json(stored.script_json)
         assert stored_content.segments[0].scenes[0].visual_source_metadata == {
             "full_frame_blink": {
-                "enabled": True,
+                "enabled": False,
                 "action": "blink",
+                "fingerprint": "abc",
                 "anchor": {"detected": True, "skin_fill": "#F0D2B4"},
+                "review": {"status": "unreviewed"},
             }
         }
 
@@ -2059,12 +2066,14 @@ def test_generate_visual_attaches_full_frame_blink_metadata(monkeypatch):
         ),
     )
     monkeypatch.setattr(
-        visuals_api.full_frame_blink_mod,
-        "build_full_frame_blink_metadata",
+        visuals_api.project_blink_review,
+        "build_unreviewed_full_frame_blink_metadata",
         lambda script_id_arg, scene_id, image_url: {
-            "enabled": True,
+            "enabled": False,
             "action": "blink",
+            "fingerprint": "abc",
             "anchor": {"detected": True, "skin_fill": "#F0D2B4", "image_url": image_url},
+            "review": {"status": "unreviewed"},
         },
     )
 
@@ -2096,13 +2105,15 @@ def test_generate_visual_attaches_full_frame_blink_metadata(monkeypatch):
     assert response.visual_source_metadata == {
         "source_type": "ai_generated",
         "full_frame_blink": {
-            "enabled": True,
+            "enabled": False,
             "action": "blink",
+            "fingerprint": "abc",
             "anchor": {
                 "detected": True,
                 "skin_fill": "#F0D2B4",
                 "image_url": "/static/projects/regular-full-frame-blink/images/scene_001.png",
             },
+            "review": {"status": "unreviewed"},
         },
     }
     assert stored_scene.visual_source_metadata == response.visual_source_metadata
@@ -2140,12 +2151,14 @@ def test_generate_visual_batch_attaches_full_frame_blink_metadata(monkeypatch):
         ],
     )
     monkeypatch.setattr(
-        visuals_api.full_frame_blink_mod,
-        "build_full_frame_blink_metadata",
+        visuals_api.project_blink_review,
+        "build_unreviewed_full_frame_blink_metadata",
         lambda script_id_arg, scene_id, image_url: {
-            "enabled": True,
+            "enabled": False,
             "action": "blink",
+            "fingerprint": "abc",
             "anchor": {"detected": True, "skin_fill": "#F0D2B4", "image_url": image_url},
+            "review": {"status": "unreviewed"},
         },
     )
 
@@ -2181,13 +2194,15 @@ def test_generate_visual_batch_attaches_full_frame_blink_metadata(monkeypatch):
     expected_metadata = {
         "source_type": "ai_generated",
         "full_frame_blink": {
-            "enabled": True,
+            "enabled": False,
             "action": "blink",
+            "fingerprint": "abc",
             "anchor": {
                 "detected": True,
                 "skin_fill": "#F0D2B4",
                 "image_url": "/static/projects/batch-full-frame-blink/images/scene_001.png",
             },
+            "review": {"status": "unreviewed"},
         },
     }
     assert isinstance(response.results[0], BatchResultItem)
