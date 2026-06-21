@@ -159,6 +159,10 @@ def test_detect_full_frame_blink_anchor_uses_eye_whites_inside_main_face(tmp_pat
     assert result.anchor is not None
     assert 0.46 <= result.anchor["eye_left"]["x"] <= 0.52
     assert 0.51 <= result.anchor["eye_right"]["x"] <= 0.57
+    for key in ("eye_left", "eye_right"):
+        erase_box = result.anchor[key]["erase_box"]
+        assert erase_box["right"] - erase_box["left"] <= 0.07
+        assert erase_box["bottom"] - erase_box["top"] <= 0.11
 
 
 def test_run_full_frame_blink_audit_discovers_media_backed_scene(monkeypatch, tmp_path):

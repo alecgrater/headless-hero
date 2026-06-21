@@ -16,7 +16,6 @@ from config import DATA_DIR
 from models.script import Script, ScriptContent
 from pipeline.image_gen import (
     BLINK_CUTOUT_REGISTRATION_VERSION,
-    _blink_eye_erase_box,
     _blink_eye_fill_gradient,
     _sample_blink_face_skin_fill,
 )
@@ -64,7 +63,7 @@ def detect_full_frame_blink_anchor(image_path: Path) -> FullFrameBlinkDetection:
     try:
         with Image.open(image_path) as image:
             rgba = image.convert("RGBA")
-            detected = _detect_full_frame_main_face_anchor_points(rgba)
+            detected = _detect_full_frame_main_face_anchor_points(_full_frame_detection_image(rgba))
             if detected is None:
                 return FullFrameBlinkDetection(status="failed", eligible=False, reason="face_landmarks_missing")
             skin_fill = _sample_blink_face_skin_fill(rgba, detected)
@@ -164,13 +163,28 @@ def _anchor_is_full_frame_eligible(anchor: dict[str, object]) -> bool:
     return isinstance(anchor.get("skin_fill"), str)
 
 
+def _full_frame_detection_image(image: Image.Image) -> Image.Image:
+    max_dimension = 960
+    width, height = image.size
+    largest_dimension = max(width, height)
+    if largest_dimension <= max_dimension:
+        return image
+    scale = max_dimension / largest_dimension
+    resized = image.resize(
+        (max(1, round(width * scale)), max(1, round(height * scale))),
+        Image.Resampling.NEAREST,
+    )
+    return resized.convert("RGBA")
+
+
 def _detect_full_frame_main_face_anchor_points(image: Image.Image) -> dict[str, dict[str, float]] | None:
     width, height = image.size
     if width <= 0 or height <= 0:
         return None
-    skin_components = _collect_full_frame_components(image, "skin")
-    dark_components = _collect_full_frame_components(image, "dark")
-    light_eye_components = _collect_full_frame_components(image, "light_eye")
+    components_by_kind = _collect_full_frame_components(image)
+    skin_components = components_by_kind["skin"]
+    dark_components = components_by_kind["dark"]
+    light_eye_components = components_by_kind["light_eye"]
     components = [*skin_components, *dark_components, *light_eye_components]
     face_components = [
         component
@@ -196,28 +210,40 @@ def _detect_full_frame_main_face_anchor_points(image: Image.Image) -> dict[str, 
     return None
 
 
-def _collect_full_frame_components(image: Image.Image, kind: str) -> list[dict[str, float]]:
+def _collect_full_frame_components(image: Image.Image) -> dict[str, list[dict[str, float]]]:
     width, height = image.size
     pixels = image.load()
-    points: set[tuple[int, int]] = set()
+    points_by_kind = {
+        "skin": set(),
+        "dark": set(),
+        "light_eye": set(),
+    }
     for y in range(round(height * 0.04), round(height * 0.82)):
         for x in range(round(width * 0.03), round(width * 0.97)):
             red, green, blue, alpha = pixels[x, y]
-            if kind == "skin":
-                matches = _is_full_frame_skin_pixel(red, green, blue, alpha)
-            elif kind == "dark":
-                matches = alpha > 80 and red < 70 and green < 70 and blue < 70
-            else:
-                channel_max = max(red, green, blue)
-                channel_min = min(red, green, blue)
-                brightness = (red + green + blue) / 3
-                matches = alpha > 120 and channel_min > 165 and brightness > 190 and channel_max - channel_min < 35
-            if matches:
-                points.add((x, y))
+            if _is_full_frame_skin_pixel(red, green, blue, alpha):
+                points_by_kind["skin"].add((x, y))
+            if alpha > 80 and red < 70 and green < 70 and blue < 70:
+                points_by_kind["dark"].add((x, y))
+            if _is_full_frame_light_eye_pixel(red, green, blue, alpha):
+                points_by_kind["light_eye"].add((x, y))
 
+    return {
+        kind: _components_from_points(points, width, height, kind, min_area=60 if kind == "skin" else 8)
+        for kind, points in points_by_kind.items()
+    }
+
+
+def _components_from_points(
+    points: set[tuple[int, int]],
+    width: int,
+    height: int,
+    kind: str,
+    *,
+    min_area: int,
+) -> list[dict[str, float]]:
     collected: list[dict[str, float]] = []
     seen: set[tuple[int, int]] = set()
-    min_area = 60 if kind == "skin" else 8
     for point in list(points):
         if point in seen:
             continue
@@ -260,6 +286,15 @@ def _collect_full_frame_components(image: Image.Image, kind: str) -> list[dict[s
             }
         )
     return collected
+
+
+def _is_full_frame_light_eye_pixel(red: int, green: int, blue: int, alpha: int) -> bool:
+    if alpha <= 120:
+        return False
+    channel_max = max(red, green, blue)
+    channel_min = min(red, green, blue)
+    brightness = (red + green + blue) / 3
+    return channel_min > 170 and brightness > 195 and channel_max - channel_min < 22
 
 
 def _is_full_frame_skin_pixel(red: int, green: int, blue: int, alpha: int) -> bool:
@@ -314,11 +349,16 @@ def _anchor_for_face_component(
                 continue
             midpoint = (left_eye["cx"] + right_eye["cx"]) / 2
             eye_y = (left_eye["cy"] + right_eye["cy"]) / 2
+            relative_eye_y = (eye_y - face_top) / max(face_height, 0.001)
             mouth = _mouth_for_face(face, dark_components, midpoint, eye_y)
-            eye_shape_score = _eye_component_shape_score(left_eye) + _eye_component_shape_score(right_eye)
+            eye_shape_score = (
+                _eye_component_shape_score(left_eye, face)
+                + _eye_component_shape_score(right_eye, face)
+            )
             score = (
-                -abs(midpoint - face["cx"]) * 1.5
+                -abs(midpoint - face["cx"]) * 0.6
                 -abs(relative_separation - 0.36) * 0.4
+                -abs(relative_eye_y - 0.34) * 1.5
                 -y_delta
                 + eye_shape_score
                 + min(face["area"] / 10000.0, 0.4)
@@ -329,8 +369,8 @@ def _anchor_for_face_component(
     _score, left_eye, right_eye, mouth = max(valid_pairs, key=lambda pair: pair[0])
     eye_y = (left_eye["cy"] + right_eye["cy"]) / 2
     brow_y = max(face_top, eye_y - face_height * 0.17)
-    left_erase_box = _blink_eye_erase_box(left_eye, components, image)
-    right_erase_box = _blink_eye_erase_box(right_eye, components, image)
+    left_erase_box = _full_frame_eye_erase_box(left_eye, face)
+    right_erase_box = _full_frame_eye_erase_box(right_eye, face)
     skin_fill = _sample_blink_face_skin_fill(
         image,
         {
@@ -378,15 +418,43 @@ def _anchor_for_face_component(
     }
 
 
-def _eye_component_shape_score(component: dict[str, float]) -> float:
+def _full_frame_eye_erase_box(eye: dict[str, float], face: dict[str, float]) -> dict[str, float]:
+    face_width = face["width"]
+    face_height = face["height"]
+    pad_x = min(max(eye["width"] * 0.45, face_width * 0.025), face_width * 0.08)
+    pad_y = min(max(eye["height"] * 0.12, face_height * 0.018), face_height * 0.04)
+    left = max(face["left"], eye["left"] - pad_x)
+    right = min(face["right"], eye["right"] + pad_x)
+    top = max(face["top"], eye["top"] - pad_y)
+    bottom = min(face["bottom"], eye["bottom"] + pad_y)
+    max_width = face_width * 0.46
+    max_height = face_height * 0.36
+    if right - left > max_width:
+        center_x = eye["cx"]
+        left = max(face["left"], center_x - max_width / 2)
+        right = min(face["right"], center_x + max_width / 2)
+    if bottom - top > max_height:
+        center_y = eye["cy"]
+        top = max(face["top"], center_y - max_height / 2)
+        bottom = min(face["bottom"], center_y + max_height / 2)
+    return {
+        "left": round(max(0.0, left), 4),
+        "top": round(max(0.0, top), 4),
+        "right": round(min(1.0, right), 4),
+        "bottom": round(min(1.0, bottom), 4),
+    }
+
+
+def _eye_component_shape_score(component: dict[str, float], face: dict[str, float]) -> float:
+    size_score = min(component["area"] / max(face["area"] * 0.008, 1.0), 1.0) * 0.12
     if component.get("kind") == "light_eye":
-        return 0.08
+        return 0.10 + size_score
     aspect = component["height"] / max(component["width"], 0.001)
     if aspect < 0.24:
-        return -0.18
+        return -0.18 + size_score
     if aspect >= 0.45:
-        return 0.06
-    return 0.0
+        return 0.06 + size_score
+    return size_score
 
 
 def _mouth_for_face(
