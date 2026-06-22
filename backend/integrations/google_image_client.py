@@ -130,6 +130,11 @@ def _chunk_batch_requests(requests: list[GoogleBatchImageRequest]) -> list[list[
     current_size = 0
     for request in requests:
         request_size = _payload_size_bytes(_batch_request_payload(request))
+        if request_size > BATCH_INLINE_REQUEST_LIMIT_BYTES:
+            raise RuntimeError(
+                "Google image batch request is too large for inline Batch API input; "
+                "reduce reference image size or generate this scene individually"
+            )
         if current and current_size + request_size > BATCH_INLINE_REQUEST_LIMIT_BYTES:
             chunks.append(current)
             current = []

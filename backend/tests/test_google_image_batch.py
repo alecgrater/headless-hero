@@ -163,7 +163,7 @@ def test_generate_images_batch_chunks_inline_requests_under_limit(monkeypatch):
     )
     monkeypatch.setattr(google_image_client.time, "sleep", lambda _seconds: None)
     monkeypatch.setattr(google_image_client, "record_usage", lambda **_kwargs: None)
-    monkeypatch.setattr(google_image_client, "BATCH_INLINE_REQUEST_LIMIT_BYTES", 160)
+    monkeypatch.setattr(google_image_client, "BATCH_INLINE_REQUEST_LIMIT_BYTES", 220)
 
     results = google_image_client.generate_images_batch(
         client=client,
@@ -177,6 +177,22 @@ def test_generate_images_batch_chunks_inline_requests_under_limit(monkeypatch):
     assert [result.key for result in results] == ["scene-a", "scene-b"]
     assert client.batches.create_count == 2
     assert all(len(src) == 1 for src in client.batches.created_srcs)
+
+
+def test_generate_images_batch_rejects_single_oversized_inline_request(monkeypatch):
+    client = _Client(_BatchJob(state="JOB_STATE_SUCCEEDED", responses=[_InlineResponse(TINY_PNG)]))
+    monkeypatch.setattr(google_image_client, "BATCH_INLINE_REQUEST_LIMIT_BYTES", 100)
+
+    with pytest.raises(RuntimeError, match="too large for inline Batch API input"):
+        google_image_client.generate_images_batch(
+            client=client,
+            requests=[
+                google_image_client.GoogleBatchImageRequest(key="scene-a", prompt="a prompt" * 20, aspect_ratio="16:9"),
+            ],
+            poll_interval_seconds=0,
+        )
+
+    assert client.batches.create_count == 0
 
 
 def test_generate_images_batch_raises_on_failed_job(monkeypatch):
