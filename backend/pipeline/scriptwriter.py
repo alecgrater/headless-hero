@@ -178,6 +178,10 @@ _INTERNAL_VISUAL_MODE_RE = re.compile(
     r"\b(?:captions? rendering|popup sequence|comparison board|stat card|visual mode)\b",
     re.IGNORECASE,
 )
+_CAPTION_PROMPT_LEAK_RE = re.compile(
+    r"\b(?:caption text|clean sans-serif|words in|text on a dark background|readable caption text)\b",
+    re.IGNORECASE,
+)
 _MONEY_STAT_RE = re.compile(r"\$[\d,]+(?:\.\d+)?(?:\s*(?:to|-|and)\s*\$?[\d,]+(?:\.\d+)?)?")
 _DIGIT_STAT_RE = re.compile(
     r"\b\d+(?:\.\d+)?\s*(?:years?|months?|weeks?|days?|hours?|dollars?|percent|%)\b",
@@ -353,9 +357,7 @@ def _caption_emphasis_for_text(text: str) -> str:
     return marked[-1] if marked else (words[-1] if words else "")
 
 
-def _caption_candidate_for_scene(scene: Scene) -> tuple[str, str] | None:
-    if scene.is_title_card or scene.visual_mode not in _AUDIT_PROMOTABLE_MODES:
-        return None
+def _caption_candidate_from_narration(scene: Scene) -> tuple[str, str] | None:
     candidates = _split_narration_sentences(scene.narration)
     for candidate in candidates:
         text = re.sub(r"\s+", " ", candidate.strip(" .!?;:"))
@@ -369,6 +371,12 @@ def _caption_candidate_for_scene(scene: Scene) -> tuple[str, str] | None:
         if emphasis:
             return text, emphasis
     return None
+
+
+def _caption_candidate_for_scene(scene: Scene) -> tuple[str, str] | None:
+    if scene.is_title_card or scene.visual_mode not in _AUDIT_PROMOTABLE_MODES:
+        return None
+    return _caption_candidate_from_narration(scene)
 
 
 def _stat_candidate_for_scene(scene: Scene) -> tuple[str, str] | None:
@@ -400,6 +408,12 @@ def _audit_can_promote(scene: Scene, previous_mode: str, next_mode: str) -> bool
     if scene.is_title_card or scene.visual_mode not in _AUDIT_PROMOTABLE_MODES:
         return False
     return previous_mode == "full_frame" and next_mode == "full_frame"
+
+
+def _scene_has_caption_prompt_leak(scene: Scene) -> bool:
+    prompt_parts = [scene.visual_prompt or ""]
+    prompt_parts.extend(directive.prompt or "" for directive in scene.frame_directives)
+    return any(_CAPTION_PROMPT_LEAK_RE.search(part) for part in prompt_parts)
 
 
 def _set_text_only_caption(scene: Scene, caption_text: str, caption_emphasis: str) -> None:
@@ -439,6 +453,19 @@ def _audit_visual_mode_metadata(content: ScriptContent) -> dict[str, int]:
     counts = {"captions": 0, "stat_card": 0}
     if not scenes:
         return counts
+
+    for scene in scenes:
+        if not _scene_has_caption_prompt_leak(scene):
+            continue
+        caption_candidate = _caption_candidate_from_narration(scene)
+        if caption_candidate is None:
+            raise RuntimeError(
+                "Generated visual prompt requests renderer-owned caption text but no exact narration "
+                f"caption candidate was available in scene {scene.id}"
+            )
+        caption_text, caption_emphasis = caption_candidate
+        _set_text_only_caption(scene, caption_text, caption_emphasis)
+        counts["captions"] += 1
 
     target_caption_count = min(6, max(2, len(scenes) // 18))
     max_stat_count = 2

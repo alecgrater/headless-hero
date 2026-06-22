@@ -33,6 +33,10 @@ BLINK_BASE_CANVAS_HEIGHT = 820
 _STYLE_GUIDE = IMAGE_COMPOSITION_GUIDE.template
 _VISUAL_STYLE = IMAGE_VISUAL_STYLE.template
 _CHARACTER_PROMPT = IMAGE_CHARACTER_IN_SCENE.template
+_CAPTION_TEXT_PROMPT_LEAK_RE = re.compile(
+    r"\b(?:caption text|clean sans-serif|words in|text on a dark background|readable caption text)\b",
+    re.IGNORECASE,
+)
 
 
 class BlinkRegistrationError(UserFacingJobError):
@@ -52,6 +56,16 @@ Image boundary rules:
 - No decorative border, picture frame, mat, white margin, inset panel, UI chrome, caption box, poster edge, or floating card.
 - Do not draw a literal frame around the image; any mentions of scenes, frames, panels, states, or sequences are production terms only.
 """
+
+
+def _contains_caption_text_prompt_leak(scene: dict[str, object]) -> bool:
+    prompt_parts = [str(scene.get("visual_prompt") or "")]
+    for directive in scene.get("frame_directives") or []:
+        if isinstance(directive, dict):
+            prompt_parts.append(str(directive.get("prompt") or ""))
+        elif hasattr(directive, "prompt"):
+            prompt_parts.append(str(getattr(directive, "prompt") or ""))
+    return any(_CAPTION_TEXT_PROMPT_LEAK_RE.search(part) for part in prompt_parts)
 
 # --- Character reference helpers ---
 
@@ -3080,6 +3094,12 @@ def _generate_one_scene(
         return result
 
     try:
+        if _contains_caption_text_prompt_leak(scene):
+            raise RuntimeError(
+                "Scene visual prompt requests renderer-owned caption text; "
+                "use visual_mode='captions' with caption_text/caption_emphasis instead."
+            )
+
         visual_mode = scene.get("visual_mode") or ("video" if scene.get("media_source") == "ai_video" else scene.get("visual_treatment", "full_frame"))
 
         # --- AI video dispatch ---

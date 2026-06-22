@@ -770,7 +770,7 @@ Return a JSON object with a single key `"scenes"` whose value is a flat array of
 - Do not force heavy modes for variety. Several `full_frame` scenes in a row are fine when each one is the honest best fit.
 - For compatibility, set `visual_beat` to the same value as `visual_mode` except use `"static"` when `visual_mode` is `"full_frame"`.
 - Every `visual_prompt` MUST begin with `[ESTABLISHING]`, `[CLOSE-UP]`, `[REACTION]`, or `[METAPHOR]`. `[DIAGRAM]` and `[SCALE]` are de-prioritized for this format.
-- Visual prompts must NEVER request text, letters, words, labels, or written characters in the image.
+- Visual prompts and frame directives must NEVER request text, letters, words, labels, captions, typography, fonts, title cards, clean sans-serif words, or written characters in the image. If the intended beat is readable editorial text on screen, use `visual_mode: "captions"` with exact `caption_text` and `caption_emphasis`, and leave `visual_prompt` and `frame_directives` empty.
 - Eli is the visual identity of the second-person protagonist. When a scene or frame depicts the protagonist, the role named in the title, or a visible main person, make Eli the visually dominant main subject in that role. Other people may appear as secondary characters, but they must be visually distinct from Eli. Object-only, room-only, and atmosphere shots can omit Eli.
 
 ### Forbidden in scene narration
