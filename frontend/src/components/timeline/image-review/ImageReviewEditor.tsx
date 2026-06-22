@@ -49,6 +49,9 @@ interface ImageOverlayObject extends BaseOverlayObject {
 }
 
 type OverlayObject = TextOverlayObject | ImageOverlayObject;
+type CopiedPayload =
+  | { kind: "object"; object: OverlayObject }
+  | { kind: "pixels"; imageData: ImageData };
 
 interface EditorSnapshot {
   baseDataUrl: string;
@@ -155,7 +158,7 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
   const draggingObjectRef = useRef<{ id: string; offsetX: number; offsetY: number; historyPushed: boolean } | null>(null);
   const cloneSourceRef = useRef<{ x: number; y: number } | null>(null);
   const cloneStrokeRef = useRef<{ sampleX: number; sampleY: number; targetX: number; targetY: number } | null>(null);
-  const copiedRef = useRef<ImageData | null>(null);
+  const copiedRef = useRef<CopiedPayload | null>(null);
   const [tool, setTool] = useState<ToolMode>("select");
   const [selection, setSelection] = useState<Selection | null>(null);
   const [overlayObjects, setOverlayObjects] = useState<OverlayObject[]>([]);
@@ -447,6 +450,34 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
     return output;
   };
 
+  const cloneImageData = (imageData: ImageData): ImageData => {
+    const data = new Uint8ClampedArray(imageData.data);
+    if (typeof ImageData === "function") return new ImageData(data, imageData.width, imageData.height);
+    return { data, width: imageData.width, height: imageData.height, colorSpace: "srgb" } as ImageData;
+  };
+
+  const cloneOverlayObject = (object: OverlayObject, offset = 32): OverlayObject => {
+    if (object.kind === "image") {
+      return {
+        id: `image-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        kind: "image",
+        x: object.x + offset,
+        y: object.y + offset,
+        imageData: cloneImageData(object.imageData),
+      };
+    }
+    return {
+      id: `text-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      kind: "text",
+      x: object.x + offset,
+      y: object.y + offset,
+      text: object.text,
+      size: object.size,
+      color: object.color,
+      font: object.font,
+    };
+  };
+
   const handlePointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
     if (!loaded) return;
     const canvas = canvasRef.current;
@@ -582,6 +613,11 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     const activeObject = activeObjectId ? overlayObjects.find((object) => object.id === activeObjectId) ?? null : null;
+    if (activeObject) {
+      copiedRef.current = { kind: "object", object: cloneOverlayObject(activeObject, 0) };
+      setHasCopiedSelection(true);
+      return;
+    }
     const sourceSelection = selection ?? (activeObject ? objectBounds(ctx, activeObject) : null);
     if (!sourceSelection) return;
     const normalized = normalizeSelection(sourceSelection);
@@ -593,7 +629,7 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
     const y = Math.round(Math.min(Math.max(0, normalized.y), Math.max(0, output.height - normalized.height)));
     const width = Math.round(Math.min(normalized.width, output.width - x));
     const height = Math.round(Math.min(normalized.height, output.height - y));
-    copiedRef.current = outputCtx.getImageData(x, y, width, height);
+    copiedRef.current = { kind: "pixels", imageData: outputCtx.getImageData(x, y, width, height) };
     setHasCopiedSelection(true);
   };
 
@@ -617,21 +653,53 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
     const canvas = canvasRef.current;
     const copied = copiedRef.current;
     if (!canvas || !copied) return;
-    const base = selection ? normalizeSelection(selection) : { x: 0, y: 0, width: copied.width, height: copied.height };
-    const x = Math.min(Math.max(0, base.x + 32), Math.max(0, canvas.width - copied.width));
-    const y = Math.min(Math.max(0, base.y + 32), Math.max(0, canvas.height - copied.height));
+    pushHistory();
+    if (copied.kind === "object") {
+      const object = cloneOverlayObject(copied.object);
+      setOverlayObjects((objects) => [...objects, object]);
+      setActiveObjectId(object.id);
+      setSelection(null);
+      if (object.kind === "text") {
+        setText(object.text);
+        setTextSize(object.size);
+        setTextColor(object.color);
+        setTextFont(object.font);
+      }
+      return;
+    }
+    const copiedImage = copied.imageData;
+    const base = selection ? normalizeSelection(selection) : { x: 0, y: 0, width: copiedImage.width, height: copiedImage.height };
+    const x = Math.min(Math.max(0, base.x + 32), Math.max(0, canvas.width - copiedImage.width));
+    const y = Math.min(Math.max(0, base.y + 32), Math.max(0, canvas.height - copiedImage.height));
     const object: ImageOverlayObject = {
       id: `image-${Date.now()}-${Math.random().toString(36).slice(2)}`,
       kind: "image",
       x,
       y,
-      imageData: copied,
+      imageData: cloneImageData(copiedImage),
     };
-    pushHistory();
     setOverlayObjects((objects) => [...objects, object]);
     setActiveObjectId(object.id);
     setSelection(null);
   };
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return;
+      const key = event.key.toLowerCase();
+      if (key === "c" && (activeObjectId || selection)) {
+        event.preventDefault();
+        copySelection();
+        return;
+      }
+      if (key === "v" && copiedRef.current) {
+        event.preventDefault();
+        pasteSelection();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  });
 
   const addTextCenter = () => {
     const canvas = canvasRef.current;

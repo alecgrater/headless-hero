@@ -262,6 +262,44 @@ describe("ImageReviewTab", () => {
     expect(putImageDataMock).toHaveBeenCalled();
   });
 
+  it("copies and pastes a selected text object with Command keyboard shortcuts", async () => {
+    render(<ImageReviewTab scriptId="script-1" content={script} onContentUpdated={vi.fn()} />);
+
+    expect((await screen.findAllByText("scene_001")).length).toBeGreaterThan(0);
+
+    await userEvent.clear(screen.getByLabelText("Text content"));
+    await userEvent.type(screen.getByLabelText("Text content"), "Mon");
+    await userEvent.click(screen.getByRole("button", { name: /add text/i }));
+
+    await userEvent.keyboard("{Meta>}c{/Meta}");
+    await userEvent.keyboard("{Meta>}v{/Meta}");
+    fillTextMock.mockClear();
+    await userEvent.click(screen.getByRole("button", { name: /save edited copy/i }));
+
+    const monDraws = fillTextMock.mock.calls.filter((call) => call[0] === "Mon");
+    expect(monDraws).toHaveLength(2);
+  });
+
+  it("keeps pasted text editable after keyboard copy and paste", async () => {
+    render(<ImageReviewTab scriptId="script-1" content={script} onContentUpdated={vi.fn()} />);
+
+    expect((await screen.findAllByText("scene_001")).length).toBeGreaterThan(0);
+
+    await userEvent.clear(screen.getByLabelText("Text content"));
+    await userEvent.type(screen.getByLabelText("Text content"), "Mon");
+    await userEvent.click(screen.getByRole("button", { name: /add text/i }));
+    await userEvent.keyboard("{Meta>}c{/Meta}");
+    await userEvent.keyboard("{Meta>}v{/Meta}");
+
+    await userEvent.clear(screen.getByLabelText("Text content"));
+    await userEvent.type(screen.getByLabelText("Text content"), "Tues");
+    fillTextMock.mockClear();
+    await userEvent.click(screen.getByRole("button", { name: /save edited copy/i }));
+
+    expect(fillTextMock).toHaveBeenCalledWith("Mon", expect.any(Number), expect.any(Number));
+    expect(fillTextMock).toHaveBeenCalledWith("Tues", expect.any(Number), expect.any(Number));
+  });
+
   it("moves an added text object by dragging it on the canvas", async () => {
     render(<ImageReviewTab scriptId="script-1" content={script} onContentUpdated={vi.fn()} />);
 
