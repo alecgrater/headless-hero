@@ -20,6 +20,7 @@ vi.mock("../../../api", async () => {
   const actual = await vi.importActual<typeof import("../../../api")>("../../../api");
   return {
     ...actual,
+    assetUrl: (path: string) => path,
     getImageReviewAssets: apiMocks.getImageReviewAssets,
     getImageReviewAssetData: apiMocks.getImageReviewAssetData,
     saveImageReviewEdit: apiMocks.saveImageReviewEdit,
@@ -64,6 +65,21 @@ const listResponse: ImageReviewListResponse = {
       reviewed: false,
       width: 1920,
       height: 1080,
+    },
+    {
+      asset_id: "scene:scene_002:frame:0",
+      scene_id: "scene_002",
+      segment_index: 0,
+      segment_name: "Opening",
+      scene_index: 1,
+      scene_label: "A manager points at a schedule.",
+      asset_kind: "frame",
+      current_url: "/static/projects/script-1/images/scene_002_f0.png",
+      original_url: "/static/projects/script-1/images/scene_002_f0.png",
+      reviewed: true,
+      width: 1344,
+      height: 768,
+      frame_index: 0,
     },
   ],
 };
@@ -199,5 +215,30 @@ describe("ImageReviewTab", () => {
       expect(apiMocks.resetImageReviewAsset).toHaveBeenCalledWith("script-1", "scene:scene_001:image");
     });
     expect(onContentUpdated).toHaveBeenCalledWith({ ...script, title: "Reset Script" });
+  });
+
+  it("switches to a gallery browser and opens a selected image in the editor", async () => {
+    render(<ImageReviewTab scriptId="script-1" content={script} onContentUpdated={vi.fn()} />);
+
+    expect((await screen.findAllByText("scene_001")).length).toBeGreaterThan(0);
+
+    await userEvent.click(screen.getByRole("button", { name: /gallery view/i }));
+
+    expect(screen.getByRole("heading", { name: /browse generated images/i })).toBeInTheDocument();
+    expect(screen.getByAltText("scene_001 Scene image preview")).toHaveAttribute(
+      "src",
+      "/static/projects/script-1/images/scene_001.png",
+    );
+    expect(screen.getByAltText("scene_002 Frame 1 preview")).toHaveAttribute(
+      "src",
+      "/static/projects/script-1/images/scene_002_f0.png",
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: /open scene_002 frame 1 in editor/i }));
+
+    expect(screen.getByRole("button", { name: /editor view/i })).toHaveAttribute("aria-pressed", "true");
+    await waitFor(() => {
+      expect(apiMocks.getImageReviewAssetData).toHaveBeenLastCalledWith("script-1", "scene:scene_002:frame:0");
+    });
   });
 });
