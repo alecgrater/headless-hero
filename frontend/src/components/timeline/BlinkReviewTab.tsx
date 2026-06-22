@@ -85,6 +85,11 @@ export default function BlinkReviewTab({
             const cardTone = candidate.review_status === "enabled"
               ? "border-emerald-400/80 bg-emerald-950/15 shadow-[0_0_0_1px_rgba(52,211,153,0.28),0_0_24px_rgba(16,185,129,0.35)] shadow-emerald-500/35"
               : "border-neutral-800 bg-neutral-900";
+            const statusTone = candidate.review_status === "enabled"
+              ? "bg-emerald-500/25 px-4 py-2 text-base text-emerald-200 shadow-[0_0_18px_rgba(16,185,129,0.22)]"
+              : candidate.review_status === "disabled"
+                ? "bg-neutral-700 px-4 py-2 text-base text-neutral-100"
+                : "bg-amber-500/15 px-2 py-1 text-xs text-amber-300";
             return (
               <div
                 key={candidate.scene_id}
@@ -101,13 +106,7 @@ export default function BlinkReviewTab({
                       <h3 className="font-mono text-sm font-semibold text-neutral-100">{candidate.scene_id}</h3>
                       <p className="mt-1 line-clamp-2 text-xs text-neutral-500">{candidate.scene_label}</p>
                     </div>
-                    <span className={`rounded-full px-2 py-1 text-xs font-semibold ${
-                      candidate.review_status === "enabled"
-                        ? "bg-emerald-500/15 text-emerald-300"
-                        : candidate.review_status === "disabled"
-                          ? "bg-neutral-700 text-neutral-300"
-                          : "bg-amber-500/15 text-amber-300"
-                    }`}>
+                    <span className={`rounded-full font-semibold ${statusTone}`}>
                       {statusLabel(candidate.review_status)}
                     </span>
                   </div>
