@@ -155,6 +155,8 @@ describe("BlinkReviewTab", () => {
     );
 
     const card = screen.getByTestId("blink-review-card-scene_001");
+    expect(card).toHaveClass("border-red-400/80");
+    expect(card).toHaveClass("shadow-red-500/35");
     expect(within(card).getByText("Disabled")).toHaveClass("text-base");
     expect(within(card).getByText("Disabled")).toHaveClass("px-4");
   });

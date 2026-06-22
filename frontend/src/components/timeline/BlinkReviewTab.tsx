@@ -84,7 +84,9 @@ export default function BlinkReviewTab({
             const updating = updatingSceneId === candidate.scene_id;
             const cardTone = candidate.review_status === "enabled"
               ? "border-emerald-400/80 bg-emerald-950/15 shadow-[0_0_0_1px_rgba(52,211,153,0.28),0_0_24px_rgba(16,185,129,0.35)] shadow-emerald-500/35"
-              : "border-neutral-800 bg-neutral-900";
+              : candidate.review_status === "disabled"
+                ? "border-red-400/80 bg-red-950/15 shadow-[0_0_0_1px_rgba(248,113,113,0.28),0_0_24px_rgba(239,68,68,0.35)] shadow-red-500/35"
+                : "border-neutral-800 bg-neutral-900";
             const statusTone = candidate.review_status === "enabled"
               ? "bg-emerald-500/25 px-4 py-2 text-base text-emerald-200 shadow-[0_0_18px_rgba(16,185,129,0.22)]"
               : candidate.review_status === "disabled"
