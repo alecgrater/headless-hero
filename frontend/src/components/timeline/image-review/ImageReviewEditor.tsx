@@ -68,6 +68,7 @@ export default function ImageReviewEditor({ asset, saving, resetting, onSave, on
   const [history, setHistory] = useState<string[]>([]);
   const [future, setFuture] = useState<string[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [hasCopiedSelection, setHasCopiedSelection] = useState(false);
 
   const dimensionsLabel = useMemo(() => {
     if (!asset.width || !asset.height) return "dimensions unknown";
@@ -84,7 +85,7 @@ export default function ImageReviewEditor({ asset, saving, resetting, onSave, on
     };
   };
 
-  const drawOverlay = useCallback((nextSelection: Selection | null = selection) => {
+  const drawOverlay = useCallback((nextSelection: Selection | null) => {
     const overlay = overlayRef.current;
     const canvas = canvasRef.current;
     if (!overlay || !canvas) return;
@@ -103,7 +104,7 @@ export default function ImageReviewEditor({ asset, saving, resetting, onSave, on
     ctx.fillRect(normalized.x, normalized.y, normalized.width, normalized.height);
     ctx.strokeRect(normalized.x, normalized.y, normalized.width, normalized.height);
     ctx.restore();
-  }, [selection]);
+  }, []);
 
   const pushHistory = useCallback(() => {
     const canvas = canvasRef.current;
@@ -139,6 +140,7 @@ export default function ImageReviewEditor({ asset, saving, resetting, onSave, on
     setHistory([]);
     setFuture([]);
     copiedRef.current = null;
+    setHasCopiedSelection(false);
 
     const image = new Image();
     image.crossOrigin = "anonymous";
@@ -232,6 +234,7 @@ export default function ImageReviewEditor({ asset, saving, resetting, onSave, on
     const normalized = normalizeSelection(selection);
     if (normalized.width < 1 || normalized.height < 1) return;
     copiedRef.current = ctx.getImageData(normalized.x, normalized.y, normalized.width, normalized.height);
+    setHasCopiedSelection(true);
   };
 
   const deleteSelection = () => {
@@ -370,7 +373,7 @@ export default function ImageReviewEditor({ asset, saving, resetting, onSave, on
           <Copy className="h-3.5 w-3.5" />
           Copy selection
         </button>
-        <button type="button" onClick={pasteSelection} disabled={!copiedRef.current} className="inline-flex items-center gap-1.5 rounded-md border border-neutral-700 bg-neutral-800 px-2.5 py-1.5 text-xs font-medium text-neutral-200 transition-colors hover:bg-neutral-700 disabled:opacity-50">
+        <button type="button" onClick={pasteSelection} disabled={!hasCopiedSelection} className="inline-flex items-center gap-1.5 rounded-md border border-neutral-700 bg-neutral-800 px-2.5 py-1.5 text-xs font-medium text-neutral-200 transition-colors hover:bg-neutral-700 disabled:opacity-50">
           <Clipboard className="h-3.5 w-3.5" />
           Paste selection
         </button>

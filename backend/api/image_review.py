@@ -169,7 +169,7 @@ def _collect_refs(content: ScriptContent) -> list[AssetRef]:
     refs: list[AssetRef] = []
     for segment_index, segment in enumerate(content.segments):
         for scene_index, scene in enumerate(segment.scenes):
-            if scene.image_url:
+            if scene.image_url and not scene.frame_urls:
                 refs.append(
                     AssetRef(
                         asset_id=f"scene:{scene.id}:image",

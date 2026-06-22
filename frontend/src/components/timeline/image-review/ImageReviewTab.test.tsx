@@ -125,6 +125,9 @@ describe("ImageReviewTab", () => {
     expect(screen.getByText(/A worker studies a calendar/i)).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: /select all/i }));
+    await userEvent.click(screen.getByRole("button", { name: /copy selection/i }));
+    expect(screen.getByRole("button", { name: /paste selection/i })).toBeEnabled();
+    await userEvent.click(screen.getByRole("button", { name: /paste selection/i }));
     await userEvent.click(screen.getByRole("button", { name: /delete selection/i }));
     await userEvent.click(screen.getByRole("button", { name: /save edited copy/i }));
 

@@ -111,14 +111,13 @@ def test_list_image_review_assets_includes_scene_frames_and_layers(client, db_en
     assert response.status_code == 200
     assets = response.json()["assets"]
     assert [asset["asset_id"] for asset in assets] == [
-        "scene:scene_001:image",
         "scene:scene_001:frame:0",
         "scene:scene_001:frame:1",
         "scene:scene_001:layer:calendar",
     ]
     assert all("/renders/thumbnails/" not in asset["current_url"] for asset in assets)
-    assert assets[1]["asset_kind"] == "frame"
-    assert assets[3]["asset_kind"] == "layer"
+    assert assets[0]["asset_kind"] == "frame"
+    assert assets[2]["asset_kind"] == "layer"
     assert assets[0]["segment_name"] == "Opening"
     assert assets[0]["reviewed"] is False
 
@@ -173,7 +172,7 @@ def test_save_image_review_rejects_unknown_asset_and_invalid_data_url(client, db
         json={"data_url": _png_data_url()},
     )
     invalid = client.post(
-        "/api/image-review/script-1/assets/scene:scene_001:image/edit",
+        "/api/image-review/script-1/assets/scene:scene_001:frame:0/edit",
         json={"data_url": "data:text/plain;base64,SGVsbG8="},
     )
 
