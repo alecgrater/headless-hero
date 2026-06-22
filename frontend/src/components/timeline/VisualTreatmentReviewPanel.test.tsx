@@ -187,6 +187,15 @@ describe("VisualTreatmentReviewPanel", () => {
     expect(screen.getByLabelText("Video scenes")).toHaveTextContent("1");
   });
 
+  it("lays out the eight production visual modes as four columns on wide screens", () => {
+    const { container } = render(
+      <VisualModeCatalog counts={EMPTY_VISUAL_MODE_COUNTS} />,
+    );
+
+    expect(container.firstChild).toHaveClass("md:grid-cols-2");
+    expect(container.firstChild).toHaveClass("xl:grid-cols-4");
+  });
+
   it("shows duration profile labels in the visual mode catalog", () => {
     render(
       <VisualModeCatalog counts={{ ...EMPTY_VISUAL_MODE_COUNTS, comparison_board: 1 }} />,

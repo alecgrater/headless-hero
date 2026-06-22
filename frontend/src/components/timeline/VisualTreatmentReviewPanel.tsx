@@ -80,7 +80,7 @@ export function buildVisualModeCounts(assignments: VisualTreatmentAssignment[]):
 
 export function VisualModeCatalog({ counts }: { counts: Record<VisualMode, number> }) {
   return (
-    <div className="mt-3 grid gap-2 md:grid-cols-3">
+    <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
       {VISUAL_MODE_CATALOG_OPTIONS.map((mode) => (
         <div key={mode} className="flex min-h-16 items-start justify-between gap-3 rounded-lg border border-neutral-800 bg-neutral-950/50 px-3 py-2">
           <div className="min-w-0">
