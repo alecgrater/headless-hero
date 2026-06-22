@@ -286,19 +286,21 @@ def test_blink_review_api_persists_decision(monkeypatch):
 def test_set_blink_review_decision_uses_existing_candidate_without_redetecting(monkeypatch):
     from pipeline import project_blink_review
 
+    anchor = {"detected": True, "eye_left": {"x": 0.4, "y": 0.3}}
+    image_url = "/static/projects/script-1/images/scene_001.png"
     content = content_with_scene(
         Scene(
             id="scene_001",
             narration="A worker waits.",
             visual_prompt="Worker",
             visual_mode="full_frame",
-            image_url="/static/projects/script-1/images/scene_001.png",
+            image_url=image_url,
             visual_source_metadata={
                 "full_frame_blink": {
                     "enabled": False,
                     "action": "blink",
-                    "fingerprint": "abc",
-                    "anchor": {"detected": True, "eye_left": {"x": 0.4, "y": 0.3}},
+                    "fingerprint": project_blink_review.blink_metadata_fingerprint(image_url, anchor),
+                    "anchor": anchor,
                     "review": {"status": "unreviewed"},
                 }
             },
@@ -318,6 +320,81 @@ def test_set_blink_review_decision_uses_existing_candidate_without_redetecting(m
     assert summary.enabled_count == 1
     assert summary.unreviewed_count == 0
     assert summary.candidates[0].review_status == "enabled"
+
+
+def test_set_blink_review_decision_refreshes_stale_image_metadata(monkeypatch, tmp_path):
+    from pipeline import project_blink_review
+
+    image_path = tmp_path / "projects" / "script-1" / "images" / "new.png"
+    image_path.parent.mkdir(parents=True)
+    image_path.write_bytes(b"fake")
+    content = content_with_scene(
+        Scene(
+            id="scene_001",
+            narration="A worker waits.",
+            visual_prompt="Worker",
+            visual_mode="full_frame",
+            image_url="/static/projects/script-1/images/new.png",
+            visual_source_metadata={
+                "full_frame_blink": {
+                    "enabled": False,
+                    "action": "blink",
+                    "fingerprint": project_blink_review.blink_metadata_fingerprint(
+                        "/static/projects/script-1/images/old.png",
+                        {"detected": True, "eye_left": {"x": 0.1, "y": 0.2}},
+                    ),
+                    "anchor": {"detected": True, "eye_left": {"x": 0.1, "y": 0.2}},
+                    "review": {"status": "unreviewed"},
+                }
+            },
+        )
+    )
+    monkeypatch.setattr(project_blink_review.full_frame_blink, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(
+        project_blink_review.full_frame_blink,
+        "detect_full_frame_blink_anchor",
+        lambda _path: _eligible_detection(project_blink_review),
+    )
+
+    summary = project_blink_review.set_project_blink_review_decision(content, "script-1", "scene_001", "enabled")
+
+    blink = content.segments[0].scenes[0].visual_source_metadata["full_frame_blink"]
+    assert blink["enabled"] is True
+    assert blink["review"]["status"] == "enabled"
+    assert blink["anchor"]["eye_left"]["x"] == 0.4
+    assert summary.enabled_count == 1
+
+
+def test_set_blink_review_decision_rejects_when_review_disabled(monkeypatch):
+    from pipeline import project_blink_review
+
+    content = content_with_scene(
+        Scene(
+            id="scene_001",
+            narration="A worker waits.",
+            visual_prompt="Worker",
+            visual_mode="full_frame",
+            image_url="/static/projects/script-1/images/scene_001.png",
+            visual_source_metadata={
+                "full_frame_blink": {
+                    "enabled": False,
+                    "action": "blink",
+                    "fingerprint": "abc",
+                    "anchor": {"detected": True},
+                    "review": {"status": "unreviewed"},
+                }
+            },
+        )
+    )
+    monkeypatch.setenv(project_blink_review.BLINK_REVIEW_ENABLED_KEY, "false")
+
+    try:
+        project_blink_review.set_project_blink_review_decision(content, "script-1", "scene_001", "enabled")
+    except ValueError as exc:
+        assert "disabled" in str(exc).lower()
+    else:
+        raise AssertionError("Expected disabled Blink Review to reject decisions")
+    assert content.segments[0].scenes[0].visual_source_metadata is None
 
 
 def test_validate_project_blink_review_blocks_unreviewed_scene(monkeypatch, tmp_path):

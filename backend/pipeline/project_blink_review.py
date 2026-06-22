@@ -95,12 +95,15 @@ def set_project_blink_review_decision(
     scene_id: str,
     status: Literal["enabled", "disabled"],
 ) -> BlinkReviewSummary:
+    if not project_blink_review_enabled():
+        _clear_all_blink_metadata(content)
+        raise ValueError("Blink Review is disabled.")
     scene = next((item for item in content.all_scenes() if item.id == scene_id), None)
     if scene is None:
         raise ValueError(f"Scene not found: {scene_id}")
     blink = _blink_metadata(scene)
     review = blink.get("review") if blink and isinstance(blink.get("review"), dict) else {}
-    if not blink:
+    if not blink or not _blink_metadata_matches_scene(scene, blink):
         refresh_project_blink_review(content, script_id)
         scene = next((item for item in content.all_scenes() if item.id == scene_id), None)
         blink = _blink_metadata(scene) if scene else None
@@ -251,6 +254,16 @@ def _blink_metadata(scene: Scene) -> dict[str, object] | None:
     metadata = scene.visual_source_metadata or {}
     blink = metadata.get("full_frame_blink")
     return blink if isinstance(blink, dict) else None
+
+
+def _blink_metadata_matches_scene(scene: Scene, blink: dict[str, object]) -> bool:
+    anchor = blink.get("anchor")
+    if not isinstance(anchor, dict):
+        return False
+    fingerprint = blink.get("fingerprint")
+    if not isinstance(fingerprint, str) or not fingerprint:
+        return False
+    return fingerprint == blink_metadata_fingerprint(scene.image_url or "", anchor)
 
 
 def _set_scene_blink(scene: Scene, blink: dict[str, object]) -> None:
