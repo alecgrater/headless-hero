@@ -2453,6 +2453,50 @@ def test_generate_visual_reports_blink_registration_error(monkeypatch):
     assert "could not be aligned" in str(exc_info.value.detail)
 
 
+def test_generate_visual_reports_caption_prompt_leak_as_client_error(monkeypatch):
+    from fastapi import HTTPException
+    from api import visuals as visuals_api
+    from api.visuals import GenerateVisualRequest
+
+    engine = _build_test_engine()
+    script_id = "caption-prompt-leak"
+    content = content_with_scenes(
+        Scene(
+            id="scene_001",
+            narration="The temporary job became the whole life.",
+            visual_prompt="Normal prompt.",
+            visual_mode="full_frame",
+        )
+    )
+
+    monkeypatch.setattr(visuals_api, "_require_character_reference_ready", lambda session, script_id: None)
+
+    with Session(engine) as session:
+        session.add(
+            Script(
+                id=script_id,
+                brand_id="brand",
+                topic_title="Caption Leak Test",
+                script_json=content.model_dump_json(),
+            )
+        )
+        session.commit()
+
+        with pytest.raises(HTTPException) as exc_info:
+            visuals_api.generate_visual(
+                GenerateVisualRequest(
+                    script_id=script_id,
+                    scene_id="scene_001",
+                    visual_prompt="[METAPHOR] Bold flat caption text on a dark background.",
+                    visual_mode="full_frame",
+                ),
+                session,
+            )
+
+    assert exc_info.value.status_code == 400
+    assert "renderer-owned caption text" in str(exc_info.value.detail)
+
+
 def test_generate_visual_preserves_explicit_stat_card_and_generates_icon_layer(monkeypatch):
     from api import visuals as visuals_api
     from api.visuals import GenerateVisualRequest

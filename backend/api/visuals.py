@@ -15,6 +15,7 @@ from models.generation_duration import GenerationDuration
 from models.script import Script, ScriptContent, VISUAL_MODES
 from pipeline.image_gen import (
     BlinkRegistrationError,
+    CaptionPromptLeakError,
     generate_batch,
     generate_comparison_board_cutouts,
     generate_blink_cutouts,
@@ -430,15 +431,18 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
             request_scene_prompt=body.visual_prompt,
             request_contains_person=body.contains_person,
         )
-        frame_results = generate_scene_frames_v2(
-            scene_id=body.scene_id,
-            frame_directives=body.frame_directives,
-            script_id=body.script_id,
-            visual_prompt=body.visual_prompt,
-            width=body.width,
-            height=body.height,
-            contains_person=body.contains_person,
-        )
+        try:
+            frame_results = generate_scene_frames_v2(
+                scene_id=body.scene_id,
+                frame_directives=body.frame_directives,
+                script_id=body.script_id,
+                visual_prompt=body.visual_prompt,
+                width=body.width,
+                height=body.height,
+                contains_person=body.contains_person,
+            )
+        except (CaptionPromptLeakError, UserFacingJobError) as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
         frame_urls = [url for url, _, _ in frame_results]
         source_metadata = next((metadata for url, _, metadata in frame_results if url and metadata), None)
         first_image = next((u for u in frame_urls if u), "")
@@ -478,14 +482,17 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
         )
 
     # Single-image path
-    image_url, prompt_used, source_metadata = generate_scene_image(
-        scene_id=body.scene_id,
-        visual_prompt=body.visual_prompt,
-        script_id=body.script_id,
-        width=body.width,
-        height=body.height,
-        contains_person=body.contains_person,
-    )
+    try:
+        image_url, prompt_used, source_metadata = generate_scene_image(
+            scene_id=body.scene_id,
+            visual_prompt=body.visual_prompt,
+            script_id=body.script_id,
+            width=body.width,
+            height=body.height,
+            contains_person=body.contains_person,
+        )
+    except (CaptionPromptLeakError, UserFacingJobError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     media_mode = _media_visual_mode(visual_mode, scene, explicit=explicit_visual_mode)
     source_metadata = _metadata_with_full_frame_blink(
         script_id=body.script_id,

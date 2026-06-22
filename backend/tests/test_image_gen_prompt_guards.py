@@ -63,3 +63,35 @@ def test_generate_scene_image_rejects_caption_typography_prompt_before_model_cal
         raise AssertionError("Expected caption typography prompt to be rejected")
 
     assert called is False
+
+
+def test_generate_scene_frames_v2_rejects_caption_typography_search_query(monkeypatch):
+    called = False
+
+    def fake_generate_image(*args, **kwargs):
+        nonlocal called
+        called = True
+        raise AssertionError("generate_image should not be called")
+
+    monkeypatch.setattr(image_gen, "generate_image", fake_generate_image)
+
+    try:
+        image_gen.generate_scene_frames_v2(
+            scene_id="scene_091",
+            visual_prompt="",
+            frame_directives=[
+                {
+                    "prompt": "",
+                    "search_query": "caption text on a dark background",
+                    "source": "ai_generated",
+                }
+            ],
+            script_id="test-script",
+            force=True,
+        )
+    except RuntimeError as exc:
+        assert "renderer-owned caption text" in str(exc)
+    else:
+        raise AssertionError("Expected caption typography search_query to be rejected")
+
+    assert called is False

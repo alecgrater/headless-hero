@@ -43,6 +43,10 @@ class BlinkRegistrationError(UserFacingJobError):
     """Raised when generated blink states cannot be safely aligned."""
 
 
+class CaptionPromptLeakError(UserFacingJobError):
+    """Raised when renderer-owned caption text is sent to image generation."""
+
+
 _SEQUENCE_CONSISTENCY_PROMPT = """\
 Multi-image sequence consistency:
 - These images belong to the same scene sequence and must look like adjacent shots from one cohesive explainer video.
@@ -70,7 +74,7 @@ def _contains_caption_text_prompt_leak(scene: dict[str, object]) -> bool:
 
 def _raise_for_caption_text_prompt_leak(prompt_parts: list[str], *, scene_id: str) -> None:
     if any(_CAPTION_TEXT_PROMPT_LEAK_RE.search(part or "") for part in prompt_parts):
-        raise RuntimeError(
+        raise CaptionPromptLeakError(
             "Scene visual prompt requests renderer-owned caption text; "
             "use visual_mode='captions' with caption_text/caption_emphasis instead. "
             f"scene_id={scene_id}"
@@ -2854,7 +2858,13 @@ def generate_scene_frames_v2(
     from models.script import FrameDirective as FrameDirectiveModel
 
     prompt_parts = [visual_prompt]
-    prompt_parts.extend(str(directive.get("prompt") or "") for directive in frame_directives if isinstance(directive, dict))
+    for directive in frame_directives:
+        if isinstance(directive, dict):
+            prompt_parts.append(str(directive.get("prompt") or ""))
+            prompt_parts.append(str(directive.get("search_query") or ""))
+        elif hasattr(directive, "prompt"):
+            prompt_parts.append(str(getattr(directive, "prompt") or ""))
+            prompt_parts.append(str(getattr(directive, "search_query", "") or ""))
     _raise_for_caption_text_prompt_leak(prompt_parts, scene_id=scene_id)
 
     guide = style_guide if style_guide else _STYLE_GUIDE
