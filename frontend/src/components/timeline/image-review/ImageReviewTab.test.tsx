@@ -451,6 +451,32 @@ describe("ImageReviewTab", () => {
     expect(onContentUpdated).toHaveBeenCalledWith({ ...script, title: "Reset Script" });
   });
 
+  it("reloads the editor image immediately after resetting an unsaved edit on an original asset", async () => {
+    apiMocks.resetImageReviewAsset.mockResolvedValueOnce({
+      script_id: "script-1",
+      asset: listResponse.assets[0],
+      assets: listResponse.assets,
+      script,
+    });
+
+    render(<ImageReviewTab scriptId="script-1" content={script} onContentUpdated={vi.fn()} />);
+
+    expect((await screen.findAllByText("scene_001")).length).toBeGreaterThan(0);
+    await waitFor(() => {
+      expect(apiMocks.getImageReviewAssetData).toHaveBeenCalledTimes(1);
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: /eraser tool/i }));
+    screen.getByLabelText("Image review canvas").dispatchEvent(
+      new PointerEvent("pointerdown", { bubbles: true, clientX: 10, clientY: 10, pointerId: 1 }),
+    );
+    await userEvent.click(screen.getByRole("button", { name: /reset to original/i }));
+
+    await waitFor(() => {
+      expect(apiMocks.getImageReviewAssetData).toHaveBeenCalledTimes(2);
+    });
+  });
+
   it("switches to a gallery browser and opens a selected image in the editor", async () => {
     render(<ImageReviewTab scriptId="script-1" content={script} onContentUpdated={vi.fn()} />);
 

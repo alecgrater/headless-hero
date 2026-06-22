@@ -47,6 +47,7 @@ export default function ImageReviewTab({ scriptId, content, onContentUpdated }: 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [resetRevision, setResetRevision] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   const selectedAsset = useMemo(
@@ -104,6 +105,7 @@ export default function ImageReviewTab({ scriptId, content, onContentUpdated }: 
       const response = await resetImageReviewAsset(scriptId, selectedAsset.asset_id);
       setAssets(response.assets);
       setSelectedAssetId(response.asset.asset_id);
+      setResetRevision((revision) => revision + 1);
       onContentUpdated(response.script);
       showToast("Restored original image.", "success");
     } catch (err) {
@@ -306,7 +308,7 @@ export default function ImageReviewTab({ scriptId, content, onContentUpdated }: 
           </div>
         ) : selectedAsset ? (
           <ImageReviewEditor
-            key={selectedAsset.asset_id + selectedAsset.current_url}
+            key={`${selectedAsset.asset_id}:${selectedAsset.current_url}:${resetRevision}`}
             scriptId={scriptId}
             asset={selectedAsset}
             saving={saving}
