@@ -72,4 +72,45 @@ describe("BlinkReviewTab", () => {
 
     expect(screen.getByText(/no safe blink candidates/i)).toBeInTheDocument();
   });
+
+  it("gives enabled scenes a glowing border", () => {
+    render(
+      <BlinkReviewTab
+        summary={{
+          script_id: "script-1",
+          eligible_count: 1,
+          unreviewed_count: 0,
+          enabled_count: 1,
+          disabled_count: 0,
+          complete: true,
+          review_enabled: true,
+          candidates: [
+            {
+              scene_id: "scene_001",
+              scene_label: "A worker waits.",
+              image_url: "/static/projects/script-1/images/scene_001.png",
+              eligible: true,
+              reason: "",
+              anchor: {
+                detected: true,
+                skin_fill: "#F0D2B4",
+                eye_left: { x: 0.4, y: 0.3, width: 0.01, height: 0.01 },
+                eye_right: { x: 0.46, y: 0.3, width: 0.01, height: 0.01 },
+              },
+              fingerprint: "abc",
+              review_status: "enabled",
+              enabled: true,
+            },
+          ],
+        }}
+        loading={false}
+        updatingSceneId={null}
+        onRefresh={vi.fn()}
+        onDecision={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId("blink-review-card-scene_001")).toHaveClass("border-emerald-400/80");
+    expect(screen.getByTestId("blink-review-card-scene_001")).toHaveClass("shadow-emerald-500/35");
+  });
 });

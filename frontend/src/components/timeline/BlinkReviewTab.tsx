@@ -82,8 +82,15 @@ export default function BlinkReviewTab({
         <div className="grid gap-4 xl:grid-cols-2">
           {eligible.map((candidate) => {
             const updating = updatingSceneId === candidate.scene_id;
+            const cardTone = candidate.review_status === "enabled"
+              ? "border-emerald-400/80 bg-emerald-950/15 shadow-[0_0_0_1px_rgba(52,211,153,0.28),0_0_24px_rgba(16,185,129,0.35)] shadow-emerald-500/35"
+              : "border-neutral-800 bg-neutral-900";
             return (
-              <div key={candidate.scene_id} className="overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900">
+              <div
+                key={candidate.scene_id}
+                data-testid={`blink-review-card-${candidate.scene_id}`}
+                className={`overflow-hidden rounded-lg border transition-shadow ${cardTone}`}
+              >
                 <div className="grid grid-cols-2">
                   <FullFrameBlinkPreview imageUrl={candidate.image_url} blink={false} anchor={candidate.anchor} />
                   <FullFrameBlinkPreview imageUrl={candidate.image_url} blink anchor={candidate.anchor} />
