@@ -19,6 +19,7 @@ from database import engine as _db_engine
 from api.eli import router as eli_router
 from api.formats import router as formats_router
 from api.fx import router as fx_router
+from api.image_review import router as image_review_router
 from api.ideas import router as ideas_router
 from api.media import router as media_router
 from api.idea_board import router as idea_board_router
@@ -116,6 +117,7 @@ app.include_router(cold_opens_router)
 app.include_router(eli_router)
 app.include_router(formats_router)
 app.include_router(fx_router)
+app.include_router(image_review_router)
 app.include_router(ideas_router)
 app.include_router(media_router)
 app.include_router(idea_board_router)

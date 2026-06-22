@@ -1,5 +1,6 @@
 import { showToast } from "./components/ToastContainer";
 import { BACKEND_PORT } from "./constants";
+import type { ImageReviewListResponse, ImageReviewUpdateResponse } from "./types/imageReview";
 import type { ScriptContent, UploadTracking, VisualLayer, VisualMode } from "./types/script";
 import type { BlinkReviewSummary } from "./types/blinkReview";
 import type { VideoFormat } from "./types/format";
@@ -1470,4 +1471,39 @@ export async function selectStylePresetCharacter(
   const res = await api.post(`/api/style/presets/${presetId}/characters/${characterId}/select`, {});
   if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to select preset character");
   return res.data as StylePresetCharacter;
+}
+
+// ---------------------------------------------------------------------------
+// Image Review
+// ---------------------------------------------------------------------------
+
+export async function getImageReviewAssets(scriptId: string): Promise<ImageReviewListResponse> {
+  const res = await api.get(`/api/image-review/${encodeURIComponent(scriptId)}`);
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to load image review assets");
+  return res.data as ImageReviewListResponse;
+}
+
+export async function saveImageReviewEdit(
+  scriptId: string,
+  assetId: string,
+  dataUrl: string,
+): Promise<ImageReviewUpdateResponse> {
+  const res = await api.post(
+    `/api/image-review/${encodeURIComponent(scriptId)}/assets/${encodeURIComponent(assetId)}/edit`,
+    { data_url: dataUrl },
+  );
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to save image edit");
+  return res.data as ImageReviewUpdateResponse;
+}
+
+export async function resetImageReviewAsset(
+  scriptId: string,
+  assetId: string,
+): Promise<ImageReviewUpdateResponse> {
+  const res = await api.post(
+    `/api/image-review/${encodeURIComponent(scriptId)}/assets/${encodeURIComponent(assetId)}/reset`,
+    {},
+  );
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to reset image edit");
+  return res.data as ImageReviewUpdateResponse;
 }

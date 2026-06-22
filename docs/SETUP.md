@@ -187,6 +187,12 @@ The app launches three processes: FastAPI backend (port 8420), Vite dev server (
 
 ---
 
+## Reviewing Generated Images
+
+Before render/export, use the project **Img Review** tab to inspect and non-destructively correct generated scene images, frame images, and layered image assets. Img Review saves edited copies and updates the render source for the project; rerender/reexport after saving edits. Thumbnails are managed separately and are not included in Img Review.
+
+---
+
 ## Troubleshooting
 
 | Problem | Likely Cause |

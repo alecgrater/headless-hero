@@ -6,6 +6,7 @@ import {
   Eye,
   Film,
   ImageIcon,
+  Images,
   Info,
   Layers,
   ListVideo,
@@ -67,6 +68,7 @@ import type { SaveState } from "../../App";
 import type { MicroTimelineHandle } from "./SceneMicroTimeline";
 import ExportTestModal from "./ExportTestModal";
 import BlinkReviewTab from "./BlinkReviewTab";
+import ImageReviewTab from "./image-review/ImageReviewTab";
 import MainCharacterDrawer from "./MainCharacterDrawer";
 import UploadPanel from "./UploadPanel";
 import MediaSourcesTab from "./MediaSourcesTab";
@@ -482,7 +484,7 @@ function sceneProgressCounter(step: string, progress: number, total: number): st
 
 type ViewerFormat = "long-form" | "short-form";
 type ViewerAsset = "render" | "thumbnails" | "seo";
-type ViewerTab = "timeline" | "media-sources" | "segments" | "blink-review";
+type ViewerTab = "timeline" | "media-sources" | "segments" | "blink-review" | "image-review";
 type ViewerNavKey = ViewerTab | "thumbnails" | "seo";
 
 const FORMAT_OPTIONS: { key: ViewerFormat; label: string; Icon: LucideIcon }[] = [
@@ -494,6 +496,7 @@ const VIEWER_NAV_OPTIONS: { key: ViewerNavKey; label: string; Icon: LucideIcon }
   { key: "segments", label: "Segments", Icon: Layers },
   { key: "media-sources", label: "Visual Modes", Icon: PanelsTopLeft },
   { key: "blink-review", label: "Blink Review", Icon: Eye },
+  { key: "image-review", label: "Img Review", Icon: Images },
   { key: "timeline", label: "Timeline", Icon: ListVideo },
   { key: "thumbnails", label: "Thumbnails", Icon: ImageIcon },
   { key: "seo", label: "SEO", Icon: Search },
@@ -3392,6 +3395,12 @@ function TimelineEditor({
           updatingSceneId={blinkReviewUpdatingSceneId}
           onRefresh={() => void refreshBlinkReview()}
           onDecision={(sceneId, status) => void handleBlinkReviewDecision(sceneId, status)}
+        />
+      ) : activeTab === "image-review" ? (
+        <ImageReviewTab
+          scriptId={scriptId}
+          content={state.content}
+          onContentUpdated={state.setContent}
         />
       ) : viewerFormat === "short-form" && viewerAsset === "render" ? (
         <div className="flex-1 overflow-y-auto p-5">
