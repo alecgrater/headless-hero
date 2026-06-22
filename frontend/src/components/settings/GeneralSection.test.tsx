@@ -12,6 +12,7 @@ vi.mock("../../api", () => ({
       status: 200,
       data: {
         IMAGE_PROVIDER: { masked: "google" },
+        GOOGLE_IMAGE_BATCH_ENABLED: { masked: "true" },
         AI_VIDEO_ENABLED: { masked: "true" },
         AI_VIDEO_PROVIDER: { masked: "fal" },
         AI_VIDEO_SCENES_PER_SEGMENT: { masked: "2" },
@@ -64,6 +65,15 @@ describe("GeneralSection visuals layout", () => {
       expect(heading.parentElement).toHaveClass("-ml-4", "rounded-2xl", "border", "border-violet-500/40", "bg-violet-500/5", "px-4", "py-3");
     }
     expect(container.querySelector(".divide-y")).toBeNull();
+  });
+
+  it("renders the Google Batch Generate All toggle from saved settings", async () => {
+    render(createElement(GeneralSection, { panel: "visuals", showHeader: false }));
+
+    const batchToggle = await screen.findByRole("switch", { name: "Toggle Google Batch for Generate All" });
+
+    expect(screen.getByText("Google Batch for Generate All")).toBeInTheDocument();
+    expect(batchToggle).toHaveAttribute("aria-checked", "true");
   });
 
   it("autosaves visuals settings without a sticky save bar", async () => {

@@ -5,6 +5,7 @@ import os
 import json
 import tempfile
 import time
+from dataclasses import dataclass
 from pathlib import Path
 
 from google import genai
@@ -16,6 +17,25 @@ from integrations.usage_tracker import record_usage, GOOGLE_IMAGE_PER_CALL
 
 logger = logging.getLogger(__name__)
 
+BATCH_IMAGE_PER_CALL = GOOGLE_IMAGE_PER_CALL / 2
+BATCH_TERMINAL_STATES = {"JOB_STATE_SUCCEEDED", "JOB_STATE_FAILED", "JOB_STATE_CANCELLED", "JOB_STATE_EXPIRED"}
+
+
+@dataclass(frozen=True)
+class GoogleBatchImageRequest:
+    key: str
+    prompt: str
+    aspect_ratio: str
+    reference_image_path: str | None = None
+    style_reference_path: str | None = None
+
+
+@dataclass(frozen=True)
+class GoogleBatchImageResult:
+    key: str
+    image_path: str | None = None
+    error: str | None = None
+
 
 def _part_from_path(path: str) -> types.Part:
     """Load an image file as a Gemini Part, inferring MIME type from extension."""
@@ -23,6 +43,161 @@ def _part_from_path(path: str) -> types.Part:
     mime = {".png": "image/png", ".webp": "image/webp"}.get(ext, "image/jpeg")
     with open(path, "rb") as f:
         return types.Part.from_bytes(data=f.read(), mime_type=mime)
+
+
+def _inline_part_from_path(path: str) -> dict:
+    """Load an image file as a generateContent inline_data dict for Batch API."""
+    ext = os.path.splitext(path.lower())[1]
+    mime = {".png": "image/png", ".webp": "image/webp"}.get(ext, "image/jpeg")
+    with open(path, "rb") as f:
+        data = f.read()
+    import base64
+
+    return {
+        "inline_data": {
+            "mime_type": mime,
+            "data": base64.b64encode(data).decode("ascii"),
+        }
+    }
+
+
+def _get_attr_or_key(value: object, name: str):
+    if isinstance(value, dict):
+        return value.get(name)
+    return getattr(value, name, None)
+
+
+def _state_name(job: object) -> str:
+    state = _get_attr_or_key(job, "state")
+    if isinstance(state, str):
+        return state
+    return getattr(state, "name", str(state or ""))
+
+
+def _extract_inline_responses(job: object) -> list:
+    dest = _get_attr_or_key(job, "dest")
+    responses = _get_attr_or_key(dest, "inlined_responses")
+    if responses is None:
+        responses = _get_attr_or_key(dest, "inlinedResponses")
+    return list(responses or [])
+
+
+def _extract_inline_image_data(response: object) -> bytes | None:
+    parts = _get_attr_or_key(response, "parts") or []
+    for part in parts:
+        inline_data = _get_attr_or_key(part, "inline_data")
+        if inline_data is None:
+            inline_data = _get_attr_or_key(part, "inlineData")
+        if inline_data is None:
+            continue
+        data = _get_attr_or_key(inline_data, "data")
+        if isinstance(data, bytes):
+            return data
+        if isinstance(data, str):
+            import base64
+
+            return base64.b64decode(data)
+    return None
+
+
+def _batch_request_payload(request: GoogleBatchImageRequest) -> dict:
+    parts: list[dict] = []
+    if request.reference_image_path:
+        parts.append(_inline_part_from_path(request.reference_image_path))
+    if request.style_reference_path:
+        parts.append(_inline_part_from_path(request.style_reference_path))
+    parts.append({"text": request.prompt})
+    return {
+        "contents": [{"parts": parts, "role": "user"}],
+        "config": {
+            "response_modalities": ["IMAGE"],
+            "image_config": {"aspect_ratio": request.aspect_ratio},
+        },
+    }
+
+
+def generate_images_batch(
+    *,
+    client: genai.Client | None = None,
+    requests: list[GoogleBatchImageRequest],
+    script_id: str | None = None,
+    poll_interval_seconds: float = 10.0,
+    timeout_seconds: float = 24 * 60 * 60,
+) -> list[GoogleBatchImageResult]:
+    """Generate independent images through Google Batch API.
+
+    The Batch API is asynchronous and discounted, so this helper submits inline
+    generateContent requests, polls to a terminal state, and writes each returned
+    image to a temp PNG path.
+    """
+    if not requests:
+        return []
+    client = client or get_google_client()
+    display_name = f"headless-hero-images-{script_id or 'no-script'}-{int(time.time())}"
+    inline_requests = [_batch_request_payload(request) for request in requests]
+    logger.info(
+        "Creating Google image batch job for %d request(s) (script=%s)",
+        len(requests), script_id or "none",
+    )
+    batch_job = client.batches.create(
+        model=DEFAULT_IMAGE_MODEL,
+        src=inline_requests,
+        config={"display_name": display_name},
+    )
+    job_name = getattr(batch_job, "name", None) or batch_job["name"]
+    deadline = time.monotonic() + timeout_seconds
+
+    while True:
+        batch_job = client.batches.get(name=job_name)
+        state = _state_name(batch_job)
+        if state in BATCH_TERMINAL_STATES:
+            break
+        if time.monotonic() >= deadline:
+            raise RuntimeError(f"Google image batch timed out before completion: {job_name}")
+        time.sleep(poll_interval_seconds)
+
+    state = _state_name(batch_job)
+    if state != "JOB_STATE_SUCCEEDED":
+        error = _get_attr_or_key(batch_job, "error")
+        raise RuntimeError(f"Google image batch failed ({state}): {error or job_name}")
+
+    inline_responses = _extract_inline_responses(batch_job)
+    results: list[GoogleBatchImageResult] = []
+    for request, inline_response in zip(requests, inline_responses):
+        error = _get_attr_or_key(inline_response, "error")
+        if error:
+            results.append(GoogleBatchImageResult(key=request.key, error=str(error)))
+            continue
+        response = _get_attr_or_key(inline_response, "response")
+        data = _extract_inline_image_data(response)
+        if not data:
+            results.append(GoogleBatchImageResult(key=request.key, error="Google Batch returned no image data"))
+            continue
+        fd, tmp_path = tempfile.mkstemp(suffix=".png")
+        with os.fdopen(fd, "wb") as f:
+            f.write(data)
+        os.chmod(tmp_path, 0o644)
+        results.append(GoogleBatchImageResult(key=request.key, image_path=tmp_path))
+
+    if len(inline_responses) < len(requests):
+        for request in requests[len(inline_responses):]:
+            results.append(GoogleBatchImageResult(key=request.key, error="Google Batch returned no response"))
+
+    successful_images = sum(1 for result in results if result.image_path)
+    if successful_images:
+        record_usage(
+            service="google_ai",
+            operation="image_gen_batch",
+            model=DEFAULT_IMAGE_MODEL,
+            images=successful_images,
+            cost_estimate=BATCH_IMAGE_PER_CALL * successful_images,
+            script_id=script_id,
+        )
+    logger.info(
+        "Google image batch job complete: %d/%d image(s) generated",
+        successful_images, len(requests),
+    )
+    return results
 
 
 def _setting_enabled(value: str | None) -> bool:

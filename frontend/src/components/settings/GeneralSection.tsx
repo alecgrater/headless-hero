@@ -329,6 +329,7 @@ interface GeneralSectionProps {
 export default function GeneralSection({ panel, showHeader = true }: GeneralSectionProps) {
   const [exportsDir, setExportsDir] = useState("");
   const [imageProvider, setImageProvider] = useState("google");
+  const [googleImageBatchEnabled, setGoogleImageBatchEnabled] = useState(false);
   const [aiVideoEnabled, setAiVideoEnabled] = useState(false);
   const [aiVideoProvider, setAiVideoProvider] = useState("runway");
   const [aiVideoScenesPerSegment, setAiVideoScenesPerSegment] = useState("2");
@@ -346,6 +347,7 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
   const [taskRoutes, setTaskRoutes] = useState<Record<string, TaskRoute>>(initialTaskRoutes);
   const [originalExportsDir, setOriginalExportsDir] = useState("");
   const [originalProvider, setOriginalProvider] = useState("google");
+  const [originalGoogleImageBatchEnabled, setOriginalGoogleImageBatchEnabled] = useState(false);
   const [originalAiVideoEnabled, setOriginalAiVideoEnabled] = useState(false);
   const [originalAiVideoProvider, setOriginalAiVideoProvider] = useState("runway");
   const [originalAiVideoScenesPerSegment, setOriginalAiVideoScenesPerSegment] = useState("2");
@@ -368,6 +370,9 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
         const provVal = rawProvider === "replicate" ? "google" : rawProvider;
         setImageProvider(provVal);
         setOriginalProvider(provVal);
+        const googleBatchVal = data.GOOGLE_IMAGE_BATCH_ENABLED?.masked === "true";
+        setGoogleImageBatchEnabled(googleBatchVal);
+        setOriginalGoogleImageBatchEnabled(googleBatchVal);
         const aiVideoVal = data.AI_VIDEO_ENABLED?.masked === "true";
         setAiVideoEnabled(aiVideoVal);
         setOriginalAiVideoEnabled(aiVideoVal);
@@ -433,6 +438,7 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
     const res = await api.put("/api/settings/keys", {
       DOWNLOADS_DIR: exportsDir.trim(),
       IMAGE_PROVIDER: imageProvider,
+      GOOGLE_IMAGE_BATCH_ENABLED: googleImageBatchEnabled ? "true" : "false",
       AI_VIDEO_ENABLED: aiVideoEnabled ? "true" : "false",
       AI_VIDEO_PROVIDER: aiVideoProvider,
       AI_VIDEO_SCENES_PER_SEGMENT: aiVideoScenesPerSegment,
@@ -449,6 +455,7 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
     if (res.ok) {
       setOriginalExportsDir(exportsDir.trim());
       setOriginalProvider(imageProvider);
+      setOriginalGoogleImageBatchEnabled(googleImageBatchEnabled);
       setOriginalAiVideoEnabled(aiVideoEnabled);
       setOriginalAiVideoProvider(aiVideoProvider);
       setOriginalAiVideoScenesPerSegment(aiVideoScenesPerSegment);
@@ -484,6 +491,7 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
     aiVideoProvider,
     aiVideoScenesPerSegment,
     exportsDir,
+    googleImageBatchEnabled,
     imageProvider,
     lifeAsAChunkingEnabled,
     lifeAsAMaxSeconds,
@@ -614,6 +622,7 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
   const hasChanges =
     exportsDir.trim() !== originalExportsDir ||
     imageProvider !== originalProvider ||
+    googleImageBatchEnabled !== originalGoogleImageBatchEnabled ||
     aiVideoEnabled !== originalAiVideoEnabled ||
     aiVideoProvider !== originalAiVideoProvider ||
     aiVideoScenesPerSegment !== originalAiVideoScenesPerSegment ||
@@ -627,6 +636,7 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
   useDebouncedAutosave(hasChanges && !saving && !loading, handleSave, [
     exportsDir,
     imageProvider,
+    googleImageBatchEnabled,
     aiVideoEnabled,
     aiVideoProvider,
     aiVideoScenesPerSegment,
@@ -956,6 +966,30 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
                   </option>
                 ))}
               </select>
+              <div className="flex items-start justify-between gap-4 rounded-xl border border-neutral-800 bg-neutral-900 px-4 py-3">
+                <div className="min-w-0 space-y-1">
+                  <h4 className="text-sm font-semibold text-neutral-100">Google Batch for Generate All</h4>
+                  <p className="text-xs leading-relaxed text-neutral-500">
+                    Uses Google Batch API for eligible full-project image generation to reduce cost. Jobs can take longer before images appear.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={googleImageBatchEnabled}
+                  onClick={() => setGoogleImageBatchEnabled((value) => !value)}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 ${
+                    googleImageBatchEnabled ? "bg-violet-600" : "bg-neutral-700 hover:bg-neutral-600"
+                  }`}
+                  aria-label="Toggle Google Batch for Generate All"
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                      googleImageBatchEnabled ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
             </section>
 
             <section className="space-y-4">

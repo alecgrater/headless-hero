@@ -21,3 +21,7 @@ export interface GenerateVisualResponse {
 export interface GenerateTitleCardsResponse {
   job_id: string;
 }
+
+export interface GenerateVisualBatchJobResponse {
+  job_id: string;
+}

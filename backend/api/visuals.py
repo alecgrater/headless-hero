@@ -2,6 +2,7 @@
 
 import json
 import logging
+import os
 import time
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -17,6 +18,7 @@ from pipeline.image_gen import (
     BlinkRegistrationError,
     CaptionPromptLeakError,
     generate_batch,
+    generate_batch_with_google_batch,
     generate_comparison_board_cutouts,
     generate_blink_cutouts,
     generate_popup_sequence_cutouts,
@@ -27,7 +29,7 @@ from pipeline.image_gen import (
 )
 from pipeline import full_frame_blink as full_frame_blink_mod
 from pipeline import project_blink_review
-from pipeline.render_jobs import UserFacingJobError, create_job, get_job, run_in_background
+from pipeline.render_jobs import UserFacingJobError, create_job, get_job, run_in_background, update_job
 from pipeline.formats import resolve_format
 from pipeline.visual_treatments import analyze_visual_treatment_scene, require_visual_treatment_voiceover
 
@@ -113,6 +115,9 @@ class BatchResultItem(BaseModel):
 
 class GenerateBatchResponse(BaseModel):
     results: list[BatchResultItem]
+
+class VisualBatchJobResponse(BaseModel):
+    job_id: str
 
 # --- Helpers ---
 
@@ -296,6 +301,76 @@ def _metadata_with_full_frame_blink(
         if blink_metadata:
             metadata["full_frame_blink"] = blink_metadata
     return metadata or None
+
+
+def _setting_enabled(value: str | None) -> bool:
+    return (value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _persist_visual_batch_results(
+    session: Session,
+    script_id: str,
+    scenes: list[dict],
+    results: list[dict],
+) -> list[dict]:
+    record = session.get(Script, script_id)
+    if not record:
+        raise UserFacingJobError("Script not found")
+
+    content = ScriptContent.model_validate_json(record.script_json)
+    scene_map = {sc.id: sc for seg in content.segments for sc in seg.scenes}
+    requested_modes = {
+        scene["scene_id"]: scene.get("visual_mode") or "full_frame"
+        for scene in scenes
+    }
+
+    for r in results:
+        if r.get("error"):
+            continue
+        sc = scene_map.get(r["scene_id"])
+        if not sc:
+            continue
+        sc.set_visual_mode(requested_modes.get(sc.id, sc.visual_mode))
+        frame_urls = r.get("frame_urls", [])
+        video_url = r.get("video_url")
+        if video_url:
+            sc.video_url = video_url
+            sc.image_url = ""
+            sc.frame_urls = []
+        elif frame_urls:
+            sc.frame_urls = frame_urls
+            sc.video_url = ""
+            first_image = next((u for u in frame_urls if u), "")
+            if first_image:
+                sc.image_url = first_image
+        elif r.get("image_url"):
+            sc.image_url = r["image_url"]
+            sc.frame_urls = []
+            sc.video_url = ""
+        elif sc.visual_mode not in {"video", "full_frame"}:
+            sc.image_url = ""
+            sc.frame_urls = []
+            sc.video_url = ""
+        if sc.visual_mode in {"video", "full_frame"}:
+            sc.visual_layers = []
+        elif r.get("visual_layers"):
+            sc.visual_layers = r["visual_layers"]
+        source_metadata = r.get("visual_source_metadata")
+        blink_image_url = sc.image_url if sc.visual_mode in full_frame_blink_mod.MEDIA_BACKED_BLINK_MODES else ""
+        merged_metadata = _metadata_with_full_frame_blink(
+            script_id=script_id,
+            scene_id=sc.id,
+            visual_mode=sc.visual_mode,
+            image_url=blink_image_url,
+            source_metadata=source_metadata,
+        )
+        r["visual_source_metadata"] = merged_metadata
+        sc.visual_source_metadata = merged_metadata or METADATA_CLEAR
+
+    record.script_json = content.model_dump_json()
+    session.add(record)
+    session.commit()
+    return results
 
 # --- Endpoints ---
 
@@ -542,6 +617,91 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
         visual_layers=visual_layers or [],
     )
 
+
+@router.post("/generate-batch-job", response_model=VisualBatchJobResponse)
+def start_visual_batch_job(body: GenerateBatchRequest, session: Session = Depends(get_session)):
+    """Start background generation for many scene visuals."""
+    record = session.get(Script, body.script_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Script not found")
+    _require_character_reference_ready(session, body.script_id)
+    bind = session.get_bind()
+    content = ScriptContent.model_validate_json(record.script_json)
+    scene_map = {sc.id: sc for seg in content.segments for sc in seg.scenes}
+
+    scenes = [
+        {
+            "scene_id": s.scene_id,
+            "visual_prompt": s.visual_prompt,
+            "frame_directives": s.frame_directives,
+            "contains_person": s.contains_person or (scene_map[s.scene_id].contains_person if s.scene_id in scene_map else False),
+            "visual_mode": s.visual_mode or (scene_map[s.scene_id].visual_mode if s.scene_id in scene_map else ""),
+            "audio_duration_seconds": s.audio_duration_seconds,
+            "visual_layers": s.visual_layers or (
+                [layer.model_dump() for layer in scene_map[s.scene_id].visual_layers]
+                if s.scene_id in scene_map
+                else []
+            ),
+        }
+        for s in body.scenes
+    ]
+    job = create_job(scene_count=len(scenes))
+
+    def _run() -> None:
+        batch_enabled = _setting_enabled(os.environ.get("GOOGLE_IMAGE_BATCH_ENABLED"))
+        mode_label = "Google Batch" if batch_enabled else "standard"
+        logger.info(
+            "Starting visual batch job %s for script %s using %s mode (%d scenes)",
+            job.id, body.script_id, mode_label, len(scenes),
+        )
+        update_job(job.id, progress=0.02, current_step=f"Generating images with {mode_label} mode...")
+        try:
+            if batch_enabled:
+                results = generate_batch_with_google_batch(
+                    scenes=scenes,
+                    script_id=body.script_id,
+                    width=body.width,
+                    height=body.height,
+                )
+            else:
+                results = generate_batch(
+                    scenes=scenes,
+                    script_id=body.script_id,
+                    width=body.width,
+                    height=body.height,
+                )
+            update_job(job.id, progress=0.9, current_step="Saving generated images...")
+            with Session(bind) as job_session:
+                persisted = _persist_visual_batch_results(job_session, body.script_id, scenes, results)
+            errors = sum(1 for result in persisted if result.get("error"))
+            update_job(
+                job.id,
+                status="completed",
+                progress=1.0,
+                current_step="Images generated",
+                output_data=json.dumps({
+                    "results": persisted,
+                    "errors": errors,
+                    "mode": "google_batch" if batch_enabled else "standard",
+                }),
+            )
+        except Exception as exc:
+            logger.exception("Visual batch job %s failed", job.id)
+            update_job(job.id, status="failed", error=str(exc), current_step="Image generation failed")
+            raise
+
+    run_in_background(job.id, _run)
+    return VisualBatchJobResponse(job_id=job.id)
+
+
+@router.get("/generate-batch-status/{job_id}")
+def visual_batch_status(job_id: str):
+    job = get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return job.to_dict()
+
+
 @router.post("/generate-batch", response_model=GenerateBatchResponse)
 def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends(get_session)):
     """Generate images for multiple scenes sequentially."""
@@ -588,57 +748,7 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
         width=body.width,
         height=body.height,
     )
-    requested_modes = {
-        scene["scene_id"]: scene.get("visual_mode") or "full_frame"
-        for scene in scenes
-    }
-
-    # Persist all successful results in a single DB write
-    for r in results:
-        if r.get("error"):
-            continue
-        sc = scene_map.get(r["scene_id"])
-        if not sc:
-            continue
-        sc.set_visual_mode(requested_modes.get(sc.id, sc.visual_mode))
-        frame_urls = r.get("frame_urls", [])
-        video_url = r.get("video_url")
-        if video_url:
-            sc.video_url = video_url
-            sc.image_url = ""
-            sc.frame_urls = []
-        elif frame_urls:
-            sc.frame_urls = frame_urls
-            sc.video_url = ""
-            first_image = next((u for u in frame_urls if u), "")
-            if first_image:
-                sc.image_url = first_image
-        elif r.get("image_url"):
-            sc.image_url = r["image_url"]
-            sc.frame_urls = []
-            sc.video_url = ""
-        elif sc.visual_mode not in {"video", "full_frame"}:
-            sc.image_url = ""
-            sc.frame_urls = []
-            sc.video_url = ""
-        if sc.visual_mode in {"video", "full_frame"}:
-            sc.visual_layers = []
-        elif r.get("visual_layers"):
-            sc.visual_layers = r["visual_layers"]
-        source_metadata = r.get("visual_source_metadata")
-        blink_image_url = sc.image_url if sc.visual_mode in full_frame_blink_mod.MEDIA_BACKED_BLINK_MODES else ""
-        merged_metadata = _metadata_with_full_frame_blink(
-            script_id=body.script_id,
-            scene_id=sc.id,
-            visual_mode=sc.visual_mode,
-            image_url=blink_image_url,
-            source_metadata=source_metadata,
-        )
-        r["visual_source_metadata"] = merged_metadata
-        sc.visual_source_metadata = merged_metadata or METADATA_CLEAR
-    record.script_json = content.model_dump_json()
-    session.add(record)
-    session.commit()
+    _persist_visual_batch_results(session, body.script_id, scenes, results)
 
     errors = sum(1 for r in results if r.get("error"))
     logger.info("Batch visual generation complete for script %s: %d succeeded, %d failed", body.script_id, len(results) - errors, errors)

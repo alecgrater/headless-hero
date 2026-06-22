@@ -67,7 +67,7 @@ function extractErrorMessage(status: number, data: unknown): string {
 }
 
 /** Paths that should not trigger toast notifications on error. */
-const SILENT_PATHS = ["/api/health", "/api/render/status/", "/api/publish/status/", "/api/publish/short-form/status/", "/api/visuals/title-cards-status/", "/api/character/status/", "/api/scripts/generate-status/", "/api/scripts/cold-opens-status/", "/api/scripts/refine-hook-status/", "/api/trending/refresh-status/", "/api/trending/smart-ideas-status/", "/api/eli/generate-status/", "/api/fx/generate-status/", "/api/media/analyze/status/", "/api/visual-treatments/analyze/status/", "/api/idea-board/", "/api/recording/session/", "/api/recording/score-status/", "/api/short-form/jobs/", "/api/short-form/rendered", "/api/style/presets/jobs/", "/api/test-lab/runs/status/"];
+const SILENT_PATHS = ["/api/health", "/api/render/status/", "/api/publish/status/", "/api/publish/short-form/status/", "/api/visuals/title-cards-status/", "/api/visuals/generate-batch-status/", "/api/character/status/", "/api/scripts/generate-status/", "/api/scripts/cold-opens-status/", "/api/scripts/refine-hook-status/", "/api/trending/refresh-status/", "/api/trending/smart-ideas-status/", "/api/eli/generate-status/", "/api/fx/generate-status/", "/api/media/analyze/status/", "/api/visual-treatments/analyze/status/", "/api/idea-board/", "/api/recording/session/", "/api/recording/score-status/", "/api/short-form/jobs/", "/api/short-form/rendered", "/api/style/presets/jobs/", "/api/test-lab/runs/status/"];
 
 function shouldSilence(path: string): boolean {
   return SILENT_PATHS.some((p) => path.startsWith(p));
@@ -632,6 +632,14 @@ export async function pollTitleCardJob(
   onProgress?: (status: BackgroundJobProgress) => void,
 ): Promise<void> {
   return pollBackgroundJob(jobId, "/api/visuals/title-cards-status/", 200, "Title card generation failed", onProgress);
+}
+
+/** Poll a visual batch background job until it completes or fails. */
+export async function pollVisualBatchJob(
+  jobId: string,
+  onProgress?: (status: BackgroundJobProgress) => void,
+): Promise<void> {
+  return pollBackgroundJob(jobId, "/api/visuals/generate-batch-status/", 1200, "Image generation failed", onProgress);
 }
 
 /** Poll a render job until it completes or fails. */

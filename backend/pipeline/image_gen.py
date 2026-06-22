@@ -12,6 +12,7 @@ from statistics import median
 from PIL import Image, ImageDraw, ImageFont
 
 from config import DATA_DIR, IMAGE_HEIGHT, IMAGE_WIDTH, VIDEO_HEIGHT, VIDEO_WIDTH
+from integrations.google_image_client import GoogleBatchImageRequest, generate_images_batch
 from integrations.image_client import generate_image
 from models.script import MainCharacter
 from pipeline.asset_vault import VaultKind, save_vault_image
@@ -79,6 +80,18 @@ def _raise_for_caption_text_prompt_leak(prompt_parts: list[str], *, scene_id: st
             "use visual_mode='captions' with caption_text/caption_emphasis instead. "
             f"scene_id={scene_id}"
         )
+
+
+def _closest_aspect_ratio(width: int, height: int) -> str:
+    ratio = width / height
+    options = [
+        (1 / 1, "1:1"),
+        (3 / 4, "3:4"),
+        (4 / 3, "4:3"),
+        (9 / 16, "9:16"),
+        (16 / 9, "16:9"),
+    ]
+    return min(options, key=lambda option: abs(option[0] - ratio))[1]
 
 # --- Character reference helpers ---
 
@@ -3268,6 +3281,170 @@ def generate_scene_visual(
 ) -> dict[str, str | None]:
     """Generate visuals for a single scene."""
     return _generate_one_scene(scene, script_id, width, height, style_guide)
+
+
+def _google_batch_visual_mode(scene: dict[str, object]) -> str:
+    return str(
+        scene.get("visual_mode")
+        or ("video" if scene.get("media_source") == "ai_video" else scene.get("visual_treatment", "full_frame"))
+        or "full_frame"
+    )
+
+
+def _is_google_batch_eligible(scene: dict[str, object]) -> bool:
+    visual_mode = _google_batch_visual_mode(scene)
+    if visual_mode == "captions" and not str(scene.get("visual_prompt") or "").strip():
+        return False
+    if visual_mode not in {"full_frame", "captions"}:
+        return False
+    if scene.get("frame_prompts"):
+        return False
+    frame_directives = scene.get("frame_directives") or []
+    if frame_directives:
+        return False
+    return bool(str(scene.get("visual_prompt") or "").strip())
+
+
+def _prepare_google_batch_scene(
+    scene: dict[str, object],
+    script_id: str,
+    width: int,
+    height: int,
+    style_guide: str,
+) -> tuple[GoogleBatchImageRequest | None, dict[str, object] | None, Path | None, Path | None]:
+    scene_id = str(scene["scene_id"])
+    visual_prompt = str(scene.get("visual_prompt") or "")
+    _raise_for_caption_text_prompt_leak([visual_prompt], scene_id=scene_id)
+    prompt, reference_image_path, style_reference_path = _compose_image_prompt_context(
+        visual_prompt=visual_prompt,
+        script_id=script_id,
+        style_guide=style_guide,
+        contains_person=bool(scene.get("contains_person", False)),
+    )
+    images_dir = DATA_DIR / "projects" / script_id / "images"
+    images_dir.mkdir(parents=True, exist_ok=True)
+    local_path = images_dir / f"{scene_id}.png"
+    prompt_marker = images_dir / f"{scene_id}.prompt"
+    web_path = f"/static/projects/{script_id}/images/{scene_id}.png"
+
+    if local_path.exists() and prompt_marker.exists():
+        cached_prompt = prompt_marker.read_text(encoding="utf-8").strip()
+        if cached_prompt == prompt:
+            logger.info("Image cache hit for Google batch scene %s", scene_id)
+            return None, {
+                "scene_id": scene_id,
+                "image_url": web_path,
+                "frame_urls": [],
+                "video_url": "",
+                "prompt_used": prompt,
+                "visual_source_metadata": _read_source_metadata(local_path),
+                "error": None,
+            }, None, None
+
+    request = GoogleBatchImageRequest(
+        key=scene_id,
+        prompt=prompt,
+        aspect_ratio=_closest_aspect_ratio(width, height),
+        reference_image_path=reference_image_path,
+        style_reference_path=style_reference_path,
+    )
+    return request, None, local_path, prompt_marker
+
+
+def generate_batch_with_google_batch(
+    scenes: list[dict[str, object]],
+    script_id: str,
+    width: int = IMAGE_WIDTH,
+    height: int = IMAGE_HEIGHT,
+    style_guide: str = "",
+) -> list[dict[str, object]]:
+    """Generate full-project images using Google Batch for eligible independent images."""
+    results_by_scene: dict[str, dict[str, object]] = {}
+    standard_scenes: list[dict[str, object]] = []
+    batch_requests: list[GoogleBatchImageRequest] = []
+    output_paths: dict[str, tuple[Path, Path, str]] = {}
+
+    for scene in scenes:
+        scene_id = str(scene["scene_id"])
+        if not _is_google_batch_eligible(scene):
+            standard_scenes.append(scene)
+            continue
+        try:
+            request, cached_result, local_path, prompt_marker = _prepare_google_batch_scene(
+                scene, script_id, width, height, style_guide
+            )
+        except Exception as exc:
+            logger.error("Google batch planning failed for scene %s: %s", scene_id, exc, exc_info=True)
+            results_by_scene[scene_id] = {
+                "scene_id": scene_id,
+                "image_url": None,
+                "prompt_used": None,
+                "error": str(exc),
+            }
+            continue
+        if cached_result is not None:
+            results_by_scene[scene_id] = cached_result
+            continue
+        if request and local_path and prompt_marker:
+            batch_requests.append(request)
+            output_paths[scene_id] = (
+                local_path,
+                prompt_marker,
+                f"/static/projects/{script_id}/images/{scene_id}.png",
+            )
+
+    logger.info(
+        "Google image batch plan for script %s: %d eligible, %d standard",
+        script_id, len(batch_requests), len(standard_scenes),
+    )
+    if batch_requests:
+        batch_results = generate_images_batch(requests=batch_requests, script_id=script_id)
+        for batch_result in batch_results:
+            local_path, prompt_marker, web_path = output_paths[batch_result.key]
+            prompt = next(request.prompt for request in batch_requests if request.key == batch_result.key)
+            if batch_result.error or not batch_result.image_path:
+                results_by_scene[batch_result.key] = {
+                    "scene_id": batch_result.key,
+                    "image_url": None,
+                    "prompt_used": prompt,
+                    "error": batch_result.error or "Google Batch returned no image",
+                }
+                continue
+            metadata = _move_generated_image(batch_result.image_path, local_path, {
+                "source_type": "ai_generated",
+                "provider": os.environ.get("IMAGE_PROVIDER", "google"),
+                "batch": True,
+                "fallback": False,
+            })
+            prompt_marker.write_text(prompt, encoding="utf-8")
+            results_by_scene[batch_result.key] = {
+                "scene_id": batch_result.key,
+                "image_url": web_path,
+                "frame_urls": [],
+                "video_url": "",
+                "prompt_used": prompt,
+                "visual_source_metadata": metadata,
+                "error": None,
+            }
+
+    for result in generate_batch(
+        standard_scenes,
+        script_id=script_id,
+        width=width,
+        height=height,
+        style_guide=style_guide,
+    ) if standard_scenes else []:
+        results_by_scene[str(result["scene_id"])] = result
+
+    return [
+        results_by_scene.get(str(scene["scene_id"]), {
+            "scene_id": str(scene["scene_id"]),
+            "image_url": None,
+            "prompt_used": None,
+            "error": "Scene was not processed",
+        })
+        for scene in scenes
+    ]
 
 
 def generate_batch(

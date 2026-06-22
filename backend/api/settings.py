@@ -51,6 +51,7 @@ ALLOWED_KEYS = {
     "GOOGLE_CLIENT_SECRET",
     "DOWNLOADS_DIR",
     "IMAGE_PROVIDER",
+    "GOOGLE_IMAGE_BATCH_ENABLED",
     "AI_VIDEO_ENABLED",
     "AI_VIDEO_PROVIDER",
     "AI_VIDEO_SCENES_PER_SEGMENT",
@@ -96,6 +97,7 @@ for _task_id, _task_config in LLM_TASKS.items():
 _PLAINTEXT_KEYS = {
     "DOWNLOADS_DIR",
     "IMAGE_PROVIDER",
+    "GOOGLE_IMAGE_BATCH_ENABLED",
     "AI_VIDEO_ENABLED",
     "AI_VIDEO_PROVIDER",
     "AI_VIDEO_SCENES_PER_SEGMENT",
@@ -135,6 +137,7 @@ for _task_id, _task_config in LLM_TASKS.items():
 # Default values for settings that have sensible defaults
 _DEFAULTS: dict[str, str] = {
     "DOWNLOADS_DIR": str(DEFAULT_EXPORTS_DIR),
+    "GOOGLE_IMAGE_BATCH_ENABLED": "false",
     "IMAGE_RATE_LIMIT_MS": "10000",  # 6 req/min to stay under free-tier limits
     "IMAGE_SCRAPER_FALLBACK_ENABLED": "false",
     "AI_VIDEO_ENABLED": "false",

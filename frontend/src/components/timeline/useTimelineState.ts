@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../../api";
-import { fetchGenerationEstimate, recordDuration, pollTitleCardJob, bumpAssetVersion } from "../../api";
+import { fetchGenerationEstimate, recordDuration, pollTitleCardJob, pollVisualBatchJob, bumpAssetVersion } from "../../api";
 import type { FrameDirective, Scene, ScriptContent, VisualLayer } from "../../types/script";
-import type { GenerateVisualResponse, GenerateTitleCardsResponse } from "../../types/visual";
+import type { GenerateTitleCardsResponse, GenerateVisualBatchJobResponse } from "../../types/visual";
 import type { GenerateAudioResponse } from "../../types/audio";
 import { sceneVisualAssetsComplete } from "./assetCompletion";
 
@@ -619,75 +619,58 @@ export function useTimelineState(
         }
       }
 
-      for (const scene of scenes) {
-        if (imagesCancelRef.current) break;
-
-        statuses.set(scene.scene_id, "generating");
-        setGeneratingSceneIds((prev) => new Set(prev).add(scene.scene_id));
+      if (scenes.length > 0 && !imagesCancelRef.current) {
+        scenes.forEach((scene) => statuses.set(scene.scene_id, "generating"));
+        setGeneratingSceneIds(new Set(scenes.map((scene) => scene.scene_id)));
         setBatchImageProgress((prev) => ({
           ...prev,
-          currentSceneId: scene.scene_id,
-          currentSceneName: scene.name,
+          currentSceneId: scenes[0]?.scene_id ?? null,
+          currentSceneName: "Preparing image batch",
           statuses: new Map(statuses),
         }));
 
         try {
-          const res = await api.post("/api/visuals/generate", {
+          const res = await api.post("/api/visuals/generate-batch-job", {
             script_id: scriptId,
-            scene_id: scene.scene_id,
-            visual_prompt: scene.visual_prompt,
-            frame_directives: scene.frame_directives,
-            contains_person: scene.contains_person,
-            visual_mode: scene.visual_mode,
-            audio_duration_seconds: scene.audio_duration_seconds,
-            visual_layers: scene.visual_layers,
+            scenes: scenes.map((scene) => ({
+              scene_id: scene.scene_id,
+              visual_prompt: scene.visual_prompt,
+              frame_directives: scene.frame_directives,
+              contains_person: scene.contains_person,
+              visual_mode: scene.visual_mode,
+              audio_duration_seconds: scene.audio_duration_seconds,
+              visual_layers: scene.visual_layers,
+            })),
           });
-          if (res.ok) {
-            const data = res.data as GenerateVisualResponse;
-            bumpAssetVersion(
-              data.image_url ?? "",
-              data.video_url ?? "",
-              ...(data.frame_urls ?? []),
-              ...(data.visual_layers ?? []).map((layer) => layer.image_url ?? ""),
-            );
-            setContent((prev) => ({
-              ...prev,
-              segments: prev.segments.map((seg) => ({
-                ...seg,
-                scenes: seg.scenes.map((sc) =>
-                  sc.id === scene.scene_id
-                    ? {
-                        ...sc,
-                        image_url: data.image_url ?? sc.image_url,
-                        video_url: data.video_url ?? sc.video_url,
-                        frame_urls: data.frame_urls ?? sc.frame_urls,
-                        visual_layers: data.visual_layers ?? sc.visual_layers,
-                        visual_source_metadata: data.visual_source_metadata ?? sc.visual_source_metadata,
-                      }
-                    : sc,
-                ),
-              })),
-            }));
-            statuses.set(scene.scene_id, "done");
-            completed++;
-          } else {
-            statuses.set(scene.scene_id, "failed");
-            failed++;
+          if (!res.ok) {
+            throw new Error((res.data as { detail?: string })?.detail || "Failed to start image generation");
           }
+          const data = res.data as GenerateVisualBatchJobResponse;
+          await pollVisualBatchJob(data.job_id, (status) => {
+            setBatchImageProgress((prev) => ({
+              ...prev,
+              currentSceneId: null,
+              currentSceneName: status.current_step || "Generating images",
+              statuses: new Map(statuses),
+            }));
+          });
+          scenes.forEach((scene) => statuses.set(scene.scene_id, "done"));
+          completed = scenes.length;
         } catch {
-          statuses.set(scene.scene_id, "failed");
-          failed++;
+          scenes.forEach((scene) => {
+            if (statuses.get(scene.scene_id) === "generating" || statuses.get(scene.scene_id) === "pending") {
+              statuses.set(scene.scene_id, "failed");
+            }
+          });
+          failed = scenes.length;
         }
 
-        setGeneratingSceneIds((prev) => {
-          const next = new Set(prev);
-          next.delete(scene.scene_id);
-          return next;
-        });
         setBatchImageProgress((prev) => ({
           ...prev,
           completed,
           failed,
+          currentSceneId: null,
+          currentSceneName: null,
           statuses: new Map(statuses),
         }));
       }
@@ -698,6 +681,16 @@ export function useTimelineState(
       const scriptRes = await api.get(`/api/scripts/${scriptId}`);
       if (scriptRes.ok) {
         const scriptData = scriptRes.data as { script: ScriptContent };
+        for (const seg of scriptData.script.segments) {
+          for (const sc of seg.scenes) {
+            bumpAssetVersion(
+              sc.image_url ?? "",
+              sc.video_url ?? "",
+              ...(sc.frame_urls ?? []),
+              ...(sc.visual_layers ?? []).map((layer) => layer.image_url ?? ""),
+            );
+          }
+        }
         setContent(scriptData.script);
       }
       // Record batch duration for future estimates
