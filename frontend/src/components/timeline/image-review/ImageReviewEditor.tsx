@@ -245,7 +245,14 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
     setFuture([]);
   }, [captureSnapshot]);
 
-  const restoreDataUrl = useCallback((dataUrl: string) => {
+  const restoreDataUrl = useCallback((
+    dataUrl: string,
+    overlayState: Pick<EditorSnapshot, "overlayObjects" | "activeObjectId" | "selection"> = {
+      overlayObjects: [],
+      activeObjectId: null,
+      selection: null,
+    },
+  ) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
@@ -257,7 +264,7 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
       canvas.height = image.naturalHeight || image.height || canvas.height;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-      drawOverlay(null, [], null);
+      drawOverlay(overlayState.selection, overlayState.overlayObjects, overlayState.activeObjectId);
     };
     image.src = dataUrl;
   }, [drawOverlay]);
@@ -266,7 +273,7 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
     setOverlayObjects(snapshot.overlayObjects);
     setActiveObjectId(snapshot.activeObjectId);
     setSelection(snapshot.selection);
-    restoreDataUrl(snapshot.baseDataUrl);
+    restoreDataUrl(snapshot.baseDataUrl, snapshot);
   }, [restoreDataUrl]);
 
   useEffect(() => {

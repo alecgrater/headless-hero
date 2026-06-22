@@ -271,6 +271,23 @@ describe("ImageReviewTab", () => {
     expect(fillTextMock).not.toHaveBeenCalledWith("Temporary", expect.any(Number), expect.any(Number));
   });
 
+  it("redoes newly added text visibly before saving", async () => {
+    render(<ImageReviewTab scriptId="script-1" content={script} onContentUpdated={vi.fn()} />);
+
+    expect((await screen.findAllByText("scene_001")).length).toBeGreaterThan(0);
+
+    await userEvent.clear(screen.getByLabelText("Text content"));
+    await userEvent.type(screen.getByLabelText("Text content"), "Redo text");
+    await userEvent.click(screen.getByRole("button", { name: /add text/i }));
+    await userEvent.click(screen.getByRole("button", { name: "Undo" }));
+    fillTextMock.mockClear();
+
+    await userEvent.click(screen.getByRole("button", { name: "Redo" }));
+    await waitFor(() => {
+      expect(fillTextMock).toHaveBeenCalledWith("Redo text", expect.any(Number), expect.any(Number));
+    });
+  });
+
   it("paints eraser strokes with the selected black or white color", async () => {
     render(<ImageReviewTab scriptId="script-1" content={script} onContentUpdated={vi.fn()} />);
 
