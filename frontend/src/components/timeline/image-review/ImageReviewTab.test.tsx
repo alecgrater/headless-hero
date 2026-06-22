@@ -300,6 +300,23 @@ describe("ImageReviewTab", () => {
     expect(fillTextMock).toHaveBeenCalledWith("Tues", expect.any(Number), expect.any(Number));
   });
 
+  it("does not hijack native copy and paste while a text input is focused", async () => {
+    render(<ImageReviewTab scriptId="script-1" content={script} onContentUpdated={vi.fn()} />);
+
+    expect((await screen.findAllByText("scene_001")).length).toBeGreaterThan(0);
+
+    await userEvent.clear(screen.getByLabelText("Text content"));
+    await userEvent.type(screen.getByLabelText("Text content"), "Mon");
+    await userEvent.click(screen.getByRole("button", { name: /add text/i }));
+
+    const input = screen.getByLabelText("Text content");
+    await userEvent.click(input);
+    await userEvent.keyboard("{Meta>}c{/Meta}");
+    await userEvent.keyboard("{Meta>}v{/Meta}");
+
+    expect(screen.getByRole("button", { name: /paste selection/i })).toBeDisabled();
+  });
+
   it("moves an added text object by dragging it on the canvas", async () => {
     render(<ImageReviewTab scriptId="script-1" content={script} onContentUpdated={vi.fn()} />);
 

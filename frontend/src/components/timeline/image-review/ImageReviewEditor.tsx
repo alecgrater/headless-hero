@@ -150,6 +150,12 @@ function pointInSelection(point: { x: number; y: number }, selection: Selection)
   );
 }
 
+function isEditableShortcutTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const tagName = target.tagName.toLowerCase();
+  return tagName === "input" || tagName === "textarea" || tagName === "select" || target.isContentEditable;
+}
+
 export default function ImageReviewEditor({ scriptId, asset, saving, resetting, onSave, onReset }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const overlayRef = useRef<HTMLCanvasElement | null>(null);
@@ -685,6 +691,7 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (isEditableShortcutTarget(event.target)) return;
       if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return;
       const key = event.key.toLowerCase();
       if (key === "c" && (activeObjectId || selection)) {
