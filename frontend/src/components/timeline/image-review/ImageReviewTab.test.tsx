@@ -241,6 +241,27 @@ describe("ImageReviewTab", () => {
     );
   });
 
+  it("copies the visible selection including added text overlays", async () => {
+    render(<ImageReviewTab scriptId="script-1" content={script} onContentUpdated={vi.fn()} />);
+
+    expect((await screen.findAllByText("scene_001")).length).toBeGreaterThan(0);
+
+    await userEvent.clear(screen.getByLabelText("Text content"));
+    await userEvent.type(screen.getByLabelText("Text content"), "Copied overlay");
+    await userEvent.click(screen.getByRole("button", { name: /add text/i }));
+    await userEvent.click(screen.getByRole("button", { name: /select all/i }));
+    fillTextMock.mockClear();
+
+    await userEvent.click(screen.getByRole("button", { name: /copy selection/i }));
+    expect(fillTextMock).toHaveBeenCalledWith("Copied overlay", expect.any(Number), expect.any(Number));
+    fillTextMock.mockClear();
+
+    await userEvent.click(screen.getByRole("button", { name: /paste selection/i }));
+    await userEvent.click(screen.getByRole("button", { name: /save edited copy/i }));
+
+    expect(putImageDataMock).toHaveBeenCalled();
+  });
+
   it("moves an added text object by dragging it on the canvas", async () => {
     render(<ImageReviewTab scriptId="script-1" content={script} onContentUpdated={vi.fn()} />);
 
@@ -337,6 +358,28 @@ describe("ImageReviewTab", () => {
 
     expect(getImageDataMock).toHaveBeenCalledWith(expect.any(Number), expect.any(Number), 32, 32);
     expect(putImageDataMock).toHaveBeenCalledWith(expect.objectContaining({ width: 1, height: 1 }), expect.any(Number), expect.any(Number));
+  });
+
+  it("changes the clone stamp cursor while Option is held for sampling", async () => {
+    render(<ImageReviewTab scriptId="script-1" content={script} onContentUpdated={vi.fn()} />);
+
+    expect((await screen.findAllByText("scene_001")).length).toBeGreaterThan(0);
+
+    await userEvent.click(screen.getByRole("button", { name: /clone stamp tool/i }));
+
+    const canvas = screen.getByLabelText("Image review canvas");
+    expect(canvas).toHaveClass("cursor-crosshair");
+    canvas.dispatchEvent(new PointerEvent("pointermove", {
+      altKey: true,
+      bubbles: true,
+      clientX: 20,
+      clientY: 20,
+      pointerId: 1,
+    }));
+
+    await waitFor(() => {
+      expect(canvas).toHaveClass("cursor-copy");
+    });
   });
 
   it("resets the selected asset and applies returned script content", async () => {

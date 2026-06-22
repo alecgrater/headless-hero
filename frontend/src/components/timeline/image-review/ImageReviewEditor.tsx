@@ -172,6 +172,7 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
   const [loadError, setLoadError] = useState<string | null>(null);
   const [hasCopiedSelection, setHasCopiedSelection] = useState(false);
   const [cloneSource, setCloneSource] = useState<{ x: number; y: number } | null>(null);
+  const [cloneSamplingModifier, setCloneSamplingModifier] = useState(false);
 
   const dimensionsLabel = useMemo(() => {
     if (!asset.width || !asset.height) return "dimensions unknown";
@@ -433,12 +434,26 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
     ctx.putImageData(pixels, targetX, targetY);
   };
 
+  const compositeCanvas = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    const output = document.createElement("canvas");
+    output.width = canvas.width;
+    output.height = canvas.height;
+    const ctx = output.getContext("2d");
+    if (!ctx) return null;
+    ctx.drawImage(canvas, 0, 0);
+    overlayObjects.forEach((object) => renderOverlayObject(ctx, object));
+    return output;
+  };
+
   const handlePointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
     if (!loaded) return;
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
     if (!canvas || !ctx) return;
     const point = canvasPoint(event);
+    setCloneSamplingModifier(tool === "clone" && event.altKey);
     drawingRef.current = true;
     dragStartRef.current = point;
     event.currentTarget.setPointerCapture?.(event.pointerId);
@@ -508,6 +523,7 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
   };
 
   const handlePointerMove = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    setCloneSamplingModifier(tool === "clone" && event.altKey);
     if (!drawingRef.current || !dragStartRef.current) return;
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
@@ -549,6 +565,7 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
     dragStartRef.current = null;
     draggingObjectRef.current = null;
     cloneStrokeRef.current = null;
+    setCloneSamplingModifier(tool === "clone" && event.altKey);
     event.currentTarget.releasePointerCapture?.(event.pointerId);
   };
 
@@ -561,11 +578,22 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
 
   const copySelection = () => {
     const canvas = canvasRef.current;
-    const ctx = canvas?.getContext("2d");
-    if (!canvas || !ctx || !selection) return;
-    const normalized = normalizeSelection(selection);
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const activeObject = activeObjectId ? overlayObjects.find((object) => object.id === activeObjectId) ?? null : null;
+    const sourceSelection = selection ?? (activeObject ? objectBounds(ctx, activeObject) : null);
+    if (!sourceSelection) return;
+    const normalized = normalizeSelection(sourceSelection);
     if (normalized.width < 1 || normalized.height < 1) return;
-    copiedRef.current = ctx.getImageData(normalized.x, normalized.y, normalized.width, normalized.height);
+    const output = compositeCanvas();
+    const outputCtx = output?.getContext("2d");
+    if (!output || !outputCtx) return;
+    const x = Math.round(Math.min(Math.max(0, normalized.x), Math.max(0, output.width - normalized.width)));
+    const y = Math.round(Math.min(Math.max(0, normalized.y), Math.max(0, output.height - normalized.height)));
+    const width = Math.round(Math.min(normalized.width, output.width - x));
+    const height = Math.round(Math.min(normalized.height, output.height - y));
+    copiedRef.current = outputCtx.getImageData(x, y, width, height);
     setHasCopiedSelection(true);
   };
 
@@ -648,15 +676,8 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
   };
 
   const flattenedDataUrl = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return null;
-    const output = document.createElement("canvas");
-    output.width = canvas.width;
-    output.height = canvas.height;
-    const ctx = output.getContext("2d");
-    if (!ctx) return null;
-    ctx.drawImage(canvas, 0, 0);
-    overlayObjects.forEach((object) => renderOverlayObject(ctx, object));
+    const output = compositeCanvas();
+    if (!output) return null;
     return output.toDataURL("image/png");
   };
 
@@ -670,6 +691,11 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
   const activeTextObject = overlayObjects.find(
     (object): object is TextOverlayObject => object.id === activeObjectId && object.kind === "text",
   );
+  const canvasCursorClass = tool === "clone"
+    ? cloneSamplingModifier
+      ? "cursor-copy"
+      : "cursor-crosshair"
+    : "";
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-neutral-800 bg-neutral-950/40">
@@ -745,7 +771,7 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
           <MousePointer2 className="h-3.5 w-3.5" />
           Select all
         </button>
-        <button type="button" onClick={copySelection} disabled={!loaded || !selection} className="inline-flex items-center gap-1.5 rounded-md border border-neutral-700 bg-neutral-800 px-2.5 py-1.5 text-xs font-medium text-neutral-200 transition-colors hover:bg-neutral-700 disabled:opacity-50">
+        <button type="button" onClick={copySelection} disabled={!loaded || (!selection && !activeObjectId)} className="inline-flex items-center gap-1.5 rounded-md border border-neutral-700 bg-neutral-800 px-2.5 py-1.5 text-xs font-medium text-neutral-200 transition-colors hover:bg-neutral-700 disabled:opacity-50">
           <Copy className="h-3.5 w-3.5" />
           Copy selection
         </button>
@@ -859,11 +885,12 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
           <canvas
             ref={canvasRef}
             aria-label="Image review canvas"
-            className="block aspect-video w-full rounded-md bg-neutral-900 shadow-2xl shadow-black/50"
+            className={`block aspect-video w-full rounded-md bg-neutral-900 shadow-2xl shadow-black/50 ${canvasCursorClass}`}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
             onPointerCancel={handlePointerUp}
+            onPointerLeave={() => setCloneSamplingModifier(false)}
           />
           <canvas
             ref={overlayRef}
