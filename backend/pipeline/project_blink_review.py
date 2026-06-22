@@ -95,18 +95,22 @@ def set_project_blink_review_decision(
     scene_id: str,
     status: Literal["enabled", "disabled"],
 ) -> BlinkReviewSummary:
-    refresh_project_blink_review(content, script_id)
     scene = next((item for item in content.all_scenes() if item.id == scene_id), None)
     if scene is None:
         raise ValueError(f"Scene not found: {scene_id}")
     blink = _blink_metadata(scene)
     review = blink.get("review") if blink and isinstance(blink.get("review"), dict) else {}
+    if not blink:
+        refresh_project_blink_review(content, script_id)
+        scene = next((item for item in content.all_scenes() if item.id == scene_id), None)
+        blink = _blink_metadata(scene) if scene else None
+        review = blink.get("review") if blink and isinstance(blink.get("review"), dict) else {}
     if not blink or review.get("status") == "rejected":
         raise ValueError(f"Scene is not eligible for blink review: {scene_id}")
     blink["enabled"] = status == "enabled"
     blink["review"] = {"status": status, "reviewed_at": datetime.now(timezone.utc).isoformat()}
     scene.visual_source_metadata = {**(scene.visual_source_metadata or {}), "full_frame_blink": blink}
-    return refresh_project_blink_review(content, script_id)
+    return _summary_from_metadata(content, script_id)
 
 
 def validate_project_blink_review_complete(content: ScriptContent, script_id: str) -> BlinkReviewSummary:
@@ -199,6 +203,47 @@ def _summary(script_id: str, candidates: list[BlinkReviewCandidate]) -> BlinkRev
         disabled_count=len(disabled),
         complete=len(unreviewed) == 0,
         review_enabled=True,
+    )
+
+
+def _summary_from_metadata(content: ScriptContent, script_id: str) -> BlinkReviewSummary:
+    candidates = []
+    for scene in content.all_scenes():
+        candidate = _candidate_from_scene_metadata(scene)
+        if candidate is not None:
+            candidates.append(candidate)
+    return _summary(script_id, candidates)
+
+
+def _candidate_from_scene_metadata(scene: Scene) -> BlinkReviewCandidate | None:
+    if scene.is_title_card or scene.visual_mode not in full_frame_blink.MEDIA_BACKED_BLINK_MODES:
+        return None
+    blink = _blink_metadata(scene)
+    if not blink:
+        return None
+    review = blink.get("review") if isinstance(blink.get("review"), dict) else {}
+    review_status = review.get("status")
+    if review_status == "rejected":
+        return BlinkReviewCandidate(
+            scene_id=scene.id,
+            scene_label=scene.narration[:120],
+            image_url=scene.image_url or "",
+            eligible=False,
+            reason=str(blink.get("reason") or ""),
+            review_status="rejected",
+        )
+    if review_status not in {"unreviewed", "enabled", "disabled"}:
+        return None
+    anchor = blink.get("anchor")
+    return BlinkReviewCandidate(
+        scene_id=scene.id,
+        scene_label=scene.narration[:120],
+        image_url=scene.image_url or "",
+        eligible=True,
+        anchor=anchor if isinstance(anchor, dict) else None,
+        fingerprint=str(blink.get("fingerprint") or ""),
+        review_status=review_status,
+        enabled=review_status == "enabled",
     )
 
 

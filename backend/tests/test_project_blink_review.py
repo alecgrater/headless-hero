@@ -283,6 +283,43 @@ def test_blink_review_api_persists_decision(monkeypatch):
     assert blink["review"]["status"] == "enabled"
 
 
+def test_set_blink_review_decision_uses_existing_candidate_without_redetecting(monkeypatch):
+    from pipeline import project_blink_review
+
+    content = content_with_scene(
+        Scene(
+            id="scene_001",
+            narration="A worker waits.",
+            visual_prompt="Worker",
+            visual_mode="full_frame",
+            image_url="/static/projects/script-1/images/scene_001.png",
+            visual_source_metadata={
+                "full_frame_blink": {
+                    "enabled": False,
+                    "action": "blink",
+                    "fingerprint": "abc",
+                    "anchor": {"detected": True, "eye_left": {"x": 0.4, "y": 0.3}},
+                    "review": {"status": "unreviewed"},
+                }
+            },
+        )
+    )
+    monkeypatch.setattr(
+        project_blink_review.full_frame_blink,
+        "detect_full_frame_blink_anchor",
+        lambda _path: (_ for _ in ()).throw(AssertionError("decision should not redetect")),
+    )
+
+    summary = project_blink_review.set_project_blink_review_decision(content, "script-1", "scene_001", "enabled")
+
+    blink = content.segments[0].scenes[0].visual_source_metadata["full_frame_blink"]
+    assert blink["enabled"] is True
+    assert blink["review"]["status"] == "enabled"
+    assert summary.enabled_count == 1
+    assert summary.unreviewed_count == 0
+    assert summary.candidates[0].review_status == "enabled"
+
+
 def test_validate_project_blink_review_blocks_unreviewed_scene(monkeypatch, tmp_path):
     from pipeline.project_blink_review import BlinkReviewRequiredError, validate_project_blink_review_complete
 
