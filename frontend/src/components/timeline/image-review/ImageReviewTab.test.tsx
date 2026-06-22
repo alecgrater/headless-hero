@@ -103,6 +103,11 @@ beforeEach(() => {
   vi.spyOn(HTMLCanvasElement.prototype, "toDataURL").mockReturnValue("data:image/png;base64,edited");
   URL.createObjectURL = vi.fn(() => "blob:image-review");
   URL.revokeObjectURL = vi.fn();
+  vi.stubGlobal("createImageBitmap", vi.fn(async () => ({
+    width: 100,
+    height: 56,
+    close: vi.fn(),
+  })));
   vi.stubGlobal("fetch", vi.fn(async () => ({
     ok: true,
     blob: async () => new Blob(["fake"], { type: "image/png" }),
@@ -129,6 +134,7 @@ describe("ImageReviewTab", () => {
     await waitFor(() => {
       expect(fetch).toHaveBeenCalledWith("/static/projects/script-1/images/scene_001.png");
     });
+    expect(createImageBitmap).toHaveBeenCalled();
   });
 
   it("lists image review assets and saves a deleted selection", async () => {

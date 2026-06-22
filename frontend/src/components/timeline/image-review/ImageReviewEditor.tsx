@@ -154,6 +154,21 @@ export default function ImageReviewEditor({ asset, saving, resetting, onSave, on
       drawOverlay(null);
     };
 
+    const drawImageElement = (objectUrlValue: string) => {
+      const image = new Image();
+      image.onload = () => {
+        if (cancelled) return;
+        canvas.width = image.naturalWidth || image.width || 1920;
+        canvas.height = image.naturalHeight || image.height || 1080;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+        setLoaded(true);
+        drawOverlay(null);
+      };
+      image.onerror = drawFallback;
+      image.src = objectUrlValue;
+    };
+
     const loadImage = async () => {
       try {
         const response = await fetch(assetUrl(asset.current_url));
@@ -163,19 +178,31 @@ export default function ImageReviewEditor({ asset, saving, resetting, onSave, on
         }
         const blob = await response.blob();
         if (cancelled) return;
+        if ("createImageBitmap" in window) {
+          let bitmap: ImageBitmap | null = null;
+          try {
+            bitmap = await createImageBitmap(blob);
+          } catch {
+            bitmap = null;
+          }
+          if (cancelled && bitmap) {
+            bitmap.close();
+            return;
+          }
+          if (bitmap) {
+            canvas.width = bitmap.width || asset.width || 1920;
+            canvas.height = bitmap.height || asset.height || 1080;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+            bitmap.close();
+            setLoaded(true);
+            drawOverlay(null);
+            return;
+          }
+        }
+        if (cancelled) return;
         objectUrl = URL.createObjectURL(blob);
-        const image = new Image();
-        image.onload = () => {
-          if (cancelled) return;
-          canvas.width = image.naturalWidth || image.width || 1920;
-          canvas.height = image.naturalHeight || image.height || 1080;
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-          setLoaded(true);
-          drawOverlay(null);
-        };
-        image.onerror = drawFallback;
-        image.src = objectUrl;
+        drawImageElement(objectUrl);
       } catch {
         drawFallback();
       }
