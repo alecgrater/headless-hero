@@ -377,6 +377,61 @@ describe("ImageReviewTab", () => {
     expect(fillTextMock).not.toHaveBeenCalledWith("Temporary", expect.any(Number), expect.any(Number));
   });
 
+  it("undoes multiple editor steps with repeated Command-Z", async () => {
+    render(<ImageReviewTab scriptId="script-1" content={script} onContentUpdated={vi.fn()} />);
+
+    expect((await screen.findAllByText("scene_001")).length).toBeGreaterThan(0);
+
+    await userEvent.clear(screen.getByLabelText("Text content"));
+    await userEvent.type(screen.getByLabelText("Text content"), "First");
+    await userEvent.click(screen.getByRole("button", { name: /add text/i }));
+    await userEvent.click(screen.getByRole("button", { name: /select all/i }));
+    await userEvent.clear(screen.getByLabelText("Text content"));
+    await userEvent.type(screen.getByLabelText("Text content"), "Second");
+    await userEvent.click(screen.getByRole("button", { name: /add text/i }));
+
+    await userEvent.keyboard("{Meta>}z{/Meta}");
+    fillTextMock.mockClear();
+    await userEvent.click(screen.getByRole("button", { name: /save edited copy/i }));
+    expect(fillTextMock).toHaveBeenCalledWith("First", expect.any(Number), expect.any(Number));
+    expect(fillTextMock).not.toHaveBeenCalledWith("Second", expect.any(Number), expect.any(Number));
+
+    await userEvent.keyboard("{Meta>}z{/Meta}");
+    fillTextMock.mockClear();
+    await userEvent.click(screen.getByRole("button", { name: /save edited copy/i }));
+    expect(fillTextMock).not.toHaveBeenCalledWith("First", expect.any(Number), expect.any(Number));
+    expect(fillTextMock).not.toHaveBeenCalledWith("Second", expect.any(Number), expect.any(Number));
+  });
+
+  it("redoes an editor step with Shift-Command-Z", async () => {
+    render(<ImageReviewTab scriptId="script-1" content={script} onContentUpdated={vi.fn()} />);
+
+    expect((await screen.findAllByText("scene_001")).length).toBeGreaterThan(0);
+
+    await userEvent.clear(screen.getByLabelText("Text content"));
+    await userEvent.type(screen.getByLabelText("Text content"), "Redo shortcut");
+    await userEvent.click(screen.getByRole("button", { name: /add text/i }));
+    await userEvent.keyboard("{Meta>}z{/Meta}");
+    await userEvent.keyboard("{Meta>}{Shift>}z{/Shift}{/Meta}");
+
+    fillTextMock.mockClear();
+    await userEvent.click(screen.getByRole("button", { name: /save edited copy/i }));
+    expect(fillTextMock).toHaveBeenCalledWith("Redo shortcut", expect.any(Number), expect.any(Number));
+  });
+
+  it("does not hijack Command-Z while a text input is focused", async () => {
+    render(<ImageReviewTab scriptId="script-1" content={script} onContentUpdated={vi.fn()} />);
+
+    expect((await screen.findAllByText("scene_001")).length).toBeGreaterThan(0);
+
+    const input = screen.getByLabelText("Text content");
+    await userEvent.clear(input);
+    await userEvent.type(input, "Typing");
+    await userEvent.keyboard("{Meta>}z{/Meta}");
+
+    expect(input).toHaveFocus();
+  });
+
   it("redoes newly added text visibly before saving", async () => {
     render(<ImageReviewTab scriptId="script-1" content={script} onContentUpdated={vi.fn()} />);
 

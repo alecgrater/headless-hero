@@ -697,8 +697,18 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
         deleteSelection();
         return;
       }
-      if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return;
+      if (!(event.metaKey || event.ctrlKey) || event.altKey) return;
       const key = event.key.toLowerCase();
+      if (key === "z") {
+        event.preventDefault();
+        if (event.shiftKey) {
+          redo();
+        } else {
+          undo();
+        }
+        return;
+      }
+      if (event.shiftKey) return;
       if (key === "c" && (activeObjectId || selection)) {
         event.preventDefault();
         copySelection();
