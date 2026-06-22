@@ -83,6 +83,30 @@ def test_scene_to_input_props_include_caption_fields_for_captions_scene(tmp_path
     assert props["caption_emphasis"] == "real"
 
 
+def test_scene_to_input_props_ignores_stale_images_for_text_only_captions_scene(tmp_path, monkeypatch):
+    monkeypatch.setattr(remotion_render, "DATA_DIR", tmp_path)
+    script_id = "script"
+    image_dir = tmp_path / "projects" / script_id / "images"
+    image_dir.mkdir(parents=True)
+    (image_dir / "scene_001.png").write_bytes(b"stale caption prompt leak")
+    (image_dir / "scene_001_f0.png").write_bytes(b"stale caption prompt leak")
+    scene = Scene(
+        id="scene_001",
+        narration="The temporary job became the whole life.",
+        visual_prompt="",
+        visual_mode="captions",
+        caption_text="The temporary job became the whole life",
+        caption_emphasis="temporary",
+        audio_duration_seconds=2.0,
+    )
+
+    props = remotion_render._scene_to_input_props(scene, script_id)
+
+    assert props["visual_mode"] == "captions"
+    assert props["image_path"] is None
+    assert props["frame_paths"] is None
+
+
 def test_scene_to_input_props_includes_subtitle_style(tmp_path, monkeypatch):
     monkeypatch.setattr(remotion_render, "DATA_DIR", tmp_path)
     scene = Scene(
