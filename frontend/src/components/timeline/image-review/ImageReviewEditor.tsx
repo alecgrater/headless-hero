@@ -49,6 +49,13 @@ interface ImageOverlayObject extends BaseOverlayObject {
 
 type OverlayObject = TextOverlayObject | ImageOverlayObject;
 
+interface EditorSnapshot {
+  baseDataUrl: string;
+  overlayObjects: OverlayObject[];
+  activeObjectId: string | null;
+  selection: Selection | null;
+}
+
 interface Props {
   scriptId: string;
   asset: ImageReviewAsset;
@@ -144,7 +151,7 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
   const overlayRef = useRef<HTMLCanvasElement | null>(null);
   const drawingRef = useRef(false);
   const dragStartRef = useRef<{ x: number; y: number } | null>(null);
-  const draggingObjectRef = useRef<{ id: string; offsetX: number; offsetY: number } | null>(null);
+  const draggingObjectRef = useRef<{ id: string; offsetX: number; offsetY: number; historyPushed: boolean } | null>(null);
   const copiedRef = useRef<ImageData | null>(null);
   const [tool, setTool] = useState<ToolMode>("select");
   const [selection, setSelection] = useState<Selection | null>(null);
@@ -156,8 +163,8 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
   const [textSize, setTextSize] = useState(72);
   const [textColor, setTextColor] = useState("#111111");
   const [textFont, setTextFont] = useState<TextFont>("Inter");
-  const [history, setHistory] = useState<string[]>([]);
-  const [future, setFuture] = useState<string[]>([]);
+  const [history, setHistory] = useState<EditorSnapshot[]>([]);
+  const [future, setFuture] = useState<EditorSnapshot[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [hasCopiedSelection, setHasCopiedSelection] = useState(false);
@@ -220,12 +227,23 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
     if (nextSelection) drawSelectionBox(ctx, canvas, nextSelection);
   }, []);
 
-  const pushHistory = useCallback(() => {
+  const captureSnapshot = useCallback((): EditorSnapshot | null => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
-    setHistory((prev) => [...prev.slice(-29), canvas.toDataURL("image/png")]);
+    if (!canvas) return null;
+    return {
+      baseDataUrl: canvas.toDataURL("image/png"),
+      overlayObjects,
+      activeObjectId,
+      selection,
+    };
+  }, [activeObjectId, overlayObjects, selection]);
+
+  const pushHistory = useCallback(() => {
+    const snapshot = captureSnapshot();
+    if (!snapshot) return;
+    setHistory((prev) => [...prev.slice(-29), snapshot]);
     setFuture([]);
-  }, []);
+  }, [captureSnapshot]);
 
   const restoreDataUrl = useCallback((dataUrl: string) => {
     const canvas = canvasRef.current;
@@ -243,6 +261,13 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
     };
     image.src = dataUrl;
   }, [drawOverlay]);
+
+  const restoreSnapshot = useCallback((snapshot: EditorSnapshot) => {
+    setOverlayObjects(snapshot.overlayObjects);
+    setActiveObjectId(snapshot.activeObjectId);
+    setSelection(snapshot.selection);
+    restoreDataUrl(snapshot.baseDataUrl);
+  }, [restoreDataUrl]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -366,6 +391,7 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
           id: hitObject.id,
           offsetX: point.x - hitObject.x,
           offsetY: point.y - hitObject.y,
+          historyPushed: false,
         };
         if (hitObject.kind === "text") {
           setText(hitObject.text);
@@ -386,6 +412,7 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
       ctx.fillRect(point.x - brushSize / 2, point.y - brushSize / 2, brushSize, brushSize);
     } else if (tool === "text") {
       if (!text.trim()) return;
+      pushHistory();
       const object: TextOverlayObject = {
         id: `text-${Date.now()}-${Math.random().toString(36).slice(2)}`,
         kind: "text",
@@ -411,6 +438,10 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
     const point = canvasPoint(event);
     if (draggingObjectRef.current) {
       const drag = draggingObjectRef.current;
+      if (!drag.historyPushed) {
+        pushHistory();
+        draggingObjectRef.current = { ...drag, historyPushed: true };
+      }
       setOverlayObjects((objects) =>
         objects.map((object) =>
           object.id === drag.id
@@ -460,6 +491,7 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
 
   const deleteSelection = () => {
     if (activeObjectId) {
+      pushHistory();
       setOverlayObjects((objects) => objects.filter((object) => object.id !== activeObjectId));
       setActiveObjectId(null);
       return;
@@ -487,6 +519,7 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
       y,
       imageData: copied,
     };
+    pushHistory();
     setOverlayObjects((objects) => [...objects, object]);
     setActiveObjectId(object.id);
     setSelection(null);
@@ -495,6 +528,7 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
   const addTextCenter = () => {
     const canvas = canvasRef.current;
     if (!canvas || !text.trim()) return;
+    pushHistory();
     const object: TextOverlayObject = {
       id: `text-${Date.now()}-${Math.random().toString(36).slice(2)}`,
       kind: "text",
@@ -514,21 +548,23 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
   const undo = () => {
     const canvas = canvasRef.current;
     if (!canvas || history.length === 0) return;
-    const current = canvas.toDataURL("image/png");
+    const current = captureSnapshot();
+    if (!current) return;
     const previous = history[history.length - 1];
     setHistory((prev) => prev.slice(0, -1));
     setFuture((prev) => [...prev, current]);
-    restoreDataUrl(previous);
+    restoreSnapshot(previous);
   };
 
   const redo = () => {
     const canvas = canvasRef.current;
     if (!canvas || future.length === 0) return;
-    const current = canvas.toDataURL("image/png");
+    const current = captureSnapshot();
+    if (!current) return;
     const next = future[future.length - 1];
     setFuture((prev) => prev.slice(0, -1));
     setHistory((prev) => [...prev, current]);
-    restoreDataUrl(next);
+    restoreSnapshot(next);
   };
 
   const flattenedDataUrl = () => {
@@ -666,6 +702,7 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
             aria-label="Text content"
             value={activeTextObject?.text ?? text}
             onChange={(event) => {
+              if (activeTextObject) pushHistory();
               setText(event.target.value);
               updateTextObject({ text: event.target.value });
             }}
@@ -677,6 +714,7 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
           type="color"
           value={activeTextObject?.color ?? textColor}
           onChange={(event) => {
+            if (activeTextObject) pushHistory();
             setTextColor(event.target.value);
             updateTextObject({ color: event.target.value });
           }}
@@ -689,6 +727,7 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
             value={activeTextObject?.font ?? textFont}
             onChange={(event) => {
               const nextFont = event.target.value as TextFont;
+              if (activeTextObject) pushHistory();
               setTextFont(nextFont);
               updateTextObject({ font: nextFont });
             }}
@@ -709,6 +748,7 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
             value={activeTextObject?.size ?? textSize}
             onChange={(event) => {
               const nextSize = Number(event.target.value);
+              if (activeTextObject) pushHistory();
               setTextSize(nextSize);
               updateTextObject({ size: nextSize });
             }}
