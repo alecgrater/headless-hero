@@ -16,6 +16,8 @@ const apiMocks = vi.hoisted(() => ({
 let drawImageMock: ReturnType<typeof vi.fn>;
 let fillRectMock: ReturnType<typeof vi.fn>;
 let fillTextMock: ReturnType<typeof vi.fn>;
+let getImageDataMock: ReturnType<typeof vi.fn>;
+let putImageDataMock: ReturnType<typeof vi.fn>;
 
 vi.mock("../../../api", async () => {
   const actual = await vi.importActual<typeof import("../../../api")>("../../../api");
@@ -113,13 +115,15 @@ beforeEach(() => {
   drawImageMock = vi.fn();
   fillRectMock = vi.fn();
   fillTextMock = vi.fn();
+  getImageDataMock = vi.fn(() => ({ data: new Uint8ClampedArray(4), width: 1, height: 1 }));
+  putImageDataMock = vi.fn();
   vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
     clearRect: vi.fn(),
     drawImage: drawImageMock,
     fillRect: fillRectMock,
     fillText: fillTextMock,
-    getImageData: vi.fn(() => ({ data: new Uint8ClampedArray(4), width: 1, height: 1 })),
-    putImageData: vi.fn(),
+    getImageData: getImageDataMock,
+    putImageData: putImageDataMock,
     save: vi.fn(),
     restore: vi.fn(),
     scale: vi.fn(),
@@ -300,6 +304,39 @@ describe("ImageReviewTab", () => {
     canvas.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, clientX: 10, clientY: 10, pointerId: 1 }));
 
     expect(fillRectMock).toHaveBeenLastCalledWith(expect.any(Number), expect.any(Number), 32, 32);
+  });
+
+  it("samples with Option click and clone-stamps copied pixels onto the target area", async () => {
+    render(<ImageReviewTab scriptId="script-1" content={script} onContentUpdated={vi.fn()} />);
+
+    expect((await screen.findAllByText("scene_001")).length).toBeGreaterThan(0);
+
+    await userEvent.click(screen.getByRole("button", { name: /clone stamp tool/i }));
+
+    const canvas = screen.getByLabelText("Image review canvas");
+    canvas.dispatchEvent(new PointerEvent("pointerdown", {
+      altKey: true,
+      bubbles: true,
+      clientX: 20,
+      clientY: 20,
+      pointerId: 1,
+    }));
+    canvas.dispatchEvent(new PointerEvent("pointerup", {
+      altKey: true,
+      bubbles: true,
+      clientX: 20,
+      clientY: 20,
+      pointerId: 1,
+    }));
+    canvas.dispatchEvent(new PointerEvent("pointerdown", {
+      bubbles: true,
+      clientX: 60,
+      clientY: 40,
+      pointerId: 2,
+    }));
+
+    expect(getImageDataMock).toHaveBeenCalledWith(expect.any(Number), expect.any(Number), 32, 32);
+    expect(putImageDataMock).toHaveBeenCalledWith(expect.objectContaining({ width: 1, height: 1 }), expect.any(Number), expect.any(Number));
   });
 
   it("resets the selected asset and applies returned script content", async () => {

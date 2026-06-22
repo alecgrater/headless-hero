@@ -3,6 +3,7 @@ import {
   Clipboard,
   Copy,
   Eraser,
+  Stamp,
   MousePointer2,
   Redo2,
   RotateCcw,
@@ -17,7 +18,7 @@ import { getImageReviewAssetData } from "../../../api";
 import type { ImageReviewAsset } from "../../../types/imageReview";
 import { Tooltip } from "../../ui/Tooltip";
 
-type ToolMode = "select" | "erase" | "text";
+type ToolMode = "select" | "erase" | "text" | "clone";
 type EraserColor = "#000000" | "#FFFFFF";
 type TextFont = "Inter" | "Arial" | "Georgia" | "Impact";
 
@@ -152,6 +153,8 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
   const drawingRef = useRef(false);
   const dragStartRef = useRef<{ x: number; y: number } | null>(null);
   const draggingObjectRef = useRef<{ id: string; offsetX: number; offsetY: number; historyPushed: boolean } | null>(null);
+  const cloneSourceRef = useRef<{ x: number; y: number } | null>(null);
+  const cloneStrokeRef = useRef<{ sampleX: number; sampleY: number; targetX: number; targetY: number } | null>(null);
   const copiedRef = useRef<ImageData | null>(null);
   const [tool, setTool] = useState<ToolMode>("select");
   const [selection, setSelection] = useState<Selection | null>(null);
@@ -168,6 +171,7 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [hasCopiedSelection, setHasCopiedSelection] = useState(false);
+  const [cloneSource, setCloneSource] = useState<{ x: number; y: number } | null>(null);
 
   const dimensionsLabel = useMemo(() => {
     if (!asset.width || !asset.height) return "dimensions unknown";
@@ -209,7 +213,30 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
     ctx.restore();
   };
 
-  const drawOverlay = useCallback((nextSelection: Selection | null, nextObjects: OverlayObject[], nextActiveObjectId: string | null) => {
+  const drawCloneSourceMarker = (ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, source: { x: number; y: number }) => {
+    const radius = Math.max(10, canvas.width / 120);
+    ctx.save();
+    ctx.setLineDash([8, 6]);
+    ctx.lineWidth = Math.max(2, canvas.width / 800);
+    ctx.strokeStyle = "#38BDF8";
+    ctx.beginPath();
+    ctx.arc(source.x, source.y, radius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(source.x - radius * 1.35, source.y);
+    ctx.lineTo(source.x + radius * 1.35, source.y);
+    ctx.moveTo(source.x, source.y - radius * 1.35);
+    ctx.lineTo(source.x, source.y + radius * 1.35);
+    ctx.stroke();
+    ctx.restore();
+  };
+
+  const drawOverlay = useCallback((
+    nextSelection: Selection | null,
+    nextObjects: OverlayObject[],
+    nextActiveObjectId: string | null,
+    nextCloneSource: { x: number; y: number } | null = cloneSourceRef.current,
+  ) => {
     const overlay = overlayRef.current;
     const canvas = canvasRef.current;
     if (!overlay || !canvas) return;
@@ -225,6 +252,7 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
       }
     });
     if (nextSelection) drawSelectionBox(ctx, canvas, nextSelection);
+    if (nextCloneSource) drawCloneSourceMarker(ctx, canvas, nextCloneSource);
   }, []);
 
   const captureSnapshot = useCallback((): EditorSnapshot | null => {
@@ -287,6 +315,9 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
     setSelection(null);
     setOverlayObjects([]);
     setActiveObjectId(null);
+    cloneSourceRef.current = null;
+    cloneStrokeRef.current = null;
+    setCloneSource(null);
     setHistory([]);
     setFuture([]);
     copiedRef.current = null;
@@ -366,8 +397,8 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
   }, [asset.asset_id, asset.current_url, asset.height, asset.width, drawOverlay, scriptId]);
 
   useEffect(() => {
-    drawOverlay(selection, overlayObjects, activeObjectId);
-  }, [activeObjectId, drawOverlay, overlayObjects, selection]);
+    drawOverlay(selection, overlayObjects, activeObjectId, tool === "clone" ? cloneSource : null);
+  }, [activeObjectId, cloneSource, drawOverlay, overlayObjects, selection, tool]);
 
   const updateTextObject = (patch: Partial<Pick<TextOverlayObject, "text" | "size" | "color" | "font">>) => {
     if (!activeObjectId) return;
@@ -378,6 +409,28 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
           : object,
       ),
     );
+  };
+
+  const sampleCloneSource = (point: { x: number; y: number }) => {
+    cloneSourceRef.current = point;
+    setCloneSource(point);
+    cloneStrokeRef.current = null;
+    drawOverlay(selection, overlayObjects, activeObjectId, tool === "clone" ? point : null);
+  };
+
+  const stampCloneAt = (ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, point: { x: number; y: number }) => {
+    const stroke = cloneStrokeRef.current;
+    if (!stroke) return;
+    const sourceCenterX = stroke.sampleX + (point.x - stroke.targetX);
+    const sourceCenterY = stroke.sampleY + (point.y - stroke.targetY);
+    const width = Math.max(1, Math.min(brushSize, canvas.width));
+    const height = Math.max(1, Math.min(brushSize, canvas.height));
+    const sourceX = Math.round(Math.min(Math.max(0, sourceCenterX - width / 2), Math.max(0, canvas.width - width)));
+    const sourceY = Math.round(Math.min(Math.max(0, sourceCenterY - height / 2), Math.max(0, canvas.height - height)));
+    const targetX = Math.round(Math.min(Math.max(0, point.x - width / 2), Math.max(0, canvas.width - width)));
+    const targetY = Math.round(Math.min(Math.max(0, point.y - height / 2), Math.max(0, canvas.height - height)));
+    const pixels = ctx.getImageData(sourceX, sourceY, width, height);
+    ctx.putImageData(pixels, targetX, targetY);
   };
 
   const handlePointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
@@ -417,6 +470,23 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
       pushHistory();
       ctx.fillStyle = eraserColor;
       ctx.fillRect(point.x - brushSize / 2, point.y - brushSize / 2, brushSize, brushSize);
+    } else if (tool === "clone") {
+      if (event.altKey) {
+        drawingRef.current = false;
+        dragStartRef.current = null;
+        sampleCloneSource(point);
+        return;
+      }
+      const source = cloneSourceRef.current;
+      if (!source) return;
+      pushHistory();
+      cloneStrokeRef.current = {
+        sampleX: source.x,
+        sampleY: source.y,
+        targetX: point.x,
+        targetY: point.y,
+      };
+      stampCloneAt(ctx, canvas, point);
     } else if (tool === "text") {
       if (!text.trim()) return;
       pushHistory();
@@ -469,6 +539,8 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
     } else if (tool === "erase") {
       ctx.fillStyle = eraserColor;
       ctx.fillRect(point.x - brushSize / 2, point.y - brushSize / 2, brushSize, brushSize);
+    } else if (tool === "clone") {
+      stampCloneAt(ctx, canvas, point);
     }
   };
 
@@ -476,6 +548,7 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
     drawingRef.current = false;
     dragStartRef.current = null;
     draggingObjectRef.current = null;
+    cloneStrokeRef.current = null;
     event.currentTarget.releasePointerCapture?.(event.pointerId);
   };
 
@@ -624,6 +697,11 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
               <Eraser className="h-4 w-4" />
             </button>
           </Tooltip>
+          <Tooltip content="Clone stamp" side="bottom">
+            <button type="button" aria-label="Clone stamp tool" onClick={() => setTool("clone")} className={buttonClass(tool === "clone")}>
+              <Stamp className="h-4 w-4" />
+            </button>
+          </Tooltip>
           <Tooltip content="Text tool" side="bottom">
             <button type="button" aria-label="Text tool" onClick={() => setTool("text")} className={buttonClass(tool === "text")}>
               <Type className="h-4 w-4" />
@@ -703,6 +781,9 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
           Brush
           <input type="range" min={8} max={120} value={brushSize} onChange={(event) => setBrushSize(Number(event.target.value))} className="w-24 accent-violet-500" />
         </label>
+        <span className={`text-xs ${cloneSource ? "text-sky-300" : "text-neutral-500"}`}>
+          {cloneSource ? "Clone source set" : "Option-click to sample clone source"}
+        </span>
         <label className="flex items-center gap-2 text-xs text-neutral-400">
           Text
           <input
