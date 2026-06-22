@@ -9,7 +9,6 @@ const ALL_MODES = [
   "multi_frame",
   "video",
   "popup_sequence",
-  "blink",
   "comparison_board",
   "captions",
   "stat_card",

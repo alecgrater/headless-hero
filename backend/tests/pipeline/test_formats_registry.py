@@ -349,11 +349,12 @@ def test_supported_visual_modes_are_known():
 
 def test_all_formats_expose_the_full_visual_mode_vocabulary():
     """Format metadata is reference-only; every format can route every canonical mode."""
-    from models.script import VISUAL_MODES
+    from pipeline.formats.base import FULL_VISUAL_MODE_VOCABULARY
     from pipeline.formats import list_formats
 
     for fmt in list_formats():
-        assert set(fmt.supported_visual_modes) == VISUAL_MODES
+        assert set(fmt.supported_visual_modes) == set(FULL_VISUAL_MODE_VOCABULARY)
+        assert "blink" not in fmt.supported_visual_modes
 
 
 def test_formats_have_reference_notes():

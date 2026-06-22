@@ -25,19 +25,19 @@ const scene: Scene = {
   caption_emphasis: "",
 };
 
-const blinkScene: Scene = {
+const videoScene: Scene = {
   ...scene,
   id: "scene_002",
-  narration: "Hands open and close.",
-  visual_mode: "blink",
-  visual_beat: "blink",
+  narration: "A motion beat plays as an AI clip.",
+  visual_mode: "video",
+  visual_beat: "static",
 };
 
 const content: ScriptContent = {
   title: "Visual Mode Test",
   intro_hook: "",
   outro_cta: "",
-  segments: [{ name: "Segment", scenes: [scene, blinkScene] }],
+  segments: [{ name: "Segment", scenes: [scene, videoScene] }],
 };
 
 const assignments: VisualTreatmentAssignment[] = [
@@ -128,8 +128,8 @@ describe("MediaSourcesTab", () => {
     });
 
     expect(screen.getByLabelText("Full frame scenes")).toHaveTextContent("1");
-    expect(screen.getByLabelText("Blink scenes")).toHaveTextContent("1");
+    expect(screen.queryByLabelText("Blink scenes")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Multi-frame scenes")).toHaveTextContent("0");
-    expect(screen.getByLabelText("Video scenes")).toHaveTextContent("0");
+    expect(screen.getByLabelText("Video scenes")).toHaveTextContent("1");
   });
 });

@@ -22,7 +22,7 @@ const MODE_LABELS: Record<string, { label: string; color: string }> = {
   multi_frame: { label: "Multi-frame", color: "bg-sky-500/20 text-sky-300" },
   continuous: { label: "Continuous", color: "bg-cyan-500/20 text-cyan-300" },
   popup_sequence: { label: "Popup sequence", color: "bg-emerald-500/20 text-emerald-300" },
-  blink: { label: "Blink", color: "bg-amber-500/20 text-amber-300" },
+  blink: { label: "Legacy blink debug", color: "bg-amber-500/20 text-amber-300" },
   comparison_board: { label: "Comparison board", color: "bg-blue-500/20 text-blue-300" },
   captions: { label: "Captions", color: "bg-rose-500/20 text-rose-300" },
   stat_card: { label: "Stat card", color: "bg-orange-500/20 text-orange-300" },
@@ -33,7 +33,6 @@ const VISUAL_MODE_OPTIONS: VisualMode[] = [
   "continuous",
   "video",
   "popup_sequence",
-  "blink",
   "comparison_board",
   "captions",
   "stat_card",
@@ -167,6 +166,11 @@ export default function MediaReviewPanel({ scriptId, assignments: initial, frame
                   onChange={(e) => handleModeChange(a.scene_id, e.target.value as VisualMode)}
                   className="w-full bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-200"
                 >
+                  {!VISUAL_MODE_OPTIONS.includes(mode) && (
+                    <option value={mode} disabled>
+                      {MODE_LABELS[mode]?.label ?? mode}
+                    </option>
+                  )}
                   {VISUAL_MODE_OPTIONS.map((optionMode) => (
                     <option key={optionMode} value={optionMode}>
                       {MODE_LABELS[optionMode].label}

@@ -153,34 +153,6 @@ export const VISUAL_MODE_CATALOG: VisualModeEntry[] = [
     rendererPath: "remotion/src/scenes/TreatmentRenderer.tsx",
   },
   {
-    id: "blink",
-    label: "Flip Flop",
-    shortDescription: "Experimental human cutout with renderer-owned micro-expression toggles.",
-    longDescription:
-      "A transparent neutral human/character base cutout is keyed onto an outdoor or indoor renderer-owned stage, then Remotion toggles deterministic eyelid overlays for the blink action. The stages use the same sparse flat cartoon layout; indoor swaps the palette and adds a simple window pane. This mode is currently Test Lab-only; production scriptwriting and visual analysis choose another visual mode. Legacy two-state assets can still render, but new Test Lab runs avoid shared A/B sheet registration.",
-    previewSrc: "/visual-modes/blink.mp4",
-    durationProfile: "normal",
-    durationLabel: "Normal target · 5-9s",
-    durationDescription: "Planned as a short A/B motion beat for one subject.",
-    requiredFields: ["visual_prompt", "visual_layers", "renderer_context"],
-    optionalFields: ["eli_overlay"],
-    compatibility: {
-      standardSubtitles: "supported",
-      eliOverlay: "supported",
-      sceneFx: "suppressed",
-      titleCardEligible: false,
-    },
-    distribution: "Unlimited",
-    routing:
-      "Production script generation and visual analysis do not choose blink while generation is being hardened. Test Lab keeps blink_action fixed to blink while stress-testing renderer_context staging, base-cutout keying, and renderer-owned overlays.",
-    notCompatibleWith: [
-      "Different-subject contrast — use comparison_board instead.",
-      "Production same-subject micro-animation — use another mode until blink is re-enabled.",
-      "Body repositioning, nods, hand gestures, shrugs, or object motion — use another mode instead.",
-    ],
-    rendererPath: "remotion/src/scenes/TreatmentRenderer.tsx",
-  },
-  {
     id: "comparison_board",
     label: "Comparison Board",
     shortDescription: "Side-by-side contrast with renderer-owned columns.",

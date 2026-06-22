@@ -16,4 +16,12 @@ describe("VisualModesSection duration workflow", () => {
     expect(screen.getByText(/board and object modes get breathing room/i)).toBeInTheDocument();
     expect(screen.getByText(/post-voiceover validation/i)).toBeInTheDocument();
   });
+
+  it("does not list blink as a visual mode", () => {
+    render(<VisualModesSection />);
+
+    expect(screen.queryByRole("button", { name: /Flip Flop/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Blink/i })).not.toBeInTheDocument();
+    expect(screen.getByText("8 modes")).toBeInTheDocument();
+  });
 });

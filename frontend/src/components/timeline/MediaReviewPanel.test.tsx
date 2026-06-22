@@ -16,7 +16,7 @@ const baseScene: Scene = {
 };
 
 describe("MediaReviewPanel", () => {
-  it("offers every visual mode as a scene override", () => {
+  it("offers production visual modes as scene overrides", () => {
     const assignments: MediaAssignment[] = [
       {
         scene_id: "scene_001",
@@ -46,7 +46,6 @@ describe("MediaReviewPanel", () => {
       "Continuous",
       "Video",
       "Popup sequence",
-      "Blink",
       "Comparison board",
       "Captions",
       "Stat card",

@@ -10,7 +10,7 @@ Img Review covers project render-source images only:
 
 - Scene `image_url` assets, including title-card scene images.
 - Scene `frame_urls` assets used by multi-frame and continuous scenes.
-- Scene `visual_layers[].image_url` assets used by layered visual modes such as popup sequences, comparison boards, blink, and stat cards.
+- Scene `visual_layers[].image_url` assets used by layered visual modes such as popup sequences, comparison boards, and stat cards. Blink uses the dedicated Blink Review/render-enhancement path instead of Img Review's generic layer-edit flow.
 
 It intentionally does not include long-form thumbnails or short-form thumbnails in this version.
 

@@ -936,7 +936,7 @@ def _segment_visual_opportunities_block(segment: dict, section_upper: str) -> st
         return (
             f"VISUAL OPPORTUNITIES FOR THIS {section_upper}: none provided. "
             "Use the canonical visual-mode rules and only choose specialized modes when the narration earns them. "
-            "Earned blink, captions, popup_sequence, comparison_board, and stat_card opportunities are allowed, "
+            "Earned captions, popup_sequence, comparison_board, stat_card, and video opportunities are allowed, "
             "but not required.\n\n"
         )
     return (

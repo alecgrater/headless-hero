@@ -9,7 +9,6 @@ import {
   Images,
   Palette,
   PanelsTopLeft,
-  Repeat2,
   Route,
   Settings,
   UserRound,
@@ -136,14 +135,6 @@ const VISUAL_MODE_OPTIONS: Array<{
     summary: "Timed cutouts appear around an anchor.",
     description: "Generates one anchor plus item cutouts that pop in on narration beats.",
     bestFor: "Object callouts, named lists, and quick step-by-step explanations.",
-  },
-  {
-    value: "blink",
-    label: "Blink",
-    icon: <Repeat2 className="h-4 w-4" />,
-    summary: "A face cutout gets renderer-owned toggles.",
-    description: "Generates one neutral transparent cutout and stages deterministic face overlays over renderer-owned scene context.",
-    bestFor: "Production face actions: blink, speaking mouth, eye glance, and eyebrow raise.",
   },
   {
     value: "comparison_board",
@@ -509,7 +500,7 @@ function SceneTextFields({
       {visualMode === "blink" && (
         <div className="space-y-1">
           <p className="rounded-md border border-neutral-800 bg-neutral-950/60 px-3 py-2 text-xs leading-5 text-neutral-400">
-            Blink mode always uses the renderer-owned blink action.
+            Legacy blink debug always uses the renderer-owned blink action.
           </p>
           <label className="block">
             <span className="text-xs font-medium text-neutral-300">Scene context</span>

@@ -16,6 +16,7 @@ def test_formats_endpoint_includes_reference_fields():
 
     assert set(listicle.supported_visual_modes) == set(life.supported_visual_modes)
     assert {"captions", "stat_card"} <= set(life.supported_visual_modes)
+    assert "blink" not in life.supported_visual_modes
     assert "dossier" not in life.supported_visual_modes
 
     assert set(listicle.allowed_visual_beats) == {"static", "continuous", "multi_frame"}

@@ -21,20 +21,18 @@ const mixedAssignments: VisualTreatmentAssignment[] = [
   ...assignments,
   {
     scene_id: "scene_002",
-    visual_mode: "blink",
-    reasoning: "Motion beat.",
+    visual_mode: "captions",
+    reasoning: "Editorial punch.",
     visual_layers: [
-      { id: "scene_002_state_a", type: "image", asset_kind: "panel" },
-      { id: "scene_002_state_b", type: "image", asset_kind: "panel" },
+      { id: "scene_002_caption_asset", type: "image", asset_kind: "panel" },
     ],
   },
   {
     scene_id: "scene_003",
-    visual_mode: "blink",
+    visual_mode: "video",
     reasoning: "Motion beat.",
     visual_layers: [
-      { id: "scene_003_state_a", type: "image", asset_kind: "panel" },
-      { id: "scene_003_state_b", type: "image", asset_kind: "panel" },
+      { id: "scene_003_anchor", type: "image", asset_kind: "panel" },
     ],
   },
 ];
@@ -67,11 +65,11 @@ const scenes: Record<string, Scene> = {
     image_url: "",
     audio_url: "",
     audio_duration_seconds: 6,
-    visual_beat: "blink",
+    visual_beat: "captions",
     frame_directives: [],
     contains_person: false,
     frame_urls: [],
-    visual_mode: "blink",
+    visual_mode: "captions",
     visual_layers: [],
     caption_text: "",
     caption_emphasis: "",
@@ -85,11 +83,11 @@ const scenes: Record<string, Scene> = {
     image_url: "",
     audio_url: "",
     audio_duration_seconds: 6,
-    visual_beat: "blink",
+    visual_beat: "static",
     frame_directives: [],
     contains_person: false,
     frame_urls: [],
-    visual_mode: "blink",
+    visual_mode: "video",
     visual_layers: [],
     caption_text: "",
     caption_emphasis: "",
@@ -112,6 +110,7 @@ describe("VisualTreatmentReviewPanel", () => {
     expect(within(select).getByRole("option", { name: "Full frame" })).toBeInTheDocument();
     expect(within(select).getByRole("option", { name: "Multi-frame" })).toBeInTheDocument();
     expect(within(select).getByRole("option", { name: "Continuous" })).toBeInTheDocument();
+    expect(within(select).queryByRole("option", { name: "Blink" })).not.toBeInTheDocument();
   });
 
   it("shows existing video assignments as read-only instead of a manual option", () => {
@@ -170,7 +169,7 @@ describe("VisualTreatmentReviewPanel", () => {
     expect(screen.getByRole("button", { name: "Apply" })).toBeInTheDocument();
   });
 
-  it("shows count badges for every visual mode", () => {
+  it("shows count badges for production visual modes only", () => {
     render(
       <VisualTreatmentReviewPanel
         assignments={mixedAssignments}
@@ -183,9 +182,9 @@ describe("VisualTreatmentReviewPanel", () => {
     expect(screen.getByLabelText("Full frame scenes")).toHaveClass("border-blue-300/70");
     expect(screen.getByLabelText("Full frame scenes")).toHaveClass("bg-blue-700");
     expect(screen.getByLabelText("Full frame scenes")).toHaveClass("text-yellow-300");
-    expect(screen.getByLabelText("Blink scenes")).toHaveTextContent("2");
-    expect(screen.getByLabelText("Captions scenes")).toHaveTextContent("0");
-    expect(screen.getByLabelText("Video scenes")).toHaveTextContent("0");
+    expect(screen.queryByLabelText("Blink scenes")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Captions scenes")).toHaveTextContent("1");
+    expect(screen.getByLabelText("Video scenes")).toHaveTextContent("1");
   });
 
   it("shows duration profile labels in the visual mode catalog", () => {

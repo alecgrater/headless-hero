@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { Captions, Columns3, Film, Hash, Image, Images, PanelsTopLeft, Repeat2, Route } from "lucide-react";
+import { Captions, Columns3, Film, Hash, Image, Images, PanelsTopLeft, Route } from "lucide-react";
 import { assetUrl, regenerateFX } from "../../api";
 import type { Scene, SceneFX, VisualMode } from "../../types/script";
 import { durationDescriptionForMode, durationLabelForMode } from "../settings/visual-modes/catalog";
@@ -82,7 +82,6 @@ export default function PropertiesPanel({
     { value: "multi_frame", label: "Multi-frame", icon: <Images className="h-3 w-3" /> },
     { value: "continuous", label: "Continuous", icon: <Route className="h-3 w-3" /> },
     { value: "popup_sequence", label: "Popup", icon: <PanelsTopLeft className="h-3 w-3" /> },
-    { value: "blink", label: "Blink", icon: <Repeat2 className="h-3 w-3" /> },
     { value: "comparison_board", label: "Compare", icon: <Columns3 className="h-3 w-3" /> },
     { value: "stat_card", label: "Stat card", icon: <Hash className="h-3 w-3" /> },
     { value: "captions", label: "Captions", icon: <Captions className="h-3 w-3" /> },
@@ -93,7 +92,7 @@ export default function PropertiesPanel({
   const durationDescription = durationDescriptionForMode(visualMode);
 
   const setVisualMode = (mode: VisualMode) => {
-    const isLayered = mode === "popup_sequence" || mode === "blink" || mode === "comparison_board" || mode === "stat_card";
+    const isLayered = mode === "popup_sequence" || mode === "comparison_board" || mode === "stat_card";
     const shouldPreserveVisualLayers = isLayered && mode === visualMode;
     const update: Partial<Scene> = {
       visual_mode: mode,

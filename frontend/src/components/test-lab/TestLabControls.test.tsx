@@ -306,15 +306,12 @@ describe("TestLabControls layout", () => {
     ]);
   });
 
-  it("shows blink state controls inside Visual Mode", () => {
-    renderControls({ ...baseSettings, visual_mode: "blink" });
+  it("does not offer blink as a generic visual mode choice", () => {
+    renderControls();
 
     const visualMode = screen.getByTestId("test-lab-section-visual-mode");
-    fireEvent.mouseEnter(within(visualMode).getByRole("button", { name: /Blink/i }));
 
-    expect(within(visualMode).getByText(/one neutral transparent cutout and stages deterministic face overlays/i)).toBeInTheDocument();
-    expect(within(visualMode).getByText(/always uses the renderer-owned blink action/i)).toBeInTheDocument();
-    expect(within(visualMode).getByLabelText("Scene context")).toBeInTheDocument();
+    expect(within(visualMode).queryByRole("button", { name: /Blink/i })).not.toBeInTheDocument();
   });
 
   it("shows blink context only for blink mode", () => {
@@ -331,7 +328,7 @@ describe("TestLabControls layout", () => {
       />,
     );
 
-    expect(screen.getByText(/always uses the renderer-owned blink action/i)).toBeInTheDocument();
+    expect(screen.getByText(/legacy blink debug always uses the renderer-owned blink action/i)).toBeInTheDocument();
     expect(screen.getByLabelText("Scene context")).toHaveValue("outdoor");
 
     rerender(
@@ -347,7 +344,7 @@ describe("TestLabControls layout", () => {
       />,
     );
 
-    expect(screen.queryByText(/always uses the renderer-owned blink action/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/legacy blink debug always uses the renderer-owned blink action/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Scene context")).not.toBeInTheDocument();
   });
 
@@ -379,98 +376,11 @@ describe("TestLabControls layout", () => {
     );
   });
 
-  it("leaves blink layers empty when switching modes so backend action prompts can fill them", () => {
-    const onChange = vi.fn();
-    render(
-      <TestLabControls
-        preset={preset}
-        defaultMainCharacter={null}
-        visualTreatmentDefaults={defaults}
-        settings={{ ...baseSettings, visual_mode: "full_frame", visual_layers: [] }}
-        voiceSummary={voiceSummary}
-        subtitleSummary={subtitleSummary}
-        onChange={onChange}
-        onOpenSettingsSection={() => undefined}
-      />,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: /Blink/i }));
-
-    expect(onChange).toHaveBeenCalledWith(
-      expect.objectContaining({
-        visual_mode: "blink",
-        visual_layers: [],
-      }),
-    );
-  });
-
-  it("uses the fixed blink action when toggling modes back to blink", () => {
-    const onChange = vi.fn();
-    const { rerender } = render(
-      <TestLabControls
-        preset={preset}
-        defaultMainCharacter={null}
-        visualTreatmentDefaults={defaults}
-        settings={{ ...baseSettings, visual_mode: "blink", blink_action: "blink" }}
-        voiceSummary={voiceSummary}
-        subtitleSummary={subtitleSummary}
-        onChange={onChange}
-        onOpenSettingsSection={() => undefined}
-      />,
-    );
-
-    rerender(
-      <TestLabControls
-        preset={preset}
-        defaultMainCharacter={null}
-        visualTreatmentDefaults={defaults}
-        settings={{ ...baseSettings, visual_mode: "full_frame", blink_action: "" }}
-        voiceSummary={voiceSummary}
-        subtitleSummary={subtitleSummary}
-        onChange={onChange}
-        onOpenSettingsSection={() => undefined}
-      />,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: /Blink/i }));
-
-    expect(onChange).toHaveBeenCalledWith(
-      expect.objectContaining({
-        visual_mode: "blink",
-        blink_action: "blink",
-      }),
-    );
-  });
-
   it("does not offer an action selector for deterministic blink overlays", () => {
     renderControls({ ...baseSettings, visual_mode: "blink" });
 
     expect(screen.queryByLabelText("Blink action")).not.toBeInTheDocument();
-    expect(screen.getByText(/always uses the renderer-owned blink action/i)).toBeInTheDocument();
-  });
-
-  it("coerces stale unsupported blink actions when switching into blink", () => {
-    const onChange = vi.fn();
-    render(
-      <TestLabControls
-        preset={preset}
-        defaultMainCharacter={null}
-        visualTreatmentDefaults={defaults}
-        settings={{ ...baseSettings, visual_mode: "full_frame", blink_action: "walking" } as unknown as TestLabSettings}
-        voiceSummary={voiceSummary}
-        subtitleSummary={subtitleSummary}
-        onChange={onChange}
-      />,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: /Blink/i }));
-
-    expect(onChange).toHaveBeenCalledWith(
-      expect.objectContaining({
-        visual_mode: "blink",
-        blink_action: "blink",
-      }),
-    );
+    expect(screen.getByText(/legacy blink debug always uses the renderer-owned blink action/i)).toBeInTheDocument();
   });
 
   it("does not expose editable State A/State B prompts for blink (action-derived in backend)", () => {

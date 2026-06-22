@@ -18,7 +18,7 @@ const OWNERS = [
   {
     icon: Image,
     title: "Image Generation Owns Raw Visual Assets",
-    owns: "Full-frame images, multi-frame images, continuous frames, AI-video anchor images, transparent cutouts, icon cutouts, and blink base cutouts.",
+    owns: "Full-frame images, multi-frame images, continuous frames, AI-video anchor images, transparent cutouts, icon cutouts, and full-frame blink detection metadata.",
     doesNotOwn: "Readable captions, stat numbers, title-card copy, subtitle text, export wrappers, or UI labels.",
     reason: "Generated images should supply visual material. Remotion owns final composition and readable text so outputs stay editable, consistent, and cacheable.",
   },
@@ -39,7 +39,7 @@ const OWNERS = [
   {
     icon: Clapperboard,
     title: "Remotion Owns Final Composition",
-    owns: "Canvas layout, subtitles, title cards, caption typography, stat-card text, comparison board columns, blink micro-expression overlays, animation timing, and MP4 frames.",
+    owns: "Canvas layout, subtitles, title cards, caption typography, stat-card text, comparison board columns, full-frame blink overlays, animation timing, and MP4 frames.",
     doesNotOwn: "LLM prompt decisions, source narration, raw asset generation, API credentials, or export folder policy.",
     reason: "Renderer-owned text and layout keep visual modes deterministic and prevent generated images from baking in copy that cannot be corrected later.",
   },
@@ -86,11 +86,6 @@ const MODE_OWNERSHIP = [
     renderer: "Stages orbiting popup items over the global canvas at voice-timed moments; scene-level camera drift and zoom punch are suppressed so the canvas stays stable.",
   },
   {
-    mode: "blink",
-    asset: "One transparent neutral base cutout plus blink overlay anchor metadata and renderer_context metadata",
-    renderer: "Draws the outdoor or indoor flat illustrated stage behind the cutout, then toggles deterministic face overlays from frame zero to simulate a locked facial micro-action.",
-  },
-  {
     mode: "comparison_board",
     asset: "Transparent comparison subject cutouts",
     renderer: "Owns columns, dividers, VS markers, arrows, badges, labels, and layout; scene-level camera drift and zoom punch are suppressed so the board stays readable.",
@@ -111,6 +106,7 @@ const HANDOFF_RULES = [
   "Readable text belongs to the renderer unless the user is editing script/story copy.",
   "Normal scene images are for full_frame, multi_frame, and continuous; layered modes use their own asset paths and visual_layers.",
   "A visual_mode value chooses a renderer path. Do not reintroduce separate media_source or visual_treatment fields for normal project data.",
+  "Blink is not a selectable visual_mode. Full-frame blink uses reviewed visual_source_metadata on normal generated images, while legacy/Test Lab debug blink remains a compatibility path only.",
   "Generated images should be full-bleed unless the mode is intentionally producing transparent cutouts or contact-sheet crops.",
   "Comparison board and popup sequence modes own their internal motion; do not apply whole-scene camera drift, Ken Burns movement, zoom punch, or non-cut FX transitions to them.",
   "Post-voiceover validation may prepare assets and timing, but script generation owns the main visual rhythm before voiceover.",
