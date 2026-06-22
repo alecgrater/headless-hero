@@ -397,6 +397,39 @@ def test_set_blink_review_decision_rejects_when_review_disabled(monkeypatch):
     assert content.segments[0].scenes[0].visual_source_metadata is None
 
 
+def test_set_blink_review_decision_rejects_matching_metadata_on_non_full_frame_scene():
+    from pipeline import project_blink_review
+
+    anchor = {"detected": True, "eye_left": {"x": 0.4, "y": 0.3}}
+    image_url = "/static/projects/script-1/images/scene_001.png"
+    content = content_with_scene(
+        Scene(
+            id="scene_001",
+            narration="A worker waits.",
+            visual_prompt="Worker",
+            visual_mode="multi_frame",
+            image_url=image_url,
+            visual_source_metadata={
+                "full_frame_blink": {
+                    "enabled": False,
+                    "action": "blink",
+                    "fingerprint": project_blink_review.blink_metadata_fingerprint(image_url, anchor),
+                    "anchor": anchor,
+                    "review": {"status": "unreviewed"},
+                }
+            },
+        )
+    )
+
+    try:
+        project_blink_review.set_project_blink_review_decision(content, "script-1", "scene_001", "enabled")
+    except ValueError as exc:
+        assert "eligible" in str(exc)
+    else:
+        raise AssertionError("Expected non-full-frame scene to reject Blink Review decision")
+    assert content.segments[0].scenes[0].visual_source_metadata is None
+
+
 def test_validate_project_blink_review_blocks_unreviewed_scene(monkeypatch, tmp_path):
     from pipeline.project_blink_review import BlinkReviewRequiredError, validate_project_blink_review_complete
 

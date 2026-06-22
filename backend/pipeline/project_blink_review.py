@@ -257,6 +257,8 @@ def _blink_metadata(scene: Scene) -> dict[str, object] | None:
 
 
 def _blink_metadata_matches_scene(scene: Scene, blink: dict[str, object]) -> bool:
+    if scene.is_title_card or scene.visual_mode not in full_frame_blink.MEDIA_BACKED_BLINK_MODES:
+        return False
     anchor = blink.get("anchor")
     if not isinstance(anchor, dict):
         return False
