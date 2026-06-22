@@ -101,6 +101,12 @@ beforeEach(() => {
     moveTo: vi.fn(),
   } as unknown as CanvasRenderingContext2D);
   vi.spyOn(HTMLCanvasElement.prototype, "toDataURL").mockReturnValue("data:image/png;base64,edited");
+  URL.createObjectURL = vi.fn(() => "blob:image-review");
+  URL.revokeObjectURL = vi.fn();
+  vi.stubGlobal("fetch", vi.fn(async () => ({
+    ok: true,
+    blob: async () => new Blob(["fake"], { type: "image/png" }),
+  })));
   vi.stubGlobal("Image", class {
     crossOrigin = "";
     naturalWidth = 100;
@@ -116,6 +122,15 @@ beforeEach(() => {
 });
 
 describe("ImageReviewTab", () => {
+  it("loads the selected image through fetch before drawing it to canvas", async () => {
+    render(<ImageReviewTab scriptId="script-1" content={script} onContentUpdated={vi.fn()} />);
+
+    expect((await screen.findAllByText("scene_001")).length).toBeGreaterThan(0);
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith("/static/projects/script-1/images/scene_001.png");
+    });
+  });
+
   it("lists image review assets and saves a deleted selection", async () => {
     const onContentUpdated = vi.fn();
 

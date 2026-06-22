@@ -135,6 +135,8 @@ export default function ImageReviewEditor({ asset, saving, resetting, onSave, on
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+    let cancelled = false;
+    let objectUrl: string | null = null;
     setLoaded(false);
     setSelection(null);
     setHistory([]);
@@ -142,17 +144,8 @@ export default function ImageReviewEditor({ asset, saving, resetting, onSave, on
     copiedRef.current = null;
     setHasCopiedSelection(false);
 
-    const image = new Image();
-    image.crossOrigin = "anonymous";
-    image.onload = () => {
-      canvas.width = image.naturalWidth || image.width || 1920;
-      canvas.height = image.naturalHeight || image.height || 1080;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-      setLoaded(true);
-      drawOverlay(null);
-    };
-    image.onerror = () => {
+    const drawFallback = () => {
+      if (cancelled) return;
       canvas.width = asset.width || 1920;
       canvas.height = asset.height || 1080;
       ctx.fillStyle = "#171717";
@@ -160,7 +153,40 @@ export default function ImageReviewEditor({ asset, saving, resetting, onSave, on
       setLoaded(true);
       drawOverlay(null);
     };
-    image.src = assetUrl(asset.current_url);
+
+    const loadImage = async () => {
+      try {
+        const response = await fetch(assetUrl(asset.current_url));
+        if (!response.ok) {
+          drawFallback();
+          return;
+        }
+        const blob = await response.blob();
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        const image = new Image();
+        image.onload = () => {
+          if (cancelled) return;
+          canvas.width = image.naturalWidth || image.width || 1920;
+          canvas.height = image.naturalHeight || image.height || 1080;
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+          setLoaded(true);
+          drawOverlay(null);
+        };
+        image.onerror = drawFallback;
+        image.src = objectUrl;
+      } catch {
+        drawFallback();
+      }
+    };
+
+    void loadImage();
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
   }, [asset.current_url, asset.height, asset.width, drawOverlay]);
 
   useEffect(() => {
