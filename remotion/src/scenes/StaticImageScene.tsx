@@ -22,7 +22,7 @@ export const StaticImageScene: React.FC<Props> = ({ scene }) => {
   const blink = scene.full_frame_blink?.enabled ? scene.full_frame_blink : null;
   const blinkOverlay = blinkMicroOverlay(blink?.action);
   const blinkAnchor = blink ? resolveBlinkOverlayAnchor(blink.anchor) : null;
-  const blinkVisible = blinkOverlay ? blinkOverlayVisible(frame, fps) : false;
+  const blinkVisible = blinkOverlay ? blinkOverlayVisible(frame, fps, scene.id) : false;
 
   if (!scene.image_path) {
     return (

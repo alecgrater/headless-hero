@@ -228,7 +228,7 @@ describe("blinkLayerFrameStyle", () => {
 });
 
 describe("blinkActiveLayer", () => {
-  it("uses short irregular blink windows instead of alternating every half second", () => {
+  it("keeps generated blink scenes on the base cutout during blink pulses", () => {
     const layers = [
       { ...itemLayer("state-a"), enter_at_seconds: 0 },
       { ...itemLayer("state-b"), enter_at_seconds: 2.1 },
@@ -237,11 +237,11 @@ describe("blinkActiveLayer", () => {
     expect(blinkActiveLayer(layers, 0, 30)?.id).toBe("state-a");
     expect(blinkActiveLayer(layers, 15, 30)?.id).toBe("state-a");
     expect(blinkActiveLayer(layers, 30, 30)?.id).toBe("state-a");
-    expect(blinkActiveLayer(layers, 54, 30)?.id).toBe("state-b");
+    expect(blinkActiveLayer(layers, 54, 30)?.id).toBe("state-a");
     expect(blinkActiveLayer(layers, 62, 30)?.id).toBe("state-a");
   });
 
-  it("ignores static background layers when alternating blink states", () => {
+  it("ignores static background layers when choosing the base blink cutout", () => {
     const layers = [
       { ...panelLayer("background"), asset_kind: "full_frame" as const },
       { ...itemLayer("state-a"), enter_at_seconds: 0 },
@@ -250,7 +250,7 @@ describe("blinkActiveLayer", () => {
 
     expect(blinkActiveLayer(layers, 0, 30)?.id).toBe("state-a");
     expect(blinkActiveLayer(layers, 15, 30)?.id).toBe("state-a");
-    expect(blinkActiveLayer(layers, 54, 30)?.id).toBe("state-b");
+    expect(blinkActiveLayer(layers, 54, 30)?.id).toBe("state-a");
     expect(blinkActiveLayer(layers, 30, 30)?.id).toBe("state-a");
   });
 });

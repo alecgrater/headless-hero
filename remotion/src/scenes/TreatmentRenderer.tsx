@@ -243,9 +243,7 @@ const Blink: React.FC<Props> = ({ scene, fallbackVisualLayer }) => {
 
   const deterministicOverlay = blinkMicroOverlay(scene.blink_action);
   const overlayVisible = deterministicOverlay ? blinkOverlayVisible(frame, fps, scene.id) : false;
-  const activeLayer = stateLayers.length === 1
-    ? stateLayers[0]
-    : blinkActiveLayer(stateLayers, frame, fps, scene.id);
+  const activeLayer = blinkActiveLayer(stateLayers, frame, fps, scene.id);
   if (!activeLayer) {
     return <>{fallbackVisualLayer}</>;
   }
@@ -912,15 +910,14 @@ const ComparisonBoard: React.FC<Props> = ({ scene, fallbackVisualLayer }) => {
 };
 
 export const blinkActiveLayer = (layers: VisualLayer[], frame: number, fps: number, seed = ""): VisualLayer | undefined => {
+  void frame;
+  void fps;
+  void seed;
   const stateLayers = blinkStateLayers(layers);
   if (stateLayers.length === 0) {
     return undefined;
   }
-  const blinkWindow = blinkWindowAtFrame(frame, fps, seed);
-  const activeIndex = blinkWindow.active
-    ? 1 + (blinkWindow.index % Math.max(1, stateLayers.length - 1))
-    : 0;
-  return stateLayers[activeIndex];
+  return stateLayers[0];
 };
 
 export const TreatmentRenderer: React.FC<Props> = ({ scene, fallbackVisualLayer }) => {
