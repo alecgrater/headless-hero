@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 BATCH_IMAGE_PER_CALL = GOOGLE_IMAGE_PER_CALL / 2
 BATCH_TERMINAL_STATES = {"JOB_STATE_SUCCEEDED", "JOB_STATE_FAILED", "JOB_STATE_CANCELLED", "JOB_STATE_EXPIRED"}
+BATCH_INLINE_REQUEST_LIMIT_BYTES = 18 * 1024 * 1024
 
 
 @dataclass(frozen=True)
@@ -83,7 +84,10 @@ def _extract_inline_responses(job: object) -> list:
 
 
 def _extract_inline_image_data(response: object) -> bytes | None:
-    parts = _get_attr_or_key(response, "parts") or []
+    parts = list(_get_attr_or_key(response, "parts") or [])
+    for candidate in _get_attr_or_key(response, "candidates") or []:
+        content = _get_attr_or_key(candidate, "content")
+        parts.extend(_get_attr_or_key(content, "parts") or [])
     for part in parts:
         inline_data = _get_attr_or_key(part, "inline_data")
         if inline_data is None:
@@ -116,6 +120,27 @@ def _batch_request_payload(request: GoogleBatchImageRequest) -> dict:
     }
 
 
+def _payload_size_bytes(payload: dict) -> int:
+    return len(json.dumps(payload, separators=(",", ":")).encode("utf-8"))
+
+
+def _chunk_batch_requests(requests: list[GoogleBatchImageRequest]) -> list[list[GoogleBatchImageRequest]]:
+    chunks: list[list[GoogleBatchImageRequest]] = []
+    current: list[GoogleBatchImageRequest] = []
+    current_size = 0
+    for request in requests:
+        request_size = _payload_size_bytes(_batch_request_payload(request))
+        if current and current_size + request_size > BATCH_INLINE_REQUEST_LIMIT_BYTES:
+            chunks.append(current)
+            current = []
+            current_size = 0
+        current.append(request)
+        current_size += request_size
+    if current:
+        chunks.append(current)
+    return chunks
+
+
 def generate_images_batch(
     *,
     client: genai.Client | None = None,
@@ -133,11 +158,37 @@ def generate_images_batch(
     if not requests:
         return []
     client = client or get_google_client()
-    display_name = f"headless-hero-images-{script_id or 'no-script'}-{int(time.time())}"
+    all_results: list[GoogleBatchImageResult] = []
+    request_chunks = _chunk_batch_requests(requests)
+    for chunk_index, request_chunk in enumerate(request_chunks):
+        chunk_results = _generate_images_batch_chunk(
+            client=client,
+            requests=request_chunk,
+            script_id=script_id,
+            poll_interval_seconds=poll_interval_seconds,
+            timeout_seconds=timeout_seconds,
+            chunk_index=chunk_index,
+            chunk_count=len(request_chunks),
+        )
+        all_results.extend(chunk_results)
+    return all_results
+
+
+def _generate_images_batch_chunk(
+    *,
+    client: genai.Client,
+    requests: list[GoogleBatchImageRequest],
+    script_id: str | None,
+    poll_interval_seconds: float,
+    timeout_seconds: float,
+    chunk_index: int,
+    chunk_count: int,
+) -> list[GoogleBatchImageResult]:
+    display_name = f"headless-hero-images-{script_id or 'no-script'}-{int(time.time())}-{chunk_index + 1}of{chunk_count}"
     inline_requests = [_batch_request_payload(request) for request in requests]
     logger.info(
-        "Creating Google image batch job for %d request(s) (script=%s)",
-        len(requests), script_id or "none",
+        "Creating Google image batch job for %d request(s) (script=%s, chunk=%d/%d)",
+        len(requests), script_id or "none", chunk_index + 1, chunk_count,
     )
     batch_job = client.batches.create(
         model=DEFAULT_IMAGE_MODEL,

@@ -25,3 +25,17 @@ export interface GenerateTitleCardsResponse {
 export interface GenerateVisualBatchJobResponse {
   job_id: string;
 }
+
+export interface GenerateVisualBatchSceneResult {
+  scene_id: string;
+  image_url?: string;
+  frame_urls?: string[];
+  video_url?: string;
+  visual_layers?: VisualLayer[];
+  error?: string | null;
+}
+
+export interface GenerateVisualBatchJobOutput {
+  results?: GenerateVisualBatchSceneResult[];
+  errors?: number;
+}

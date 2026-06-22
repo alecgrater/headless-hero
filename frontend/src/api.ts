@@ -579,13 +579,21 @@ type BackgroundJobProgress = {
   current_step?: string | null;
 };
 
+export type BackgroundJobStatus = {
+  status: string;
+  error: string | null;
+  progress?: number;
+  current_step?: string | null;
+  output_data?: string | null;
+};
+
 async function pollBackgroundJob(
   jobId: string,
   statusEndpoint: string,
   stallPolls: number,
   failureMessage: string,
   onProgress?: (status: BackgroundJobProgress) => void,
-): Promise<void> {
+): Promise<BackgroundJobStatus> {
   // Poll until completion. Time out only if the job's progress field stops
   // advancing for `stallPolls` consecutive polls — large scripts (e.g. 200+
   // Eli scenes) can legitimately exceed any fixed total-time budget. Tolerate
@@ -609,9 +617,9 @@ async function pollBackgroundJob(
       continue;
     }
     transientErrors = 0;
-    const job = res.data as { status: string; error: string | null; progress?: number; current_step?: string | null };
+    const job = res.data as BackgroundJobStatus;
     if (onProgress) onProgress({ progress: job.progress, current_step: job.current_step });
-    if (job.status === "completed") return;
+    if (job.status === "completed") return job;
     if (job.status === "failed") throw new Error(job.error || failureMessage);
     if (job.status === "cancelled") throw new Error(`${failureMessage} (cancelled)`);
 
@@ -630,7 +638,7 @@ async function pollBackgroundJob(
 export async function pollTitleCardJob(
   jobId: string,
   onProgress?: (status: BackgroundJobProgress) => void,
-): Promise<void> {
+): Promise<BackgroundJobStatus> {
   return pollBackgroundJob(jobId, "/api/visuals/title-cards-status/", 200, "Title card generation failed", onProgress);
 }
 
@@ -638,20 +646,20 @@ export async function pollTitleCardJob(
 export async function pollVisualBatchJob(
   jobId: string,
   onProgress?: (status: BackgroundJobProgress) => void,
-): Promise<void> {
+): Promise<BackgroundJobStatus> {
   return pollBackgroundJob(jobId, "/api/visuals/generate-batch-status/", 1200, "Image generation failed", onProgress);
 }
 
 /** Poll a render job until it completes or fails. */
 export async function pollRenderJob(jobId: string): Promise<void> {
-  return pollBackgroundJob(jobId, "/api/render/status/", 600, "Render failed");
+  await pollBackgroundJob(jobId, "/api/render/status/", 600, "Render failed");
 }
 
 /** Poll a short-form background job until it completes or fails. */
 export async function pollShortFormJob(
   jobId: string,
   onProgress?: (status: BackgroundJobProgress) => void,
-): Promise<void> {
+): Promise<BackgroundJobStatus> {
   return pollBackgroundJob(jobId, "/api/short-form/jobs/", 1200, "Short-form job failed", onProgress);
 }
 
@@ -659,7 +667,7 @@ export async function pollShortFormJob(
 export async function pollEliJob(
   jobId: string,
   onProgress?: (status: BackgroundJobProgress) => void,
-): Promise<void> {
+): Promise<BackgroundJobStatus> {
   return pollBackgroundJob(jobId, "/api/eli/generate-status/", 800, "Eli generation failed", onProgress);
 }
 
@@ -667,7 +675,7 @@ export async function pollEliJob(
 export async function pollFXJob(
   jobId: string,
   onProgress?: (status: BackgroundJobProgress) => void,
-): Promise<void> {
+): Promise<BackgroundJobStatus> {
   return pollBackgroundJob(jobId, "/api/fx/generate-status/", 800, "FX generation failed", onProgress);
 }
 

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../../api";
 import { fetchGenerationEstimate, recordDuration, pollTitleCardJob, pollVisualBatchJob, bumpAssetVersion } from "../../api";
 import type { FrameDirective, Scene, ScriptContent, VisualLayer } from "../../types/script";
-import type { GenerateTitleCardsResponse, GenerateVisualBatchJobResponse } from "../../types/visual";
+import type { GenerateTitleCardsResponse, GenerateVisualBatchJobOutput, GenerateVisualBatchJobResponse } from "../../types/visual";
 import type { GenerateAudioResponse } from "../../types/audio";
 import { sceneVisualAssetsComplete } from "./assetCompletion";
 
@@ -590,6 +590,7 @@ export function useTimelineState(
 
       let completed = 0;
       let failed = 0;
+      let finalImageMessage: string | null = null;
 
       // Generate title cards first (background job)
       if (shouldGenerateTitleCards) {
@@ -646,7 +647,7 @@ export function useTimelineState(
             throw new Error((res.data as { detail?: string })?.detail || "Failed to start image generation");
           }
           const data = res.data as GenerateVisualBatchJobResponse;
-          await pollVisualBatchJob(data.job_id, (status) => {
+          const finalJob = await pollVisualBatchJob(data.job_id, (status) => {
             setBatchImageProgress((prev) => ({
               ...prev,
               currentSceneId: null,
@@ -654,8 +655,35 @@ export function useTimelineState(
               statuses: new Map(statuses),
             }));
           });
-          scenes.forEach((scene) => statuses.set(scene.scene_id, "done"));
-          completed = scenes.length;
+          let batchOutput: GenerateVisualBatchJobOutput | null = null;
+          if (finalJob.output_data) {
+            try {
+              batchOutput = JSON.parse(finalJob.output_data) as GenerateVisualBatchJobOutput;
+            } catch {
+              batchOutput = null;
+            }
+          }
+
+          if (!batchOutput?.results) {
+            scenes.forEach((scene) => statuses.set(scene.scene_id, "failed"));
+            failed = scenes.length;
+            finalImageMessage = "Image batch finished without result details";
+          } else {
+            const resultBySceneId = new Map(batchOutput.results.map((result) => [result.scene_id, result]));
+            scenes.forEach((scene) => {
+              const result = resultBySceneId.get(scene.scene_id);
+              if (!result || result.error) {
+                statuses.set(scene.scene_id, "failed");
+                failed += 1;
+              } else {
+                statuses.set(scene.scene_id, "done");
+                completed += 1;
+              }
+            });
+            if (failed > 0) {
+              finalImageMessage = `${failed} image${failed === 1 ? "" : "s"} failed`;
+            }
+          }
         } catch {
           scenes.forEach((scene) => {
             if (statuses.get(scene.scene_id) === "generating" || statuses.get(scene.scene_id) === "pending") {
@@ -670,7 +698,7 @@ export function useTimelineState(
           completed,
           failed,
           currentSceneId: null,
-          currentSceneName: null,
+          currentSceneName: finalImageMessage,
           statuses: new Map(statuses),
         }));
       }
