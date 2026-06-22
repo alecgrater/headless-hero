@@ -12,6 +12,9 @@ const apiMocks = vi.hoisted(() => ({
   resetImageReviewAsset: vi.fn(),
 }));
 
+let drawImageMock: ReturnType<typeof vi.fn>;
+let fillRectMock: ReturnType<typeof vi.fn>;
+
 vi.mock("../../../api", async () => {
   const actual = await vi.importActual<typeof import("../../../api")>("../../../api");
   return {
@@ -81,10 +84,12 @@ beforeEach(() => {
   apiMocks.saveImageReviewEdit.mockResolvedValue(updateResponse());
   apiMocks.resetImageReviewAsset.mockResolvedValue(updateResponse({ ...script, title: "Reset Script" }));
 
+  drawImageMock = vi.fn();
+  fillRectMock = vi.fn();
   vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
     clearRect: vi.fn(),
-    drawImage: vi.fn(),
-    fillRect: vi.fn(),
+    drawImage: drawImageMock,
+    fillRect: fillRectMock,
     fillText: vi.fn(),
     getImageData: vi.fn(() => ({ data: new Uint8ClampedArray(4), width: 1, height: 1 })),
     putImageData: vi.fn(),
@@ -135,6 +140,25 @@ describe("ImageReviewTab", () => {
       expect(fetch).toHaveBeenCalledWith("/static/projects/script-1/images/scene_001.png");
     });
     expect(createImageBitmap).toHaveBeenCalled();
+    expect(drawImageMock).toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: /save edited copy/i })).toBeEnabled();
+  });
+
+  it("shows an error and disables saving when the selected image cannot load", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: false,
+      status: 404,
+      blob: async () => new Blob([]),
+    } as Response);
+
+    render(<ImageReviewTab scriptId="script-1" content={script} onContentUpdated={vi.fn()} />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Failed to fetch image (404): /static/projects/script-1/images/scene_001.png",
+    );
+    expect(screen.getByRole("button", { name: /save edited copy/i })).toBeDisabled();
+    expect(drawImageMock).not.toHaveBeenCalled();
+    expect(fillRectMock).toHaveBeenCalled();
   });
 
   it("lists image review assets and saves a deleted selection", async () => {

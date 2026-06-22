@@ -68,6 +68,7 @@ export default function ImageReviewEditor({ asset, saving, resetting, onSave, on
   const [history, setHistory] = useState<string[]>([]);
   const [future, setFuture] = useState<string[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [hasCopiedSelection, setHasCopiedSelection] = useState(false);
 
   const dimensionsLabel = useMemo(() => {
@@ -143,14 +144,16 @@ export default function ImageReviewEditor({ asset, saving, resetting, onSave, on
     setFuture([]);
     copiedRef.current = null;
     setHasCopiedSelection(false);
+    setLoadError(null);
 
-    const drawFallback = () => {
+    const drawFallback = (message: string) => {
       if (cancelled) return;
       canvas.width = asset.width || 1920;
       canvas.height = asset.height || 1080;
       ctx.fillStyle = "#171717";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      setLoaded(true);
+      setLoaded(false);
+      setLoadError(message);
       drawOverlay(null);
     };
 
@@ -163,9 +166,10 @@ export default function ImageReviewEditor({ asset, saving, resetting, onSave, on
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
         setLoaded(true);
+        setLoadError(null);
         drawOverlay(null);
       };
-      image.onerror = drawFallback;
+      image.onerror = () => drawFallback(`Failed to decode image: ${asset.current_url}`);
       image.src = objectUrlValue;
     };
 
@@ -173,7 +177,7 @@ export default function ImageReviewEditor({ asset, saving, resetting, onSave, on
       try {
         const response = await fetch(assetUrl(asset.current_url));
         if (!response.ok) {
-          drawFallback();
+          drawFallback(`Failed to fetch image (${response.status}): ${asset.current_url}`);
           return;
         }
         const blob = await response.blob();
@@ -193,18 +197,19 @@ export default function ImageReviewEditor({ asset, saving, resetting, onSave, on
             canvas.width = bitmap.width || asset.width || 1920;
             canvas.height = bitmap.height || asset.height || 1080;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-            bitmap.close();
-            setLoaded(true);
-            drawOverlay(null);
-            return;
-          }
+          ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+          bitmap.close();
+          setLoaded(true);
+          setLoadError(null);
+          drawOverlay(null);
+          return;
+        }
         }
         if (cancelled) return;
         objectUrl = URL.createObjectURL(blob);
         drawImageElement(objectUrl);
       } catch {
-        drawFallback();
+        drawFallback(`Failed to load image: ${asset.current_url}`);
       }
     };
 
@@ -418,19 +423,19 @@ export default function ImageReviewEditor({ asset, saving, resetting, onSave, on
       </div>
 
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-neutral-800 bg-neutral-900/45 px-3 py-2">
-        <button type="button" onClick={selectAll} className="inline-flex items-center gap-1.5 rounded-md border border-neutral-700 bg-neutral-800 px-2.5 py-1.5 text-xs font-medium text-neutral-200 transition-colors hover:bg-neutral-700">
+        <button type="button" onClick={selectAll} disabled={!loaded} className="inline-flex items-center gap-1.5 rounded-md border border-neutral-700 bg-neutral-800 px-2.5 py-1.5 text-xs font-medium text-neutral-200 transition-colors hover:bg-neutral-700 disabled:opacity-50">
           <MousePointer2 className="h-3.5 w-3.5" />
           Select all
         </button>
-        <button type="button" onClick={copySelection} disabled={!selection} className="inline-flex items-center gap-1.5 rounded-md border border-neutral-700 bg-neutral-800 px-2.5 py-1.5 text-xs font-medium text-neutral-200 transition-colors hover:bg-neutral-700 disabled:opacity-50">
+        <button type="button" onClick={copySelection} disabled={!loaded || !selection} className="inline-flex items-center gap-1.5 rounded-md border border-neutral-700 bg-neutral-800 px-2.5 py-1.5 text-xs font-medium text-neutral-200 transition-colors hover:bg-neutral-700 disabled:opacity-50">
           <Copy className="h-3.5 w-3.5" />
           Copy selection
         </button>
-        <button type="button" onClick={pasteSelection} disabled={!hasCopiedSelection} className="inline-flex items-center gap-1.5 rounded-md border border-neutral-700 bg-neutral-800 px-2.5 py-1.5 text-xs font-medium text-neutral-200 transition-colors hover:bg-neutral-700 disabled:opacity-50">
+        <button type="button" onClick={pasteSelection} disabled={!loaded || !hasCopiedSelection} className="inline-flex items-center gap-1.5 rounded-md border border-neutral-700 bg-neutral-800 px-2.5 py-1.5 text-xs font-medium text-neutral-200 transition-colors hover:bg-neutral-700 disabled:opacity-50">
           <Clipboard className="h-3.5 w-3.5" />
           Paste selection
         </button>
-        <button type="button" onClick={deleteSelection} disabled={!selection} className="inline-flex items-center gap-1.5 rounded-md border border-neutral-700 bg-neutral-800 px-2.5 py-1.5 text-xs font-medium text-neutral-200 transition-colors hover:bg-neutral-700 disabled:opacity-50">
+        <button type="button" onClick={deleteSelection} disabled={!loaded || !selection} className="inline-flex items-center gap-1.5 rounded-md border border-neutral-700 bg-neutral-800 px-2.5 py-1.5 text-xs font-medium text-neutral-200 transition-colors hover:bg-neutral-700 disabled:opacity-50">
           <Scissors className="h-3.5 w-3.5" />
           Delete selection
         </button>
@@ -447,13 +452,18 @@ export default function ImageReviewEditor({ asset, saving, resetting, onSave, on
           Size
           <input type="number" min={12} max={220} value={textSize} onChange={(event) => setTextSize(Number(event.target.value))} className="h-8 w-16 rounded-md border border-neutral-700 bg-neutral-950 px-2 text-xs text-neutral-100 outline-none focus:border-violet-500" />
         </label>
-        <button type="button" onClick={addTextCenter} className="inline-flex items-center gap-1.5 rounded-md border border-neutral-700 bg-neutral-800 px-2.5 py-1.5 text-xs font-medium text-neutral-200 transition-colors hover:bg-neutral-700">
+        <button type="button" onClick={addTextCenter} disabled={!loaded} className="inline-flex items-center gap-1.5 rounded-md border border-neutral-700 bg-neutral-800 px-2.5 py-1.5 text-xs font-medium text-neutral-200 transition-colors hover:bg-neutral-700 disabled:opacity-50">
           <Type className="h-3.5 w-3.5" />
           Add text
         </button>
       </div>
 
       <div className="relative min-h-0 flex-1 overflow-auto bg-[radial-gradient(circle_at_center,rgba(64,64,64,0.35)_1px,transparent_1px)] [background-size:18px_18px] p-4">
+        {loadError ? (
+          <div className="mb-3 rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-200" role="alert">
+            {loadError}
+          </div>
+        ) : null}
         <div className="relative mx-auto w-full max-w-5xl">
           <canvas
             ref={canvasRef}
