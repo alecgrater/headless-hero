@@ -335,6 +335,32 @@ describe("ImageReviewTab", () => {
     expect(fillTextMock).toHaveBeenCalledWith("Drag me", 70, 40);
   });
 
+  it("deletes a selected text object with the Delete key while editing", async () => {
+    render(<ImageReviewTab scriptId="script-1" content={script} onContentUpdated={vi.fn()} />);
+
+    expect((await screen.findAllByText("scene_001")).length).toBeGreaterThan(0);
+
+    await userEvent.clear(screen.getByLabelText("Text content"));
+    await userEvent.type(screen.getByLabelText("Text content"), "Delete me");
+    await userEvent.click(screen.getByRole("button", { name: /add text/i }));
+    await userEvent.keyboard("{Delete}");
+    fillTextMock.mockClear();
+    await userEvent.click(screen.getByRole("button", { name: /save edited copy/i }));
+
+    expect(fillTextMock).not.toHaveBeenCalledWith("Delete me", expect.any(Number), expect.any(Number));
+  });
+
+  it("deletes a rectangular selection with the Delete key while editing", async () => {
+    render(<ImageReviewTab scriptId="script-1" content={script} onContentUpdated={vi.fn()} />);
+
+    expect((await screen.findAllByText("scene_001")).length).toBeGreaterThan(0);
+
+    await userEvent.click(screen.getByRole("button", { name: /select all/i }));
+    await userEvent.keyboard("{Delete}");
+
+    expect(screen.getByRole("button", { name: /undo/i })).toBeEnabled();
+  });
+
   it("undoes newly added text before saving", async () => {
     render(<ImageReviewTab scriptId="script-1" content={script} onContentUpdated={vi.fn()} />);
 
@@ -495,6 +521,23 @@ describe("ImageReviewTab", () => {
     );
 
     await userEvent.click(screen.getByRole("button", { name: /open scene_002 frame 1 in editor/i }));
+
+    expect(screen.getByRole("button", { name: /editor view/i })).toHaveAttribute("aria-pressed", "true");
+    await waitFor(() => {
+      expect(apiMocks.getImageReviewAssetData).toHaveBeenLastCalledWith("script-1", "scene:scene_002:frame:0");
+    });
+  });
+
+  it("opens a gallery image in the editor when the tile is double-clicked", async () => {
+    render(<ImageReviewTab scriptId="script-1" content={script} onContentUpdated={vi.fn()} />);
+
+    expect((await screen.findAllByText("scene_001")).length).toBeGreaterThan(0);
+
+    await userEvent.click(screen.getByRole("button", { name: /gallery view/i }));
+    const galleryPreview = screen.getByAltText("scene_002 Frame 1 preview");
+    const galleryTileButton = galleryPreview.closest("button");
+    expect(galleryTileButton).not.toBeNull();
+    await userEvent.dblClick(galleryTileButton!);
 
     expect(screen.getByRole("button", { name: /editor view/i })).toHaveAttribute("aria-pressed", "true");
     await waitFor(() => {

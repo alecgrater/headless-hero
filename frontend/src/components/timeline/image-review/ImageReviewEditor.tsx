@@ -692,6 +692,11 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (isEditableShortcutTarget(event.target)) return;
+      if ((event.key === "Delete" || event.key === "Backspace") && (activeObjectId || selection)) {
+        event.preventDefault();
+        deleteSelection();
+        return;
+      }
       if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return;
       const key = event.key.toLowerCase();
       if (key === "c" && (activeObjectId || selection)) {

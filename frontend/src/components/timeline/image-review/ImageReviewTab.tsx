@@ -260,6 +260,7 @@ export default function ImageReviewTab({ scriptId, content, onContentUpdated }: 
                       <button
                         type="button"
                         onClick={() => setSelectedAssetId(asset.asset_id)}
+                        onDoubleClick={() => openAssetInEditor(asset)}
                         className="block w-full text-left"
                       >
                         <div className="relative aspect-video overflow-hidden bg-neutral-900">
