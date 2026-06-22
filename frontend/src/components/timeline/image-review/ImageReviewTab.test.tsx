@@ -165,6 +165,16 @@ describe("ImageReviewTab", () => {
     expect(screen.getByRole("button", { name: /save edited copy/i })).toBeEnabled();
   });
 
+  it("positions top toolbar tooltips below the buttons so they are not clipped", async () => {
+    render(<ImageReviewTab scriptId="script-1" content={script} onContentUpdated={vi.fn()} />);
+
+    expect((await screen.findAllByText("scene_001")).length).toBeGreaterThan(0);
+
+    const tooltip = screen.getByText("Selection tool").closest('[role="tooltip"]');
+    expect(tooltip).toHaveClass("top-full");
+    expect(tooltip).not.toHaveClass("bottom-full");
+  });
+
   it("shows an error and disables saving when the selected image cannot load", async () => {
     apiMocks.getImageReviewAssetData.mockRejectedValueOnce(new Error("Image Review asset file not found"));
 

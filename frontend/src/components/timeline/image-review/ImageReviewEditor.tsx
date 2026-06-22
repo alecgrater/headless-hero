@@ -391,28 +391,28 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
           <p className="mt-0.5 truncate text-xs text-neutral-500">{dimensionsLabel}</p>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
-          <Tooltip content="Selection tool">
+          <Tooltip content="Selection tool" side="bottom">
             <button type="button" aria-label="Selection tool" onClick={() => setTool("select")} className={buttonClass(tool === "select")}>
               <SquareDashedMousePointer className="h-4 w-4" />
             </button>
           </Tooltip>
-          <Tooltip content="Eraser">
+          <Tooltip content="Eraser" side="bottom">
             <button type="button" aria-label="Eraser tool" onClick={() => setTool("erase")} className={buttonClass(tool === "erase")}>
               <Eraser className="h-4 w-4" />
             </button>
           </Tooltip>
-          <Tooltip content="Text tool">
+          <Tooltip content="Text tool" side="bottom">
             <button type="button" aria-label="Text tool" onClick={() => setTool("text")} className={buttonClass(tool === "text")}>
               <Type className="h-4 w-4" />
             </button>
           </Tooltip>
           <span className="mx-1 h-6 w-px bg-neutral-800" />
-          <Tooltip content="Undo">
+          <Tooltip content="Undo" side="bottom">
             <button type="button" aria-label="Undo" onClick={undo} disabled={history.length === 0} className={buttonClass()}>
               <Undo2 className="h-4 w-4" />
             </button>
           </Tooltip>
-          <Tooltip content="Redo">
+          <Tooltip content="Redo" side="bottom">
             <button type="button" aria-label="Redo" onClick={redo} disabled={future.length === 0} className={buttonClass()}>
               <Redo2 className="h-4 w-4" />
             </button>
