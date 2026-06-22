@@ -18,6 +18,8 @@ import type { ImageReviewAsset } from "../../../types/imageReview";
 import { Tooltip } from "../../ui/Tooltip";
 
 type ToolMode = "select" | "erase" | "text";
+type EraserColor = "#000000" | "#FFFFFF";
+type TextFont = "Inter" | "Arial" | "Georgia" | "Impact";
 
 interface Selection {
   x: number;
@@ -25,6 +27,27 @@ interface Selection {
   width: number;
   height: number;
 }
+
+interface BaseOverlayObject {
+  id: string;
+  x: number;
+  y: number;
+}
+
+interface TextOverlayObject extends BaseOverlayObject {
+  kind: "text";
+  text: string;
+  size: number;
+  color: string;
+  font: TextFont;
+}
+
+interface ImageOverlayObject extends BaseOverlayObject {
+  kind: "image";
+  imageData: ImageData;
+}
+
+type OverlayObject = TextOverlayObject | ImageOverlayObject;
 
 interface Props {
   scriptId: string;
@@ -73,18 +96,66 @@ function dataUrlToBlob(dataUrl: string): Blob {
   return new Blob([bytes], { type: mimeMatch[1] });
 }
 
+function textFontFamily(font: TextFont): string {
+  if (font === "Inter") return "Inter, Arial, sans-serif";
+  if (font === "Georgia") return "Georgia, serif";
+  if (font === "Impact") return "Impact, Arial Black, sans-serif";
+  return "Arial, sans-serif";
+}
+
+function applyTextStyle(ctx: CanvasRenderingContext2D, object: TextOverlayObject) {
+  ctx.font = `700 ${object.size}px ${textFontFamily(object.font)}`;
+  ctx.fillStyle = object.color;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+}
+
+function textBounds(ctx: CanvasRenderingContext2D, object: TextOverlayObject): Selection {
+  applyTextStyle(ctx, object);
+  const measured = typeof ctx.measureText === "function" ? ctx.measureText(object.text) : null;
+  const width = Math.max(object.size, measured?.width ?? object.text.length * object.size * 0.6);
+  const height = object.size * 1.25;
+  return {
+    x: object.x - width / 2,
+    y: object.y - height / 2,
+    width,
+    height,
+  };
+}
+
+function objectBounds(ctx: CanvasRenderingContext2D, object: OverlayObject): Selection {
+  if (object.kind === "image") {
+    return { x: object.x, y: object.y, width: object.imageData.width, height: object.imageData.height };
+  }
+  return textBounds(ctx, object);
+}
+
+function pointInSelection(point: { x: number; y: number }, selection: Selection): boolean {
+  return (
+    point.x >= selection.x &&
+    point.x <= selection.x + selection.width &&
+    point.y >= selection.y &&
+    point.y <= selection.y + selection.height
+  );
+}
+
 export default function ImageReviewEditor({ scriptId, asset, saving, resetting, onSave, onReset }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const overlayRef = useRef<HTMLCanvasElement | null>(null);
   const drawingRef = useRef(false);
   const dragStartRef = useRef<{ x: number; y: number } | null>(null);
+  const draggingObjectRef = useRef<{ id: string; offsetX: number; offsetY: number } | null>(null);
   const copiedRef = useRef<ImageData | null>(null);
   const [tool, setTool] = useState<ToolMode>("select");
   const [selection, setSelection] = useState<Selection | null>(null);
+  const [overlayObjects, setOverlayObjects] = useState<OverlayObject[]>([]);
+  const [activeObjectId, setActiveObjectId] = useState<string | null>(null);
   const [brushSize, setBrushSize] = useState(32);
+  const [eraserColor, setEraserColor] = useState<EraserColor>("#000000");
   const [text, setText] = useState("Text");
   const [textSize, setTextSize] = useState(72);
   const [textColor, setTextColor] = useState("#111111");
+  const [textFont, setTextFont] = useState<TextFont>("Inter");
   const [history, setHistory] = useState<string[]>([]);
   const [future, setFuture] = useState<string[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -100,23 +171,16 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
     const rect = canvas.getBoundingClientRect();
+    const renderedWidth = rect.width || canvas.width || 1;
+    const renderedHeight = rect.height || canvas.height || 1;
     return {
-      x: ((event.clientX - rect.left) / rect.width) * canvas.width,
-      y: ((event.clientY - rect.top) / rect.height) * canvas.height,
+      x: ((event.clientX - rect.left) / renderedWidth) * canvas.width,
+      y: ((event.clientY - rect.top) / renderedHeight) * canvas.height,
     };
   };
 
-  const drawOverlay = useCallback((nextSelection: Selection | null) => {
-    const overlay = overlayRef.current;
-    const canvas = canvasRef.current;
-    if (!overlay || !canvas) return;
-    overlay.width = canvas.width;
-    overlay.height = canvas.height;
-    const ctx = overlay.getContext("2d");
-    if (!ctx) return;
-    ctx.clearRect(0, 0, overlay.width, overlay.height);
-    if (!nextSelection) return;
-    const normalized = normalizeSelection(nextSelection);
+  const drawSelectionBox = (ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, box: Selection) => {
+    const normalized = normalizeSelection(box);
     ctx.save();
     ctx.setLineDash([12, 8]);
     ctx.lineWidth = Math.max(2, canvas.width / 700);
@@ -125,6 +189,35 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
     ctx.fillRect(normalized.x, normalized.y, normalized.width, normalized.height);
     ctx.strokeRect(normalized.x, normalized.y, normalized.width, normalized.height);
     ctx.restore();
+  };
+
+  const renderOverlayObject = (ctx: CanvasRenderingContext2D, object: OverlayObject) => {
+    if (object.kind === "image") {
+      ctx.putImageData(object.imageData, object.x, object.y);
+      return;
+    }
+    ctx.save();
+    applyTextStyle(ctx, object);
+    ctx.fillText(object.text, object.x, object.y);
+    ctx.restore();
+  };
+
+  const drawOverlay = useCallback((nextSelection: Selection | null, nextObjects: OverlayObject[], nextActiveObjectId: string | null) => {
+    const overlay = overlayRef.current;
+    const canvas = canvasRef.current;
+    if (!overlay || !canvas) return;
+    overlay.width = canvas.width;
+    overlay.height = canvas.height;
+    const ctx = overlay.getContext("2d");
+    if (!ctx) return;
+    ctx.clearRect(0, 0, overlay.width, overlay.height);
+    nextObjects.forEach((object) => {
+      renderOverlayObject(ctx, object);
+      if (object.id === nextActiveObjectId) {
+        drawSelectionBox(ctx, canvas, objectBounds(ctx, object));
+      }
+    });
+    if (nextSelection) drawSelectionBox(ctx, canvas, nextSelection);
   }, []);
 
   const pushHistory = useCallback(() => {
@@ -146,7 +239,7 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
       canvas.height = image.naturalHeight || image.height || canvas.height;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-      drawOverlay(null);
+      drawOverlay(null, [], null);
     };
     image.src = dataUrl;
   }, [drawOverlay]);
@@ -160,6 +253,8 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
     let objectUrl: string | null = null;
     setLoaded(false);
     setSelection(null);
+    setOverlayObjects([]);
+    setActiveObjectId(null);
     setHistory([]);
     setFuture([]);
     copiedRef.current = null;
@@ -174,7 +269,7 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       setLoaded(false);
       setLoadError(message);
-      drawOverlay(null);
+      drawOverlay(null, [], null);
     };
 
     const drawImageElement = (objectUrlValue: string) => {
@@ -187,7 +282,7 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
         ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
         setLoaded(true);
         setLoadError(null);
-        drawOverlay(null);
+        drawOverlay(null, [], null);
       };
       image.onerror = () => drawFallback(`Failed to decode image: ${asset.current_url}`);
       image.src = objectUrlValue;
@@ -217,7 +312,7 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
             bitmap.close();
             setLoaded(true);
             setLoadError(null);
-            drawOverlay(null);
+            drawOverlay(null, [], null);
             return;
           }
         }
@@ -239,8 +334,19 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
   }, [asset.asset_id, asset.current_url, asset.height, asset.width, drawOverlay, scriptId]);
 
   useEffect(() => {
-    drawOverlay(selection);
-  }, [drawOverlay, selection]);
+    drawOverlay(selection, overlayObjects, activeObjectId);
+  }, [activeObjectId, drawOverlay, overlayObjects, selection]);
+
+  const updateTextObject = (patch: Partial<Pick<TextOverlayObject, "text" | "size" | "color" | "font">>) => {
+    if (!activeObjectId) return;
+    setOverlayObjects((objects) =>
+      objects.map((object) =>
+        object.id === activeObjectId && object.kind === "text"
+          ? { ...object, ...patch }
+          : object,
+      ),
+    );
+  };
 
   const handlePointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
     if (!loaded) return;
@@ -250,22 +356,50 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
     const point = canvasPoint(event);
     drawingRef.current = true;
     dragStartRef.current = point;
-    event.currentTarget.setPointerCapture(event.pointerId);
+    event.currentTarget.setPointerCapture?.(event.pointerId);
     if (tool === "select") {
+      const hitObject = [...overlayObjects].reverse().find((object) => pointInSelection(point, objectBounds(ctx, object)));
+      if (hitObject) {
+        setActiveObjectId(hitObject.id);
+        setSelection(null);
+        draggingObjectRef.current = {
+          id: hitObject.id,
+          offsetX: point.x - hitObject.x,
+          offsetY: point.y - hitObject.y,
+        };
+        if (hitObject.kind === "text") {
+          setText(hitObject.text);
+          setTextSize(hitObject.size);
+          setTextColor(hitObject.color);
+          setTextFont(hitObject.font);
+        }
+        drawOverlay(null, overlayObjects, hitObject.id);
+        return;
+      }
+      setActiveObjectId(null);
       const nextSelection = { x: point.x, y: point.y, width: 0, height: 0 };
       setSelection(nextSelection);
-      drawOverlay(nextSelection);
+      drawOverlay(nextSelection, overlayObjects, null);
     } else if (tool === "erase") {
       pushHistory();
-      ctx.clearRect(point.x - brushSize / 2, point.y - brushSize / 2, brushSize, brushSize);
+      ctx.fillStyle = eraserColor;
+      ctx.fillRect(point.x - brushSize / 2, point.y - brushSize / 2, brushSize, brushSize);
     } else if (tool === "text") {
-      pushHistory();
-      ctx.save();
-      ctx.font = `700 ${textSize}px Inter, Arial, sans-serif`;
-      ctx.fillStyle = textColor;
-      ctx.textBaseline = "middle";
-      ctx.fillText(text, point.x, point.y);
-      ctx.restore();
+      if (!text.trim()) return;
+      const object: TextOverlayObject = {
+        id: `text-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        kind: "text",
+        x: point.x,
+        y: point.y,
+        text: text.trim(),
+        size: textSize,
+        color: textColor,
+        font: textFont,
+      };
+      setOverlayObjects((objects) => [...objects, object]);
+      setActiveObjectId(object.id);
+      setSelection(null);
+      setTool("select");
     }
   };
 
@@ -275,7 +409,16 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
     const ctx = canvas?.getContext("2d");
     if (!canvas || !ctx) return;
     const point = canvasPoint(event);
-    if (tool === "select") {
+    if (draggingObjectRef.current) {
+      const drag = draggingObjectRef.current;
+      setOverlayObjects((objects) =>
+        objects.map((object) =>
+          object.id === drag.id
+            ? { ...object, x: point.x - drag.offsetX, y: point.y - drag.offsetY }
+            : object,
+        ),
+      );
+    } else if (tool === "select") {
       const start = dragStartRef.current;
       const nextSelection = {
         x: start.x,
@@ -284,21 +427,24 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
         height: point.y - start.y,
       };
       setSelection(nextSelection);
-      drawOverlay(nextSelection);
+      drawOverlay(nextSelection, overlayObjects, activeObjectId);
     } else if (tool === "erase") {
-      ctx.clearRect(point.x - brushSize / 2, point.y - brushSize / 2, brushSize, brushSize);
+      ctx.fillStyle = eraserColor;
+      ctx.fillRect(point.x - brushSize / 2, point.y - brushSize / 2, brushSize, brushSize);
     }
   };
 
   const handlePointerUp = (event: React.PointerEvent<HTMLCanvasElement>) => {
     drawingRef.current = false;
     dragStartRef.current = null;
-    event.currentTarget.releasePointerCapture(event.pointerId);
+    draggingObjectRef.current = null;
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
   };
 
   const selectAll = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    setActiveObjectId(null);
     setSelection({ x: 0, y: 0, width: canvas.width, height: canvas.height });
   };
 
@@ -313,6 +459,11 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
   };
 
   const deleteSelection = () => {
+    if (activeObjectId) {
+      setOverlayObjects((objects) => objects.filter((object) => object.id !== activeObjectId));
+      setActiveObjectId(null);
+      return;
+    }
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
     if (!canvas || !ctx || !selection) return;
@@ -324,29 +475,40 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
 
   const pasteSelection = () => {
     const canvas = canvasRef.current;
-    const ctx = canvas?.getContext("2d");
     const copied = copiedRef.current;
-    if (!canvas || !ctx || !copied) return;
-    pushHistory();
+    if (!canvas || !copied) return;
     const base = selection ? normalizeSelection(selection) : { x: 0, y: 0, width: copied.width, height: copied.height };
     const x = Math.min(Math.max(0, base.x + 32), Math.max(0, canvas.width - copied.width));
     const y = Math.min(Math.max(0, base.y + 32), Math.max(0, canvas.height - copied.height));
-    ctx.putImageData(copied, x, y);
-    setSelection({ x, y, width: copied.width, height: copied.height });
+    const object: ImageOverlayObject = {
+      id: `image-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      kind: "image",
+      x,
+      y,
+      imageData: copied,
+    };
+    setOverlayObjects((objects) => [...objects, object]);
+    setActiveObjectId(object.id);
+    setSelection(null);
   };
 
   const addTextCenter = () => {
     const canvas = canvasRef.current;
-    const ctx = canvas?.getContext("2d");
-    if (!canvas || !ctx || !text.trim()) return;
-    pushHistory();
-    ctx.save();
-    ctx.font = `700 ${textSize}px Inter, Arial, sans-serif`;
-    ctx.fillStyle = textColor;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(text.trim(), canvas.width / 2, canvas.height / 2);
-    ctx.restore();
+    if (!canvas || !text.trim()) return;
+    const object: TextOverlayObject = {
+      id: `text-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      kind: "text",
+      x: canvas.width / 2,
+      y: canvas.height / 2,
+      text: text.trim(),
+      size: textSize,
+      color: textColor,
+      font: textFont,
+    };
+    setOverlayObjects((objects) => [...objects, object]);
+    setActiveObjectId(object.id);
+    setSelection(null);
+    setTool("select");
   };
 
   const undo = () => {
@@ -369,11 +531,29 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
     restoreDataUrl(next);
   };
 
+  const flattenedDataUrl = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    const output = document.createElement("canvas");
+    output.width = canvas.width;
+    output.height = canvas.height;
+    const ctx = output.getContext("2d");
+    if (!ctx) return null;
+    ctx.drawImage(canvas, 0, 0);
+    overlayObjects.forEach((object) => renderOverlayObject(ctx, object));
+    return output.toDataURL("image/png");
+  };
+
   const handleSave = () => {
     const canvas = canvasRef.current;
     if (!canvas || !loaded) return;
-    onSave(canvas.toDataURL("image/png"));
+    const dataUrl = flattenedDataUrl();
+    if (dataUrl) onSave(dataUrl);
   };
+
+  const activeTextObject = overlayObjects.find(
+    (object): object is TextOverlayObject => object.id === activeObjectId && object.kind === "text",
+  );
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-neutral-800 bg-neutral-950/40">
@@ -452,22 +632,88 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
           <Clipboard className="h-3.5 w-3.5" />
           Paste selection
         </button>
-        <button type="button" onClick={deleteSelection} disabled={!loaded || !selection} className="inline-flex items-center gap-1.5 rounded-md border border-neutral-700 bg-neutral-800 px-2.5 py-1.5 text-xs font-medium text-neutral-200 transition-colors hover:bg-neutral-700 disabled:opacity-50">
+        <button type="button" onClick={deleteSelection} disabled={!loaded || (!selection && !activeObjectId)} className="inline-flex items-center gap-1.5 rounded-md border border-neutral-700 bg-neutral-800 px-2.5 py-1.5 text-xs font-medium text-neutral-200 transition-colors hover:bg-neutral-700 disabled:opacity-50">
           <Scissors className="h-3.5 w-3.5" />
           Delete selection
         </button>
+        <div className="inline-flex overflow-hidden rounded-md border border-neutral-700 bg-neutral-950">
+          <button
+            type="button"
+            aria-label="Black eraser"
+            aria-pressed={eraserColor === "#000000"}
+            onClick={() => setEraserColor("#000000")}
+            className={`h-8 px-2 text-xs font-semibold transition-colors ${eraserColor === "#000000" ? "bg-neutral-700 text-white" : "text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"}`}
+          >
+            Black
+          </button>
+          <button
+            type="button"
+            aria-label="White eraser"
+            aria-pressed={eraserColor === "#FFFFFF"}
+            onClick={() => setEraserColor("#FFFFFF")}
+            className={`h-8 border-l border-neutral-700 px-2 text-xs font-semibold transition-colors ${eraserColor === "#FFFFFF" ? "bg-neutral-100 text-neutral-950" : "text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"}`}
+          >
+            White
+          </button>
+        </div>
         <label className="ml-1 flex items-center gap-2 text-xs text-neutral-400">
           Brush
           <input type="range" min={8} max={120} value={brushSize} onChange={(event) => setBrushSize(Number(event.target.value))} className="w-24 accent-violet-500" />
         </label>
         <label className="flex items-center gap-2 text-xs text-neutral-400">
           Text
-          <input value={text} onChange={(event) => setText(event.target.value)} className="h-8 w-36 rounded-md border border-neutral-700 bg-neutral-950 px-2 text-xs text-neutral-100 outline-none focus:border-violet-500" />
+          <input
+            aria-label="Text content"
+            value={activeTextObject?.text ?? text}
+            onChange={(event) => {
+              setText(event.target.value);
+              updateTextObject({ text: event.target.value });
+            }}
+            className="h-8 w-36 rounded-md border border-neutral-700 bg-neutral-950 px-2 text-xs text-neutral-100 outline-none focus:border-violet-500"
+          />
         </label>
-        <input aria-label="Text color" type="color" value={textColor} onChange={(event) => setTextColor(event.target.value)} className="h-8 w-9 rounded border border-neutral-700 bg-neutral-950 p-1" />
+        <input
+          aria-label="Text color"
+          type="color"
+          value={activeTextObject?.color ?? textColor}
+          onChange={(event) => {
+            setTextColor(event.target.value);
+            updateTextObject({ color: event.target.value });
+          }}
+          className="h-8 w-9 rounded border border-neutral-700 bg-neutral-950 p-1"
+        />
+        <label className="flex items-center gap-2 text-xs text-neutral-400">
+          Font
+          <select
+            aria-label="Text font"
+            value={activeTextObject?.font ?? textFont}
+            onChange={(event) => {
+              const nextFont = event.target.value as TextFont;
+              setTextFont(nextFont);
+              updateTextObject({ font: nextFont });
+            }}
+            className="h-8 rounded-md border border-neutral-700 bg-neutral-950 px-2 text-xs text-neutral-100 outline-none transition-colors focus:border-violet-500"
+          >
+            <option value="Inter">Inter</option>
+            <option value="Arial">Arial</option>
+            <option value="Georgia">Georgia</option>
+            <option value="Impact">Impact</option>
+          </select>
+        </label>
         <label className="flex items-center gap-2 text-xs text-neutral-400">
           Size
-          <input type="number" min={12} max={220} value={textSize} onChange={(event) => setTextSize(Number(event.target.value))} className="h-8 w-16 rounded-md border border-neutral-700 bg-neutral-950 px-2 text-xs text-neutral-100 outline-none focus:border-violet-500" />
+          <input
+            type="number"
+            min={12}
+            max={220}
+            value={activeTextObject?.size ?? textSize}
+            onChange={(event) => {
+              const nextSize = Number(event.target.value);
+              setTextSize(nextSize);
+              updateTextObject({ size: nextSize });
+            }}
+            className="h-8 w-16 rounded-md border border-neutral-700 bg-neutral-950 px-2 text-xs text-neutral-100 outline-none focus:border-violet-500"
+          />
         </label>
         <button type="button" onClick={addTextCenter} disabled={!loaded} className="inline-flex items-center gap-1.5 rounded-md border border-neutral-700 bg-neutral-800 px-2.5 py-1.5 text-xs font-medium text-neutral-200 transition-colors hover:bg-neutral-700 disabled:opacity-50">
           <Type className="h-3.5 w-3.5" />
@@ -484,6 +730,7 @@ export default function ImageReviewEditor({ scriptId, asset, saving, resetting, 
         <div className="relative mx-auto w-full max-w-5xl">
           <canvas
             ref={canvasRef}
+            aria-label="Image review canvas"
             className="block aspect-video w-full rounded-md bg-neutral-900 shadow-2xl shadow-black/50"
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}

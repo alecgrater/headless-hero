@@ -15,6 +15,7 @@ const apiMocks = vi.hoisted(() => ({
 
 let drawImageMock: ReturnType<typeof vi.fn>;
 let fillRectMock: ReturnType<typeof vi.fn>;
+let fillTextMock: ReturnType<typeof vi.fn>;
 
 vi.mock("../../../api", async () => {
   const actual = await vi.importActual<typeof import("../../../api")>("../../../api");
@@ -111,11 +112,12 @@ beforeEach(() => {
 
   drawImageMock = vi.fn();
   fillRectMock = vi.fn();
+  fillTextMock = vi.fn();
   vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
     clearRect: vi.fn(),
     drawImage: drawImageMock,
     fillRect: fillRectMock,
-    fillText: vi.fn(),
+    fillText: fillTextMock,
     getImageData: vi.fn(() => ({ data: new Uint8ClampedArray(4), width: 1, height: 1 })),
     putImageData: vi.fn(),
     save: vi.fn(),
@@ -211,6 +213,60 @@ describe("ImageReviewTab", () => {
       );
     });
     expect(onContentUpdated).toHaveBeenCalledWith(script);
+  });
+
+  it("lets added text remain selectable and editable before saving", async () => {
+    render(<ImageReviewTab scriptId="script-1" content={script} onContentUpdated={vi.fn()} />);
+
+    expect((await screen.findAllByText("scene_001")).length).toBeGreaterThan(0);
+
+    await userEvent.clear(screen.getByLabelText("Text content"));
+    await userEvent.type(screen.getByLabelText("Text content"), "First draft");
+    await userEvent.click(screen.getByRole("button", { name: /add text/i }));
+
+    await userEvent.clear(screen.getByLabelText("Text content"));
+    await userEvent.type(screen.getByLabelText("Text content"), "Final words");
+    await userEvent.selectOptions(screen.getByLabelText("Text font"), "Georgia");
+    await userEvent.click(screen.getByRole("button", { name: /save edited copy/i }));
+
+    expect(fillTextMock).toHaveBeenCalledWith("Final words", expect.any(Number), expect.any(Number));
+    expect(apiMocks.saveImageReviewEdit).toHaveBeenCalledWith(
+      "script-1",
+      "scene:scene_001:image",
+      "data:image/png;base64,edited",
+    );
+  });
+
+  it("moves an added text object by dragging it on the canvas", async () => {
+    render(<ImageReviewTab scriptId="script-1" content={script} onContentUpdated={vi.fn()} />);
+
+    expect((await screen.findAllByText("scene_001")).length).toBeGreaterThan(0);
+
+    await userEvent.clear(screen.getByLabelText("Text content"));
+    await userEvent.type(screen.getByLabelText("Text content"), "Drag me");
+    await userEvent.click(screen.getByRole("button", { name: /add text/i }));
+
+    const canvas = screen.getByLabelText("Image review canvas");
+    canvas.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, clientX: 50, clientY: 28, pointerId: 1 }));
+    canvas.dispatchEvent(new PointerEvent("pointermove", { bubbles: true, clientX: 70, clientY: 40, pointerId: 1 }));
+    canvas.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, clientX: 70, clientY: 40, pointerId: 1 }));
+    await userEvent.click(screen.getByRole("button", { name: /save edited copy/i }));
+
+    expect(fillTextMock).toHaveBeenCalledWith("Drag me", 70, 40);
+  });
+
+  it("paints eraser strokes with the selected black or white color", async () => {
+    render(<ImageReviewTab scriptId="script-1" content={script} onContentUpdated={vi.fn()} />);
+
+    expect((await screen.findAllByText("scene_001")).length).toBeGreaterThan(0);
+
+    await userEvent.click(screen.getByRole("button", { name: /eraser tool/i }));
+    await userEvent.click(screen.getByRole("button", { name: /white eraser/i }));
+
+    const canvas = screen.getByLabelText("Image review canvas");
+    canvas.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, clientX: 10, clientY: 10, pointerId: 1 }));
+
+    expect(fillRectMock).toHaveBeenLastCalledWith(expect.any(Number), expect.any(Number), 32, 32);
   });
 
   it("resets the selected asset and applies returned script content", async () => {
