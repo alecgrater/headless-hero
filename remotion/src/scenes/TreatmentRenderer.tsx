@@ -242,10 +242,10 @@ const Blink: React.FC<Props> = ({ scene, fallbackVisualLayer }) => {
   }
 
   const deterministicOverlay = blinkMicroOverlay(scene.blink_action);
-  const overlayVisible = deterministicOverlay ? blinkOverlayVisible(frame, fps) : false;
+  const overlayVisible = deterministicOverlay ? blinkOverlayVisible(frame, fps, scene.id) : false;
   const activeLayer = stateLayers.length === 1
     ? stateLayers[0]
-    : blinkActiveLayer(stateLayers, frame, fps);
+    : blinkActiveLayer(stateLayers, frame, fps, scene.id);
   if (!activeLayer) {
     return <>{fallbackVisualLayer}</>;
   }
@@ -318,9 +318,56 @@ export const BLINK_OVERLAY_SVG_PROPS = {
   preserveAspectRatio: "none",
 } as const;
 
-export const blinkOverlayVisible = (frame: number, fps: number): boolean => {
-  const intervalFrames = Math.max(1, Math.round(fps * 0.5));
-  return Math.floor(Math.max(0, frame) / intervalFrames) % 2 === 1;
+const hashString = (value: string): number => {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+};
+
+const blinkNoise = (index: number, seed = ""): number => {
+  const hash = hashString(`${seed}:${index}`);
+  return ((hash ^ (hash >>> 16)) >>> 0) / 4294967295;
+};
+
+const blinkWindowAtFrame = (
+  frame: number,
+  fps: number,
+  seed = "",
+): { active: boolean; index: number } => {
+  const safeFrame = Math.max(0, frame);
+  const safeFps = Math.max(1, fps);
+  let startFrame = seed
+    ? Math.round(safeFps * (1.0 + blinkNoise(0, seed) * 1.8))
+    : Math.round(safeFps * 1.8);
+  let blinkIndex = 0;
+
+  while (startFrame <= safeFrame + Math.round(safeFps * 6)) {
+    const durationFrames = Math.max(2, Math.round(safeFps * (0.09 + blinkNoise(blinkIndex * 4 + 1, seed) * 0.08)));
+    if (safeFrame >= startFrame && safeFrame < startFrame + durationFrames) {
+      return { active: true, index: blinkIndex };
+    }
+
+    const doubleBlink = blinkNoise(blinkIndex * 4 + 2, seed) < 0.18;
+    if (doubleBlink) {
+      const doubleStart = startFrame + durationFrames + Math.round(safeFps * (0.16 + blinkNoise(blinkIndex * 4 + 3, seed) * 0.12));
+      const doubleDuration = Math.max(2, Math.round(safeFps * 0.08));
+      if (safeFrame >= doubleStart && safeFrame < doubleStart + doubleDuration) {
+        return { active: true, index: blinkIndex + 1 };
+      }
+    }
+
+    startFrame += Math.round(safeFps * (1.9 + blinkNoise(blinkIndex * 4 + 4, seed) * 3.7));
+    blinkIndex += doubleBlink ? 2 : 1;
+  }
+
+  return { active: false, index: blinkIndex };
+};
+
+export const blinkOverlayVisible = (frame: number, fps: number, seed = ""): boolean => {
+  return blinkWindowAtFrame(frame, fps, seed).active;
 };
 
 export const blinkMicroOverlay = (action?: string | null): BlinkOverlay | null => {
@@ -565,7 +612,7 @@ export const blinkBlinkEyeOverlayGeometry = (
       : 0;
     const lidY = eye.y - dotEyeLift;
     const resolvedLidHalfWidth = minimalistDotEye && typeof sourcePoint.width === "number"
-      ? clamp(sourcePoint.width * 100 * 1.25, 1.1, 1.8)
+      ? clamp(sourcePoint.width * 100 * (5 / 6), 0.85, 1.25)
       : lidHalfWidth;
     const resolvedLidLift = minimalistDotEye ? 0 : lidLift;
     const maskY = eye.y + maskRy * 1.02;
@@ -864,13 +911,15 @@ const ComparisonBoard: React.FC<Props> = ({ scene, fallbackVisualLayer }) => {
   );
 };
 
-export const blinkActiveLayer = (layers: VisualLayer[], frame: number, fps: number): VisualLayer | undefined => {
+export const blinkActiveLayer = (layers: VisualLayer[], frame: number, fps: number, seed = ""): VisualLayer | undefined => {
   const stateLayers = blinkStateLayers(layers);
   if (stateLayers.length === 0) {
     return undefined;
   }
-  const intervalFrames = Math.max(1, Math.round(fps * 0.5));
-  const activeIndex = Math.floor(Math.max(0, frame) / intervalFrames) % stateLayers.length;
+  const blinkWindow = blinkWindowAtFrame(frame, fps, seed);
+  const activeIndex = blinkWindow.active
+    ? 1 + (blinkWindow.index % Math.max(1, stateLayers.length - 1))
+    : 0;
   return stateLayers[activeIndex];
 };
 

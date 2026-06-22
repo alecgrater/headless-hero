@@ -228,15 +228,17 @@ describe("blinkLayerFrameStyle", () => {
 });
 
 describe("blinkActiveLayer", () => {
-  it("alternates between all states from the start of the scene", () => {
+  it("uses short irregular blink windows instead of alternating every half second", () => {
     const layers = [
       { ...itemLayer("state-a"), enter_at_seconds: 0 },
       { ...itemLayer("state-b"), enter_at_seconds: 2.1 },
     ];
 
     expect(blinkActiveLayer(layers, 0, 30)?.id).toBe("state-a");
-    expect(blinkActiveLayer(layers, 15, 30)?.id).toBe("state-b");
+    expect(blinkActiveLayer(layers, 15, 30)?.id).toBe("state-a");
     expect(blinkActiveLayer(layers, 30, 30)?.id).toBe("state-a");
+    expect(blinkActiveLayer(layers, 54, 30)?.id).toBe("state-b");
+    expect(blinkActiveLayer(layers, 62, 30)?.id).toBe("state-a");
   });
 
   it("ignores static background layers when alternating blink states", () => {
@@ -247,17 +249,20 @@ describe("blinkActiveLayer", () => {
     ];
 
     expect(blinkActiveLayer(layers, 0, 30)?.id).toBe("state-a");
-    expect(blinkActiveLayer(layers, 15, 30)?.id).toBe("state-b");
+    expect(blinkActiveLayer(layers, 15, 30)?.id).toBe("state-a");
+    expect(blinkActiveLayer(layers, 54, 30)?.id).toBe("state-b");
     expect(blinkActiveLayer(layers, 30, 30)?.id).toBe("state-a");
   });
 });
 
 describe("blinkOverlayVisible", () => {
-  it("toggles renderer-owned micro-expression overlays every half second", () => {
+  it("uses short irregular blink windows for renderer-owned micro-expression overlays", () => {
     expect(blinkOverlayVisible(0, 30)).toBe(false);
     expect(blinkOverlayVisible(14, 30)).toBe(false);
-    expect(blinkOverlayVisible(15, 30)).toBe(true);
+    expect(blinkOverlayVisible(15, 30)).toBe(false);
     expect(blinkOverlayVisible(30, 30)).toBe(false);
+    expect(blinkOverlayVisible(54, 30)).toBe(true);
+    expect(blinkOverlayVisible(62, 30)).toBe(false);
   });
 });
 
@@ -371,6 +376,8 @@ describe("blinkBlinkEyeOverlayGeometry", () => {
     expect(geometry[0].mask.y).toBeGreaterThan(18.5);
     expect(geometry[0].mask.gradient).toBeUndefined();
     expect(geometry[0].lid.strokeWidth).toBeLessThanOrEqual(0.7);
+    expect(geometry[0].lid.d).toContain("M44.5");
+    expect(geometry[0].lid.d).toContain("46.5");
     expect(geometry[0].lid.y).toBeLessThan(20.17);
     expect(geometry[0].lid.d).toContain(`Q45.5 ${geometry[0].lid.y}`);
     expect(geometry[0].lid.d).toContain("Q45.5");
@@ -379,6 +386,8 @@ describe("blinkBlinkEyeOverlayGeometry", () => {
     expect(geometry[1].mask.gradient).toBeUndefined();
     expect(geometry[1].lid.y).toBeLessThan(20.19);
     expect(geometry[1].lid.strokeWidth).toBeLessThanOrEqual(0.7);
+    expect(geometry[1].lid.d).toContain("M53.475");
+    expect(geometry[1].lid.d).toContain("55.725");
     expect(geometry[1].lid.d).toContain(`Q54.6 ${geometry[1].lid.y}`);
     expect(geometry[1].lid.d).toContain("Q54.6");
   });
