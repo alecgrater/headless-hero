@@ -196,6 +196,11 @@ _WORD_NUMBER_STAT_RE = re.compile(
     r"thousand|million|billion))*\s+(?:years?|months?|weeks?|days?|hours?|dollars?)\b",
     re.IGNORECASE,
 )
+_RELATIVE_TIME_STAT_CONTEXT_RE = re.compile(
+    r"\b(?:sometime|somewhere|last|past|previous|next|ago|later|when|since|until)\b",
+    re.IGNORECASE,
+)
+_TIME_STAT_UNIT_RE = re.compile(r"\b(?:years?|months?|weeks?|days?|hours?)\b", re.IGNORECASE)
 _CAPTION_PUNCH_WORDS = {
     "actually",
     "almost",
@@ -395,6 +400,8 @@ def _stat_candidate_for_scene(scene: Scene) -> tuple[str, str] | None:
     if len(deduped) != 1:
         return None
     stat_value = deduped[0]
+    if _TIME_STAT_UNIT_RE.search(stat_value) and _RELATIVE_TIME_STAT_CONTEXT_RE.search(text):
+        return None
     label = re.sub(re.escape(stat_value), "", text, count=1, flags=re.IGNORECASE)
     label = re.sub(r"^\s*(?:by|in|after|before|around|about|nearly|almost|roughly|with)\b\s*", "", label, flags=re.IGNORECASE)
     label = re.sub(r"\s+", " ", label.strip(" .,:;—–-"))

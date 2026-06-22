@@ -319,6 +319,37 @@ def test_visual_mode_audit_does_not_invent_placeholder_stat_label():
     assert stat_scene.stat_label == ""
 
 
+def test_visual_mode_audit_does_not_promote_relative_time_realization_to_stat_card():
+    scene = Scene(
+        id="scene_001",
+        narration="You stopped calling it temporary sometime in the last twelve months. You're not sure exactly when.",
+        visual_prompt="[REACTION] A worker standing in a fluorescent restaurant.",
+        visual_mode="full_frame",
+    )
+    content = ScriptContent(
+        title="Test",
+        segments=[
+            Segment(
+                name="Level 3",
+                scenes=[
+                    Scene(id="scene_000", narration="The old routine holds.", visual_prompt="[DETAIL] A shift calendar.", visual_mode="full_frame"),
+                    scene,
+                    Scene(id="scene_002", narration="The next Friday arrives.", visual_prompt="[WIDE] A restaurant at night.", visual_mode="full_frame"),
+                ],
+            ),
+        ],
+    )
+
+    counts = _audit_visual_mode_metadata(content)
+
+    assert counts["stat_card"] == 0
+    assert scene.visual_mode == "captions"
+    assert scene.caption_text == "You stopped calling it temporary sometime in the last twelve months"
+    assert scene.caption_emphasis == "temporary"
+    assert scene.stat_value == ""
+    assert scene.stat_label == ""
+
+
 def test_visual_mode_audit_preserves_existing_specialized_modes():
     popup = Scene(
         id="scene_001",
