@@ -24,6 +24,14 @@ export interface ImageReviewListResponse {
   assets: ImageReviewAsset[];
 }
 
+export interface ImageReviewAssetDataResponse {
+  script_id: string;
+  asset_id: string;
+  content_type: string;
+  byte_count: number;
+  data_url: string;
+}
+
 export interface ImageReviewUpdateResponse {
   script_id: string;
   asset: ImageReviewAsset;

@@ -122,6 +122,31 @@ def test_list_image_review_assets_includes_scene_frames_and_layers(client, db_en
     assert assets[0]["reviewed"] is False
 
 
+def test_get_image_review_asset_data_returns_static_image_data_url(client, db_engine, tmp_path):
+    _insert_script(db_engine)
+    image_path = tmp_path / "projects" / "script-1" / "images" / "scene_001_f0.png"
+    image_path.parent.mkdir(parents=True)
+    png_data_url = _png_data_url(color=(0, 255, 0, 255))
+    image_path.write_bytes(base64.b64decode(png_data_url.removeprefix("data:image/png;base64,")))
+
+    response = client.get("/api/image-review/script-1/assets/scene:scene_001:frame:0/data")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["asset_id"] == "scene:scene_001:frame:0"
+    assert payload["content_type"] == "image/png"
+    assert payload["data_url"] == png_data_url
+
+
+def test_get_image_review_asset_data_rejects_missing_files(client, db_engine):
+    _insert_script(db_engine)
+
+    response = client.get("/api/image-review/script-1/assets/scene:scene_001:frame:0/data")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Image Review asset file not found"
+
+
 def test_save_image_review_edit_updates_frame_url_non_destructively(client, db_engine, tmp_path):
     _insert_script(db_engine)
 

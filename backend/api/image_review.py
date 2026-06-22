@@ -6,6 +6,7 @@ import base64
 import binascii
 import io
 import json
+import logging
 import re
 from pathlib import Path
 from typing import Literal
@@ -21,6 +22,7 @@ from models.script import Script, ScriptContent, Scene, VisualLayer
 from pipeline.render_cache import mark_render_inputs_changed
 
 router = APIRouter(prefix="/api/image-review", tags=["image-review"])
+logger = logging.getLogger(__name__)
 
 IMAGE_REVIEW_METADATA_KEY = "image_review"
 
@@ -45,6 +47,14 @@ class ImageReviewAsset(BaseModel):
 class ImageReviewListResponse(BaseModel):
     script_id: str
     assets: list[ImageReviewAsset]
+
+
+class ImageReviewAssetDataResponse(BaseModel):
+    script_id: str
+    asset_id: str
+    content_type: str
+    byte_count: int
+    data_url: str
 
 
 class ImageReviewEditRequest(BaseModel):
@@ -121,7 +131,11 @@ def _static_project_path(url: str) -> Path | None:
     if not url.startswith(prefix):
         return None
     relative = url.removeprefix(prefix).lstrip("/")
-    return DATA_DIR / "projects" / relative
+    path = (DATA_DIR / "projects" / relative).resolve()
+    projects_root = (DATA_DIR / "projects").resolve()
+    if path != projects_root and projects_root not in path.parents:
+        return None
+    return path
 
 
 def _image_dimensions(url: str) -> tuple[int | None, int | None]:
@@ -245,6 +259,62 @@ def _decode_png_data_url(data_url: str) -> bytes:
     return raw
 
 
+def _image_content_type(path: Path) -> str:
+    suffix = path.suffix.lower()
+    if suffix in {".jpg", ".jpeg"}:
+        return "image/jpeg"
+    if suffix == ".webp":
+        return "image/webp"
+    if suffix == ".gif":
+        return "image/gif"
+    return "image/png"
+
+
+def _read_asset_data_url(script_id: str, asset_id: str, url: str) -> ImageReviewAssetDataResponse:
+    path = _static_project_path(url)
+    if path is None:
+        logger.warning(
+            "Img Review asset %s for script %s uses unsupported image URL: %s",
+            asset_id,
+            script_id,
+            url,
+        )
+        raise HTTPException(status_code=422, detail="Image Review asset URL is not a local project image")
+    if not path.exists() or not path.is_file():
+        logger.warning(
+            "Img Review asset %s for script %s is missing at %s for URL %s",
+            asset_id,
+            script_id,
+            path,
+            url,
+        )
+        raise HTTPException(status_code=404, detail="Image Review asset file not found")
+
+    try:
+        raw = path.read_bytes()
+        with Image.open(io.BytesIO(raw)) as image:
+            image.verify()
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception(
+            "Img Review asset %s for script %s could not be read or decoded from %s",
+            asset_id,
+            script_id,
+            path,
+        )
+        raise HTTPException(status_code=422, detail="Image Review asset file is not a readable image") from exc
+
+    content_type = _image_content_type(path)
+    return ImageReviewAssetDataResponse(
+        script_id=script_id,
+        asset_id=asset_id,
+        content_type=content_type,
+        byte_count=len(raw),
+        data_url=f"data:{content_type};base64,{base64.b64encode(raw).decode('ascii')}",
+    )
+
+
 def _next_edit_path(script_id: str, asset_id: str) -> tuple[Path, str]:
     folder = DATA_DIR / "projects" / script_id / "image_review" / _safe_asset_folder(asset_id)
     folder.mkdir(parents=True, exist_ok=True)
@@ -312,6 +382,19 @@ def list_image_review_assets(script_id: str, session: Session = Depends(get_sess
         script_id=script_id,
         assets=[_asset_from_ref(ref) for ref in _collect_refs(content)],
     )
+
+
+@router.get("/{script_id}/assets/{asset_id}/data", response_model=ImageReviewAssetDataResponse)
+def get_image_review_asset_data(
+    script_id: str,
+    asset_id: str,
+    session: Session = Depends(get_session),
+):
+    _record, content = _load_script(session, script_id)
+    ref = _find_ref(content, asset_id)
+    if ref is None:
+        raise HTTPException(status_code=404, detail="Image Review asset not found")
+    return _read_asset_data_url(script_id, asset_id, ref.current_url)
 
 
 @router.post("/{script_id}/assets/{asset_id}/edit", response_model=ImageReviewUpdateResponse)

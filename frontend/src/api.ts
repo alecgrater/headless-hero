@@ -1,6 +1,6 @@
 import { showToast } from "./components/ToastContainer";
 import { BACKEND_PORT } from "./constants";
-import type { ImageReviewListResponse, ImageReviewUpdateResponse } from "./types/imageReview";
+import type { ImageReviewAssetDataResponse, ImageReviewListResponse, ImageReviewUpdateResponse } from "./types/imageReview";
 import type { ScriptContent, UploadTracking, VisualLayer, VisualMode } from "./types/script";
 import type { BlinkReviewSummary } from "./types/blinkReview";
 import type { VideoFormat } from "./types/format";
@@ -1481,6 +1481,17 @@ export async function getImageReviewAssets(scriptId: string): Promise<ImageRevie
   const res = await api.get(`/api/image-review/${encodeURIComponent(scriptId)}`);
   if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to load image review assets");
   return res.data as ImageReviewListResponse;
+}
+
+export async function getImageReviewAssetData(
+  scriptId: string,
+  assetId: string,
+): Promise<ImageReviewAssetDataResponse> {
+  const res = await api.get(
+    `/api/image-review/${encodeURIComponent(scriptId)}/assets/${encodeURIComponent(assetId)}/data`,
+  );
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to load image data");
+  return res.data as ImageReviewAssetDataResponse;
 }
 
 export async function saveImageReviewEdit(

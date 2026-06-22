@@ -13,7 +13,7 @@ import {
   Undo2,
 } from "lucide-react";
 
-import { assetUrl } from "../../../api";
+import { getImageReviewAssetData } from "../../../api";
 import type { ImageReviewAsset } from "../../../types/imageReview";
 import { Tooltip } from "../../ui/Tooltip";
 
@@ -27,6 +27,7 @@ interface Selection {
 }
 
 interface Props {
+  scriptId: string;
   asset: ImageReviewAsset;
   saving: boolean;
   resetting: boolean;
@@ -53,7 +54,26 @@ function buttonClass(active = false) {
   }`;
 }
 
-export default function ImageReviewEditor({ asset, saving, resetting, onSave, onReset }: Props) {
+function dataUrlToBlob(dataUrl: string): Blob {
+  const commaIndex = dataUrl.indexOf(",");
+  if (!dataUrl.startsWith("data:") || commaIndex === -1) {
+    throw new Error("Invalid image data URL");
+  }
+  const metadata = dataUrl.slice(0, commaIndex);
+  const base64Data = dataUrl.slice(commaIndex + 1);
+  const mimeMatch = /^data:([^;]+);base64$/i.exec(metadata);
+  if (!mimeMatch) {
+    throw new Error("Image data URL must be base64 encoded");
+  }
+  const binary = atob(base64Data);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return new Blob([bytes], { type: mimeMatch[1] });
+}
+
+export default function ImageReviewEditor({ scriptId, asset, saving, resetting, onSave, onReset }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const overlayRef = useRef<HTMLCanvasElement | null>(null);
   const drawingRef = useRef(false);
@@ -175,12 +195,8 @@ export default function ImageReviewEditor({ asset, saving, resetting, onSave, on
 
     const loadImage = async () => {
       try {
-        const response = await fetch(assetUrl(asset.current_url));
-        if (!response.ok) {
-          drawFallback(`Failed to fetch image (${response.status}): ${asset.current_url}`);
-          return;
-        }
-        const blob = await response.blob();
+        const imageData = await getImageReviewAssetData(scriptId, asset.asset_id);
+        const blob = dataUrlToBlob(imageData.data_url);
         if (cancelled) return;
         if ("createImageBitmap" in window) {
           let bitmap: ImageBitmap | null = null;
@@ -197,19 +213,20 @@ export default function ImageReviewEditor({ asset, saving, resetting, onSave, on
             canvas.width = bitmap.width || asset.width || 1920;
             canvas.height = bitmap.height || asset.height || 1080;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-          ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-          bitmap.close();
-          setLoaded(true);
-          setLoadError(null);
-          drawOverlay(null);
-          return;
-        }
+            ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+            bitmap.close();
+            setLoaded(true);
+            setLoadError(null);
+            drawOverlay(null);
+            return;
+          }
         }
         if (cancelled) return;
         objectUrl = URL.createObjectURL(blob);
         drawImageElement(objectUrl);
-      } catch {
-        drawFallback(`Failed to load image: ${asset.current_url}`);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Failed to load image data";
+        drawFallback(`${message}: ${asset.current_url}`);
       }
     };
 
@@ -219,7 +236,7 @@ export default function ImageReviewEditor({ asset, saving, resetting, onSave, on
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [asset.current_url, asset.height, asset.width, drawOverlay]);
+  }, [asset.asset_id, asset.current_url, asset.height, asset.width, drawOverlay, scriptId]);
 
   useEffect(() => {
     drawOverlay(selection);

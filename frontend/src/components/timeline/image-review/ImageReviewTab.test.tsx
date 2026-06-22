@@ -8,6 +8,7 @@ import ImageReviewTab from "./ImageReviewTab";
 
 const apiMocks = vi.hoisted(() => ({
   getImageReviewAssets: vi.fn(),
+  getImageReviewAssetData: vi.fn(),
   saveImageReviewEdit: vi.fn(),
   resetImageReviewAsset: vi.fn(),
 }));
@@ -19,8 +20,8 @@ vi.mock("../../../api", async () => {
   const actual = await vi.importActual<typeof import("../../../api")>("../../../api");
   return {
     ...actual,
-    assetUrl: (path: string) => path,
     getImageReviewAssets: apiMocks.getImageReviewAssets,
+    getImageReviewAssetData: apiMocks.getImageReviewAssetData,
     saveImageReviewEdit: apiMocks.saveImageReviewEdit,
     resetImageReviewAsset: apiMocks.resetImageReviewAsset,
   };
@@ -78,9 +79,17 @@ function updateResponse(nextScript: ScriptContent = script): ImageReviewUpdateRe
 
 beforeEach(() => {
   apiMocks.getImageReviewAssets.mockReset();
+  apiMocks.getImageReviewAssetData.mockReset();
   apiMocks.saveImageReviewEdit.mockReset();
   apiMocks.resetImageReviewAsset.mockReset();
   apiMocks.getImageReviewAssets.mockResolvedValue(listResponse);
+  apiMocks.getImageReviewAssetData.mockResolvedValue({
+    script_id: "script-1",
+    asset_id: "scene:scene_001:image",
+    content_type: "image/png",
+    byte_count: 4,
+    data_url: "data:image/png;base64,ZmFrZQ==",
+  });
   apiMocks.saveImageReviewEdit.mockResolvedValue(updateResponse());
   apiMocks.resetImageReviewAsset.mockResolvedValue(updateResponse({ ...script, title: "Reset Script" }));
 
@@ -113,10 +122,6 @@ beforeEach(() => {
     height: 56,
     close: vi.fn(),
   })));
-  vi.stubGlobal("fetch", vi.fn(async () => ({
-    ok: true,
-    blob: async () => new Blob(["fake"], { type: "image/png" }),
-  })));
   vi.stubGlobal("Image", class {
     crossOrigin = "";
     naturalWidth = 100;
@@ -132,12 +137,12 @@ beforeEach(() => {
 });
 
 describe("ImageReviewTab", () => {
-  it("loads the selected image through fetch before drawing it to canvas", async () => {
+  it("loads the selected image through the API before drawing it to canvas", async () => {
     render(<ImageReviewTab scriptId="script-1" content={script} onContentUpdated={vi.fn()} />);
 
     expect((await screen.findAllByText("scene_001")).length).toBeGreaterThan(0);
     await waitFor(() => {
-      expect(fetch).toHaveBeenCalledWith("/static/projects/script-1/images/scene_001.png");
+      expect(apiMocks.getImageReviewAssetData).toHaveBeenCalledWith("script-1", "scene:scene_001:image");
     });
     expect(createImageBitmap).toHaveBeenCalled();
     expect(drawImageMock).toHaveBeenCalled();
@@ -145,16 +150,12 @@ describe("ImageReviewTab", () => {
   });
 
   it("shows an error and disables saving when the selected image cannot load", async () => {
-    vi.mocked(fetch).mockResolvedValueOnce({
-      ok: false,
-      status: 404,
-      blob: async () => new Blob([]),
-    } as Response);
+    apiMocks.getImageReviewAssetData.mockRejectedValueOnce(new Error("Image Review asset file not found"));
 
     render(<ImageReviewTab scriptId="script-1" content={script} onContentUpdated={vi.fn()} />);
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Failed to fetch image (404): /static/projects/script-1/images/scene_001.png",
+      "Image Review asset file not found: /static/projects/script-1/images/scene_001.png",
     );
     expect(screen.getByRole("button", { name: /save edited copy/i })).toBeDisabled();
     expect(drawImageMock).not.toHaveBeenCalled();

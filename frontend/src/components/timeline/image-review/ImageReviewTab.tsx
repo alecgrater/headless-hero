@@ -180,6 +180,7 @@ export default function ImageReviewTab({ scriptId, content, onContentUpdated }: 
         {selectedAsset ? (
           <ImageReviewEditor
             key={selectedAsset.asset_id + selectedAsset.current_url}
+            scriptId={scriptId}
             asset={selectedAsset}
             saving={saving}
             resetting={resetting}
