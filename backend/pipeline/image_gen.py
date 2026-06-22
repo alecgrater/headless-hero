@@ -67,6 +67,15 @@ def _contains_caption_text_prompt_leak(scene: dict[str, object]) -> bool:
             prompt_parts.append(str(getattr(directive, "prompt") or ""))
     return any(_CAPTION_TEXT_PROMPT_LEAK_RE.search(part) for part in prompt_parts)
 
+
+def _raise_for_caption_text_prompt_leak(prompt_parts: list[str], *, scene_id: str) -> None:
+    if any(_CAPTION_TEXT_PROMPT_LEAK_RE.search(part or "") for part in prompt_parts):
+        raise RuntimeError(
+            "Scene visual prompt requests renderer-owned caption text; "
+            "use visual_mode='captions' with caption_text/caption_emphasis instead. "
+            f"scene_id={scene_id}"
+        )
+
 # --- Character reference helpers ---
 
 
@@ -2535,6 +2544,7 @@ def generate_scene_image(
     When contains_person is True, injects Eli character reference + prompt.
     Returns (web-relative path, composed prompt used, source metadata).
     """
+    _raise_for_caption_text_prompt_leak([visual_prompt], scene_id=scene_id)
     prompt, reference_image_path, style_reference_path = _compose_image_prompt_context(
         visual_prompt=visual_prompt,
         script_id=script_id,
@@ -2663,6 +2673,7 @@ def generate_scene_frames(
     visual_prompt is the scene's anchor description used to enforce cross-frame consistency.
     Returns list of (web_path, composed_prompt, source metadata) tuples.
     """
+    _raise_for_caption_text_prompt_leak([visual_prompt, *frame_prompts], scene_id=scene_id)
     guide = style_guide if style_guide else _STYLE_GUIDE
     images_dir = DATA_DIR / "projects" / script_id / "images"
     images_dir.mkdir(parents=True, exist_ok=True)
@@ -2841,6 +2852,10 @@ def generate_scene_frames_v2(
     Returns list of (web_path, prompt, source metadata) tuples. Empty string web_path for subtitle frames.
     """
     from models.script import FrameDirective as FrameDirectiveModel
+
+    prompt_parts = [visual_prompt]
+    prompt_parts.extend(str(directive.get("prompt") or "") for directive in frame_directives if isinstance(directive, dict))
+    _raise_for_caption_text_prompt_leak(prompt_parts, scene_id=scene_id)
 
     guide = style_guide if style_guide else _STYLE_GUIDE
     images_dir = DATA_DIR / "projects" / script_id / "images"
