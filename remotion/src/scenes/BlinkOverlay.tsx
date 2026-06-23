@@ -23,6 +23,53 @@ const validAnchorPoint = (point?: BlinkOverlayPoint): point is BlinkOverlayPoint
   && point.y <= 1
 );
 
+// Conservative absolute bounds for a believable detected eye on a 16:9 frame.
+const BLINK_EYE_MIN_SIZE = 0.004;
+const BLINK_EYE_MAX_SIZE = 0.14;
+const BLINK_EYE_MAX_VERTICAL_DELTA = 0.02;
+const BLINK_EYE_MIN_SEPARATION = 0.04;
+const BLINK_EYE_MAX_SEPARATION = 0.62;
+const BLINK_EYE_MIN_SYMMETRY_RATIO = 0.55;
+
+const eyeSizeInRange = (point: BlinkOverlayPoint): boolean => (
+  typeof point.width === "number"
+  && typeof point.height === "number"
+  && point.width >= BLINK_EYE_MIN_SIZE
+  && point.width <= BLINK_EYE_MAX_SIZE
+  && point.height >= BLINK_EYE_MIN_SIZE
+  && point.height <= BLINK_EYE_MAX_SIZE
+);
+
+// Final renderer-side safety net: even when the backend marked an anchor safe,
+// refuse to draw an overlay whose geometry would obviously look wrong (missing
+// or implausible eye sizes, asymmetric or misaligned eyes, or a separation that
+// implies a mark spanning the nose). An unsafe anchor renders nothing.
+const anchorIsRenderSafe = (
+  eyeLeft: BlinkOverlayPoint,
+  eyeRight: BlinkOverlayPoint,
+): boolean => {
+  if (!eyeSizeInRange(eyeLeft) || !eyeSizeInRange(eyeRight)) {
+    return false;
+  }
+  const leftWidth = eyeLeft.width as number;
+  const rightWidth = eyeRight.width as number;
+  const leftHeight = eyeLeft.height as number;
+  const rightHeight = eyeRight.height as number;
+  const widthRatio = Math.min(leftWidth, rightWidth) / Math.max(leftWidth, rightWidth);
+  const heightRatio = Math.min(leftHeight, rightHeight) / Math.max(leftHeight, rightHeight);
+  if (widthRatio < BLINK_EYE_MIN_SYMMETRY_RATIO || heightRatio < BLINK_EYE_MIN_SYMMETRY_RATIO) {
+    return false;
+  }
+  if (Math.abs(eyeLeft.y - eyeRight.y) > BLINK_EYE_MAX_VERTICAL_DELTA) {
+    return false;
+  }
+  const separation = Math.abs(eyeRight.x - eyeLeft.x);
+  if (separation < BLINK_EYE_MIN_SEPARATION || separation > BLINK_EYE_MAX_SEPARATION) {
+    return false;
+  }
+  return true;
+};
+
 const isBlinkOverlayAnchor = (anchor: unknown): anchor is BlinkOverlayAnchor => (
   typeof anchor === "object" && anchor !== null
 );
@@ -38,6 +85,9 @@ export const resolveBlinkOverlayAnchor = (anchor: unknown): BlinkResolvedOverlay
     || !validAnchorPoint(anchor.brow_left)
     || !validAnchorPoint(anchor.brow_right)
   ) {
+    return null;
+  }
+  if (!anchorIsRenderSafe(anchor.eye_left, anchor.eye_right)) {
     return null;
   }
   return {

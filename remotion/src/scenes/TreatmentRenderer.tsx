@@ -1,7 +1,6 @@
 import React from "react";
 import { Img, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import type { BlinkOverlayAnchor, BlinkOverlayPoint, SceneInput, VisualLayer } from "../types";
-import { RendererContextStage } from "./RendererContextStage";
 import { StatCard } from "./StatCard";
 
 interface Props {
@@ -74,21 +73,6 @@ export const layerFrameStyle = (layer: VisualLayer): React.CSSProperties => {
     };
   }
   return panelPlacementStyle(layer.placement);
-};
-
-export const blinkLayerFrameStyle = (layer: VisualLayer): React.CSSProperties => {
-  if (layer.asset_kind !== "cutout") {
-    return layerFrameStyle(layer);
-  }
-  return {
-    position: "absolute",
-    left: "50%",
-    top: "50%",
-    width: 760,
-    height: 820,
-    transform: "translate(-50%, -50%)",
-    transformOrigin: "center",
-  };
 };
 
 const layerImageStyle = (layer: VisualLayer): React.CSSProperties => ({
@@ -229,52 +213,6 @@ const PopupSequence: React.FC<Props> = ({ scene, fallbackVisualLayer }) => {
   );
 };
 
-const Blink: React.FC<Props> = ({ scene, fallbackVisualLayer }) => {
-  const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
-  const layers = validImageLayers(scene);
-  const stateLayers = blinkStateLayers(layers);
-
-  logTreatmentOnce(scene, "blink", layers.length);
-
-  if (stateLayers.length === 0) {
-    return <>{fallbackVisualLayer}</>;
-  }
-
-  const deterministicOverlay = blinkMicroOverlay(scene.blink_action);
-  const overlayVisible = deterministicOverlay ? blinkOverlayVisible(frame, fps, scene.id) : false;
-  const activeLayer = blinkActiveLayer(stateLayers, frame, fps, scene.id);
-  if (!activeLayer) {
-    return <>{fallbackVisualLayer}</>;
-  }
-  const overlayAnchor = deterministicOverlay ? blinkOverlayAnchor(activeLayer) : null;
-
-  return (
-    <div style={{ position: "absolute", inset: 0 }}>
-      <RendererContextStage context={scene.renderer_context} />
-      <div style={blinkLayerFrameStyle(activeLayer)}>
-        <div style={layerChromeStyle(activeLayer)}>
-          <Img
-            src={activeLayer.image_path ?? ""}
-            style={layerImageStyle(activeLayer)}
-          />
-          {deterministicOverlay && overlayAnchor ? (
-            <BlinkMicroExpressionOverlay
-              anchor={overlayAnchor}
-              overlay={deterministicOverlay}
-              visible={overlayVisible}
-            />
-          ) : null}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export const blinkStateLayers = (layers: VisualLayer[]): VisualLayer[] => (
-  layers.filter((layer) => layer.asset_kind === "cutout")
-);
-
 type BlinkOverlay =
   | { kind: "mouth"; state: "open" }
   | { kind: "eyes"; state: "closed" }
@@ -311,6 +249,7 @@ type BlinkClosedEyeGeometry = {
 
 const BLINK_FALLBACK_SKIN_FILL = "#D9A374";
 const BLINK_EYELID_STROKE = "#2A1712";
+export const BLINK_OVERLAY_ASPECT = 16 / 9;
 export const BLINK_OVERLAY_SVG_PROPS = {
   viewBox: "0 0 100 100",
   preserveAspectRatio: "none",
@@ -377,39 +316,6 @@ export const blinkMicroOverlay = (action?: string | null): BlinkOverlay | null =
   }
 };
 
-const validAnchorPoint = (point?: BlinkOverlayPoint): point is BlinkOverlayPoint => (
-  typeof point?.x === "number"
-  && typeof point?.y === "number"
-  && point.x >= 0
-  && point.x <= 1
-  && point.y >= 0
-  && point.y <= 1
-);
-
-export const blinkOverlayAnchor = (layer: VisualLayer): BlinkResolvedOverlayAnchor | null => {
-  const anchor = layer.visual_source_metadata?.blink_overlay_anchor;
-  if (!anchor?.detected) {
-    return null;
-  }
-  if (
-    !validAnchorPoint(anchor.eye_left)
-    || !validAnchorPoint(anchor.eye_right)
-    || !validAnchorPoint(anchor.mouth)
-    || !validAnchorPoint(anchor.brow_left)
-    || !validAnchorPoint(anchor.brow_right)
-  ) {
-    return null;
-  }
-  return {
-    eye_left: anchor.eye_left,
-    eye_right: anchor.eye_right,
-    mouth: anchor.mouth,
-    brow_left: anchor.brow_left,
-    brow_right: anchor.brow_right,
-    skin_fill: typeof anchor.skin_fill === "string" ? anchor.skin_fill : undefined,
-  };
-};
-
 const toSvgPoint = (point: BlinkOverlayPoint): BlinkOverlayPoint => ({
   x: point.x * 100,
   y: point.y * 100,
@@ -449,282 +355,130 @@ const colorDistance = (first?: string, second?: string): number | null => {
   return Math.sqrt(redDelta * redDelta + greenDelta * greenDelta + blueDelta * blueDelta);
 };
 
-const normalizedEyeWidth = (point: BlinkOverlayPoint): number | null => (
-  typeof point.width === "number" && point.width > 0 ? point.width * 100 : null
-);
-
-const normalizedEyeHeight = (point: BlinkOverlayPoint): number | null => (
-  typeof point.height === "number" && point.height > 0 ? point.height * 100 : null
-);
-
-const isMinimalistDotEye = (point: BlinkOverlayPoint): boolean => (
-  typeof point.width === "number"
-  && typeof point.height === "number"
-  && point.width > 0
-  && point.height > 0
-  && point.width <= 0.018
-  && point.height <= 0.018
-);
-
-const eraseBoxMask = (
+const eyeGradient = (
   point: BlinkOverlayPoint,
-  skinFill: string,
   index: number,
-  sharedTop?: number,
-  sharedBottom?: number,
-  brow?: BlinkOverlayPoint,
-): BlinkClosedEyeGeometry["mask"] | null => {
-  if (isMinimalistDotEye(point)) {
-    const eyeWidth = point.width as number;
-    const eyeHeight = point.height as number;
-    const maskWidth = clamp(eyeWidth * 100 * 2.6, 2.4, 4.0);
-    const maskHeight = clamp(eyeHeight * 100 * 2.2, 2.0, 3.2);
+): NonNullable<BlinkClosedEyeGeometry["mask"]["gradient"]> | undefined => {
+  const sideDistance = colorDistance(point.fill_left, point.fill_right);
+  const verticalDistance = colorDistance(point.fill_top, point.fill_bottom);
+  const useSideGradient = sideDistance !== null
+    && (verticalDistance === null || sideDistance >= verticalDistance);
+  if (useSideGradient) {
     return {
-      x: roundSvgNumber(point.x * 100 - maskWidth / 2),
-      y: roundSvgNumber(point.y * 100 - maskHeight / 2),
-      width: roundSvgNumber(maskWidth),
-      height: roundSvgNumber(maskHeight),
-      rx: roundSvgNumber(maskHeight / 2),
-      fill: skinFill,
+      id: `blink-blink-eye-${index}-gradient`,
+      top: point.fill_left as string,
+      bottom: point.fill_right as string,
+      orientation: "horizontal",
     };
   }
+  if (verticalDistance !== null) {
+    return {
+      id: `blink-blink-eye-${index}-gradient`,
+      top: point.fill_top as string,
+      bottom: point.fill_bottom as string,
+      orientation: "vertical",
+    };
+  }
+  return undefined;
+};
 
-  const box = point.erase_box;
+const detectedEyeSize = (point: BlinkOverlayPoint): { width: number; height: number } | null => {
   if (
-    typeof box?.left !== "number"
-    || typeof box.top !== "number"
-    || typeof box.right !== "number"
-    || typeof box.bottom !== "number"
-    || box.right <= box.left
-    || box.bottom <= box.top
+    typeof point.width !== "number"
+    || typeof point.height !== "number"
+    || point.width <= 0
+    || point.height <= 0
   ) {
     return null;
   }
-  const boxHeight = box.bottom - box.top;
-  const usesBrowInclusiveEraseBox = (
-    typeof point.height === "number"
-    && point.height > 0
-    && boxHeight > point.height * 3
-    && box.top < point.y - point.height * 2
-  );
-  const horizontalBounds = !usesBrowInclusiveEraseBox && typeof point.width === "number" && point.width > 0
-    ? {
-      left: Math.max(box.left, point.x - point.width * 0.85),
-      right: Math.min(box.right, point.x + point.width * 0.85),
-    }
-    : { left: box.left, right: box.right };
-  const resolvedHorizontalBounds = horizontalBounds.right > horizontalBounds.left
-    ? horizontalBounds
-    : { left: box.left, right: box.right };
-  const x = resolvedHorizontalBounds.left * 100;
-  const requestedTop = typeof sharedTop === "number" ? sharedTop : box.top;
-  const browGap = (
-    brow
-    && typeof brow.y === "number"
-    && typeof point.y === "number"
-    && brow.y < point.y
-  ) ? point.y - brow.y : null;
-  const browAwareTop = brow && typeof brow.y === "number" && browGap !== null
-    ? brow.y + browGap * 0.45
-    : requestedTop;
-  const browSafeTop = brow && typeof brow.y === "number" && browGap !== null
-    ? brow.y + browGap * 0.30
-    : requestedTop;
-  const top = usesBrowInclusiveEraseBox
-    ? requestedTop
-    : Math.max(Math.min(requestedTop, browAwareTop), browSafeTop);
-  const bottom = typeof sharedBottom === "number" ? sharedBottom : box.bottom;
-  const y = top * 100;
-  const width = (resolvedHorizontalBounds.right - resolvedHorizontalBounds.left) * 100;
-  const height = (bottom - top) * 100;
-  const sideDistance = colorDistance(point.fill_left, point.fill_right);
-  const verticalDistance = colorDistance(point.fill_top, point.fill_bottom);
-  const useSideGradient = sideDistance !== null && (verticalDistance === null || sideDistance >= verticalDistance);
-  const gradient = useSideGradient ? {
-    id: `blink-blink-eye-${index}-gradient`,
-    top: point.fill_left as string,
-    bottom: point.fill_right as string,
-    orientation: "horizontal" as const,
-  } : verticalDistance !== null ? {
-    id: `blink-blink-eye-${index}-gradient`,
-    top: point.fill_top as string,
-    bottom: point.fill_bottom as string,
-    orientation: "vertical" as const,
-  } : undefined;
-  return {
-    x: roundSvgNumber(x),
-    y: roundSvgNumber(y),
-    width: roundSvgNumber(width),
-    height: roundSvgNumber(height),
-    rx: roundSvgNumber(usesBrowInclusiveEraseBox ? Math.min(height * 0.18, width * 0.25) : height / 2),
-    fill: gradient ? `url(#${gradient.id})` : skinFill,
-    ...(gradient ? { gradient } : {}),
-  };
+  return { width: point.width, height: point.height };
 };
+
+// Closed-eye marks must never read as a horizontal bar after the viewBox is
+// stretched to the 16:9 frame: cap their on-screen width-to-height ratio.
+const BLINK_MAX_ON_SCREEN_ASPECT = 2.4;
 
 export const blinkBlinkEyeOverlayGeometry = (
   anchor: BlinkResolvedOverlayAnchor,
   skinFill = BLINK_FALLBACK_SKIN_FILL,
+  aspect = BLINK_OVERLAY_ASPECT,
 ): BlinkClosedEyeGeometry[] => {
+  // Drive every extent from the detected eye box. With no detected eye size we
+  // suppress the overlay entirely rather than guessing from inter-eye distance
+  // (guessing is what produced the oversized bars that crossed the nose).
+  const leftSize = detectedEyeSize(anchor.eye_left);
+  const rightSize = detectedEyeSize(anchor.eye_right);
+  if (!leftSize || !rightSize) {
+    return [];
+  }
+
   const leftEye = toSvgPoint(anchor.eye_left);
   const rightEye = toSvgPoint(anchor.eye_right);
   const eyeDistance = Math.abs(rightEye.x - leftEye.x);
-  const detectedEyeWidths = [normalizedEyeWidth(anchor.eye_left), normalizedEyeWidth(anchor.eye_right)]
-    .filter((width): width is number => width !== null);
-  const averageEyeWidth = detectedEyeWidths.length > 0
-    ? detectedEyeWidths.reduce((sum, width) => sum + width, 0) / detectedEyeWidths.length
-    : null;
-  const detectedEyeHeights = [normalizedEyeHeight(anchor.eye_left), normalizedEyeHeight(anchor.eye_right)]
-    .filter((height): height is number => height !== null);
-  const averageEyeHeight = detectedEyeHeights.length > 0
-    ? detectedEyeHeights.reduce((sum, height) => sum + height, 0) / detectedEyeHeights.length
-    : null;
-  const maskRx = averageEyeWidth === null
-    ? clamp(eyeDistance * 0.45, 7.0, 10.5)
-    : clamp(averageEyeWidth * 0.65, 3.2, 10.5);
-  const maskRy = averageEyeHeight === null
-    ? clamp(maskRx * 0.38, 2.4, 4.2)
-    : clamp(averageEyeHeight * 1.35, 2.2, 4.2);
-  const maskWidth = maskRx * 2;
-  const maskHeight = maskRy * 2;
-  const lidHalfWidth = maskRx * 0.72;
-  const lidLift = maskRy * 0.24;
-  const eraseBoxes = [anchor.eye_left.erase_box, anchor.eye_right.erase_box].filter(
-    (box): box is NonNullable<BlinkOverlayPoint["erase_box"]> => (
-      typeof box?.top === "number"
-      && typeof box.bottom === "number"
-      && box.bottom > box.top
-    ),
-  );
-  const sharedEraseTop = eraseBoxes.length === 2
-    ? Math.min(...eraseBoxes.map((box) => box.top))
-    : undefined;
-  const sharedEraseBottom = eraseBoxes.length === 2
-    ? Math.max(...eraseBoxes.map((box) => box.bottom))
-    : undefined;
-  return [leftEye, rightEye].map((eye, index) => {
-    const sourcePoint = index === 0 ? anchor.eye_left : anchor.eye_right;
-    const minimalistDotEye = isMinimalistDotEye(sourcePoint);
-    const dotEyeLift = minimalistDotEye && typeof sourcePoint.height === "number"
-      ? clamp(sourcePoint.height * 100 * 0.18, 0.12, 0.32)
-      : 0;
-    const lidY = eye.y - dotEyeLift;
-    const resolvedLidHalfWidth = minimalistDotEye && typeof sourcePoint.width === "number"
-      ? clamp(sourcePoint.width * 100 * (5 / 6), 0.85, 1.25)
-      : lidHalfWidth;
-    const resolvedLidLift = minimalistDotEye ? 0 : lidLift;
-    const maskY = eye.y + maskRy * 1.02;
-    const metadataMask = eraseBoxMask(
-      sourcePoint,
-      skinFill,
-      index,
-      sharedEraseTop,
-      sharedEraseBottom,
-      index === 0 ? anchor.brow_left : anchor.brow_right,
+  const midpointX = (leftEye.x + rightEye.x) / 2;
+  const noseMargin = Math.max(eyeDistance * 0.1, 1.0);
+  const safeAspect = aspect > 0 ? aspect : BLINK_OVERLAY_ASPECT;
+
+  return [
+    { point: anchor.eye_left, eye: leftEye, size: leftSize, side: "left" as const, index: 0 },
+    { point: anchor.eye_right, eye: rightEye, size: rightSize, side: "right" as const, index: 1 },
+  ].map(({ point, eye, size, side, index }) => {
+    const eyeWidthVB = size.width * 100;
+    const eyeHeightVB = size.height * 100;
+
+    // Mask = the skin patch that covers the open eye. Slightly larger than the
+    // detected eye, hard-capped so the two masks can never meet at the nose and
+    // never read as a wide bar once the viewBox stretches across the frame.
+    const maskHalfHeight = Math.max(eyeHeightVB * 0.85, eyeHeightVB * 0.5 + 0.4);
+    let maskHalfWidth = eyeWidthVB * 0.6;
+    maskHalfWidth = Math.min(maskHalfWidth, eyeDistance * 0.22);
+    maskHalfWidth = Math.min(
+      maskHalfWidth,
+      (maskHalfHeight * BLINK_MAX_ON_SCREEN_ASPECT) / safeAspect,
     );
+
+    let maskLeft = eye.x - maskHalfWidth;
+    let maskRight = eye.x + maskHalfWidth;
+    if (side === "left") {
+      maskRight = Math.min(maskRight, midpointX - noseMargin);
+    } else {
+      maskLeft = Math.max(maskLeft, midpointX + noseMargin);
+    }
+    const maskWidth = Math.max(0, maskRight - maskLeft);
+    const maskHeight = maskHalfHeight * 2;
+    const maskTop = eye.y - maskHalfHeight;
+
+    const gradient = eyeGradient(point, index);
+
+    // Lid = a shallow closed-eye curve drawn at the detected eye center, kept
+    // inside the mask so it can never stretch toward the nose.
+    const lidHalfWidth = Math.min(
+      eyeWidthVB * 0.5,
+      eyeDistance * 0.22,
+      eye.x - maskLeft,
+      maskRight - eye.x,
+    );
+    const lidLift = maskHalfHeight * 0.3;
+    const strokeWidth = clamp(eyeHeightVB * 0.28, 0.4, 0.9);
+
     return {
-      mask: metadataMask ?? {
-        x: roundSvgNumber(eye.x - maskWidth / 2),
-        y: roundSvgNumber(maskY - maskHeight / 2),
+      mask: {
+        x: roundSvgNumber(maskLeft),
+        y: roundSvgNumber(maskTop),
         width: roundSvgNumber(maskWidth),
         height: roundSvgNumber(maskHeight),
-        rx: roundSvgNumber(maskHeight / 2),
-        fill: skinFill,
+        rx: roundSvgNumber(Math.min(maskWidth, maskHeight) / 2),
+        fill: gradient ? `url(#${gradient.id})` : skinFill,
+        ...(gradient ? { gradient } : {}),
       },
       lid: {
-        d: `M${roundSvgNumber(eye.x - resolvedLidHalfWidth)} ${roundSvgNumber(lidY)} Q${roundSvgNumber(eye.x)} ${roundSvgNumber(lidY - resolvedLidLift)} ${roundSvgNumber(eye.x + resolvedLidHalfWidth)} ${roundSvgNumber(lidY)}`,
-        y: roundSvgNumber(lidY),
+        d: `M${roundSvgNumber(eye.x - lidHalfWidth)} ${roundSvgNumber(eye.y)} Q${roundSvgNumber(eye.x)} ${roundSvgNumber(eye.y - lidLift)} ${roundSvgNumber(eye.x + lidHalfWidth)} ${roundSvgNumber(eye.y)}`,
+        y: roundSvgNumber(eye.y),
         stroke: BLINK_EYELID_STROKE,
-        strokeWidth: roundSvgNumber(minimalistDotEye ? 0.68 : clamp(maskRx * 0.17, 0.95, 1.3)),
+        strokeWidth: roundSvgNumber(strokeWidth),
       },
     };
   });
-};
-
-const BlinkMicroExpressionOverlay: React.FC<{
-  anchor: BlinkResolvedOverlayAnchor;
-  overlay: BlinkOverlay;
-  visible: boolean;
-}> = ({ anchor, overlay, visible }) => {
-  const opacity = visible ? 1 : 0;
-  const common: React.CSSProperties = {
-    position: "absolute",
-    left: 0,
-    top: 0,
-    width: "100%",
-    height: "100%",
-    inset: 0,
-    pointerEvents: "none",
-    opacity,
-    zIndex: 2,
-  };
-  const leftEye = toSvgPoint(anchor.eye_left);
-  const rightEye = toSvgPoint(anchor.eye_right);
-  const mouth = toSvgPoint(anchor.mouth);
-  const leftBrow = toSvgPoint(anchor.brow_left);
-  const rightBrow = toSvgPoint(anchor.brow_right);
-
-  if (overlay.kind === "mouth") {
-    return (
-      <svg {...BLINK_OVERLAY_SVG_PROPS} style={common}>
-        <ellipse cx={mouth.x} cy={mouth.y - 0.4} rx="4.5" ry="2.4" fill="#F4BE91" />
-        <ellipse cx={mouth.x} cy={mouth.y} rx="1.6" ry="2.3" fill="#4B1814" stroke="#111" strokeWidth="0.65" />
-      </svg>
-    );
-  }
-
-  if (overlay.kind === "eyes" && overlay.state === "closed") {
-    const eyeGeometry = blinkBlinkEyeOverlayGeometry(anchor, anchor.skin_fill ?? BLINK_FALLBACK_SKIN_FILL);
-    const gradients = eyeGeometry
-      .map((eye) => eye.mask.gradient)
-      .filter((gradient): gradient is NonNullable<BlinkClosedEyeGeometry["mask"]["gradient"]> => Boolean(gradient));
-    return (
-      <svg {...BLINK_OVERLAY_SVG_PROPS} style={common}>
-        {gradients.length > 0 ? (
-          <defs>
-            {gradients.map((gradient) => (
-              <linearGradient
-                key={gradient.id}
-                id={gradient.id}
-                x1="0"
-                y1="0"
-                x2={gradient.orientation === "horizontal" ? "1" : "0"}
-                y2={gradient.orientation === "horizontal" ? "0" : "1"}
-              >
-                <stop offset="0%" stopColor={gradient.top} />
-                <stop offset="100%" stopColor={gradient.bottom} />
-              </linearGradient>
-            ))}
-          </defs>
-        ) : null}
-        {eyeGeometry.map((eye, index) => {
-          const { gradient: _gradient, ...mask } = eye.mask;
-          return (
-            <g key={index}>
-              <rect {...mask} />
-              <path d={eye.lid.d} fill="none" stroke={eye.lid.stroke} strokeWidth={eye.lid.strokeWidth} strokeLinecap="round" />
-            </g>
-          );
-        })}
-      </svg>
-    );
-  }
-
-  if (overlay.kind === "eyes" && overlay.state === "glance") {
-    return (
-      <svg {...BLINK_OVERLAY_SVG_PROPS} style={common}>
-        <ellipse cx={leftEye.x - 1.1} cy={leftEye.y} rx="1.7" ry="2.2" fill="#111" />
-        <ellipse cx={rightEye.x - 1.1} cy={rightEye.y} rx="1.7" ry="2.2" fill="#111" />
-      </svg>
-    );
-  }
-
-  return (
-    <svg {...BLINK_OVERLAY_SVG_PROPS} style={common}>
-      <path d={`M${leftBrow.x - 4.5} ${leftBrow.y} Q${leftBrow.x} ${leftBrow.y - 1.8} ${leftBrow.x + 4.5} ${leftBrow.y - 0.6}`} fill="none" stroke="#111" strokeWidth="1.2" strokeLinecap="round" />
-      <path d={`M${rightBrow.x - 4.5} ${rightBrow.y - 0.8} Q${rightBrow.x} ${rightBrow.y - 2.6} ${rightBrow.x + 4.5} ${rightBrow.y - 1.4}`} fill="none" stroke="#111" strokeWidth="1.2" strokeLinecap="round" />
-    </svg>
-  );
 };
 
 export const comparisonBoardLayerStyle = (
@@ -909,23 +663,10 @@ const ComparisonBoard: React.FC<Props> = ({ scene, fallbackVisualLayer }) => {
   );
 };
 
-export const blinkActiveLayer = (layers: VisualLayer[], frame: number, fps: number, seed = ""): VisualLayer | undefined => {
-  void frame;
-  void fps;
-  void seed;
-  const stateLayers = blinkStateLayers(layers);
-  if (stateLayers.length === 0) {
-    return undefined;
-  }
-  return stateLayers[0];
-};
-
 export const TreatmentRenderer: React.FC<Props> = ({ scene, fallbackVisualLayer }) => {
   switch (scene.visual_mode) {
     case "popup_sequence":
       return <PopupSequence scene={scene} fallbackVisualLayer={fallbackVisualLayer} />;
-    case "blink":
-      return <Blink scene={scene} fallbackVisualLayer={fallbackVisualLayer} />;
     case "comparison_board":
       return <ComparisonBoard scene={scene} fallbackVisualLayer={fallbackVisualLayer} />;
     case "stat_card":

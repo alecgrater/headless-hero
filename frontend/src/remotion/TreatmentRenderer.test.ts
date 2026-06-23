@@ -4,13 +4,11 @@ import type React from "react";
 import {
   comparisonBoardLayerStyle,
   BLINK_OVERLAY_SVG_PROPS,
+  BLINK_OVERLAY_ASPECT,
   comparisonLabel,
-  blinkActiveLayer,
-  blinkOverlayAnchor,
   blinkMicroOverlay,
   blinkBlinkEyeOverlayGeometry,
   blinkOverlayVisible,
-  blinkLayerFrameStyle,
   layerChromeStyle,
   layerFrameStyle,
   popupOrbitFrameStyle,
@@ -204,57 +202,6 @@ describe("layerFrameStyle", () => {
   });
 });
 
-describe("blinkLayerFrameStyle", () => {
-  it("renders blink cutouts centered over the static context", () => {
-    const style = blinkLayerFrameStyle(itemLayer("state-a"));
-
-    expect(style.position).toBe("absolute");
-    expect(style.left).toBe("50%");
-    expect(style.top).toBe("50%");
-    expect(style.width).toBe(760);
-    expect(style.height).toBe(820);
-    expect(String(style.transform)).toContain("translate(-50%, -50%)");
-    expect(style.inset).toBeUndefined();
-  });
-
-  it("falls back to full-bleed frame styling for panel layers", () => {
-    const style = blinkLayerFrameStyle(panelLayer("state-a"));
-
-    expect(style.position).toBe("absolute");
-    expect(style.inset).toBe(0);
-    expect(style.width).toBeUndefined();
-    expect(style.height).toBeUndefined();
-  });
-});
-
-describe("blinkActiveLayer", () => {
-  it("keeps generated blink scenes on the base cutout during blink pulses", () => {
-    const layers = [
-      { ...itemLayer("state-a"), enter_at_seconds: 0 },
-      { ...itemLayer("state-b"), enter_at_seconds: 2.1 },
-    ];
-
-    expect(blinkActiveLayer(layers, 0, 30)?.id).toBe("state-a");
-    expect(blinkActiveLayer(layers, 15, 30)?.id).toBe("state-a");
-    expect(blinkActiveLayer(layers, 30, 30)?.id).toBe("state-a");
-    expect(blinkActiveLayer(layers, 54, 30)?.id).toBe("state-a");
-    expect(blinkActiveLayer(layers, 62, 30)?.id).toBe("state-a");
-  });
-
-  it("ignores static background layers when choosing the base blink cutout", () => {
-    const layers = [
-      { ...panelLayer("background"), asset_kind: "full_frame" as const },
-      { ...itemLayer("state-a"), enter_at_seconds: 0 },
-      { ...itemLayer("state-b"), enter_at_seconds: 0 },
-    ];
-
-    expect(blinkActiveLayer(layers, 0, 30)?.id).toBe("state-a");
-    expect(blinkActiveLayer(layers, 15, 30)?.id).toBe("state-a");
-    expect(blinkActiveLayer(layers, 54, 30)?.id).toBe("state-a");
-    expect(blinkActiveLayer(layers, 30, 30)?.id).toBe("state-a");
-  });
-});
-
 describe("blinkOverlayVisible", () => {
   it("uses short irregular blink windows for renderer-owned micro-expression overlays", () => {
     expect(blinkOverlayVisible(0, 30)).toBe(false);
@@ -263,6 +210,41 @@ describe("blinkOverlayVisible", () => {
     expect(blinkOverlayVisible(30, 30)).toBe(false);
     expect(blinkOverlayVisible(54, 30)).toBe(true);
     expect(blinkOverlayVisible(62, 30)).toBe(false);
+  });
+
+  it("keeps blinks brief and spaced at irregular intervals so it never reads as a fixed toggle", () => {
+    const fps = 30;
+    const seed = "scene-irregular";
+    const visible: number[] = [];
+    for (let frame = 0; frame < fps * 30; frame += 1) {
+      if (blinkOverlayVisible(frame, fps, seed)) {
+        visible.push(frame);
+      }
+    }
+    expect(visible.length).toBeGreaterThan(0);
+
+    // Group contiguous visible frames into blink pulses.
+    const pulses: Array<{ start: number; end: number }> = [];
+    for (const frame of visible) {
+      const last = pulses[pulses.length - 1];
+      if (last && frame === last.end + 1) {
+        last.end = frame;
+      } else {
+        pulses.push({ start: frame, end: frame });
+      }
+    }
+
+    // Each pulse must be short (a blink, not a hold).
+    for (const pulse of pulses) {
+      const duration = pulse.end - pulse.start + 1;
+      expect(duration).toBeLessThanOrEqual(6);
+    }
+
+    // Gaps between pulses must vary (not a fixed-interval toggle).
+    expect(pulses.length).toBeGreaterThanOrEqual(3);
+    const gaps = pulses.slice(1).map((pulse, index) => pulse.start - pulses[index].end);
+    const uniqueGaps = new Set(gaps);
+    expect(uniqueGaps.size).toBeGreaterThan(1);
   });
 });
 
@@ -282,14 +264,24 @@ describe("blinkMicroOverlay", () => {
 });
 
 describe("blinkBlinkEyeOverlayGeometry", () => {
-  it("stretches blink overlays to the non-square layer frame", () => {
+  const anchorWithEyes = (overrides: Record<string, unknown> = {}) => ({
+    eye_left: { x: 0.42, y: 0.33, width: 0.045, height: 0.02 },
+    eye_right: { x: 0.58, y: 0.33, width: 0.045, height: 0.02 },
+    mouth: { x: 0.5, y: 0.48 },
+    brow_left: { x: 0.42, y: 0.26 },
+    brow_right: { x: 0.58, y: 0.26 },
+    ...overrides,
+  });
+
+  it("keeps the stretched-viewBox placement props", () => {
     expect(BLINK_OVERLAY_SVG_PROPS).toMatchObject({
       viewBox: "0 0 100 100",
       preserveAspectRatio: "none",
     });
+    expect(BLINK_OVERLAY_ASPECT).toBeCloseTo(16 / 9, 5);
   });
 
-  it("covers open eyes before drawing closed eyelids", () => {
+  it("suppresses the overlay entirely when eye width/height are missing", () => {
     const geometry = blinkBlinkEyeOverlayGeometry(
       {
         eye_left: { x: 0.42, y: 0.33 },
@@ -301,385 +293,103 @@ describe("blinkBlinkEyeOverlayGeometry", () => {
       "#D9A374",
     );
 
+    expect(geometry).toEqual([]);
+  });
+
+  it("suppresses the overlay when only one eye reports a size", () => {
+    const geometry = blinkBlinkEyeOverlayGeometry(
+      anchorWithEyes({ eye_right: { x: 0.58, y: 0.33 } }),
+      "#D9A374",
+    );
+
+    expect(geometry).toEqual([]);
+  });
+
+  it("sizes closed-eye marks to the detected eye width, not a wide bar", () => {
+    const geometry = blinkBlinkEyeOverlayGeometry(anchorWithEyes(), "#D9A374");
+
     expect(geometry).toHaveLength(2);
-    expect(geometry[0].mask).toMatchObject({
-      fill: "#D9A374",
-    });
-    expect(geometry[0].mask.width).toBeGreaterThanOrEqual(14);
-    expect(geometry[0].mask.y + geometry[0].mask.height / 2).toBeGreaterThan(33);
-    expect(geometry[0].mask.width / 2).toBeGreaterThan(geometry[0].lid.strokeWidth);
-    expect(geometry[0].lid.strokeWidth).toBeLessThanOrEqual(1.35);
-    expect(geometry[0].lid.stroke).toBe("#2A1712");
+    const eyeWidthVB = 0.045 * 100; // 4.5
+    for (const eye of geometry) {
+      // Mask covers the open eye but stays close to its real width (no bar).
+      expect(eye.mask.width).toBeGreaterThanOrEqual(eyeWidthVB);
+      expect(eye.mask.width).toBeLessThanOrEqual(eyeWidthVB * 1.25);
+    }
+  });
+
+  it("centers each closed-eye mark on the detected eye", () => {
+    const geometry = blinkBlinkEyeOverlayGeometry(anchorWithEyes(), "#D9A374");
+
+    expect(geometry[0].mask.x + geometry[0].mask.width / 2).toBeCloseTo(42, 1);
+    expect(geometry[0].mask.y + geometry[0].mask.height / 2).toBeCloseTo(33, 1);
+    expect(geometry[1].mask.x + geometry[1].mask.width / 2).toBeCloseTo(58, 1);
+    expect(geometry[1].mask.y + geometry[1].mask.height / 2).toBeCloseTo(33, 1);
     expect(geometry[0].lid.d).toContain("Q42");
-    expect(geometry[1].mask).toMatchObject({
-      fill: "#D9A374",
-    });
-    expect(geometry[1].mask.y + geometry[1].mask.height / 2).toBeGreaterThan(33);
     expect(geometry[1].lid.d).toContain("Q58");
   });
 
-  it("sizes blink lids from detected eye width when available", () => {
+  it("never lets the two closed-eye marks cross the nose midline", () => {
+    const geometry = blinkBlinkEyeOverlayGeometry(anchorWithEyes(), "#D9A374");
+    const midpoint = ((0.42 + 0.58) / 2) * 100; // 50
+
+    const leftRightEdge = geometry[0].mask.x + geometry[0].mask.width;
+    const rightLeftEdge = geometry[1].mask.x;
+    expect(leftRightEdge).toBeLessThan(midpoint);
+    expect(rightLeftEdge).toBeGreaterThan(midpoint);
+  });
+
+  it("never produces an on-screen bar even when eyes are far apart", () => {
     const geometry = blinkBlinkEyeOverlayGeometry(
-      {
-        eye_left: { x: 0.42, y: 0.33, width: 0.045, height: 0.02 },
-        eye_right: { x: 0.58, y: 0.33, width: 0.045, height: 0.02 },
-        mouth: { x: 0.5, y: 0.48 },
-        brow_left: { x: 0.42, y: 0.26 },
-        brow_right: { x: 0.58, y: 0.26 },
-      },
+      anchorWithEyes({
+        eye_left: { x: 0.30, y: 0.33, width: 0.05, height: 0.018 },
+        eye_right: { x: 0.70, y: 0.33, width: 0.05, height: 0.018 },
+      }),
       "#D9A374",
     );
 
-    expect(geometry[0].mask.width / 2).toBeLessThan(7);
-    expect(geometry[0].mask.height / 2).toBeLessThan(4);
-    expect(geometry[0].mask.y + geometry[0].mask.height / 2).toBeGreaterThan(geometry[0].lid.y);
-    expect(geometry[0].mask.x).toBeGreaterThan(38);
-    expect(geometry[0].mask.width).toBeLessThan(7);
-    expect(geometry[0].lid.d).toContain("Q42");
+    for (const eye of geometry) {
+      const onScreenAspect = (eye.mask.width / eye.mask.height) * BLINK_OVERLAY_ASPECT;
+      expect(onScreenAspect).toBeLessThanOrEqual(2.6);
+    }
   });
 
-  it("keeps minimalist dot-eye blink masks local to tiny eyes", () => {
+  it("keeps lid strokes thin and lids within the eye width", () => {
+    const geometry = blinkBlinkEyeOverlayGeometry(anchorWithEyes(), "#D9A374");
+
+    for (const eye of geometry) {
+      expect(eye.lid.strokeWidth).toBeLessThanOrEqual(0.9);
+    }
+    // Lid endpoints (M{x} ... {x2}) span no more than ~the detected eye width.
+    const match = geometry[0].lid.d.match(/^M([\d.]+) [\d.]+ Q[\d.]+ [\d.]+ ([\d.]+)/);
+    expect(match).not.toBeNull();
+    if (match) {
+      const span = Number(match[2]) - Number(match[1]);
+      expect(span).toBeLessThanOrEqual(0.045 * 100 * 1.05);
+    }
+  });
+
+  it("keeps minimalist tiny eyes producing tiny local marks", () => {
     const geometry = blinkBlinkEyeOverlayGeometry(
-      {
-        eye_left: {
-          x: 0.455,
-          y: 0.2017,
-          width: 0.012,
-          height: 0.0125,
-          erase_box: { left: 0.4335, top: 0.1382, right: 0.4764, bottom: 0.229 },
-          fill_top: "#E4DECC",
-          fill_bottom: "#9F9C90",
-          fill_left: "#9B998A",
-          fill_right: "#E4DECC",
-        },
-        eye_right: {
-          x: 0.546,
-          y: 0.2019,
-          width: 0.0135,
-          height: 0.0125,
-          erase_box: { left: 0.5204, top: 0.1382, right: 0.5711, bottom: 0.229 },
-          fill_top: "#E4DECC",
-          fill_bottom: "#A0998C",
-          fill_left: "#E4DECC",
-          fill_right: "#9F988A",
-        },
-        mouth: { x: 0.5005, y: 0.3485 },
-        brow_left: { x: 0.455, y: 0.1218 },
-        brow_right: { x: 0.546, y: 0.1218 },
-        skin_fill: "#E4DECC",
-      },
+      anchorWithEyes({
+        eye_left: { x: 0.455, y: 0.2017, width: 0.012, height: 0.0125 },
+        eye_right: { x: 0.546, y: 0.2019, width: 0.0135, height: 0.0125 },
+      }),
       "#E4DECC",
     );
 
-    expect(geometry[0].mask.width).toBeLessThan(4.5);
+    expect(geometry[0].mask.width).toBeLessThan(2.5);
     expect(geometry[0].mask.height).toBeLessThan(3.5);
-    expect(geometry[0].mask.y).toBeGreaterThan(18.5);
-    expect(geometry[0].mask.gradient).toBeUndefined();
     expect(geometry[0].lid.strokeWidth).toBeLessThanOrEqual(0.7);
-    expect(geometry[0].lid.d).toContain("M44.5");
-    expect(geometry[0].lid.d).toContain("46.5");
-    expect(geometry[0].lid.y).toBeLessThan(20.17);
-    expect(geometry[0].lid.d).toContain(`Q45.5 ${geometry[0].lid.y}`);
-    expect(geometry[0].lid.d).toContain("Q45.5");
-    expect(geometry[1].mask.width).toBeLessThan(4.5);
-    expect(geometry[1].mask.height).toBeLessThan(3.5);
-    expect(geometry[1].mask.gradient).toBeUndefined();
-    expect(geometry[1].lid.y).toBeLessThan(20.19);
-    expect(geometry[1].lid.strokeWidth).toBeLessThanOrEqual(0.7);
-    expect(geometry[1].lid.d).toContain("M53.475");
-    expect(geometry[1].lid.d).toContain("55.725");
-    expect(geometry[1].lid.d).toContain(`Q54.6 ${geometry[1].lid.y}`);
-    expect(geometry[1].lid.d).toContain("Q54.6");
   });
 
-  it("uses detected eye erase boxes for skin fill bounds when available", () => {
+  it("uses per-eye vertical skin gradients when sampled colors are available", () => {
     const geometry = blinkBlinkEyeOverlayGeometry(
-      {
+      anchorWithEyes({
         eye_left: {
           x: 0.42,
           y: 0.33,
           width: 0.045,
           height: 0.02,
-          erase_box: { left: 0.39, top: 0.315, right: 0.45, bottom: 0.37 },
-        },
-        eye_right: {
-          x: 0.58,
-          y: 0.33,
-          width: 0.045,
-          height: 0.02,
-          erase_box: { left: 0.55, top: 0.315, right: 0.61, bottom: 0.37 },
-        },
-        mouth: { x: 0.5, y: 0.48 },
-        brow_left: { x: 0.42, y: 0.26 },
-        brow_right: { x: 0.58, y: 0.26 },
-      },
-      "#D9A374",
-    );
-
-    expect(geometry[0].mask).toMatchObject({
-      x: 39,
-      y: 29.15,
-      width: 6,
-      height: 7.85,
-    });
-    expect(geometry[1].mask).toMatchObject({
-      x: 55,
-      y: 29.15,
-      width: 6,
-      height: 7.85,
-    });
-    expect(geometry[0].lid.d).toContain("Q42");
-  });
-
-  it("shares detected eye erase box height across both blink masks", () => {
-    const geometry = blinkBlinkEyeOverlayGeometry(
-      {
-        eye_left: {
-          x: 0.42,
-          y: 0.33,
-          width: 0.045,
-          height: 0.02,
-          erase_box: { left: 0.39, top: 0.315, right: 0.45, bottom: 0.39 },
-        },
-        eye_right: {
-          x: 0.58,
-          y: 0.33,
-          width: 0.045,
-          height: 0.02,
-          erase_box: { left: 0.55, top: 0.32, right: 0.61, bottom: 0.36 },
-        },
-        mouth: { x: 0.5, y: 0.48 },
-        brow_left: { x: 0.42, y: 0.26 },
-        brow_right: { x: 0.58, y: 0.26 },
-      },
-      "#D9A374",
-    );
-
-    expect(geometry[0].mask).toMatchObject({
-      x: 39,
-      y: 29.15,
-      width: 6,
-      height: 9.85,
-    });
-    expect(geometry[1].mask).toMatchObject({
-      x: 55,
-      y: 29.15,
-      width: 6,
-      height: 9.85,
-    });
-  });
-
-  it("clamps broad erase boxes horizontally to a wider eye-detail band", () => {
-    const geometry = blinkBlinkEyeOverlayGeometry(
-      {
-        eye_left: {
-          x: 0.42,
-          y: 0.33,
-          width: 0.05,
-          height: 0.02,
-          erase_box: { left: 0.34, top: 0.315, right: 0.50, bottom: 0.39 },
-        },
-        eye_right: {
-          x: 0.58,
-          y: 0.33,
-          width: 0.05,
-          height: 0.02,
-          erase_box: { left: 0.50, top: 0.315, right: 0.66, bottom: 0.39 },
-        },
-        mouth: { x: 0.5, y: 0.48 },
-        brow_left: { x: 0.42, y: 0.26 },
-        brow_right: { x: 0.58, y: 0.26 },
-      },
-      "#D9A374",
-    );
-
-    expect(geometry[0].mask).toMatchObject({
-      x: 37.75,
-      y: 29.15,
-      width: 8.5,
-      height: 9.85,
-    });
-    expect(geometry[1].mask).toMatchObject({
-      x: 53.75,
-      y: 29.15,
-      width: 8.5,
-      height: 9.85,
-    });
-  });
-
-  it("covers eyelid remnants outside the narrow dark aperture", () => {
-    const geometry = blinkBlinkEyeOverlayGeometry(
-      {
-        eye_left: {
-          x: 0.42,
-          y: 0.33,
-          width: 0.05,
-          height: 0.02,
-          erase_box: { left: 0.36, top: 0.30, right: 0.48, bottom: 0.41 },
-        },
-        eye_right: {
-          x: 0.58,
-          y: 0.33,
-          width: 0.05,
-          height: 0.02,
-          erase_box: { left: 0.52, top: 0.30, right: 0.64, bottom: 0.41 },
-        },
-        mouth: { x: 0.5, y: 0.48 },
-        brow_left: { x: 0.42, y: 0.26 },
-        brow_right: { x: 0.58, y: 0.26 },
-      },
-      "#D9A374",
-    );
-
-    expect(geometry[0].mask.x).toBeLessThanOrEqual(37.8);
-    expect(geometry[0].mask.x + geometry[0].mask.width).toBeGreaterThanOrEqual(46.2);
-    expect(geometry[1].mask.x).toBeLessThanOrEqual(53.8);
-    expect(geometry[1].mask.x + geometry[1].mask.width).toBeGreaterThanOrEqual(62.2);
-  });
-
-  it("expands upward toward old open lashes while staying below eyebrows", () => {
-    const geometry = blinkBlinkEyeOverlayGeometry(
-      {
-        eye_left: {
-          x: 0.42,
-          y: 0.33,
-          width: 0.05,
-          height: 0.02,
-          erase_box: { left: 0.39, top: 0.315, right: 0.45, bottom: 0.40 },
-        },
-        eye_right: {
-          x: 0.58,
-          y: 0.33,
-          width: 0.05,
-          height: 0.02,
-          erase_box: { left: 0.55, top: 0.315, right: 0.61, bottom: 0.40 },
-        },
-        mouth: { x: 0.5, y: 0.48 },
-        brow_left: { x: 0.42, y: 0.26 },
-        brow_right: { x: 0.58, y: 0.26 },
-      },
-      "#D9A374",
-    );
-
-    expect(geometry[0].mask.y).toBeLessThanOrEqual(29.2);
-    expect(geometry[0].mask.y).toBeGreaterThan(26);
-    expect(geometry[1].mask.y).toBeLessThanOrEqual(29.2);
-    expect(geometry[1].mask.y).toBeGreaterThan(26);
-  });
-
-  it("honors brow-inclusive erase boxes from the backend", () => {
-    const geometry = blinkBlinkEyeOverlayGeometry(
-      {
-        eye_left: {
-          x: 0.42,
-          y: 0.33,
-          width: 0.05,
-          height: 0.02,
-          erase_box: { left: 0.39, top: 0.22, right: 0.45, bottom: 0.40 },
-        },
-        eye_right: {
-          x: 0.58,
-          y: 0.33,
-          width: 0.05,
-          height: 0.02,
-          erase_box: { left: 0.55, top: 0.22, right: 0.61, bottom: 0.40 },
-        },
-        mouth: { x: 0.5, y: 0.48 },
-        brow_left: { x: 0.42, y: 0.26 },
-        brow_right: { x: 0.58, y: 0.26 },
-      },
-      "#D9A374",
-    );
-
-    expect(geometry[0].mask).toMatchObject({
-      x: 39,
-      y: 22,
-      width: 6,
-      height: 18,
-      rx: 1.5,
-    });
-    expect(geometry[1].mask).toMatchObject({
-      x: 55,
-      y: 22,
-      width: 6,
-      height: 18,
-      rx: 1.5,
-    });
-  });
-
-  it("keeps detected upper eyelid tops that are below eyebrow space", () => {
-    const geometry = blinkBlinkEyeOverlayGeometry(
-      {
-        eye_left: {
-          x: 0.42,
-          y: 0.33,
-          width: 0.05,
-          height: 0.02,
-          erase_box: { left: 0.39, top: 0.285, right: 0.45, bottom: 0.40 },
-        },
-        eye_right: {
-          x: 0.58,
-          y: 0.33,
-          width: 0.05,
-          height: 0.02,
-          erase_box: { left: 0.55, top: 0.285, right: 0.61, bottom: 0.40 },
-        },
-        mouth: { x: 0.5, y: 0.48 },
-        brow_left: { x: 0.42, y: 0.26 },
-        brow_right: { x: 0.58, y: 0.26 },
-      },
-      "#D9A374",
-    );
-
-    expect(geometry[0].mask.y).toBe(28.5);
-    expect(geometry[1].mask.y).toBe(28.5);
-  });
-
-  it("uses backend eye-aperture bounds and draws closed lashes at the detected eye center", () => {
-    const geometry = blinkBlinkEyeOverlayGeometry(
-      {
-        eye_left: {
-          x: 0.42,
-          y: 0.33,
-          width: 0.05,
-          height: 0.02,
-          erase_box: { left: 0.39, top: 0.315, right: 0.45, bottom: 0.37 },
-        },
-        eye_right: {
-          x: 0.58,
-          y: 0.33,
-          width: 0.05,
-          height: 0.02,
-          erase_box: { left: 0.55, top: 0.315, right: 0.61, bottom: 0.37 },
-        },
-        mouth: { x: 0.5, y: 0.48 },
-        brow_left: { x: 0.42, y: 0.26 },
-        brow_right: { x: 0.58, y: 0.26 },
-      },
-      "#D9A374",
-    );
-
-    expect(geometry[0].mask).toMatchObject({
-      y: 29.15,
-      height: 7.85,
-    });
-    expect(geometry[1].mask).toMatchObject({
-      y: 29.15,
-      height: 7.85,
-    });
-    expect(geometry[0].lid.y).toBeCloseTo(33, 1);
-    expect(geometry[1].lid.y).toBeCloseTo(33, 1);
-  });
-
-  it("uses per-eye skin gradients for blink masks when sampled colors are available", () => {
-    const geometry = blinkBlinkEyeOverlayGeometry(
-      {
-        eye_left: {
-          x: 0.42,
-          y: 0.33,
-          width: 0.045,
-          height: 0.02,
-          erase_box: { left: 0.39, top: 0.315, right: 0.45, bottom: 0.37 },
           fill_top: "#F5B97D",
           fill_bottom: "#C3784B",
         },
@@ -688,14 +398,10 @@ describe("blinkBlinkEyeOverlayGeometry", () => {
           y: 0.33,
           width: 0.045,
           height: 0.02,
-          erase_box: { left: 0.55, top: 0.315, right: 0.61, bottom: 0.37 },
           fill_top: "#E4A46A",
           fill_bottom: "#B96E43",
         },
-        mouth: { x: 0.5, y: 0.48 },
-        brow_left: { x: 0.42, y: 0.26 },
-        brow_right: { x: 0.58, y: 0.26 },
-      },
+      }),
       "#D9A374",
     );
 
@@ -707,23 +413,16 @@ describe("blinkBlinkEyeOverlayGeometry", () => {
       orientation: "vertical",
     });
     expect(geometry[1].mask.fill).toBe("url(#blink-blink-eye-1-gradient)");
-    expect(geometry[1].mask.gradient).toEqual({
-      id: "blink-blink-eye-1-gradient",
-      top: "#E4A46A",
-      bottom: "#B96E43",
-      orientation: "vertical",
-    });
   });
 
-  it("prefers horizontal per-eye skin gradients when side lighting is available", () => {
+  it("prefers horizontal per-eye skin gradients when side lighting dominates", () => {
     const geometry = blinkBlinkEyeOverlayGeometry(
-      {
+      anchorWithEyes({
         eye_left: {
           x: 0.42,
           y: 0.33,
           width: 0.045,
           height: 0.02,
-          erase_box: { left: 0.39, top: 0.315, right: 0.45, bottom: 0.37 },
           fill_left: "#F5B97D",
           fill_right: "#C3784B",
           fill_top: "#D58E5B",
@@ -734,14 +433,10 @@ describe("blinkBlinkEyeOverlayGeometry", () => {
           y: 0.33,
           width: 0.045,
           height: 0.02,
-          erase_box: { left: 0.55, top: 0.315, right: 0.61, bottom: 0.37 },
           fill_left: "#C3784B",
           fill_right: "#B96E43",
         },
-        mouth: { x: 0.5, y: 0.48 },
-        brow_left: { x: 0.42, y: 0.26 },
-        brow_right: { x: 0.58, y: 0.26 },
-      },
+      }),
       "#D9A374",
     );
 
@@ -751,86 +446,13 @@ describe("blinkBlinkEyeOverlayGeometry", () => {
       bottom: "#C3784B",
       orientation: "horizontal",
     });
-    expect(geometry[1].mask.gradient).toEqual({
-      id: "blink-blink-eye-1-gradient",
-      top: "#C3784B",
-      bottom: "#B96E43",
-      orientation: "horizontal",
-    });
   });
 
-  it("prefers vertical per-eye skin gradients when vertical lighting changes more", () => {
-    const geometry = blinkBlinkEyeOverlayGeometry(
-      {
-        eye_left: {
-          x: 0.42,
-          y: 0.33,
-          width: 0.045,
-          height: 0.02,
-          erase_box: { left: 0.39, top: 0.315, right: 0.45, bottom: 0.37 },
-          fill_left: "#D58E5B",
-          fill_right: "#D28A58",
-          fill_top: "#F5B97D",
-          fill_bottom: "#C3784B",
-        },
-        eye_right: {
-          x: 0.58,
-          y: 0.33,
-          width: 0.045,
-          height: 0.02,
-          erase_box: { left: 0.55, top: 0.315, right: 0.61, bottom: 0.37 },
-        },
-        mouth: { x: 0.5, y: 0.48 },
-        brow_left: { x: 0.42, y: 0.26 },
-        brow_right: { x: 0.58, y: 0.26 },
-      },
-      "#D9A374",
-    );
+  it("falls back to the flat skin fill when no gradient colors are present", () => {
+    const geometry = blinkBlinkEyeOverlayGeometry(anchorWithEyes(), "#D9A374");
 
-    expect(geometry[0].mask.gradient).toEqual({
-      id: "blink-blink-eye-0-gradient",
-      top: "#F5B97D",
-      bottom: "#C3784B",
-      orientation: "vertical",
-    });
-  });
-});
-
-describe("blinkOverlayAnchor", () => {
-  it("reads normalized overlay anchors from layer metadata", () => {
-    const anchor = blinkOverlayAnchor({
-      ...itemLayer("base"),
-      visual_source_metadata: {
-        blink_overlay_anchor: {
-          detected: true,
-          mouth: { x: 0.52, y: 0.48 },
-          eye_left: { x: 0.42, y: 0.33 },
-          eye_right: { x: 0.58, y: 0.33 },
-          brow_left: { x: 0.42, y: 0.27 },
-          brow_right: { x: 0.58, y: 0.27 },
-        },
-      },
-    });
-
-    expect(anchor).not.toBeNull();
-    if (!anchor) {
-      throw new Error("Expected detected blink anchor metadata");
-    }
-    expect(anchor.mouth).toEqual({ x: 0.52, y: 0.48 });
-    expect(anchor.eye_left).toEqual({ x: 0.42, y: 0.33 });
-  });
-
-  it("falls back when overlay anchor metadata is missing or invalid", () => {
-    const anchor = blinkOverlayAnchor({
-      ...itemLayer("base"),
-      visual_source_metadata: {
-        blink_overlay_anchor: {
-          mouth: { x: 2, y: -1 },
-        },
-      },
-    });
-
-    expect(anchor).toBeNull();
+    expect(geometry[0].mask.fill).toBe("#D9A374");
+    expect(geometry[0].mask.gradient).toBeUndefined();
   });
 });
 
