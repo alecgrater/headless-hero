@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 _BATCH_SIZE = 12
 _BATCH_MAX_TOKENS = 8192
-_CAMERA_FX_BLOCKED_VISUAL_MODES = {"comparison_board", "popup_sequence", "blink"}
+_CAMERA_FX_BLOCKED_VISUAL_MODES = {"comparison_board", "popup_sequence"}
 
 
 def _camera_fx_blocked(scene_data: dict) -> bool:

@@ -91,8 +91,6 @@ describe("settings section layout", () => {
     expect(workflowHeading).not.toHaveClass("text-sm");
     expect(workflowHeading.parentElement).toHaveClass("-ml-4", "rounded-2xl", "border", "border-violet-500/40", "bg-violet-500/5", "px-4", "py-3");
     expect(screen.getByRole("heading", { name: "Hook Refinement", level: 3 })).toHaveClass("text-sm", "font-medium");
-    expect(screen.getByRole("heading", { name: "Full-frame Blink Review", level: 3 })).toBeInTheDocument();
-    expect(screen.getByRole("switch", { name: "Toggle full-frame Blink Review" })).toBeInTheDocument();
     expect(workflowHeading.closest("section")).not.toHaveClass("bg-neutral-900", "border", "rounded-xl");
     expect(container.querySelector(".divide-y")).toBeNull();
   });

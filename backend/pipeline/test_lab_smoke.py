@@ -16,7 +16,7 @@ from sqlmodel import Session
 from config import DATA_DIR
 from models.script import VISUAL_MODES
 from models.settings import AppSetting
-from pipeline.blink_actions import PRODUCTION_BLINK_ACTIONS, blink_action_prompt_guidance
+from pipeline.blink_actions import blink_action_prompt_guidance
 from pipeline.test_lab import TEST_LAB_PRESETS, VISUAL_TREATMENT_TEXT_DEFAULTS, load_run_manifest, run_test_lab
 from pipeline.visual_mode_policy import prompt_visual_opportunity_guidance
 
@@ -31,7 +31,7 @@ REPRESENTATIVE_MODES = (
     "stat_card",
     "blink",
 )
-CUTOUT_ASSET_MODES = {"popup_sequence", "comparison_board", "blink"}
+CUTOUT_ASSET_MODES = {"popup_sequence", "comparison_board"}
 SMOKE_PROBE_TEXT_DEFAULTS = {
     "full_frame": {
         "narration": "The first clue is small, but it changes how the whole scene feels.",
@@ -228,7 +228,6 @@ def _check_visual_mode_vocabulary() -> SmokeTestCheck:
         "continuous",
         "captions",
         "popup_sequence",
-        "blink",
         "comparison_board",
         "stat_card",
     }
@@ -255,37 +254,27 @@ def _check_visual_mode_vocabulary() -> SmokeTestCheck:
 
 
 def _check_blink_guardrail() -> SmokeTestCheck:
+    from models.script import VISUAL_MODES
+
     prompt_guidance = blink_action_prompt_guidance()
-    opportunity_guidance = prompt_visual_opportunity_guidance(projected_scene_count=36)
-    production_guarded = not PRODUCTION_BLINK_ACTIONS and "Do not choose `visual_mode=\"blink\"`" in prompt_guidance
-    policy_encourages_blink = "Treat blink and captions as common expressive rhythm opportunities" in opportunity_guidance
-    if not production_guarded:
+    guarded = "blink" not in VISUAL_MODES and "blink is not a selectable visual mode" in prompt_guidance
+    if not guarded:
         return SmokeTestCheck(
             id="blink-production-guardrail",
             label="Blink production guardrail",
             group="Visual Modes",
             status="fail",
-            detail="Blink is not clearly guarded from production script routing.",
-            next_action="Keep production blink actions empty or finish hardening blink before allowing production routing.",
+            detail="Blink is not clearly retired from selectable visual modes.",
+            next_action="Keep blink out of VISUAL_MODES; it is applied only as a renderer-owned full-frame overlay.",
             evidence=prompt_guidance,
-        )
-    if policy_encourages_blink:
-        return SmokeTestCheck(
-            id="blink-production-guardrail",
-            label="Blink production guardrail",
-            group="Visual Modes",
-            status="warn",
-            detail="Blink production actions are disabled, but policy text still presents blink as a planning opportunity.",
-            next_action="Align visual opportunity guidance with the current Test Lab-only blink policy.",
-            evidence="Production actions: none; opportunity guidance mentions blink as common.",
         )
     return SmokeTestCheck(
         id="blink-production-guardrail",
         label="Blink production guardrail",
         group="Visual Modes",
         status="pass",
-        detail="Blink is disabled for production routing and guidance no longer encourages production selection.",
-        evidence="Production actions: none.",
+        detail="Blink is retired as a visual mode and applied only as a renderer-owned full-frame overlay when a safe face anchor is detected.",
+        evidence="blink not in VISUAL_MODES.",
     )
 
 

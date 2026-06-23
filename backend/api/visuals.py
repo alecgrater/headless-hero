@@ -15,12 +15,10 @@ from api._helpers import update_scene
 from models.generation_duration import GenerationDuration
 from models.script import Script, ScriptContent, VISUAL_MODES
 from pipeline.image_gen import (
-    BlinkRegistrationError,
     CaptionPromptLeakError,
     generate_batch,
     generate_batch_with_google_batch,
     generate_comparison_board_cutouts,
-    generate_blink_cutouts,
     generate_popup_sequence_cutouts,
     generate_scene_frames_v2,
     generate_scene_image,
@@ -28,7 +26,6 @@ from pipeline.image_gen import (
     generate_visual_layer_panels,
 )
 from pipeline import full_frame_blink as full_frame_blink_mod
-from pipeline import project_blink_review
 from pipeline.render_jobs import UserFacingJobError, create_job, get_job, run_in_background, update_job
 from pipeline.formats import resolve_format
 from pipeline.visual_treatments import analyze_visual_treatment_scene, require_visual_treatment_voiceover
@@ -38,7 +35,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/visuals", tags=["visuals"])
 
 METADATA_CLEAR: dict[str, object] = {}
-LAYERED_VISUAL_MODES = {"popup_sequence", "blink", "comparison_board", "stat_card"}
+LAYERED_VISUAL_MODES = {"popup_sequence", "comparison_board", "stat_card"}
 
 # --- Request / Response schemas ---
 
@@ -196,7 +193,7 @@ def _generate_scene_visual_layers(
             require_visual_treatment_voiceover(content)
             assignment = analyze_visual_treatment_scene(scene, script_id=script_id)
             layers = [layer.model_dump() for layer in assignment.visual_layers]
-    if not layers and treatment != "blink":
+    if not layers:
         return []
     logger.info(
         "[ANIMATION_TYPE] generating panels scene=%s animation_type=%s layers=%d",
@@ -222,17 +219,6 @@ def _generate_scene_visual_layers(
             scene_prompt=request_scene_prompt or (scene.visual_prompt if scene is not None else ""),
             width=width,
             height=height,
-        )
-    if treatment == "blink":
-        return generate_blink_cutouts(
-            scene_id=scene_id,
-            layers=layers,
-            script_id=script_id,
-            scene_prompt=request_scene_prompt or (scene.visual_prompt if scene is not None else ""),
-            scene_narration=scene.narration if scene is not None else "",
-            width=width,
-            height=height,
-            contains_person=contains_person,
         )
     if treatment == "stat_card":
         return generate_stat_card_cutout(
@@ -297,7 +283,7 @@ def _metadata_with_full_frame_blink(
     metadata = dict(source_metadata or {})
     metadata.pop("full_frame_blink", None)
     if visual_mode in full_frame_blink_mod.MEDIA_BACKED_BLINK_MODES and image_url:
-        blink_metadata = project_blink_review.build_unreviewed_full_frame_blink_metadata(script_id, scene_id, image_url)
+        blink_metadata = full_frame_blink_mod.build_full_frame_blink_metadata(script_id, scene_id, image_url)
         if blink_metadata:
             metadata["full_frame_blink"] = blink_metadata
     return metadata or None
@@ -463,8 +449,6 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
                 request_scene_prompt=body.visual_prompt,
                 request_contains_person=body.contains_person,
             )
-        except BlinkRegistrationError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
         except UserFacingJobError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         update_scene(
@@ -717,11 +701,11 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
 
     def _requested_layered_mode(scene: BatchScene) -> str:
         if scene.visual_mode in VISUAL_MODES:
-            return scene.visual_mode if scene.visual_mode in {"popup_sequence", "blink", "comparison_board"} else "full_frame"
+            return scene.visual_mode if scene.visual_mode in {"popup_sequence", "comparison_board"} else "full_frame"
         stored_scene = scene_map.get(scene.scene_id)
         if stored_scene is None:
             return "full_frame"
-        if stored_scene.visual_mode in {"popup_sequence", "blink", "comparison_board"}:
+        if stored_scene.visual_mode in {"popup_sequence", "comparison_board"}:
             return stored_scene.visual_mode
         return "full_frame"
 

@@ -130,11 +130,20 @@ def test_fallback_stats_endpoint_aggregates_ratio_events_beyond_recent_limit(mon
     SQLModel.metadata.create_all(engine)
     monkeypatch.setattr(database, "engine", engine)
     monkeypatch.setattr(dev_routes, "engine", engine)
+    monkeypatch.setitem(
+        dev_routes.FALLBACK_OUTCOME_SPECS,
+        ("visual_mode", "layered_assignment_downgraded"),
+        {
+            "success_event": "layered_assignment_succeeded",
+            "success_logger": "pipeline.visual_treatments",
+            "success_message_contains": ["[ANIMATION_TYPE]", "animation_type=popup_sequence"],
+        },
+    )
 
     now = datetime.now(timezone.utc)
     fallback_payload = {
         "category": "visual_mode",
-        "event": "blink_invalid_micro_action_downgraded",
+        "event": "layered_assignment_downgraded",
         "reason": "missing action",
         "severity": "warn",
     }
@@ -154,7 +163,7 @@ def test_fallback_stats_endpoint_aggregates_ratio_events_beyond_recent_limit(mon
                 timestamp=now,
                 level="INFO",
                 logger_name="pipeline.visual_treatments",
-                message="[ANIMATION_TYPE] scene=s1 animation_type=blink layers=3 reason=Explicit human micro-action blink: blink.",
+                message="[ANIMATION_TYPE] scene=s1 animation_type=popup_sequence layers=3 reason=Explicit layered mode.",
             )
         )
         session.commit()

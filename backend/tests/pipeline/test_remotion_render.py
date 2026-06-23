@@ -221,30 +221,28 @@ def test_scene_input_props_include_blink_action():
         id="s1",
         narration="He speaks.",
         visual_prompt="Teacher character.",
-        visual_mode="blink",
-        blink_action="blink",
+        visual_mode="full_frame",
     )
 
     props = remotion_render._scene_to_input_props(scene, "script-1")
 
-    assert props["blink_action"] == "blink"
+    assert props["blink_action"] == ""
 
 
 def test_scene_input_props_include_visual_layer_source_metadata():
     scene = Scene(
         id="s1",
-        narration="He blinks.",
-        visual_prompt="Teacher character.",
-        visual_mode="blink",
-        blink_action="blink",
+        narration="Before versus after.",
+        visual_prompt="Comparison.",
+        visual_mode="comparison_board",
         visual_layers=[
             VisualLayer(
                 id="s1_base",
                 asset_kind="cutout",
-                image_url="/static/projects/script-1/blink_cutouts/s1/base.png",
+                image_url="/static/projects/script-1/cutouts/s1/base.png",
                 visual_source_metadata={
-                    "source_type": "blink_base_cutout",
-                    "blink_overlay_anchor": {"mouth": {"x": 0.5, "y": 0.46}},
+                    "source_type": "comparison_cutout",
+                    "crop_box": {"x": 0.5, "y": 0.46},
                 },
             )
         ],
@@ -252,8 +250,8 @@ def test_scene_input_props_include_visual_layer_source_metadata():
 
     props = remotion_render._scene_to_input_props(scene, "script-1")
 
-    assert props["visual_layers"][0]["visual_source_metadata"]["source_type"] == "blink_base_cutout"
-    assert props["visual_layers"][0]["visual_source_metadata"]["blink_overlay_anchor"]["mouth"] == {"x": 0.5, "y": 0.46}
+    assert props["visual_layers"][0]["visual_source_metadata"]["source_type"] == "comparison_cutout"
+    assert props["visual_layers"][0]["visual_source_metadata"]["crop_box"] == {"x": 0.5, "y": 0.46}
 
 
 def test_scene_input_props_include_full_frame_blink_metadata():
@@ -360,10 +358,9 @@ def test_scene_input_props_resolves_style_preset_visual_layer_paths(tmp_path, mo
     cutout_path.write_bytes(b"not a real png")
     scene = Scene(
         id="s1",
-        narration="Billy blinks.",
+        narration="Billy contrasts two outcomes.",
         visual_prompt="Billy.",
-        visual_mode="blink",
-        blink_action="blink",
+        visual_mode="comparison_board",
         visual_layers=[
             VisualLayer(
                 id="billy_base",
@@ -383,10 +380,9 @@ def test_scene_input_props_resolves_style_preset_visual_layer_paths(tmp_path, mo
 def test_subtitle_render_fingerprint_includes_renderer_context_for_canvas_modes():
     scene = Scene(
         id="s1",
-        narration="He blinks at the whiteboard.",
-        visual_prompt="Teacher character.",
-        visual_mode="blink",
-        blink_action="blink",
+        narration="A small set of tools on the bench.",
+        visual_prompt="Tools laid out.",
+        visual_mode="popup_sequence",
         renderer_context="indoor",
     )
     content = ScriptContent(title="T", segments=[Segment(name="S", scenes=[scene])])
@@ -394,6 +390,7 @@ def test_subtitle_render_fingerprint_includes_renderer_context_for_canvas_modes(
     fingerprint = remotion_render.subtitle_render_fingerprint(content)
 
     assert fingerprint["renderer_context_stage_version"] == "renderer-context-stage-v4"
+    assert fingerprint["blink_renderer_version"] == "full-frame-blink-v1"
     assert fingerprint["scenes"][0]["renderer_context"] == "indoor"
 
 

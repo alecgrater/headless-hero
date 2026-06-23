@@ -14,7 +14,6 @@ from sqlmodel import Session
 
 from config import DATA_DIR
 from api.short_form_hooks import ensure_short_form_hook_scene_count
-from api.blink_review_guard import require_blink_review_complete_for_script
 from database import get_session
 from models.script import Script, ScriptContent
 from pipeline.render_jobs import (
@@ -140,7 +139,6 @@ def rendered_shorts(script_id: str, session: Session = Depends(get_session)):
     record = session.get(Script, script_id)
     if record is None:
         raise HTTPException(status_code=404, detail="Script not found")
-    require_blink_review_complete_for_script(record)
     content = ensure_short_form_hook_scene_count(session, script_id, content, record)
     project_title = record.topic_title or "Untitled"
     expected_paths = _short_download_paths_for_content(project_title, content)
@@ -324,7 +322,6 @@ def export_short_form_videos(
     record = session.get(Script, body.script_id)
     if record is None:
         raise HTTPException(status_code=404, detail="Script not found")
-    require_blink_review_complete_for_script(record)
     content = ensure_short_form_hook_scene_count(session, body.script_id, content, record)
     project_title = record.topic_title or "Untitled"
 
@@ -382,7 +379,6 @@ def start_render_all_shorts(
     record = session.get(Script, body.script_id)
     if record is None:
         raise HTTPException(status_code=404, detail="Script not found")
-    require_blink_review_complete_for_script(record)
     content = ensure_short_form_hook_scene_count(session, body.script_id, content, record)
     project_title = record.topic_title or "Untitled"
     total = len(content.segments)
@@ -424,7 +420,6 @@ def start_render_one_short(
     record = session.get(Script, body.script_id)
     if record is None:
         raise HTTPException(status_code=404, detail="Script not found")
-    require_blink_review_complete_for_script(record)
     content = ensure_short_form_hook_scene_count(session, body.script_id, content, record)
     if body.segment_idx < 0 or body.segment_idx >= len(content.segments):
         raise HTTPException(status_code=400, detail="segment_idx out of range")
@@ -466,7 +461,6 @@ def start_render_short_batch(
     record = session.get(Script, body.script_id)
     if record is None:
         raise HTTPException(status_code=404, detail="Script not found")
-    require_blink_review_complete_for_script(record)
     content = ensure_short_form_hook_scene_count(session, body.script_id, content, record)
     total_segments = len(content.segments)
     segment_indices = list(dict.fromkeys(body.segment_indices))

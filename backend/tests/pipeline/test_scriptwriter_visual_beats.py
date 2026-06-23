@@ -15,7 +15,6 @@ from pipeline.scriptwriter import (
     _ensure_visual_beat_directives,
     _fix_visual_monotony,
     _scene_granularity_duration,
-    _validate_blink_actions,
 )
 from prompts import script as script_prompt
 from prompts.script import SCRIPT_SYSTEM as SCRIPT_SYSTEM_PROMPT
@@ -373,109 +372,6 @@ def test_visual_mode_audit_preserves_existing_specialized_modes():
     _audit_visual_mode_metadata(content)
 
     assert popup.visual_mode == "popup_sequence"
-
-
-def test_validate_blink_actions_downgrades_missing_action():
-    scene = Scene(
-        id="s1",
-        narration="He blinks once.",
-        visual_prompt="[CLOSE-UP] Cartoon man at a desk.",
-        visual_mode="blink",
-    )
-    content = ScriptContent(title="Test", segments=[Segment(name="One", scenes=[scene])])
-
-    counts = _validate_blink_actions(content, script_id="script-1")
-
-    assert counts["downgraded"] == 1
-    assert scene.visual_mode == "full_frame"
-    assert scene.blink_action == ""
-
-
-def test_validate_blink_actions_downgrades_face_action_while_production_disabled():
-    scene = Scene(
-        id="s1",
-        narration="He blinks once.",
-        visual_prompt="[CLOSE-UP] Cartoon man at a desk.",
-        visual_mode="blink",
-        blink_action="blink",
-    )
-    content = ScriptContent(title="Test", segments=[Segment(name="One", scenes=[scene])])
-
-    counts = _validate_blink_actions(content, script_id="script-1")
-
-    assert counts["downgraded"] == 1
-    assert scene.visual_mode == "full_frame"
-    assert scene.blink_action == ""
-
-
-def test_validate_blink_actions_downgrades_pose_changing_action():
-    scene = Scene(
-        id="s1",
-        narration="He nods once.",
-        visual_prompt="[CLOSE-UP] Cartoon man at a desk.",
-        visual_mode="blink",
-        blink_action="walking",
-    )
-    content = ScriptContent(title="Test", segments=[Segment(name="One", scenes=[scene])])
-
-    counts = _validate_blink_actions(content, script_id="script-1")
-
-    assert counts["downgraded"] == 1
-    assert scene.visual_mode == "full_frame"
-    assert scene.blink_action == ""
-
-
-def test_validate_blink_actions_downgrades_pronoun_object_scene(monkeypatch):
-    fallback_calls = []
-
-    def fake_record_fallback(**kwargs):
-        fallback_calls.append(kwargs)
-
-    monkeypatch.setattr("pipeline.scriptwriter.record_fallback", fake_record_fallback)
-    scene = Scene(
-        id="s1",
-        narration="His bank account blinks red.",
-        visual_prompt="[CLOSE-UP] A blank bank account screen on a desk.",
-        visual_mode="blink",
-        blink_action="blink",
-    )
-    content = ScriptContent(title="Test", segments=[Segment(name="One", scenes=[scene])])
-
-    counts = _validate_blink_actions(content, script_id="script-1")
-
-    assert counts["downgraded"] == 1
-    assert scene.visual_mode == "full_frame"
-    assert scene.blink_action == ""
-    assert fallback_calls == [
-        {
-            "category": "visual_mode",
-            "event": "blink_invalid_micro_action_downgraded",
-            "reason": "Blink scene missing valid human micro-action",
-            "severity": "warn",
-            "script_id": "script-1",
-            "scene_id": "s1",
-            "from_value": "blink",
-            "to_value": "full_frame",
-        }
-    ]
-
-
-def test_validate_blink_actions_clears_non_blink_action():
-    scene = Scene(
-        id="s1",
-        narration="He blinks once.",
-        visual_prompt="[CLOSE-UP] Cartoon man at a desk.",
-        visual_mode="full_frame",
-    )
-    object.__setattr__(scene, "blink_action", "blink")
-    content = ScriptContent(title="Test", segments=[Segment(name="One", scenes=[scene])])
-
-    counts = _validate_blink_actions(content, script_id="script-1")
-
-    assert counts["cleared"] == 1
-    assert scene.visual_mode == "full_frame"
-    assert scene.blink_action == ""
-
 
 def test_visual_mode_audit_rejects_internal_renderer_terms_in_narration():
     content = ScriptContent(

@@ -12,7 +12,6 @@ from sqlmodel import Session
 
 from config import DATA_DIR, VIDEO_HEIGHT, VIDEO_WIDTH
 from api.short_form_hooks import ensure_short_form_hook_scene_count
-from api.blink_review_guard import require_blink_review_complete_for_script
 from database import get_default_brand_id, get_session
 from pipeline.script_utils import find_scene_in_content
 from models.brand import BrandProfile
@@ -193,7 +192,6 @@ def start_full_render(body: RenderFullRequest, session: Session = Depends(get_se
     record = session.get(Script, body.script_id)
     if not record:
         raise HTTPException(status_code=404, detail="Script not found")
-    require_blink_review_complete_for_script(record)
     content = _load_content(session, body.script_id)
     brand_dict = _load_brand(session, body.script_id)
     scene_count = _count_scenes(content)
@@ -293,7 +291,6 @@ def rendered_longform(script_id: str, session: Session = Depends(get_session)):
         raise HTTPException(status_code=404, detail="Script not found")
 
     content = ScriptContent.model_validate(json.loads(record.script_json))
-    require_blink_review_complete_for_script(record)
     project_title = record.topic_title or "Untitled"
     path, url = _find_rendered_longform(script_id, project_title, content)
     return RenderedLongformResponse(
@@ -344,7 +341,6 @@ def export_bundle(body: ExportBundleRequest, session: Session = Depends(get_sess
 
     content = ScriptContent.model_validate(json.loads(record.script_json))
     content = ensure_short_form_hook_scene_count(session, body.script_id, content, record)
-    require_blink_review_complete_for_script(record)
     project_title = record.topic_title or "Untitled"
     folder = project_downloads_folder(project_title)
 
@@ -477,7 +473,6 @@ def start_export_test(body: ExportTestRequest, session: Session = Depends(get_se
     record = session.get(Script, body.script_id)
     if not record:
         raise HTTPException(status_code=404, detail="Script not found")
-    require_blink_review_complete_for_script(record)
     if body.regen_images:
         _require_character_reference_ready(session, body.script_id)
     brand_dict = _load_brand(session, body.script_id)

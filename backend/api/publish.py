@@ -13,7 +13,6 @@ from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from database import get_default_brand_id, get_session
-from api.blink_review_guard import require_blink_review_complete_for_script
 from config import DATA_DIR
 from models.credential import PlatformCredential, PlatformCredentialRead
 from models.publish import PublishRecord, PublishRecordRead
@@ -602,7 +601,6 @@ def start_longform_youtube_upload(body: LongFormUploadRequest, session: Session 
     script = session.get(Script, body.script_id)
     if not script:
         raise HTTPException(status_code=404, detail="Script not found")
-    require_blink_review_complete_for_script(script)
 
     cred = _get_credential(session, brand_id, "youtube")
     if not cred:
@@ -720,7 +718,6 @@ def start_short_form_upload(body: ShortFormUploadRequest, session: Session = Dep
     script = session.get(Script, body.script_id)
     if not script:
         raise HTTPException(status_code=404, detail="Script not found")
-    require_blink_review_complete_for_script(script)
 
     content = ScriptContent.model_validate(json.loads(script.script_json))
     file_path = _rendered_short_path(

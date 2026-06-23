@@ -10,7 +10,6 @@ from sqlmodel import Session
 
 from api.render import _find_rendered_longform
 from api.short_form_hooks import ensure_short_form_hook_scene_count
-from api.blink_review_guard import require_blink_review_complete_for_script
 from config import DATA_DIR
 from database import get_session
 from models.script import Script, ScriptContent
@@ -255,7 +254,6 @@ def export_file_status(script_id: str, session: Session = Depends(get_session)):
 def upload_suite_status(script_id: str, session: Session = Depends(get_session)):
     """Return the manual upload suite if exported videos are ready."""
     record, content = _load_script(session, script_id)
-    require_blink_review_complete_for_script(record)
     project_title = record.topic_title or content.title or "Untitled"
     folder = project_downloads_folder(project_title, create=False)
     total = len(content.segments)

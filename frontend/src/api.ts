@@ -2,14 +2,8 @@ import { showToast } from "./components/ToastContainer";
 import { BACKEND_PORT } from "./constants";
 import type { ImageReviewAssetDataResponse, ImageReviewListResponse, ImageReviewUpdateResponse } from "./types/imageReview";
 import type { ScriptContent, UploadTracking, VisualLayer, VisualMode } from "./types/script";
-import type { BlinkReviewSummary } from "./types/blinkReview";
 import type { VideoFormat } from "./types/format";
 import type {
-  BlinkDebugAction,
-  BlinkDebugAsset,
-  BlinkDebugResult,
-  BlinkFixtureRenderResult,
-  BlinkFixtureResult,
   FullFrameBlinkAuditReport,
   PopupCropAnchorResult,
   PopupCropChromaResult,
@@ -223,42 +217,6 @@ export async function chromaPopupCropItemSheet(
   const res = await api.post<PopupCropChromaResult>("/api/test-lab/popup-crop/items/chroma", {
     run_id: runId,
     items,
-  });
-  return res.ok ? res.data : null;
-}
-
-export async function getBlinkDebugAssets(): Promise<BlinkDebugAsset[]> {
-  const res = await api.get<{ assets: BlinkDebugAsset[] }>("/api/test-lab/blink-debug/assets");
-  return res.ok ? res.data.assets : [];
-}
-
-export async function analyzeBlinkDebugAsset(
-  assetId: string,
-  action: BlinkDebugAction,
-): Promise<BlinkDebugResult | null> {
-  const res = await api.post<BlinkDebugResult>("/api/test-lab/blink-debug/analyze", {
-    asset_id: assetId,
-    action,
-  });
-  return res.ok ? res.data : null;
-}
-
-export async function createBlinkFixtureAsset(): Promise<BlinkFixtureResult | null> {
-  const res = await api.post<BlinkFixtureResult>("/api/test-lab/blink/fixture", {
-    force: false,
-  });
-  return res.ok ? res.data : null;
-}
-
-export async function renderBlinkFixturePreview(
-  assetId: string,
-  action: BlinkDebugAction,
-  rendererContext: string,
-): Promise<BlinkFixtureRenderResult | null> {
-  const res = await api.post<BlinkFixtureRenderResult>("/api/test-lab/blink/render", {
-    asset_id: assetId,
-    action,
-    renderer_context: rendererContext,
   });
   return res.ok ? res.data : null;
 }
@@ -1072,25 +1030,6 @@ export async function analyzeVisualTreatments(scriptId: string): Promise<{ job_i
 export async function getVisualTreatmentStatus(jobId: string): Promise<VisualTreatmentStatus> {
   const res = await api.get<VisualTreatmentStatus>(`/api/visual-treatments/analyze/status/${jobId}`);
   if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to check visual mode status");
-  return res.data;
-}
-
-export async function getBlinkReview(scriptId: string): Promise<BlinkReviewSummary> {
-  const res = await api.get<BlinkReviewSummary>(`/api/blink-review/${encodeURIComponent(scriptId)}`);
-  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to load Blink Review");
-  return res.data;
-}
-
-export async function updateBlinkReviewDecision(
-  scriptId: string,
-  sceneId: string,
-  status: "enabled" | "disabled",
-): Promise<BlinkReviewSummary> {
-  const res = await api.post<BlinkReviewSummary>(
-    `/api/blink-review/${encodeURIComponent(scriptId)}/scenes/${encodeURIComponent(sceneId)}`,
-    { status },
-  );
-  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to update Blink Review");
   return res.data;
 }
 

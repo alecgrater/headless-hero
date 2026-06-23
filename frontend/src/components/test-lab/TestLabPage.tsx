@@ -11,7 +11,7 @@ import type {
   TestLabSubtitleSummary,
   TestLabVoiceSummary,
 } from "../../types/testLab";
-import BlinkDebugLab from "./BlinkDebugLab";
+import BlinkAuditLab from "./BlinkAuditLab";
 import PopupCropLab from "./PopupCropLab";
 import SmokeTestLab from "./SmokeTestLab";
 import TestLabControls, { settingsWithVisualTreatmentDefaults } from "./TestLabControls";
@@ -70,7 +70,7 @@ type TestLabJobStatus = {
   error?: string | null;
 };
 
-type TestLabTab = "pipeline" | "popup-crop" | "blink-debug" | "smoke-test";
+type TestLabTab = "pipeline" | "popup-crop" | "blink" | "smoke-test";
 type TestLabSettingsSection = "voice" | "subtitles";
 
 interface Props {
@@ -260,7 +260,7 @@ export default function TestLabPage({ active = true, onOpenSettingsSection }: Pr
           <div className="mt-4 inline-flex overflow-hidden rounded-md border border-neutral-800 bg-neutral-950/70">
             <TabButton active={activeTab === "pipeline"} label="Scene Pipeline" onClick={() => setActiveTab("pipeline")} />
             <TabButton active={activeTab === "popup-crop"} label="Popup Crop" onClick={() => setActiveTab("popup-crop")} />
-            <TabButton active={activeTab === "blink-debug"} label="Blink" onClick={() => setActiveTab("blink-debug")} />
+            <TabButton active={activeTab === "blink"} label="Blink" onClick={() => setActiveTab("blink")} />
             <TabButton active={activeTab === "smoke-test"} label="Smoke Test" onClick={() => setActiveTab("smoke-test")} />
           </div>
         </div>
@@ -316,9 +316,9 @@ export default function TestLabPage({ active = true, onOpenSettingsSection }: Pr
           <div className="min-h-0 flex-1 overflow-hidden p-4">
             <PopupCropLab />
           </div>
-        ) : activeTab === "blink-debug" ? (
+        ) : activeTab === "blink" ? (
           <div className="min-h-0 flex-1 overflow-hidden p-4">
-            <BlinkDebugLab />
+            <BlinkAuditLab />
           </div>
         ) : (
           <div className="min-h-0 flex-1 overflow-hidden p-4">

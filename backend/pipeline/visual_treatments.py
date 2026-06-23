@@ -10,17 +10,15 @@ from pydantic import BaseModel, Field, model_validator
 from models.script import ScriptContent, Scene, VISUAL_MODES, VisualLayer, VisualMode
 from pipeline.fallback_observability import record_fallback
 from pipeline.blink_actions import (
-    build_blink_state_prompt,
     has_human_blink_subject,
     normalize_blink_action,
-    normalize_production_blink_action,
 )
 from pipeline.renderer_context import infer_renderer_context, normalize_renderer_context
 from pipeline.render_jobs import UserFacingJobError
 
 logger = logging.getLogger(__name__)
 
-LAYERED_LEGACY_TREATMENTS = {"full_frame", "popup_sequence", "blink", "comparison_board"}
+LAYERED_LEGACY_TREATMENTS = {"full_frame", "popup_sequence", "comparison_board"}
 LIST_MARKERS = {
     "first",
     "second",
@@ -150,7 +148,7 @@ REPETITION_STOPWORDS = {
     "the",
     "to",
 }
-VARIETY_PRIORITY_MODES = {"full_frame", "multi_frame", "continuous", "blink"}
+VARIETY_PRIORITY_MODES = {"full_frame", "multi_frame", "continuous"}
 CLEAR_IMPROVEMENT_MODES = {
     "comparison_board",
     "stat_card",
@@ -202,7 +200,7 @@ class VisualTreatmentAssignment(BaseModel):
     def visual_treatment(self) -> str:
         return (
             self.visual_mode
-            if self.visual_mode in {"popup_sequence", "blink", "comparison_board", "stat_card"}
+            if self.visual_mode in {"popup_sequence", "comparison_board", "stat_card"}
             else "full_frame"
         )
 
@@ -306,7 +304,7 @@ def apply_visual_treatment_assignments(
             scene.stat_label = assignment.stat_label
         scene.visual_layers = (
             list(assignment.visual_layers)
-            if mode in {"popup_sequence", "blink", "comparison_board", "stat_card"}
+            if mode in {"popup_sequence", "comparison_board", "stat_card"}
             else []
         )
     _enforce_content_non_repeatable_spacing(content)
@@ -427,35 +425,6 @@ def _analyze_scene(scene: Scene, *, script_id: str | None = None) -> VisualTreat
             reasoning="Scene is explicitly marked for popup-sequence rendering.",
             visual_layers=layers,
         )
-    if scene.visual_mode == "blink":
-        action = normalize_production_blink_action(scene.blink_action)
-        if not action or not has_human_blink_subject(scene.narration, scene.visual_prompt):
-            previous_action = scene.blink_action
-            scene.set_visual_mode("full_frame")
-            scene.visual_layers = []
-            scene.blink_action = ""
-            record_fallback(
-                category="visual_mode",
-                event="blink_invalid_micro_action_downgraded",
-                reason="Blink scene missing valid human micro-action during analyzer pass",
-                severity="warn",
-                script_id=script_id,
-                scene_id=scene.id,
-                from_value="blink",
-                to_value="full_frame",
-                metadata={"blink_action": previous_action} if previous_action else None,
-            )
-            return _full_frame_assignment(
-                scene.id,
-                "Invalid blink request; missing valid human micro-action.",
-            )
-        scene.blink_action = action
-        return VisualTreatmentAssignment(
-            scene_id=scene.id,
-            visual_mode="blink",
-            reasoning=f"Explicit human micro-action blink: {action}.",
-            visual_layers=_blink_layers(scene),
-        )
     if scene.visual_mode == "comparison_board":
         return VisualTreatmentAssignment(
             scene_id=scene.id,
@@ -486,18 +455,6 @@ def _analyze_scene(scene: Scene, *, script_id: str | None = None) -> VisualTreat
             reasoning=f"Detected {len(layers)} list markers in narration.",
             visual_layers=layers,
         )
-
-    if _looks_like_blink_micro_action(scene):
-        action = _infer_blink_action(scene)
-        if action and has_human_blink_subject(scene.narration, scene.visual_prompt):
-            scene.set_visual_mode("blink")
-            scene.blink_action = action
-            return VisualTreatmentAssignment(
-                scene_id=scene.id,
-                visual_mode="blink",
-                reasoning=f"Detected human micro-action suitable for blink: {action}.",
-                visual_layers=_blink_layers(scene),
-            )
 
     comparison_layers = _comparison_layers_for_scene(scene)
     if comparison_layers:
@@ -645,35 +602,6 @@ def _looks_like_continuous_progression(scene: Scene) -> bool:
     )
 
 
-def _looks_like_blink_micro_action(scene: Scene) -> bool:
-    words = {_normalize_word(word.word) for word in scene.word_timestamps or []}
-    text = scene.narration.lower()
-    has_subject = bool(words & MICRO_ACTION_SUBJECT_MARKERS)
-    has_motion = bool(words & MICRO_ACTION_MOTION_MARKERS)
-    has_strong_phrase = any(phrase in text for phrase in MICRO_ACTION_PHRASES)
-    return (has_subject and (has_motion or has_strong_phrase)) or bool(
-        _infer_blink_action(scene)
-        and has_human_blink_subject(scene.narration, scene.visual_prompt)
-    )
-
-
-_BLINK_INFER_RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
-    ("blink", ("blink", "blinks", "blinking")),
-)
-
-
-def _phrase_matches(text: str, phrase: str) -> bool:
-    return re.search(rf"\b{re.escape(phrase)}\b", text) is not None
-
-
-def _infer_blink_action(scene: Scene) -> str:
-    text = f"{scene.narration} {scene.visual_prompt}".casefold()
-    for action, phrases in _BLINK_INFER_RULES:
-        if any(_phrase_matches(text, phrase) for phrase in phrases):
-            return normalize_production_blink_action(action)
-    return ""
-
-
 def _popup_layers_for_scene(
     scene: Scene,
     *,
@@ -718,36 +646,6 @@ def _popup_layers(scene: Scene, list_items: list[tuple[str, float]]) -> list[Vis
     return layers
 
 
-def _blink_layers(scene: Scene) -> list[VisualLayer]:
-    action = normalize_production_blink_action(scene.blink_action)
-    _ensure_renderer_context(scene)
-    return [
-        VisualLayer(
-            id=f"{scene.id}_state_a",
-            asset_kind="cutout",
-            prompt=blink_cutout_prompt(scene.visual_prompt, scene.narration, "state A", action=action),
-            placement="center",
-            enter_at_seconds=0.0,
-            animation="none",
-        ),
-        VisualLayer(
-            id=f"{scene.id}_state_b",
-            asset_kind="cutout",
-            prompt=blink_cutout_prompt(scene.visual_prompt, scene.narration, "state B", action=action),
-            placement="center",
-            enter_at_seconds=0.0,
-            animation="none",
-        ),
-    ]
-
-
-def _ensure_renderer_context(scene: Scene) -> None:
-    context = normalize_renderer_context(scene.renderer_context)
-    if not scene.renderer_context:
-        context = infer_renderer_context(narration=scene.narration, visual_prompt=scene.visual_prompt)
-    scene.renderer_context = context
-
-
 def _comparison_layers_for_scene(scene: Scene) -> list[VisualLayer]:
     subjects = _comparison_subjects(scene)
     if len(subjects) < 2:
@@ -783,38 +681,6 @@ def comparison_cutout_prompt(visual_prompt: str, narration: str, subject: str) -
         "no mat, no white margin, no inset panel, no UI chrome, no caption box, no poster edge. "
         "No text in image."
     )
-
-
-def blink_cutout_prompt(visual_prompt: str, narration: str, focus: str, *, action: str = "") -> str:
-    normalized_focus = focus.strip().casefold()
-    normalized_action = normalize_blink_action(action)
-    if normalized_action:
-        base_prompt = build_blink_state_prompt(
-            visual_prompt=visual_prompt,
-            narration=narration,
-            action=normalized_action,
-            state="a" if normalized_focus.endswith("a") else "b",
-        )
-    else:
-        base_scene = visual_prompt.strip() or narration.strip()
-        state_direction = (
-            "Initial pose or expression before the small movement changes."
-            if normalized_focus.endswith("a")
-            else "Next compatible pose or expression; keep identity, scale, camera angle, and style consistent with State A."
-        )
-        base_prompt = f"Blink transparent cutout for {focus}: {base_scene}. {state_direction}"
-    return (
-        f"{base_prompt} "
-        "Generate one isolated human or character subject whenever possible, waist-up or full-body depending on the action. "
-        "Use a solid chroma background color that does not appear in the subject. "
-        "Keep a clean closed silhouette for automatic cropping. "
-        "No full background scene, scenery, split-screen, decorative border, picture frame, mat, white margin, "
-        "inset panel, UI chrome, caption box, poster edge, speech bubble, labels, or text."
-    )
-
-
-def blink_panel_prompt(visual_prompt: str, narration: str, focus: str) -> str:
-    return blink_cutout_prompt(visual_prompt, narration, focus)
 
 
 def _panel_prompt(scene: Scene, focus: str) -> str:

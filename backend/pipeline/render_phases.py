@@ -98,7 +98,6 @@ def _phase_images(ctx: ExportContext) -> None:
     """Generate images for all scenes (skips title cards)."""
     from pipeline.image_gen import (
         generate_comparison_board_cutouts,
-        generate_blink_cutouts,
         generate_popup_sequence_cutouts,
         generate_scene_frames_v2,
         generate_scene_image,
@@ -106,7 +105,6 @@ def _phase_images(ctx: ExportContext) -> None:
         generate_visual_layer_panels,
     )
     from pipeline import full_frame_blink as full_frame_blink_mod
-    from pipeline import project_blink_review
 
     non_tc = [sc for sc in ctx.scenes if not sc.get("is_title_card")]
     scene_count = len(non_tc)
@@ -123,7 +121,7 @@ def _phase_images(ctx: ExportContext) -> None:
             visual_layers = [layer.model_dump() for layer in scene_now.visual_layers]
         visual_layers = visual_layers or []
         visual_mode = sc_info.get("visual_mode") or (scene_now.visual_mode if scene_now is not None else "full_frame")
-        treatment = visual_mode if visual_mode in {"video", "popup_sequence", "blink", "comparison_board", "stat_card"} else "full_frame"
+        treatment = visual_mode if visual_mode in {"video", "popup_sequence", "comparison_board", "stat_card"} else "full_frame"
         if treatment != "full_frame":
             logger.info(
                 "[%s] Skipping full scene image for %s scene %s (%d/%d)",
@@ -169,12 +167,18 @@ def _phase_images(ctx: ExportContext) -> None:
         if visual_mode in full_frame_blink_mod.MEDIA_BACKED_BLINK_MODES:
             blink_image_url = sc_info.get("_image_url") or ""
             if blink_image_url:
-                sc_info["_full_frame_blink"] = project_blink_review.build_unreviewed_full_frame_blink_metadata(
+                blink_meta = full_frame_blink_mod.build_full_frame_blink_metadata(
                     ctx.script_id,
                     sid,
                     blink_image_url,
                 )
-        if treatment in {"popup_sequence", "blink", "comparison_board", "stat_card"} and (visual_layers or treatment == "blink"):
+                sc_info["_full_frame_blink"] = blink_meta
+                if blink_meta is None:
+                    logger.info(
+                        "[FULL_FRAME_BLINK] suppressed scene=%s (no safe face anchor)",
+                        sid,
+                    )
+        if treatment in {"popup_sequence", "comparison_board", "stat_card"} and visual_layers:
             logger.info(
                 "[ANIMATION_TYPE] generating panels scene=%s animation_type=%s layers=%d",
                 sid,
@@ -202,16 +206,6 @@ def _phase_images(ctx: ExportContext) -> None:
                     script_id=ctx.script_id,
                     scene_prompt=sc_info.get("visual_prompt") or (scene_now.visual_prompt if scene_now is not None else ""),
                     force=True,
-                )
-            elif treatment == "blink":
-                sc_info["_visual_layers"] = generate_blink_cutouts(
-                    scene_id=sid,
-                    layers=layer_dicts,
-                    script_id=ctx.script_id,
-                    scene_prompt=sc_info.get("visual_prompt") or (scene_now.visual_prompt if scene_now is not None else ""),
-                    scene_narration=sc_info.get("narration") or (scene_now.narration if scene_now is not None else ""),
-                    force=True,
-                    contains_person=contains_person,
                 )
             elif treatment == "stat_card":
                 sc_info["_visual_layers"] = generate_stat_card_cutout(

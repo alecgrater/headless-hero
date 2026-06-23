@@ -29,8 +29,9 @@ from models.script import (
     VisualLayer,
 )
 from pipeline.blink_actions import BlinkAction, normalize_blink_action
+from pipeline import full_frame_blink as full_frame_blink_mod
 from pipeline.script_helpers import _usage_task_label
-from pipeline.visual_treatments import comparison_cutout_prompt, blink_cutout_prompt
+from pipeline.visual_treatments import comparison_cutout_prompt
 from pipeline.renderer_context import infer_renderer_context, normalize_renderer_context
 
 logger = logging.getLogger(__name__)
@@ -932,7 +933,7 @@ def _stage_visual(ctx: TestLabRunContext) -> None:
         scene = _first_scene(content)
         if scene.visual_mode in {"multi_frame", "continuous"} and not scene.frame_directives:
             scene.frame_directives = _frame_directives_for_visual_mode(scene)
-        if scene.visual_mode in {"popup_sequence", "blink", "comparison_board", "stat_card"}:
+        if scene.visual_mode in {"popup_sequence", "comparison_board", "stat_card"}:
             scene.image_url = ""
             scene.video_url = ""
             scene.frame_urls = []
@@ -984,7 +985,16 @@ def _stage_visual(ctx: TestLabRunContext) -> None:
             scene.image_url = image_url
             scene.video_url = ""
             scene.frame_urls = []
-            scene.visual_source_metadata = source_metadata if isinstance(source_metadata, dict) else None
+            merged_metadata = source_metadata if isinstance(source_metadata, dict) else {}
+            merged_metadata = dict(merged_metadata)
+            merged_metadata.pop("full_frame_blink", None)
+            if scene.visual_mode in full_frame_blink_mod.MEDIA_BACKED_BLINK_MODES:
+                blink_meta = full_frame_blink_mod.build_full_frame_blink_metadata(
+                    ctx.script_id, scene.id, image_url
+                )
+                if blink_meta:
+                    merged_metadata["full_frame_blink"] = blink_meta
+            scene.visual_source_metadata = merged_metadata or None
             ctx.manifest.assets.append(TestLabAsset(kind="image", label="Scene image", url=image_url))
         else:
             scene.image_url = ""
@@ -1048,7 +1058,6 @@ def _frame_directives_for_visual_mode(scene: Scene) -> list[dict]:
 def _stage_treatment_assets(ctx: TestLabRunContext) -> None:
     from pipeline.image_gen import (
         generate_comparison_board_cutouts,
-        generate_blink_base_cutout,
         generate_popup_sequence_cutouts,
         generate_stat_card_cutout,
         generate_visual_layer_panels,
@@ -1067,13 +1076,13 @@ def _stage_treatment_assets(ctx: TestLabRunContext) -> None:
         requested_mode = ctx.settings.get("visual_mode") or ctx.settings.get("visual_treatment")
         if isinstance(requested_mode, str):
             scene.set_visual_mode(requested_mode)
-        layer_based_treatment = scene.visual_mode in {"popup_sequence", "blink", "comparison_board", "stat_card"}
+        layer_based_treatment = scene.visual_mode in {"popup_sequence", "comparison_board", "stat_card"}
         explicit_treatment = "visual_mode" in ctx.settings or "visual_treatment" in ctx.settings or scene.visual_mode != "full_frame"
         if not explicit_treatment:
             assignments = analyze_visual_treatments(content, script_id=ctx.script_id)
             apply_visual_treatment_assignments(content, assignments)
             scene = _first_scene(content)
-            layer_based_treatment = scene.visual_mode in {"popup_sequence", "blink", "comparison_board", "stat_card"}
+            layer_based_treatment = scene.visual_mode in {"popup_sequence", "comparison_board", "stat_card"}
         if scene.visual_mode == "full_frame":
             scene.visual_layers = []
             _save_content(session, record, content)
@@ -1131,16 +1140,6 @@ def _stage_treatment_assets(ctx: TestLabRunContext) -> None:
                     script_id=ctx.script_id,
                     scene_prompt=scene.visual_prompt,
                     force=True,
-                )
-            elif scene.visual_mode == "blink":
-                generated_layers = generate_blink_base_cutout(
-                    scene_id=scene.id,
-                    layers=layer_dicts,
-                    script_id=ctx.script_id,
-                    scene_prompt=scene.visual_prompt,
-                    scene_narration=scene.narration,
-                    force=True,
-                    contains_person=scene.contains_person,
                 )
             elif scene.visual_mode == "stat_card":
                 generated_layers = generate_stat_card_cutout(
@@ -1235,25 +1234,7 @@ def _fallback_visual_layers_for_treatment(scene: Scene) -> list[VisualLayer]:
         ]
     if scene.visual_mode == "stat_card":
         return []
-    context = normalize_renderer_context(scene.renderer_context)
-    if not scene.renderer_context:
-        context = infer_renderer_context(narration=scene.narration, visual_prompt=scene.visual_prompt)
-    scene.renderer_context = context
-    return [
-        VisualLayer(
-            id=f"{scene.id}_base",
-            asset_kind="cutout",
-            prompt=blink_cutout_prompt(
-                scene.visual_prompt,
-                scene.narration,
-                "state A",
-                action=scene.blink_action,
-            ),
-            placement="center",
-            enter_at_seconds=0.0,
-            animation="none",
-        ),
-    ]
+    return []
 
 
 def _stage_fx(ctx: TestLabRunContext) -> None:
@@ -1354,7 +1335,7 @@ def _stage_render(ctx: TestLabRunContext) -> None:
 def _stage_defaults(settings: dict) -> dict[str, bool]:
     eli_default = _bool_setting(settings, "eli_enabled", False)
     visual_mode = settings.get("visual_mode") or ("video" if settings.get("media_source") == "ai_video" else "full_frame")
-    treatment_assets_enabled = visual_mode in {"popup_sequence", "blink", "comparison_board", "stat_card"}
+    treatment_assets_enabled = visual_mode in {"popup_sequence", "comparison_board", "stat_card"}
     return {
         "audio": _enabled(settings, "audio", True),
         "visual": _enabled(settings, "visual", True),

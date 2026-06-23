@@ -55,15 +55,6 @@ _TARGETS: dict[str, VisualModeDurationTarget] = {
         ui_label="Normal target · 5-9s",
         prompt_guidance="Use about 5-9 seconds unless several concrete examples require a little more room.",
     ),
-    "blink": VisualModeDurationTarget(
-        visual_mode="blink",
-        profile="normal",
-        min_seconds=5.0,
-        target_seconds=8.0,
-        max_seconds=14.0,
-        ui_label="Normal target · 5-9s",
-        prompt_guidance="Use about 5-9 seconds for simple cropped-subject character/body-language A/B motion.",
-    ),
     "captions": VisualModeDurationTarget(
         visual_mode="captions",
         profile="normal",
@@ -123,7 +114,7 @@ if _missing_targets or _unknown_targets:
     )
 
 CANONICAL_VISUAL_MODES: tuple[str, ...] = tuple(mode for mode in _TARGETS if mode in VISUAL_MODES)
-PRODUCTION_OPPORTUNITY_MODES: tuple[str, ...] = tuple(mode for mode in CANONICAL_VISUAL_MODES if mode != "blink")
+PRODUCTION_OPPORTUNITY_MODES: tuple[str, ...] = CANONICAL_VISUAL_MODES
 
 _OPPORTUNITY_POLICIES: dict[str, VisualModeOpportunityPolicy] = {
     "full_frame": VisualModeOpportunityPolicy(
@@ -159,28 +150,6 @@ _OPPORTUNITY_POLICIES: dict[str, VisualModeOpportunityPolicy] = {
             "environment gradually shifts",
         ),
         avoid_when=("frames are unrelated examples", "the scene is only a static realization", "side-by-side comparison is clearer"),
-    ),
-    "blink": VisualModeOpportunityPolicy(
-        visual_mode="blink",
-        purpose="Cropped-subject character/body-language A/B micro-animation using compatible transparent cutout states for one cropped subject.",
-        frequency_guidance="Common expressive rhythm opportunity in long scripts; consider several uses when a cropped subject has repeated body-language gestures or simple A/B motion.",
-        opportunity_cues=(
-            "talking mouth or expression changes",
-            "head tilt or nodding",
-            "hand gesture or pointing",
-            "character leaning or shrugging",
-            "explicit object action held by a person",
-        ),
-        avoid_when=(
-            "contrast is only conceptual",
-            "contrast is between time periods",
-            "contrast is between emotional states",
-            "contrast is between locations",
-            "contrast is between outcomes",
-            "subjects are unrelated",
-            "full environments change",
-            "a true side-by-side comparison is needed",
-        ),
     ),
     "captions": VisualModeOpportunityPolicy(
         visual_mode="captions",
@@ -286,7 +255,6 @@ def prompt_visual_opportunity_guidance(projected_scene_count: int | None = None)
             "which modes were genuinely unsupported by the topic instead of omitting them silently."
         ),
         "Treat captions as a common expressive rhythm opportunity in long scripts when the narration supports it.",
-        "Do not plan blink for production scripts; blink remains available only in Test Lab/render compatibility paths.",
         "Keep popup_sequence, comparison_board, and stat_card low-count and meaning-driven, but actively scan for them before accepting zero.",
         "Post-generation checks may validate or downgrade invalid modes, but must not redistribute modes into already-cut short scenes.",
     ]

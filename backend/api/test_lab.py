@@ -30,13 +30,6 @@ from pipeline.test_lab_popup_crop import (
     generate_popup_crop_anchor,
     generate_popup_crop_item_sheet,
 )
-from pipeline.test_lab_blink_debug import (
-    BlinkDebugAction,
-    analyze_blink_debug_asset,
-    create_blink_fixture_asset,
-    list_blink_debug_assets,
-    render_blink_fixture_preview,
-)
 from pipeline.full_frame_blink import (
     BURGER_KING_BLINK_AUDIT_SCRIPT_ID,
     list_blink_audit_reports,
@@ -125,23 +118,6 @@ class PopupCropItemSheetRequest(BaseModel):
 class PopupCropItemSheetChromaRequest(BaseModel):
     run_id: str = Field(min_length=1)
     items: list[str] = Field(default_factory=list, max_length=5)
-
-
-class BlinkDebugAnalyzeRequest(BaseModel):
-    asset_id: str = Field(min_length=1)
-    action: BlinkDebugAction = "blink"
-
-
-class BlinkFixtureRequest(BaseModel):
-    visual_prompt: str = ""
-    narration: str = ""
-    force: bool = False
-
-
-class BlinkFixtureRenderRequest(BaseModel):
-    asset_id: str = Field(min_length=1)
-    action: BlinkDebugAction = "blink"
-    renderer_context: RendererContext | str = "outdoor"
 
 
 class BlinkAuditRequest(BaseModel):
@@ -360,46 +336,6 @@ def create_popup_crop_item_sheet_chroma(request: PopupCropItemSheetChromaRequest
         return result.model_dump(mode="json")
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Generate the item sheet before running chroma.") from None
-
-
-@router.get("/blink-debug/assets")
-def get_blink_debug_assets():
-    return {"assets": [asset.model_dump(mode="json") for asset in list_blink_debug_assets()]}
-
-
-@router.post("/blink-debug/analyze")
-def analyze_blink_debug(request: BlinkDebugAnalyzeRequest):
-    try:
-        result = analyze_blink_debug_asset(asset_id=request.asset_id, action=request.action)
-        return result.model_dump(mode="json")
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-
-@router.post("/blink/fixture")
-def create_blink_fixture(request: BlinkFixtureRequest):
-    try:
-        result = create_blink_fixture_asset(
-            visual_prompt=request.visual_prompt,
-            narration=request.narration,
-            force=request.force,
-        )
-        return result.model_dump(mode="json")
-    except FileNotFoundError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
-
-
-@router.post("/blink/render")
-def render_blink_fixture(request: BlinkFixtureRenderRequest):
-    try:
-        result = render_blink_fixture_preview(
-            asset_id=request.asset_id,
-            action=request.action,
-            renderer_context=normalize_renderer_context(request.renderer_context),
-        )
-        return result.model_dump(mode="json")
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/blink-audits")

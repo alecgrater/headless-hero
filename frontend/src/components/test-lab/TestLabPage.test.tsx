@@ -20,12 +20,8 @@ vi.mock("../../api", () => ({
   getTestLabRuns: vi.fn().mockResolvedValue([]),
   startTestLabRun: vi.fn(),
   assetUrl: (path: string) => path,
-  analyzeBlinkDebugAsset: vi.fn(),
   bumpAssetVersion: vi.fn(),
-  createBlinkFixtureAsset: vi.fn(),
-  getBlinkDebugAssets: vi.fn().mockResolvedValue([]),
   getBlinkAuditReports: vi.fn().mockResolvedValue([]),
-  renderBlinkFixturePreview: vi.fn(),
   runBlinkAudit: vi.fn(),
   runTestLabSmokeTest: vi.fn(),
 }));

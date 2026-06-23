@@ -30,6 +30,8 @@ BACKEND_STYLE_STATIC_BASE = f"http://localhost:{BACKEND_PORT}/static/style"
 MAX_AI_VIDEO_SLOWDOWN_RATIO = 1.25
 SUBTITLE_ROUTER_VERSION = "standard-subtitle-router-v1"
 RENDERER_CONTEXT_STAGE_VERSION = "renderer-context-stage-v4"
+# Bump to invalidate every prior blink render (overlay geometry / detection changes).
+BLINK_RENDERER_VERSION = "full-frame-blink-v1"
 SUBTITLE_COVERAGE_MODES = {"all", "punchy"}
 SUBTITLE_STYLES = ("clean", "kinetic", "burst")
 
@@ -322,12 +324,29 @@ def _resolve_zoom_punch_frame(
     return out
 
 
+def _coerce_legacy_blink_scene(scene: Scene) -> Scene:
+    """Normalize legacy blink scenes for rendering.
+
+    Old project JSON used visual_mode="blink" with generated state_a/state_b
+    cutout visual_layers. Those scenes now load as full_frame (see
+    models.script normalization); this drops their stale cutout layers so old
+    generated assets are never rendered. Blink is rebuilt purely from
+    full_frame_blink metadata when a safe anchor exists.
+    """
+    if scene.visual_mode == "full_frame" and any(
+        layer.asset_kind == "cutout" for layer in scene.visual_layers
+    ):
+        return scene.model_copy(update={"visual_layers": []})
+    return scene
+
+
 def _scene_to_input_props(
     scene: Scene,
     script_id: str,
     subtitle_style: str | None = None,
 ) -> dict[str, Any]:
     """Convert a Scene model to the input props expected by Remotion."""
+    scene = _coerce_legacy_blink_scene(scene)
     # Resolve asset paths
     text_only_caption = (
         scene.visual_mode == "captions"
@@ -375,15 +394,10 @@ def _scene_to_input_props(
     chapter_overlay = metadata.get("chapter_overlay")
     full_frame_blink = None
     raw_blink = metadata.get("full_frame_blink")
-    if isinstance(raw_blink, dict):
-        review = raw_blink.get("review") if isinstance(raw_blink.get("review"), dict) else {}
-    else:
-        review = {}
     if (
         scene.visual_mode == "full_frame"
         and isinstance(raw_blink, dict)
         and raw_blink.get("enabled") is True
-        and review.get("status") == "enabled"
     ):
         raw_anchor = raw_blink.get("anchor")
         full_frame_blink = {
@@ -434,13 +448,14 @@ def subtitle_render_fingerprint(content: ScriptContent) -> dict[str, Any]:
     return {
         "subtitle_router_version": SUBTITLE_ROUTER_VERSION,
         "renderer_context_stage_version": RENDERER_CONTEXT_STAGE_VERSION,
+        "blink_renderer_version": BLINK_RENDERER_VERSION,
         "settings": subtitle_settings_from_env(),
         "scenes": [
             {
                 "id": scene.id,
                 "subtitle_style": scene.subtitle_style,
                 "visual_mode": scene.visual_mode,
-                "renderer_context": scene.renderer_context if scene.visual_mode in {"blink", "popup_sequence", "comparison_board", "stat_card", "captions"} else "",
+                "renderer_context": scene.renderer_context if scene.visual_mode in {"popup_sequence", "comparison_board", "stat_card", "captions"} else "",
                 "stat_value": scene.stat_value if scene.visual_mode == "stat_card" else "",
                 "stat_label": scene.stat_label if scene.visual_mode == "stat_card" else "",
                 "stat_card_icon": _stat_card_icon_fingerprint(scene),
@@ -458,15 +473,11 @@ def _full_frame_blink_fingerprint(scene: Scene) -> dict[str, Any] | None:
     raw_blink = metadata.get("full_frame_blink")
     if not isinstance(raw_blink, dict) or raw_blink.get("enabled") is not True:
         return None
-    review = raw_blink.get("review") if isinstance(raw_blink.get("review"), dict) else {}
-    if review.get("status") != "enabled":
-        return None
     raw_anchor = raw_blink.get("anchor")
     return {
         "enabled": True,
         "action": "blink" if raw_blink.get("action") == "blink" else "",
         "fingerprint": raw_blink.get("fingerprint"),
-        "review_status": review.get("status"),
         "anchor": raw_anchor if isinstance(raw_anchor, dict) else None,
     }
 
@@ -530,7 +541,7 @@ def _subtitle_punch_score(scene: Scene) -> float:
         score += 4.0
     if word_count <= 6 and re.search(r"[!?]$", scene.narration.strip()):
         score += 2.0
-    if scene.visual_mode in {"multi_frame", "popup_sequence", "blink", "comparison_board", "video"}:
+    if scene.visual_mode in {"multi_frame", "popup_sequence", "comparison_board", "video"}:
         score += 1.0
     return score
 

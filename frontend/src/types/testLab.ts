@@ -175,42 +175,6 @@ export interface PopupCropChromaResult {
   crops: PopupCropPreviewCrop[];
 }
 
-export type BlinkDebugAction = "blink";
-
-export interface BlinkDebugAsset {
-  asset_id: string;
-  asset_url: string;
-  script_id: string;
-  scene_id: string;
-  filename: string;
-  created_at: string;
-  source_metadata: Record<string, unknown>;
-}
-
-export interface BlinkDebugResult {
-  asset: BlinkDebugAsset;
-  action: BlinkDebugAction;
-  used_external_api: boolean;
-  registration_algorithm_version: string;
-  anchor?: Record<string, unknown> | null;
-  debug_url?: string | null;
-  status: "passed" | "failed";
-  error?: string | null;
-}
-
-export interface BlinkFixtureResult {
-  asset: BlinkDebugAsset;
-  used_external_api: boolean;
-  status: "ready";
-}
-
-export interface BlinkFixtureRenderResult {
-  asset: BlinkDebugAsset;
-  action: BlinkDebugAction;
-  render_url: string;
-  used_external_api: boolean;
-}
-
 export interface FullFrameBlinkDetection {
   status: "passed" | "failed";
   eligible: boolean;

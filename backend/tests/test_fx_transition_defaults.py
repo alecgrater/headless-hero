@@ -3,7 +3,6 @@
 from api.fx import _build_scene_fx_data, _count_fx_generation_targets
 from models.script import Scene, ScriptContent
 from pipeline import fx_generator
-from pipeline.fx_generator import _CAMERA_FX_BLOCKED_VISUAL_MODES
 from pipeline.render_phases import _apply_fx_results
 
 
@@ -93,10 +92,6 @@ def test_fx_generator_suppresses_camera_fx_for_comparison_and_popup_modes(monkey
 
         assert result["fx"] == {"drift": None, "zoom_punch": None}
         assert result["transition_in"] == "cut"
-
-
-def test_camera_fx_blocked_modes_include_blink():
-    assert "blink" in _CAMERA_FX_BLOCKED_VISUAL_MODES
 
 
 def test_scene_fx_payload_includes_visual_mode():

@@ -30,13 +30,7 @@ _SAFE_METADATA_KEYS = {
     "word_count",
 }
 
-FALLBACK_OUTCOME_SPECS = {
-    ("visual_mode", "blink_invalid_micro_action_downgraded"): {
-        "success_event": "blink_assignment_succeeded",
-        "success_logger": "pipeline.visual_treatments",
-        "success_message_contains": ("[ANIMATION_TYPE]", "animation_type=blink"),
-    },
-}
+FALLBACK_OUTCOME_SPECS: dict[tuple[str, str], dict[str, object]] = {}
 
 
 def record_fallback(

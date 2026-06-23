@@ -13,14 +13,14 @@ from pipeline.renderer_context import RendererContext, normalize_renderer_contex
 # --- Pydantic models for the script JSON structure ---
 
 ALLOWED_TRANSITIONS = {"cut", "fade_black", "flash_white", "wipe"}
-VISUAL_MODES = {"video", "full_frame", "multi_frame", "continuous", "captions", "popup_sequence", "blink", "comparison_board", "stat_card"}
-VISUAL_TREATMENTS = {"full_frame", "popup_sequence", "blink", "comparison_board", "stat_card"}
+VISUAL_MODES = {"video", "full_frame", "multi_frame", "continuous", "captions", "popup_sequence", "comparison_board", "stat_card"}
+VISUAL_TREATMENTS = {"full_frame", "popup_sequence", "comparison_board", "stat_card"}
 VISUAL_LAYER_TYPES = {"image"}
 VISUAL_ASSET_KINDS = {"full_frame", "panel", "cutout"}
 VISUAL_LAYER_ANIMATIONS = {"none", "pop_in"}
 SUBTITLE_STYLES = {"auto", "clean", "kinetic", "burst", "none"}
-VisualMode = Literal["video", "full_frame", "multi_frame", "continuous", "captions", "popup_sequence", "blink", "comparison_board", "stat_card"]
-VisualTreatment = Literal["full_frame", "popup_sequence", "blink", "comparison_board", "stat_card"]
+VisualMode = Literal["video", "full_frame", "multi_frame", "continuous", "captions", "popup_sequence", "comparison_board", "stat_card"]
+VisualTreatment = Literal["full_frame", "popup_sequence", "comparison_board", "stat_card"]
 BlinkActionValue = BlinkAction
 RendererContextValue = RendererContext
 VisualLayerType = Literal["image"]
@@ -201,7 +201,9 @@ class Scene(BaseModel):
         super().__setattr__(name, value)
         if name in {"visual_mode", "visual_beat"}:
             self._sync_visual_mode_fields_from_assignment(name)
-        if name == "blink_action" and self.visual_mode != "blink":
+        if name == "blink_action" and value:
+            # Blink is retired as a visual mode; the field is kept only so older
+            # script JSON deserializes, and always normalizes back to empty.
             super().__setattr__("blink_action", "")
 
     @model_validator(mode="before")
@@ -210,14 +212,6 @@ class Scene(BaseModel):
         if not isinstance(data, dict):
             return data
         normalized = dict(data)
-        if normalized.get("visual_mode") == "flipflop":
-            normalized["visual_mode"] = "blink"
-        if normalized.get("visual_treatment") == "flipflop":
-            normalized["visual_treatment"] = "blink"
-        if normalized.get("visual_beat") == "flipflop":
-            normalized["visual_beat"] = "blink"
-        if "blink_action" not in normalized and "flipflop_action" in normalized:
-            normalized["blink_action"] = normalized.get("flipflop_action")
         mode = _resolve_visual_mode(
             normalized.get("visual_mode"),
             normalized.get("media_source"),
@@ -225,16 +219,13 @@ class Scene(BaseModel):
             normalized.get("visual_beat"),
         )
         normalized["visual_mode"] = mode
-        normalized["blink_action"] = (
-            normalize_blink_action(normalized.get("blink_action"))
-            if mode == "blink"
-            else ""
-        )
+        # Blink is retired: the field is retained for legacy deserialization only.
+        normalized["blink_action"] = ""
         normalized["renderer_context"] = normalize_renderer_context(normalized.get("renderer_context"))
         visual_beat = _visual_beat_for_visual_mode(mode)
         if visual_beat is not None:
             normalized["visual_beat"] = visual_beat
-        if mode in {"video", "popup_sequence", "blink", "comparison_board", "stat_card"}:
+        if mode in {"video", "popup_sequence", "comparison_board", "stat_card"}:
             normalized["frame_urls"] = []
         if mode != "stat_card":
             normalized["stat_value"] = ""
@@ -288,13 +279,13 @@ class Scene(BaseModel):
 
     @property
     def visual_treatment(self) -> VisualTreatment:
-        return self.visual_mode if self.visual_mode in {"popup_sequence", "blink", "comparison_board", "stat_card"} else "full_frame"
+        return self.visual_mode if self.visual_mode in {"popup_sequence", "comparison_board", "stat_card"} else "full_frame"
 
     def _sync_visual_mode_fields_from_assignment(self, assigned_field: str) -> None:
         if assigned_field == "visual_mode":
             mode = _resolve_visual_mode(self.visual_mode, None, None)
         else:
-            if self.visual_mode in {"video", "popup_sequence", "blink", "comparison_board", "stat_card"}:
+            if self.visual_mode in {"video", "popup_sequence", "comparison_board", "stat_card"}:
                 mode = self.visual_mode
             else:
                 mode = _resolve_visual_mode(None, None, None, self.visual_beat)
@@ -305,10 +296,9 @@ class Scene(BaseModel):
         visual_beat = _visual_beat_for_visual_mode(visual_mode)
         if visual_beat is not None:
             super().__setattr__("visual_beat", visual_beat)
-        if visual_mode in {"video", "popup_sequence", "blink", "comparison_board", "stat_card"}:
+        if visual_mode in {"video", "popup_sequence", "comparison_board", "stat_card"}:
             super().__setattr__("frame_urls", [])
-        if visual_mode != "blink":
-            super().__setattr__("blink_action", "")
+        super().__setattr__("blink_action", "")
         if visual_mode != "stat_card":
             super().__setattr__("stat_value", "")
             super().__setattr__("stat_label", "")
@@ -325,12 +315,14 @@ def _resolve_visual_mode(
     visual_treatment: object,
     visual_beat: object = None,
 ) -> VisualMode:
-    if visual_mode == "flipflop":
-        return "blink"
-    if visual_treatment == "flipflop":
-        return "blink"
-    if visual_beat == "flipflop":
-        return "blink"
+    # Legacy blink/flip-flop scenes are retired — render them as full_frame
+    # (a safe full-frame blink overlay is applied later if a safe anchor exists).
+    if visual_mode in {"flipflop", "blink"}:
+        return "full_frame"
+    if visual_treatment in {"flipflop", "blink"}:
+        return "full_frame"
+    if visual_beat in {"flipflop", "blink"}:
+        return "full_frame"
     if isinstance(visual_mode, str) and visual_mode in VISUAL_MODES:
         return visual_mode  # type: ignore[return-value]
     if media_source == "ai_video":
@@ -354,7 +346,6 @@ def _visual_beat_for_visual_mode(visual_mode: VisualMode) -> str | None:
         "continuous",
         "captions",
         "popup_sequence",
-        "blink",
         "comparison_board",
         "stat_card",
     }:

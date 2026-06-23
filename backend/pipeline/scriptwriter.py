@@ -9,8 +9,6 @@ from collections.abc import Callable
 from config import DEFAULT_ACCENT_COLOR, SEGMENT_COUNT, parse_json_array_response, strip_markdown_fences
 from integrations.llm_client import chat
 from models.script import LevelMeta, MainCharacter, Scene, ScriptContent, Segment
-from pipeline.fallback_observability import record_fallback
-from pipeline.blink_actions import has_human_blink_subject, normalize_production_blink_action
 from pipeline.visual_mode_policy import (
     duration_profile_for_mode,
     max_scene_seconds_for_mode,
@@ -499,36 +497,6 @@ def _audit_visual_mode_metadata(content: ScriptContent) -> dict[str, int]:
     return counts
 
 
-def _validate_blink_actions(content: ScriptContent, *, script_id: str | None = None) -> dict[str, int]:
-    counts = {"preserved": 0, "downgraded": 0, "cleared": 0}
-    for scene in content.all_scenes():
-        if scene.visual_mode != "blink":
-            if scene.blink_action:
-                scene.blink_action = ""
-                counts["cleared"] += 1
-            continue
-        action = normalize_production_blink_action(scene.blink_action)
-        if action and has_human_blink_subject(scene.narration, scene.visual_prompt):
-            scene.blink_action = action
-            counts["preserved"] += 1
-            continue
-        scene.set_visual_mode("full_frame")
-        scene.visual_layers = []
-        scene.blink_action = ""
-        counts["downgraded"] += 1
-        record_fallback(
-            category="visual_mode",
-            event="blink_invalid_micro_action_downgraded",
-            reason="Blink scene missing valid human micro-action",
-            severity="warn",
-            script_id=script_id,
-            scene_id=scene.id,
-            from_value="blink",
-            to_value="full_frame",
-        )
-    return counts
-
-
 def _split_narration_sentences(narration: str) -> list[str]:
     sentences = [part.strip() for part in _SENTENCE_SPLIT_RE.split(narration.strip()) if part.strip()]
     return sentences or ([narration.strip()] if narration.strip() else [])
@@ -879,9 +847,6 @@ def generate_script(
 
     content.format_id = fmt.id
     content = fmt.enforce_post_processing(content, eli_enabled=eli_enabled)
-    blink_action_counts = _validate_blink_actions(content, script_id=script_id)
-    if any(blink_action_counts.values()):
-        logger.info("Script blink action validation: %s", blink_action_counts)
     audited_modes = _audit_visual_mode_metadata(content)
     if any(audited_modes.values()):
         logger.info("Script visual metadata audit promoted modes: %s", audited_modes)

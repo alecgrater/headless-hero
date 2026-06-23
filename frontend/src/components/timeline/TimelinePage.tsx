@@ -3,7 +3,6 @@ import {
   BarChart3,
   ChevronDown,
   Check,
-  Eye,
   Film,
   ImageIcon,
   Images,
@@ -34,7 +33,6 @@ import api, {
   getExportFileStatus,
   generateShortFormThumbnailsAll,
   generateShortFormThumbnailsBatch,
-  getBlinkReview,
   getProjectConfig,
   getRenderedShortsStatus,
   getShortFormThumbnailsStatus,
@@ -48,7 +46,6 @@ import api, {
   renderShortAll,
   renderShortBatch,
   setUploadTracking as apiSetUploadTracking,
-  updateBlinkReviewDecision,
   updateVisualCanvas,
 } from "../../api";
 import type { ExportTestOptions } from "../../api";
@@ -63,11 +60,9 @@ import type { ScriptContent, UploadTracking } from "../../types/script";
 import type { ScriptRead } from "../../types/script";
 import type { ThumbnailConcept, ThumbnailLabelStyle } from "../../types/render";
 import type { UploadSuiteStatus } from "../../api";
-import type { BlinkReviewSummary } from "../../types/blinkReview";
 import type { SaveState } from "../../App";
 import type { MicroTimelineHandle } from "./SceneMicroTimeline";
 import ExportTestModal from "./ExportTestModal";
-import BlinkReviewTab from "./BlinkReviewTab";
 import ImageReviewTab from "./image-review/ImageReviewTab";
 import MainCharacterDrawer from "./MainCharacterDrawer";
 import UploadPanel from "./UploadPanel";
@@ -483,7 +478,7 @@ function sceneProgressCounter(step: string, progress: number, total: number): st
 
 type ViewerFormat = "long-form" | "short-form";
 type ViewerAsset = "render" | "thumbnails" | "seo";
-type ViewerTab = "timeline" | "media-sources" | "segments" | "blink-review" | "image-review";
+type ViewerTab = "timeline" | "media-sources" | "segments" | "image-review";
 type ViewerNavKey = ViewerTab | "thumbnails" | "seo";
 
 const FORMAT_OPTIONS: { key: ViewerFormat; label: string; Icon: LucideIcon }[] = [
@@ -494,16 +489,12 @@ const FORMAT_OPTIONS: { key: ViewerFormat; label: string; Icon: LucideIcon }[] =
 const VIEWER_NAV_OPTIONS: { key: ViewerNavKey; label: string; Icon: LucideIcon }[] = [
   { key: "segments", label: "Segments", Icon: Layers },
   { key: "media-sources", label: "Visual Modes", Icon: PanelsTopLeft },
-  { key: "blink-review", label: "Blink Review", Icon: Eye },
   { key: "image-review", label: "Img Review", Icon: Images },
   { key: "timeline", label: "Timeline", Icon: ListVideo },
   { key: "thumbnails", label: "Thumbnails", Icon: ImageIcon },
   { key: "seo", label: "SEO", Icon: Search },
 ];
 
-export function isBlinkReviewRequiredError(error: unknown): boolean {
-  return error instanceof Error && error.message.toLowerCase().includes("blink review");
-}
 function getCreationStatus(content: ScriptContent, projectConfig?: ProjectConfig | null) {
   const allScenes = content.segments.flatMap((seg) => seg.scenes);
   const nonTitleScenes = allScenes.filter((sc) => !sc.is_title_card);
@@ -1283,9 +1274,6 @@ function TimelineEditor({
   const [visualTreatmentAssignments, setVisualTreatmentAssignments] = useState<VisualTreatmentAssignment[] | null>(null);
   const [visualTreatmentAnalyzing, setVisualTreatmentAnalyzing] = useState(false);
   const [visualTreatmentJobId, setVisualTreatmentJobId] = useState<string | null>(null);
-  const [blinkReview, setBlinkReview] = useState<BlinkReviewSummary | null>(null);
-  const [blinkReviewLoading, setBlinkReviewLoading] = useState(false);
-  const [blinkReviewUpdatingSceneId, setBlinkReviewUpdatingSceneId] = useState<string | null>(null);
   const { activePreset } = useStylePreset();
   const yoloCancelledRef = useRef(false);
   const yoloStoppingRef = useRef(false);
@@ -2110,14 +2098,6 @@ function TimelineEditor({
     try {
       await action();
     } catch (err) {
-      if (isBlinkReviewRequiredError(err)) {
-        setViewerAsset("render");
-        setActiveTab("blink-review");
-        void refreshBlinkReview();
-        showToast("Complete Blink Review before rendering or exporting.", "info");
-        setProductionError(null);
-        return;
-      }
       setProductionError(err instanceof Error ? err.message : "Production task failed");
     } finally {
       productionBusyRef.current = false;
@@ -2435,36 +2415,6 @@ function TimelineEditor({
     state.setContent(data.script);
     return data.script;
   }, [scriptId, state]);
-
-  const refreshBlinkReview = useCallback(async () => {
-    setBlinkReviewLoading(true);
-    try {
-      const next = await getBlinkReview(scriptId);
-      setBlinkReview(next);
-      return next;
-    } finally {
-      setBlinkReviewLoading(false);
-    }
-  }, [scriptId]);
-
-  const handleBlinkReviewDecision = useCallback(async (sceneId: string, status: "enabled" | "disabled") => {
-    setBlinkReviewUpdatingSceneId(sceneId);
-    try {
-      const next = await updateBlinkReviewDecision(scriptId, sceneId, status);
-      setBlinkReview(next);
-      await refreshScriptContent();
-      showToast(status === "enabled" ? "Blink enabled for scene." : "Blink disabled for scene.", "success");
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : "Failed to update Blink Review");
-    } finally {
-      setBlinkReviewUpdatingSceneId(null);
-    }
-  }, [refreshScriptContent, scriptId]);
-
-  useEffect(() => {
-    if (activeTab !== "blink-review") return;
-    void refreshBlinkReview();
-  }, [activeTab, refreshBlinkReview]);
 
   const runMissingFXForYolo = useCallback(async (sceneCount: number) => {
     fxCancelledRef.current = false;
@@ -2876,17 +2826,11 @@ function TimelineEditor({
       setExportTestStep("Starting...");
       setExportTestProgress(0);
       setExportTestEstimatedSeconds(null);
-    } catch (err) {
+    } catch {
       setExportTestJobId(null);
       setExportTestStep("");
       setExportTestProgress(0);
       setExportTestEstimatedSeconds(null);
-      if (isBlinkReviewRequiredError(err)) {
-        setViewerAsset("render");
-        setActiveTab("blink-review");
-        void refreshBlinkReview();
-        showToast("Complete Blink Review before rendering or exporting.", "info");
-      }
     }
   };
 
@@ -3386,14 +3330,6 @@ function TimelineEditor({
           onGenerateAudio={(id) => tryGenerateAudio(id)}
           generatingSceneIds={state.generatingSceneIds}
           generatingAudioSceneIds={state.generatingAudioSceneIds}
-        />
-      ) : activeTab === "blink-review" ? (
-        <BlinkReviewTab
-          summary={blinkReview}
-          loading={blinkReviewLoading}
-          updatingSceneId={blinkReviewUpdatingSceneId}
-          onRefresh={() => void refreshBlinkReview()}
-          onDecision={(sceneId, status) => void handleBlinkReviewDecision(sceneId, status)}
         />
       ) : activeTab === "image-review" ? (
         <ImageReviewTab
