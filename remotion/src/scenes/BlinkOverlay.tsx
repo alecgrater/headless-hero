@@ -51,6 +51,10 @@ const anchorIsRenderSafe = (
   if (!eyeSizeInRange(eyeLeft) || !eyeSizeInRange(eyeRight)) {
     return false;
   }
+  // Eyes must be in left-to-right order; swapped eyes are a mis-detection.
+  if (eyeRight.x <= eyeLeft.x) {
+    return false;
+  }
   const leftWidth = eyeLeft.width as number;
   const rightWidth = eyeRight.width as number;
   const leftHeight = eyeLeft.height as number;

@@ -4,23 +4,130 @@ from PIL import Image
 from PIL import ImageDraw
 
 
-def test_deterministic_blink_gate_is_stable_and_roughly_half():
-    from pipeline.full_frame_blink import deterministic_blink_enabled
+def _full_anchor(*, left_eye=None, right_eye=None):
+    left_eye = left_eye or {"x": 0.45, "y": 0.40, "width": 0.03, "height": 0.02}
+    right_eye = right_eye or {"x": 0.55, "y": 0.40, "width": 0.03, "height": 0.02}
+    return {
+        "detected": True,
+        "skin_fill": "#F0D2B4",
+        "eye_left": left_eye,
+        "eye_right": right_eye,
+        "mouth": {"x": 0.5, "y": 0.52},
+        "brow_left": {"x": left_eye["x"], "y": 0.35},
+        "brow_right": {"x": right_eye["x"], "y": 0.35},
+    }
 
-    first = deterministic_blink_enabled("script-1", "scene-1")
-    assert deterministic_blink_enabled("script-1", "scene-1") is first
 
-    enabled_count = sum(
-        deterministic_blink_enabled("script-1", f"scene-{index}")
-        for index in range(100)
+def test_build_full_frame_blink_metadata_enables_every_eligible_scene(monkeypatch, tmp_path):
+    from pipeline import full_frame_blink
+    from pipeline.full_frame_blink import build_full_frame_blink_metadata
+
+    image_path = tmp_path / "scene.png"
+    Image.new("RGBA", (400, 300), (240, 210, 180, 255)).save(image_path)
+    anchor = _full_anchor()
+    monkeypatch.setattr(full_frame_blink, "image_path_from_static_url", lambda _url: image_path)
+    monkeypatch.setattr(
+        full_frame_blink,
+        "detect_full_frame_blink_anchor",
+        lambda _path: full_frame_blink.FullFrameBlinkDetection(
+            status="passed", eligible=True, anchor=anchor
+        ),
     )
-    assert 35 <= enabled_count <= 65
+
+    # No 50% deterministic gate: every eligible scene must enable blink.
+    for index in range(8):
+        meta = build_full_frame_blink_metadata(
+            "script-1", f"scene-{index}", "/static/projects/script-1/images/x.png"
+        )
+        assert meta == {"enabled": True, "action": "blink", "anchor": anchor}
+
+
+def test_build_full_frame_blink_metadata_suppresses_ineligible_scene(monkeypatch):
+    from pipeline import full_frame_blink
+    from pipeline.full_frame_blink import build_full_frame_blink_metadata
+
+    monkeypatch.setattr(full_frame_blink, "image_path_from_static_url", lambda _url: full_frame_blink.Path("x.png"))
+    monkeypatch.setattr(
+        full_frame_blink,
+        "detect_full_frame_blink_anchor",
+        lambda _path: full_frame_blink.FullFrameBlinkDetection(
+            status="failed", eligible=False, reason="blink_quality_eye_size_out_of_range"
+        ),
+    )
+
+    assert build_full_frame_blink_metadata("s", "scene", "/static/projects/s/images/x.png") is None
 
 
 def test_media_backed_blink_modes_only_include_render_supported_modes():
     from pipeline.full_frame_blink import MEDIA_BACKED_BLINK_MODES
 
     assert MEDIA_BACKED_BLINK_MODES == {"full_frame"}
+
+
+def test_full_frame_blink_quality_rejects_oversized_eyes():
+    from pipeline.full_frame_blink import full_frame_blink_quality_rejection_reason
+
+    anchor = _full_anchor(
+        left_eye={"x": 0.42, "y": 0.40, "width": 0.30, "height": 0.25},
+        right_eye={"x": 0.58, "y": 0.40, "width": 0.30, "height": 0.25},
+    )
+    assert full_frame_blink_quality_rejection_reason(anchor) == "blink_quality_eye_size_out_of_range"
+
+
+def test_full_frame_blink_quality_rejects_eyes_too_far_apart():
+    from pipeline.full_frame_blink import full_frame_blink_quality_rejection_reason
+
+    anchor = _full_anchor(
+        left_eye={"x": 0.05, "y": 0.40, "width": 0.03, "height": 0.02},
+        right_eye={"x": 0.95, "y": 0.40, "width": 0.03, "height": 0.02},
+    )
+    assert full_frame_blink_quality_rejection_reason(anchor) == "blink_quality_eye_separation_out_of_range"
+
+
+def test_full_frame_blink_quality_rejects_eyes_too_close():
+    from pipeline.full_frame_blink import full_frame_blink_quality_rejection_reason
+
+    anchor = _full_anchor(
+        left_eye={"x": 0.495, "y": 0.40, "width": 0.03, "height": 0.02},
+        right_eye={"x": 0.505, "y": 0.40, "width": 0.03, "height": 0.02},
+    )
+    assert full_frame_blink_quality_rejection_reason(anchor) == "blink_quality_eye_separation_out_of_range"
+
+
+def test_full_frame_blink_quality_rejects_overlay_that_would_span_nose():
+    from pipeline.full_frame_blink import full_frame_blink_quality_rejection_reason
+
+    # Eyes nearly as wide as the gap between them: the closed-eye marks would
+    # reach across the nose, so the anchor must be suppressed.
+    anchor = _full_anchor(
+        left_eye={"x": 0.46, "y": 0.40, "width": 0.10, "height": 0.02},
+        right_eye={"x": 0.54, "y": 0.40, "width": 0.10, "height": 0.02},
+    )
+    assert full_frame_blink_quality_rejection_reason(anchor) == "blink_quality_overlay_would_span_nose"
+
+
+def test_full_frame_blink_quality_accepts_a_safe_anchor():
+    from pipeline.full_frame_blink import full_frame_blink_quality_rejection_reason
+
+    assert full_frame_blink_quality_rejection_reason(_full_anchor()) == ""
+
+
+def test_full_frame_eye_erase_box_stays_well_inside_face_half():
+    from pipeline.full_frame_blink import _full_frame_eye_erase_box
+
+    face = {
+        "left": 0.3, "right": 0.7, "top": 0.2, "bottom": 0.8,
+        "width": 0.4, "height": 0.6, "cx": 0.5, "cy": 0.5, "area": 1.0,
+    }
+    eye = {
+        "left": 0.36, "right": 0.46, "top": 0.30, "bottom": 0.42,
+        "cx": 0.41, "cy": 0.36, "width": 0.10, "height": 0.12, "area": 1.0,
+    }
+
+    box = _full_frame_eye_erase_box(eye, face)
+
+    assert box["right"] - box["left"] <= face["width"] * 0.22 + 1e-9
+    assert box["bottom"] - box["top"] <= face["height"] * 0.18 + 1e-9
 
 
 def test_detect_full_frame_blink_anchor_rejects_missing_file(tmp_path):

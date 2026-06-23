@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -22,6 +21,18 @@ from pipeline.image_gen import (
 
 BURGER_KING_BLINK_AUDIT_SCRIPT_ID = "9dacedc774514306ae1acb85215449e1"
 MEDIA_BACKED_BLINK_MODES = {"full_frame"}
+
+# Conservative safety bounds for a believable detected eye pair (normalized
+# image fractions). Tightening these trades blink coverage for never shipping a
+# distorted overlay — quality over coverage.
+BLINK_EYE_MIN_SIZE = 0.004
+BLINK_EYE_MAX_SIZE = 0.14
+BLINK_EYE_MIN_SEPARATION = 0.03
+BLINK_EYE_MAX_SEPARATION = 0.6
+# The renderer hard-caps each closed-eye mark's half-width at eyeDistance*0.22,
+# so marks can never cross the nose. This guard only rejects degenerate
+# mis-detections where an "eye" is nearly as wide as the gap between the eyes.
+BLINK_EYE_MAX_WIDTH_VS_SEPARATION = 0.9
 
 
 class FullFrameBlinkDetection(BaseModel):
@@ -50,11 +61,6 @@ class FullFrameBlinkAuditReport(BaseModel):
     title: str
     created_at: str
     candidates: list[FullFrameBlinkCandidate] = Field(default_factory=list)
-
-
-def deterministic_blink_enabled(script_id: str, scene_id: str) -> bool:
-    digest = hashlib.sha256(f"{script_id}:{scene_id}".encode("utf-8")).digest()
-    return digest[0] < 128
 
 
 def detect_full_frame_blink_anchor(image_path: Path) -> FullFrameBlinkDetection:
@@ -121,18 +127,39 @@ def full_frame_blink_quality_rejection_reason(anchor: dict[str, object]) -> str:
     if abs(left_y - right_y) > 0.008:
         return "blink_quality_eye_pair_misaligned"
 
+    # Conservative absolute eye-size sanity (normalized image fractions). Real
+    # eyes occupy a small, bounded fraction of the frame; anything outside this
+    # range is a mis-detection that would render as an oversized smear.
+    for value in (left_width, right_width, left_height, right_height):
+        if value < BLINK_EYE_MIN_SIZE or value > BLINK_EYE_MAX_SIZE:
+            return "blink_quality_eye_size_out_of_range"
+
+    separation = abs(float(right_eye["x"]) - float(left_eye["x"]))
+    if separation < BLINK_EYE_MIN_SEPARATION or separation > BLINK_EYE_MAX_SEPARATION:
+        return "blink_quality_eye_separation_out_of_range"
+
+    # The closed-eye marks are ~1.2x the detected eye width. If an eye is wide
+    # relative to the gap between the eyes, the two marks would reach across the
+    # nose — suppress rather than ship a bar.
+    if max(left_width, right_width) > separation * BLINK_EYE_MAX_WIDTH_VS_SEPARATION:
+        return "blink_quality_overlay_would_span_nose"
+
     return ""
 
 
 def build_full_frame_blink_metadata(script_id: str, scene_id: str, image_url: str) -> dict[str, object] | None:
-    """Build production full-frame blink metadata using the same detector as Blink Audit."""
+    """Build production full-frame blink metadata using the same detector as Blink Audit.
+
+    Blink is auto-enabled wherever the anchor passes strict safety validation;
+    unsafe anchors are silently suppressed (no metadata). There is no deterministic
+    coverage gate and no manual review.
+    """
+    del script_id, scene_id  # retained for call-site symmetry; no longer gating
     image_path = image_path_from_static_url(image_url)
     if image_path is None:
         return None
     detection = detect_full_frame_blink_anchor(image_path)
     if not detection.eligible or detection.anchor is None:
-        return None
-    if not deterministic_blink_enabled(script_id, scene_id):
         return None
     return {
         "enabled": True,
@@ -184,7 +211,7 @@ def run_full_frame_blink_audit(
                     image_url=image_url,
                     image_path=resolved_path,
                     detection=detection,
-                    blink_enabled=detection.eligible and deterministic_blink_enabled(script.id, scene.id),
+                    blink_enabled=detection.eligible,
                 )
             )
     save_blink_audit_report(report)
@@ -543,8 +570,8 @@ def _full_frame_eye_erase_box(eye: dict[str, float], face: dict[str, float]) -> 
     right = min(face["right"], eye["right"] + pad_x)
     top = max(face["top"], eye["top"] - pad_y)
     bottom = min(face["bottom"], eye["bottom"] + pad_y)
-    max_width = face_width * 0.46
-    max_height = face_height * 0.36
+    max_width = face_width * 0.22
+    max_height = face_height * 0.18
     if right - left > max_width:
         center_x = eye["cx"]
         left = max(face["left"], center_x - max_width / 2)

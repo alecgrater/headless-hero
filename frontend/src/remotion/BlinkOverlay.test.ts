@@ -73,4 +73,15 @@ describe("resolveBlinkOverlayAnchor", () => {
       ),
     ).toBeNull();
   });
+
+  it("rejects anchors whose eyes are swapped in x order", () => {
+    expect(
+      resolveBlinkOverlayAnchor(
+        safeAnchor({
+          eye_left: { x: 0.58, y: 0.33, width: 0.045, height: 0.02 },
+          eye_right: { x: 0.42, y: 0.33, width: 0.045, height: 0.02 },
+        }),
+      ),
+    ).toBeNull();
+  });
 });

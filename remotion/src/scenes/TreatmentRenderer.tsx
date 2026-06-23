@@ -415,6 +415,10 @@ export const blinkBlinkEyeOverlayGeometry = (
   const leftEye = toSvgPoint(anchor.eye_left);
   const rightEye = toSvgPoint(anchor.eye_right);
   const eyeDistance = Math.abs(rightEye.x - leftEye.x);
+  // Coincident/degenerate eyes would collapse to zero-width marks: suppress.
+  if (!(eyeDistance > 0)) {
+    return [];
+  }
   const midpointX = (leftEye.x + rightEye.x) / 2;
   const noseMargin = Math.max(eyeDistance * 0.1, 1.0);
   const safeAspect = aspect > 0 ? aspect : BLINK_OVERLAY_ASPECT;
@@ -452,12 +456,12 @@ export const blinkBlinkEyeOverlayGeometry = (
 
     // Lid = a shallow closed-eye curve drawn at the detected eye center, kept
     // inside the mask so it can never stretch toward the nose.
-    const lidHalfWidth = Math.min(
+    const lidHalfWidth = Math.max(0, Math.min(
       eyeWidthVB * 0.5,
       eyeDistance * 0.22,
       eye.x - maskLeft,
       maskRight - eye.x,
-    );
+    ));
     const lidLift = maskHalfHeight * 0.3;
     const strokeWidth = clamp(eyeHeightVB * 0.28, 0.4, 0.9);
 

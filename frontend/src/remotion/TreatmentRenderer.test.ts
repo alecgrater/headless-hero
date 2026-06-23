@@ -305,6 +305,18 @@ describe("blinkBlinkEyeOverlayGeometry", () => {
     expect(geometry).toEqual([]);
   });
 
+  it("suppresses degenerate geometry when the eyes are coincident", () => {
+    const geometry = blinkBlinkEyeOverlayGeometry(
+      anchorWithEyes({
+        eye_left: { x: 0.5, y: 0.33, width: 0.045, height: 0.02 },
+        eye_right: { x: 0.5, y: 0.33, width: 0.045, height: 0.02 },
+      }),
+      "#D9A374",
+    );
+
+    expect(geometry).toEqual([]);
+  });
+
   it("sizes closed-eye marks to the detected eye width, not a wide bar", () => {
     const geometry = blinkBlinkEyeOverlayGeometry(anchorWithEyes(), "#D9A374");
 
