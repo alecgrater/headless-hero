@@ -8,12 +8,6 @@ import re
 from pydantic import BaseModel, Field, model_validator
 
 from models.script import ScriptContent, Scene, VISUAL_MODES, VisualLayer, VisualMode
-from pipeline.fallback_observability import record_fallback
-from pipeline.blink_actions import (
-    has_human_blink_subject,
-    normalize_blink_action,
-)
-from pipeline.renderer_context import infer_renderer_context, normalize_renderer_context
 from pipeline.render_jobs import UserFacingJobError
 
 logger = logging.getLogger(__name__)
@@ -29,74 +23,6 @@ LIST_MARKERS = {
     "3",
     "4",
 }
-MICRO_ACTION_SUBJECT_MARKERS = {
-    "arm",
-    "arms",
-    "body",
-    "character",
-    "eye",
-    "eyes",
-    "face",
-    "finger",
-    "fingers",
-    "hand",
-    "hands",
-    "head",
-    "person",
-    "shoulder",
-    "shoulders",
-}
-MICRO_ACTION_MOTION_MARKERS = {
-    "close",
-    "closes",
-    "closing",
-    "gesture",
-    "gestures",
-    "gesturing",
-    "grip",
-    "grips",
-    "handle",
-    "handles",
-    "handling",
-    "lean",
-    "leans",
-    "leaning",
-    "nod",
-    "nods",
-    "nodding",
-    "open",
-    "opens",
-    "opening",
-    "pace",
-    "paces",
-    "pacing",
-    "point",
-    "points",
-    "pointing",
-    "sort",
-    "sorts",
-    "sorting",
-    "stir",
-    "stirs",
-    "stirring",
-    "talk",
-    "talking",
-    "tap",
-    "taps",
-    "tapping",
-    "type",
-    "types",
-    "typing",
-}
-MICRO_ACTION_PHRASES = (
-    "back and forth",
-    "open and close",
-    "opens and closes",
-    "while he talks",
-    "while she talks",
-    "while they talk",
-    "while talking",
-)
 NATURAL_LIST_CONTRAST_CONNECTORS = {
     "but",
     "however",

@@ -8,7 +8,6 @@ multi_frame.mp4
 continuous.mp4
 video.mp4
 popup_sequence.mp4
-blink.mp4
 comparison_board.mp4
 stat_card.mp4
 captions.mp4

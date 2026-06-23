@@ -32,7 +32,7 @@ from pipeline.blink_actions import BlinkAction, normalize_blink_action
 from pipeline import full_frame_blink as full_frame_blink_mod
 from pipeline.script_helpers import _usage_task_label
 from pipeline.visual_treatments import comparison_cutout_prompt
-from pipeline.renderer_context import infer_renderer_context, normalize_renderer_context
+from pipeline.renderer_context import normalize_renderer_context
 
 logger = logging.getLogger(__name__)
 
@@ -1090,18 +1090,9 @@ def _stage_treatment_assets(ctx: TestLabRunContext) -> None:
         if not layer_based_treatment:
             _save_content(session, record, content)
             return
-        requested_blink_action = (
-            _resolve_blink_action_for_settings(ctx.settings, get_preset(ctx.preset_id))
-            if requested_mode == "blink"
-            else ""
-        )
         if not scene.visual_layers:
             assignment = None
-            if requested_mode == "blink" and requested_blink_action:
-                scene.set_visual_mode("blink")
-                scene.blink_action = requested_blink_action
-                scene.contains_person = True
-            elif scene.audio_duration_seconds > 0 and scene.word_timestamps:
+            if scene.audio_duration_seconds > 0 and scene.word_timestamps:
                 assignments = analyze_visual_treatments(content, script_id=ctx.script_id)
                 assignment = _assignment_for_scene(assignments, scene.id)
                 assignment_mode = assignment.visual_mode if assignment else ""
@@ -1120,8 +1111,6 @@ def _stage_treatment_assets(ctx: TestLabRunContext) -> None:
             )
             if isinstance(requested_mode, str):
                 scene.set_visual_mode(requested_mode)
-            if requested_mode == "blink" and requested_blink_action:
-                scene.contains_person = True
         if scene.visual_layers:
             layer_dicts = [layer.model_dump() for layer in scene.visual_layers]
             if scene.visual_mode == "popup_sequence":

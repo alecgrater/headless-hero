@@ -18,7 +18,6 @@ from models.script import VISUAL_MODES
 from models.settings import AppSetting
 from pipeline.blink_actions import blink_action_prompt_guidance
 from pipeline.test_lab import TEST_LAB_PRESETS, VISUAL_TREATMENT_TEXT_DEFAULTS, load_run_manifest, run_test_lab
-from pipeline.visual_mode_policy import prompt_visual_opportunity_guidance
 
 SmokeStatus = Literal["pass", "warn", "fail"]
 SAFE_REPORT_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$")
@@ -254,8 +253,6 @@ def _check_visual_mode_vocabulary() -> SmokeTestCheck:
 
 
 def _check_blink_guardrail() -> SmokeTestCheck:
-    from models.script import VISUAL_MODES
-
     prompt_guidance = blink_action_prompt_guidance()
     guarded = "blink" not in VISUAL_MODES and "blink is not a selectable visual mode" in prompt_guidance
     if not guarded:

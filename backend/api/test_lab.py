@@ -36,7 +36,6 @@ from pipeline.full_frame_blink import (
     load_blink_audit_report,
     run_full_frame_blink_audit,
 )
-from pipeline.renderer_context import RendererContext, normalize_renderer_context
 from pipeline.test_lab_smoke import (
     SmokeTestOptions,
     export_smoke_report,
