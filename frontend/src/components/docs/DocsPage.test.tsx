@@ -51,9 +51,8 @@ describe("DocsPage", () => {
     expect(screen.getByText(/metadata-only audit/i)).toBeInTheDocument();
     expect(screen.getByText(/copy the fix brief from Smoke Test history/i)).toBeInTheDocument();
     expect(screen.getByText(/Test Lab -> Blink -> Blink Audit/i)).toBeInTheDocument();
-    expect(screen.getByText(/complete the Timeline -> Blink Review tab/i)).toBeInTheDocument();
-    expect(screen.getByText(/Render\/export uses only manually enabled blink candidates/i)).toBeInTheDocument();
-    expect(screen.getByText(/Full-frame Blink Review/i)).toBeInTheDocument();
+    expect(screen.getByText(/renderer-owned overlay that auto-enables/i)).toBeInTheDocument();
+    expect(screen.getByText(/detector visualization only and does not gate any job/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Script Types" }));
     await waitFor(() => expect(screen.getByText("Format Comes First")).toBeInTheDocument());
