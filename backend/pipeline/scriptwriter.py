@@ -17,6 +17,7 @@ from pipeline.visual_mode_policy import (
     prompt_duration_guidance,
     target_scene_seconds_for_mode,
 )
+from pipeline.visual_treatments import stat_label_grounded_in_narration
 from prompts import SCRIPT_OUTLINE_INSTRUCTIONS, SCRIPT_SEGMENT_SCENES_INSTRUCTIONS, SCRIPT_SYSTEM
 
 logger = logging.getLogger(__name__)
@@ -458,6 +459,14 @@ def _audit_visual_mode_metadata(content: ScriptContent) -> dict[str, int]:
     counts = {"captions": 0, "stat_card": 0}
     if not scenes:
         return counts
+
+    # Blank LLM-emitted stat labels that aren't grounded in the narration so a
+    # generic placeholder (e.g. "key metric") never reaches the renderer.
+    for scene in scenes:
+        if scene.visual_mode != "stat_card" or not scene.stat_label.strip():
+            continue
+        if not stat_label_grounded_in_narration(scene.stat_label, scene.narration):
+            scene.stat_label = ""
 
     for scene in scenes:
         if not _scene_has_caption_prompt_leak(scene):

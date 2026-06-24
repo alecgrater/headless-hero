@@ -236,6 +236,24 @@ def apply_visual_treatment_assignments(
     _enforce_content_non_repeatable_spacing(content)
 
 
+def stat_label_grounded_in_narration(stat_label: str, narration: str) -> bool:
+    """An explicit stat label is renderer-owned text echoing the narration.
+
+    Reject invented placeholders (e.g. "key metric") by requiring at least one
+    content word from the label to appear in the narration. Mirrors caption
+    narration-grounding so stat cards never render text absent from the script.
+    """
+    label_words = {
+        word
+        for word in (_normalize_word(token) for token in stat_label.split())
+        if word and word not in REPETITION_STOPWORDS
+    }
+    if not label_words:
+        return False
+    narration_words = {_normalize_word(token) for token in narration.split()}
+    return bool(label_words & narration_words)
+
+
 def _stat_fields_for_scene(scene: Scene) -> tuple[str, str] | None:
     text = scene.narration.strip()
     matches = [match.group(0).strip() for match in STAT_VALUE_RE.finditer(text)]
@@ -327,13 +345,18 @@ def _analyze_scene(scene: Scene, *, script_id: str | None = None) -> VisualTreat
             visual_layers=[],
         )
     if scene.visual_mode == "stat_card":
+        stat_label = (
+            scene.stat_label
+            if stat_label_grounded_in_narration(scene.stat_label, scene.narration)
+            else ""
+        )
         return VisualTreatmentAssignment(
             scene_id=scene.id,
             visual_mode="stat_card",
             reasoning="Scene is explicitly marked for stat-card rendering; preserved.",
             visual_layers=list(scene.visual_layers),
             stat_value=scene.stat_value,
-            stat_label=scene.stat_label,
+            stat_label=stat_label,
         )
     if _is_video_or_photo_backed(scene):
         return VisualTreatmentAssignment(

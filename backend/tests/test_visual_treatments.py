@@ -2408,6 +2408,34 @@ def test_apply_visual_treatment_assignment_clears_stale_stat_label():
     assert scene.stat_label == ""
 
 
+def test_analyze_visual_treatments_blanks_ungrounded_explicit_stat_label():
+    scene = scene_with_words("s1", "Five hours.")
+    scene.set_visual_mode("stat_card")
+    scene.stat_value = "Five hours"
+    scene.stat_label = "key metric"
+    content = content_with_scenes(scene)
+
+    assignments = analyze_visual_treatments(content, script_id="stat-script")
+
+    assert len(assignments) == 1
+    assignment = assignments[0]
+    assert assignment.visual_mode == "stat_card"
+    assert assignment.stat_value == "Five hours"
+    assert assignment.stat_label == ""
+
+
+def test_analyze_visual_treatments_keeps_grounded_explicit_stat_label():
+    scene = scene_with_words("s1", "Eighty-five percent churn before week one.")
+    scene.set_visual_mode("stat_card")
+    scene.stat_value = "85%"
+    scene.stat_label = "churn before week one"
+    content = content_with_scenes(scene)
+
+    assignments = analyze_visual_treatments(content, script_id="stat-script")
+
+    assert assignments[0].stat_label == "churn before week one"
+
+
 def test_apply_visual_treatment_assignment_accepts_stat_card_mode_with_icon_layer():
     scene = scene_with_words("s1", "Eighty-five percent churn before week one.")
     content = content_with_scenes(scene)

@@ -67,3 +67,37 @@ def test_audit_converts_continuous_caption_prompt_leak_to_text_only_captions_sce
     assert scene.caption_emphasis == "not"
     assert scene.visual_prompt == ""
     assert scene.frame_directives == []
+
+
+def test_audit_blanks_ungrounded_stat_label_placeholder():
+    scene = Scene(
+        id="scene_009",
+        narration="Five hours.",
+        visual_mode="stat_card",
+        visual_prompt="",
+        stat_value="Five hours",
+        stat_label="key metric",
+    )
+    content = ScriptContent(title="Test", segments=[Segment(name="Level 1", scenes=[scene])])
+
+    _audit_visual_mode_metadata(content)
+
+    assert scene.visual_mode == "stat_card"
+    assert scene.stat_value == "Five hours"
+    assert scene.stat_label == ""
+
+
+def test_audit_keeps_grounded_stat_label():
+    scene = Scene(
+        id="scene_010",
+        narration="Eighty-five percent churn before week one.",
+        visual_mode="stat_card",
+        visual_prompt="",
+        stat_value="85%",
+        stat_label="churn before week one",
+    )
+    content = ScriptContent(title="Test", segments=[Segment(name="Level 1", scenes=[scene])])
+
+    _audit_visual_mode_metadata(content)
+
+    assert scene.stat_label == "churn before week one"
