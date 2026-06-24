@@ -59,7 +59,7 @@ describe("BlinkAuditLab", () => {
           visual_mode: "full_frame",
           image_url: "/static/projects/burger-script/images/scene-1.png",
           image_path: "/tmp/scene-1.png",
-          blink_enabled: true,
+          start_seconds: 0,
           detection: { status: "passed", eligible: true, reason: "", anchor: { detected: true } },
         },
         {
@@ -70,7 +70,7 @@ describe("BlinkAuditLab", () => {
           visual_mode: "full_frame",
           image_url: "/static/projects/burger-script/images/scene-2.png",
           image_path: "/tmp/scene-2.png",
-          blink_enabled: false,
+          start_seconds: 8.5,
           detection: { status: "failed", eligible: false, reason: "face_landmarks_missing", anchor: null },
         },
       ],
@@ -82,7 +82,8 @@ describe("BlinkAuditLab", () => {
     expect(await screen.findByText("scene-1")).toBeInTheDocument();
     expect(screen.getByText("Eligible")).toBeInTheDocument();
     expect(screen.getByText(/rejected because no safe main-character eye pair was found/i)).toBeInTheDocument();
-    expect(screen.getByText(/50% frequency gate: blink enabled/i)).toBeInTheDocument();
+    expect(screen.getByText(/blink auto-enabled/i)).toBeInTheDocument();
+    expect(screen.getByText("0:00")).toBeInTheDocument();
   });
 
   it("filters the active report to eligible scenes", async () => {
@@ -101,7 +102,7 @@ describe("BlinkAuditLab", () => {
             visual_mode: "full_frame",
             image_url: "/static/projects/burger-script/images/scene-eligible.png",
             image_path: "/tmp/scene-eligible.png",
-            blink_enabled: true,
+            start_seconds: 0,
             detection: { status: "passed", eligible: true, reason: "", anchor: { detected: true } },
           },
           {
@@ -112,7 +113,7 @@ describe("BlinkAuditLab", () => {
             visual_mode: "full_frame",
             image_url: "/static/projects/burger-script/images/scene-rejected.png",
             image_path: "/tmp/scene-rejected.png",
-            blink_enabled: false,
+            start_seconds: 12,
             detection: { status: "failed", eligible: false, reason: "face_landmarks_missing", anchor: null },
           },
         ],

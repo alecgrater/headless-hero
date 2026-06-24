@@ -471,7 +471,7 @@ def test_run_full_frame_blink_audit_discovers_media_backed_scene(monkeypatch, tm
     assert report.script_id == "burger-script"
     assert [candidate.scene_id for candidate in report.candidates] == ["scene-1"]
     assert report.candidates[0].image_url == "/static/projects/burger-script/images/scene-1.png"
-    assert report.candidates[0].blink_enabled in {True, False}
+    assert report.candidates[0].start_seconds >= 0.0
 
 
 def test_full_frame_blink_audit_persists_report(monkeypatch, tmp_path):

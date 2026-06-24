@@ -47,7 +47,8 @@ export default function BlinkAuditLab() {
           <p className="text-xs font-semibold uppercase text-neutral-500">Blink Audit</p>
           <h2 className="mt-2 text-sm font-semibold text-neutral-100">Full-frame Burger King scenes</h2>
           <p className="mt-1 text-xs leading-5 text-neutral-500">
-            Uses the same production quality gate as Blink Review; the 50% frequency gate is shown only as a lab signal.
+            Runs the production blink quality gate over full-frame scenes. Eligible scenes auto-blink — aggressive
+            suppression means many scenes are rejected.
           </p>
         </div>
         <button
@@ -98,8 +99,8 @@ export default function BlinkAuditLab() {
                     {eligibleOnly ? ` · showing ${visibleCandidates.length}` : ""}
                   </p>
                   <p className="mt-1 text-xs leading-5 text-neutral-600">
-                    Eligible scenes passed eye symmetry, alignment, and anchor safety checks; the 50% gate only decides
-                    how often safe scenes blink.
+                    Eligible scenes passed eye symmetry, alignment, and anchor safety checks and will blink in
+                    production. Timestamps mark each scene's approximate start in the long-form export.
                   </p>
                 </div>
                 <label className="inline-flex items-center gap-2 rounded-md border border-neutral-800 bg-neutral-950/50 px-3 py-2 text-xs font-medium text-neutral-300">
@@ -144,7 +145,12 @@ function BlinkAuditCard({ candidate }: { candidate: FullFrameBlinkCandidate }) {
       </div>
       <div className="space-y-2 p-3">
         <div className="flex items-center justify-between gap-3">
-          <p className="text-sm font-medium text-neutral-100">{candidate.scene_id}</p>
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-medium text-neutral-100">{candidate.scene_id}</p>
+            <span className="rounded bg-neutral-800 px-1.5 py-0.5 font-mono text-[10px] text-neutral-300">
+              {formatBlinkTimestamp(candidate.start_seconds)}
+            </span>
+          </div>
           <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium ${
             candidate.detection.eligible ? "bg-emerald-500/15 text-emerald-300" : "bg-amber-500/15 text-amber-300"
           }`}>
@@ -156,13 +162,18 @@ function BlinkAuditCard({ candidate }: { candidate: FullFrameBlinkCandidate }) {
         {!candidate.detection.eligible ? (
           <p className="text-xs text-amber-300">Quality gate: {blinkAuditReasonLabel(candidate.detection.reason)}</p>
         ) : (
-          <p className="text-xs leading-5 text-emerald-300">
-            Quality gate passed. {candidate.blink_enabled ? "50% frequency gate: blink enabled" : "50% frequency gate: blink skipped"}
-          </p>
+          <p className="text-xs leading-5 text-emerald-300">Quality gate passed — blink auto-enabled.</p>
         )}
       </div>
     </div>
   );
+}
+
+function formatBlinkTimestamp(seconds: number): string {
+  const total = Math.max(0, Math.round(seconds));
+  const minutes = Math.floor(total / 60);
+  const secs = total % 60;
+  return `${minutes}:${secs.toString().padStart(2, "0")}`;
 }
 
 function blinkAuditReasonLabel(reason: string): string {

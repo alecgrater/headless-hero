@@ -192,7 +192,7 @@ export interface FullFrameBlinkCandidate {
   image_url: string;
   image_path: string;
   detection: FullFrameBlinkDetection;
-  blink_enabled: boolean;
+  start_seconds: number;
 }
 
 export interface FullFrameBlinkAuditReport {

@@ -52,7 +52,9 @@ class FullFrameBlinkCandidate(BaseModel):
     image_url: str
     image_path: str
     detection: FullFrameBlinkDetection
-    blink_enabled: bool = False
+    # Approximate start offset of this scene in the long-form timeline, so a
+    # designated blink can be cross-referenced against the exported video.
+    start_seconds: float = 0.0
 
 
 class FullFrameBlinkAuditReport(BaseModel):
@@ -189,8 +191,12 @@ def run_full_frame_blink_audit(
         created_at=datetime.now(timezone.utc).isoformat(),
         candidates=[],
     )
+    elapsed = 0.0
     for segment in content.segments:
         for scene in segment.scenes:
+            scene_start = elapsed
+            duration = scene.audio_duration_seconds if scene.audio_duration_seconds > 0 else scene.duration_estimate_seconds
+            elapsed += duration
             if scene.is_title_card or scene.visual_mode not in MEDIA_BACKED_BLINK_MODES:
                 continue
             image_url = _scene_image_url(script.id, scene.id, scene.image_url)
@@ -211,7 +217,7 @@ def run_full_frame_blink_audit(
                     image_url=image_url,
                     image_path=resolved_path,
                     detection=detection,
-                    blink_enabled=detection.eligible,
+                    start_seconds=round(scene_start, 2),
                 )
             )
     save_blink_audit_report(report)
