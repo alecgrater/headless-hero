@@ -16,7 +16,8 @@ logger = logging.getLogger(__name__)
 _NEGATIVE_MOTION_GUIDANCE = (
     "No text, letters, captions, subtitles, logos, watermarks, new characters, "
     "new objects, heavy camera shake, photorealism, 3D rendering, style change, "
-    "warped faces, distorted hands, flicker, or sudden cuts."
+    "warped faces, distorted hands, flicker, sudden cuts, talking, speaking, "
+    "lip-sync, mouth movement, or moving lips."
 )
 
 ALLOWED_AI_VIDEO_PROVIDERS = {"runway", "fal"}
@@ -29,7 +30,9 @@ def _build_animation_prompt(visual_prompt: str) -> str:
         "as the reference image. Preserve the exact composition, subject identities, colors, clean "
         "line art, and lighting from the source frame. Use subtle natural motion that supports the "
         f"scene: {prompt}. Add a calm, slow documentary push-in with gentle parallax where appropriate. "
-        "Keep the motion restrained and readable for narration. "
+        "Keep the motion restrained and readable for narration. Any on-screen characters are silent "
+        "subjects, not the narrator: keep their mouths closed and still with no talking, speaking, or "
+        "lip movement. "
         f"{_NEGATIVE_MOTION_GUIDANCE}"
     )
 
