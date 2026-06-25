@@ -723,7 +723,7 @@ function CanvasColorButton({
         <div
           role="dialog"
           aria-label="Edit canvas color"
-          className={`absolute right-0 z-50 w-64 rounded-xl border border-neutral-800 bg-neutral-950 p-3 shadow-2xl shadow-black/50 ${
+          className={`absolute left-0 z-50 w-64 rounded-xl border border-neutral-800 bg-neutral-950 p-3 shadow-2xl shadow-black/50 ${
             dropUp ? "bottom-10" : "top-10"
           }`}
         >
