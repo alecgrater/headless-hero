@@ -3,7 +3,7 @@ import {
   BarChart3,
   ChevronDown,
   Check,
-  Film,
+  Gauge,
   ImageIcon,
   Images,
   Info,
@@ -478,21 +478,43 @@ function sceneProgressCounter(step: string, progress: number, total: number): st
 
 type ViewerFormat = "long-form" | "short-form";
 type ViewerAsset = "render" | "thumbnails" | "seo";
-type ViewerTab = "timeline" | "media-sources" | "segments" | "image-review";
-type ViewerNavKey = ViewerTab | "thumbnails" | "seo";
+type ViewerTab = "timeline" | "media-sources" | "segments" | "image-review" | "script-rating";
 
-const FORMAT_OPTIONS: { key: ViewerFormat; label: string; Icon: LucideIcon }[] = [
-  { key: "long-form", label: "Long Form", Icon: Film },
-  { key: "short-form", label: "Short Form", Icon: Smartphone },
-];
+type NavItem = {
+  key: string;
+  label: string;
+  Icon: LucideIcon;
+  format?: ViewerFormat;
+  asset: ViewerAsset;
+  tab?: ViewerTab;
+};
 
-const VIEWER_NAV_OPTIONS: { key: ViewerNavKey; label: string; Icon: LucideIcon }[] = [
-  { key: "segments", label: "Segments", Icon: Layers },
-  { key: "media-sources", label: "Visual Modes", Icon: PanelsTopLeft },
-  { key: "image-review", label: "Img Review", Icon: Images },
-  { key: "timeline", label: "Timeline", Icon: ListVideo },
-  { key: "thumbnails", label: "Thumbnails", Icon: ImageIcon },
-  { key: "seo", label: "SEO", Icon: Search },
+const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
+  {
+    label: "Script",
+    items: [
+      { key: "segments", label: "Segments", Icon: Layers, asset: "render", tab: "segments" },
+      { key: "media-sources", label: "Visual Modes", Icon: PanelsTopLeft, asset: "render", tab: "media-sources" },
+      { key: "image-review", label: "Image Review", Icon: Images, asset: "render", tab: "image-review" },
+      { key: "script-rating", label: "Script Rating", Icon: Gauge, asset: "render", tab: "script-rating" },
+    ],
+  },
+  {
+    label: "Long Form",
+    items: [
+      { key: "lf-timeline", label: "Timeline", Icon: ListVideo, format: "long-form", asset: "render", tab: "timeline" },
+      { key: "lf-thumbnail", label: "Thumbnail", Icon: ImageIcon, format: "long-form", asset: "thumbnails" },
+      { key: "lf-seo", label: "SEO", Icon: Search, format: "long-form", asset: "seo" },
+    ],
+  },
+  {
+    label: "Short Form",
+    items: [
+      { key: "sf-shorts", label: "Shorts", Icon: Smartphone, format: "short-form", asset: "render", tab: "timeline" },
+      { key: "sf-thumbnails", label: "Thumbnails", Icon: ImageIcon, format: "short-form", asset: "thumbnails" },
+      { key: "sf-seo", label: "SEO", Icon: Search, format: "short-form", asset: "seo" },
+    ],
+  },
 ];
 
 function getCreationStatus(content: ScriptContent, projectConfig?: ProjectConfig | null) {
@@ -1058,7 +1080,24 @@ function ProjectDetailsModal({
   );
 }
 
-function ViewerSwitchRow({
+function resolveActiveNavKey(format: ViewerFormat, asset: ViewerAsset, activeTab: ViewerTab): string {
+  if (asset === "thumbnails") return format === "short-form" ? "sf-thumbnails" : "lf-thumbnail";
+  if (asset === "seo") return format === "short-form" ? "sf-seo" : "lf-seo";
+  switch (activeTab) {
+    case "segments":
+      return "segments";
+    case "media-sources":
+      return "media-sources";
+    case "image-review":
+      return "image-review";
+    case "script-rating":
+      return "script-rating";
+    default:
+      return format === "short-form" ? "sf-shorts" : "lf-timeline";
+  }
+}
+
+function ProjectNavRail({
   format,
   asset,
   activeTab,
@@ -1085,53 +1124,46 @@ function ViewerSwitchRow({
   canvasColorUpdating: boolean;
   onSelectCanvasColor: (color: string) => void;
 }) {
-  const activeNavKey: ViewerNavKey = asset === "render" ? activeTab : asset;
-  const handleNavChange = (key: ViewerNavKey) => {
-    if (key === "thumbnails" || key === "seo") {
-      onAssetChange(key);
-      return;
-    }
+  const activeKey = resolveActiveNavKey(format, asset, activeTab);
 
-    onAssetChange("render");
-    onTabChange(key);
+  const handleNavClick = (item: NavItem) => {
+    onAssetChange(item.asset);
+    if (item.tab) onTabChange(item.tab);
+    if (item.format) onFormatChange(item.format);
   };
 
   return (
-    <div className="shrink-0 border-y border-neutral-900/80 px-5 py-2">
-      <div className="flex min-w-0 items-center gap-2">
-        <div className="inline-flex shrink-0 items-center rounded-xl border border-neutral-800/80 bg-neutral-900/45 p-1">
-          {FORMAT_OPTIONS.map(({ key, label, Icon }) => (
-            <button
-              key={key}
-              onClick={() => onFormatChange(key)}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 whitespace-nowrap ${
-                format === key ? "bg-violet-500/20 text-violet-100 shadow-sm" : "text-neutral-500 hover:text-neutral-200"
-              }`}
-            >
-              <Icon className="w-3.5 h-3.5 shrink-0" />
-              {label}
-            </button>
-          ))}
-        </div>
-        <div className="inline-flex min-w-0 flex-1 items-center overflow-x-auto rounded-xl border border-neutral-800/80 bg-neutral-900/45 p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {VIEWER_NAV_OPTIONS.map(({ key, label, Icon }) => {
-            const isActiveNav = activeNavKey === key;
-            return (
-              <button
-                key={key}
-                onClick={() => handleNavChange(key)}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 whitespace-nowrap ${
-                  isActiveNav ? "bg-violet-500/20 text-violet-100 shadow-sm" : "text-neutral-500 hover:text-neutral-200"
-                }`}
-              >
-                <Icon className="w-3.5 h-3.5 shrink-0" />
-                {label}
-              </button>
-            );
-          })}
-        </div>
-        <div className="ml-auto inline-flex shrink-0 items-center gap-2">
-          <ProjectDetailsButton onClick={onOpenProjectDetails} />
+    <nav className="flex w-52 shrink-0 flex-col border-r border-neutral-800 bg-neutral-950/45">
+      <div className="flex-1 space-y-5 overflow-y-auto py-4 px-3">
+        {NAV_GROUPS.map((group) => (
+          <div key={group.label} className="space-y-1">
+            <div className="px-3 text-[11px] font-semibold uppercase tracking-wide text-neutral-600">
+              {group.label}
+            </div>
+            {group.items.map((item) => {
+              const isActive = activeKey === item.key;
+              const { Icon } = item;
+              return (
+                <button
+                  key={item.key}
+                  onClick={() => handleNavClick(item)}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
+                    isActive
+                      ? "bg-violet-500/15 text-violet-100"
+                      : "text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/50"
+                  }`}
+                >
+                  <Icon className="w-4 h-4 shrink-0" />
+                  {item.label}
+                </button>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+      <div className="shrink-0 border-t border-neutral-800 p-2 space-y-2">
+        <ProjectDetailsButton onClick={onOpenProjectDetails} />
+        <div className="flex items-center gap-2">
           <CanvasColorButton
             color={canvasColor}
             updating={canvasColorUpdating}
@@ -1140,7 +1172,7 @@ function ViewerSwitchRow({
           <OpenExportsButton opening={exportsFolderOpening} onOpen={onOpenExportsFolder} />
         </div>
       </div>
-    </div>
+    </nav>
   );
 }
 
@@ -1352,7 +1384,10 @@ function TimelineEditor({
 
   // Auto-switch to visual modes tab when new assignments arrive
   useEffect(() => {
-    if (media.hasPendingReview) setActiveTab("media-sources");
+    if (media.hasPendingReview) {
+      setViewerAsset("render");
+      setActiveTab("media-sources");
+    }
   }, [media.hasPendingReview]);
 
   const handleSelectCanvasColor = useCallback(async (color: string) => {
@@ -3007,20 +3042,6 @@ function TimelineEditor({
             />
           </div>
 
-          <ViewerSwitchRow
-            format={viewerFormat}
-            asset={viewerAsset}
-            activeTab={activeTab}
-            exportsFolderOpening={exportsFolderOpening}
-            canvasColor={state.content.visual_canvas?.background_color ?? "#F6C54A"}
-            canvasColorUpdating={canvasColorUpdating}
-            onFormatChange={setViewerFormat}
-            onAssetChange={setViewerAsset}
-            onTabChange={setActiveTab}
-            onOpenProjectDetails={() => setShowProjectDetails(true)}
-            onOpenExportsFolder={() => void handleOpenExportsFolder()}
-            onSelectCanvasColor={handleSelectCanvasColor}
-          />
           <ProjectDetailsModal
             open={showProjectDetails}
             onClose={() => setShowProjectDetails(false)}
@@ -3173,6 +3194,23 @@ function TimelineEditor({
           </button>
         </div>
       </div>
+
+      <div className="flex flex-1 min-h-0">
+        <ProjectNavRail
+          format={viewerFormat}
+          asset={viewerAsset}
+          activeTab={activeTab}
+          exportsFolderOpening={exportsFolderOpening}
+          canvasColor={state.content.visual_canvas?.background_color ?? "#F6C54A"}
+          canvasColorUpdating={canvasColorUpdating}
+          onFormatChange={setViewerFormat}
+          onAssetChange={setViewerAsset}
+          onTabChange={setActiveTab}
+          onOpenProjectDetails={() => setShowProjectDetails(true)}
+          onOpenExportsFolder={() => void handleOpenExportsFolder()}
+          onSelectCanvasColor={handleSelectCanvasColor}
+        />
+        <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
 
       {/* Batch Progress Bars */}
       <BatchProgressBar progress={state.batchImageProgress} label="images" />
@@ -3337,6 +3375,18 @@ function TimelineEditor({
           content={state.content}
           onContentUpdated={state.setContent}
         />
+      ) : activeTab === "script-rating" ? (
+        <div className="flex-1 overflow-y-auto p-5">
+          {state.content.script_rating ? (
+            <ScriptRatingCard rating={state.content.script_rating} />
+          ) : (
+            <div className="flex h-full items-center justify-center">
+              <p className="text-sm text-neutral-600">
+                No script rating yet — it's generated automatically after the script is created.
+              </p>
+            </div>
+          )}
+        </div>
       ) : viewerFormat === "short-form" && viewerAsset === "render" ? (
         <div className="flex-1 overflow-y-auto p-5">
           <ShortFormTab
@@ -3352,7 +3402,6 @@ function TimelineEditor({
       <div className="flex flex-col flex-1 overflow-hidden">
         {/* Main timeline area — full width */}
         <div className="overflow-auto p-4 shrink-0 space-y-4">
-          <ScriptRatingCard rating={state.content.script_rating} />
           <TimelineLanes
             content={state.content}
             selectedSceneId={state.selectedSceneId}
@@ -3394,6 +3443,8 @@ function TimelineEditor({
         )}
       </div>
       )}
+        </div>
+      </div>
 
       {showExportTestModal && (
         <ExportTestModal

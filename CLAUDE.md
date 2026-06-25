@@ -93,6 +93,8 @@ docs/              → PRD, setup guide, superpowers skills
 
 **Frontend state & formatting**: no external state library — `useState()` at page level, pass via props. Double quotes, trailing commas, 2-space indent.
 
+**Editor navigation**: the project editor (`TimelinePage.tsx`) navigates via a vertical left rail (`ProjectNavRail`, same pattern as `SettingsPage.tsx`), grouped into `SCRIPT` / `LONG FORM` / `SHORT FORM` sections — not horizontal button rows and not a Long/Short toggle. Format is implied by the group, not a separate control. The rail drives the existing `viewerFormat`/`viewerAsset`/`activeTab` state (SCRIPT items leave `viewerFormat` untouched; LONG/SHORT items set it). Utility controls (Project Details, Canvas color, Open Exports) live in the rail's pinned footer. New editor destinations are added as rail items in `NAV_GROUPS`, with active-state resolution centralized in `resolveActiveNavKey`.
+
 **Feature UX & dev observability**:
 - For any new feature/behavior change/UI element, ensure the UI is the most intuitive representation (naming, placement, defaults, disabled states, workflow fit).
 - Use in-app browser/preview tooling frequently while building UI (not just at the end); check real running page at desktop and mobile-ish widths; iterate on spacing, overflow, disabled/loading/error states, hierarchy.
