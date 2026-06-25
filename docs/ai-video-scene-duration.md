@@ -100,6 +100,16 @@ subject and forbids talking/lip-sync in both the positive directive and the
 negative list. The prompt is part of the video cache marker, so changing it
 regenerates clips.
 
+**This fix is UNVERIFIED.** The clips were never regenerated after the prompt
+change (fal is unreachable from the dev sandbox — egress proxy 403s `fal.run`),
+so we don't yet know whether the prompt alone stops the talking. Because the
+observed clips still show talking mouths, AI video was turned **off by default**:
+`AI_VIDEO_ENABLED` defaults to `false` and was flipped off in the local DB. When
+re-enabling, first regenerate the affected clips and confirm mouths stay closed;
+if the prompt isn't enough, the lever is the provider's negative-prompt / a
+motion-mask, not another prompt tweak. The Settings → Visuals → "AI Video"
+toggle carries a short note flagging this.
+
 ## Current constraints (the system as it stands)
 
 | Constraint | Value | Where |

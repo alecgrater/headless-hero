@@ -1018,6 +1018,9 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
               <p className="text-xs text-neutral-500">
                 Requires a key for the selected video provider. Script generation routes high-motion scenes up to the configured per-segment count.
               </p>
+              <p className="text-xs text-amber-400/90">
+                Known issue when enabled: on-screen characters appear to be talking — not yet fixed.
+              </p>
               {aiVideoEnabled && (
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_160px]">
                   <label className="space-y-1">
