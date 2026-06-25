@@ -145,7 +145,7 @@ _DEFAULTS: dict[str, str] = {
     "LIFE_AS_A_TARGET_SCENE_SECONDS": "8",
     "LIFE_AS_A_MAX_SCENE_SECONDS": "12",
     "LIFE_AS_A_SINGLE_VISUAL_MAX_SECONDS": "8",
-    "FAL_VIDEO_MODEL": "fal-ai/wan/v2.2-a14b/image-to-video/turbo",
+    "FAL_VIDEO_MODEL": "fal-ai/wan/v2.2-a14b/image-to-video",
     "SCRIPT_MODEL": DEFAULT_CLAUDE_MODEL,
     "AUDIO_FILTER_HIGHPASS": "true",
     "AUDIO_FILTER_NOISE_REDUCTION": "true",

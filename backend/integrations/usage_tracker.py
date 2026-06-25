@@ -269,5 +269,14 @@ FAL_WAN_22_TURBO_PER_VIDEO_BY_RESOLUTION = {
     "720p": 0.10,
 }
 
+# Fal Wan 2.2 A14B (non-turbo) image-to-video — higher quality, supports
+# variable clip length via num_frames. Rough per-video estimate (~2x turbo);
+# verify against current fal pricing if exact accounting matters.
+FAL_WAN_22_PER_VIDEO_BY_RESOLUTION = {
+    "480p": 0.10,
+    "580p": 0.15,
+    "720p": 0.20,
+}
+
 # ElevenLabs — per character (Creator plan ~$22/mo for ~100k chars)
 ELEVENLABS_PER_CHAR = 0.00022  # rough estimate

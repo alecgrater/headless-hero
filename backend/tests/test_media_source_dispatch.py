@@ -151,7 +151,7 @@ class TestMediaSourceDispatch:
             return {
                 "source_type": "ai_generated_video",
                 "provider": "fal",
-                "model": "fal-ai/wan/v2.2-a14b/image-to-video/turbo",
+                "model": "fal-ai/wan/v2.2-a14b/image-to-video",
             }
 
         with patch("integrations.runway_video_client.generate_video_from_image") as mock_runway, \
@@ -192,7 +192,7 @@ class TestMediaSourceDispatch:
             return {
                 "source_type": "ai_generated_video",
                 "provider": "fal",
-                "model": "fal-ai/wan/v2.2-a14b/image-to-video/turbo",
+                "model": "fal-ai/wan/v2.2-a14b/image-to-video",
             }
 
         monkeypatch.setenv("AI_VIDEO_PROVIDER", "runway")

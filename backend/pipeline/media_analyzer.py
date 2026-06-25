@@ -61,6 +61,11 @@ AI_VIDEO_STATIC_OBJECT_TERMS = {
 }
 
 AI_VIDEO_MAX_ROUTED_DURATION_SECONDS = 6.5
+# Hard ceiling on how long an AI-video clip any provider can actually deliver
+# (fal Wan i2v: 161 frames / 16 fps ≈ 10s; Runway Gen-4 Turbo: 10s). Scenes
+# longer than this can't be filled by a single clip, so never route them to
+# video — they'd silently fall back to the anchor image at render time.
+AI_VIDEO_MAX_CLIP_SECONDS = 10.0
 PLANNED_AI_VIDEO_DOWNGRADE_REASON = (
     "Planned AI video was downgraded because real voiceover timing, adjacency, "
     "duration, or scene content made it ineligible."
@@ -407,6 +412,8 @@ def analyze_media_sources(
         ai_video_max_duration = float(life_as_a_chunking_settings()["single_visual_max"])
     else:
         ai_video_max_duration = AI_VIDEO_MAX_ROUTED_DURATION_SECONDS
+    # No provider can fill a clip longer than ~10s, so never route beyond it.
+    ai_video_max_duration = min(ai_video_max_duration, AI_VIDEO_MAX_CLIP_SECONDS)
     system_prompt = (
         MEDIA_ANALYZER_SYSTEM.template
         .replace("{available_sources}", available_sources)

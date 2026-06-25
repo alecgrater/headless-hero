@@ -3,6 +3,7 @@
 import base64
 import json
 import logging
+import math
 import mimetypes
 import os
 import time
@@ -11,17 +12,52 @@ from typing import Any
 
 import httpx
 
-from integrations.usage_tracker import FAL_WAN_22_TURBO_PER_VIDEO_BY_RESOLUTION, record_usage
+from integrations.usage_tracker import (
+    FAL_WAN_22_PER_VIDEO_BY_RESOLUTION,
+    FAL_WAN_22_TURBO_PER_VIDEO_BY_RESOLUTION,
+    record_usage,
+)
 
 logger = logging.getLogger(__name__)
 
 FAL_QUEUE_BASE = "https://queue.fal.run"
-FAL_DEFAULT_VIDEO_MODEL = "fal-ai/wan/v2.2-a14b/image-to-video/turbo"
+# Non-turbo Wan 2.2 i2v: unlike the /turbo endpoint (fixed ~5s output), this
+# variant accepts num_frames so the clip can match the scene's narration.
+FAL_DEFAULT_VIDEO_MODEL = "fal-ai/wan/v2.2-a14b/image-to-video"
 FAL_DEFAULT_RESOLUTION = "720p"
+# Wan 2.2 i2v native frame rate; num_frames must stay within fal's 17–161 range.
+FAL_VIDEO_FPS = 16
+FAL_MIN_FRAMES = 17
+FAL_MAX_FRAMES = 161
 
 
 def model_name() -> str:
     return os.environ.get("FAL_VIDEO_MODEL", FAL_DEFAULT_VIDEO_MODEL).strip() or FAL_DEFAULT_VIDEO_MODEL
+
+
+def _model_supports_frame_count(model: str) -> bool:
+    """The /turbo endpoint has a fixed clip length and rejects num_frames."""
+    return not model.rstrip("/").endswith("/turbo")
+
+
+def _frames_for_duration(scene_duration_seconds: float) -> int:
+    """Frames needed to cover the narration, biased slightly long, clamped to fal's range.
+
+    Biasing one frame past the scene avoids the renderer's slowdown path (which
+    would otherwise fall back to the anchor image when the clip is a hair short).
+    """
+    target = max(scene_duration_seconds, 0.0)
+    frames = math.ceil(target * FAL_VIDEO_FPS) + 1
+    return max(FAL_MIN_FRAMES, min(FAL_MAX_FRAMES, frames))
+
+
+def _per_video_cost(model: str, res: str) -> float:
+    table = (
+        FAL_WAN_22_TURBO_PER_VIDEO_BY_RESOLUTION
+        if not _model_supports_frame_count(model)
+        else FAL_WAN_22_PER_VIDEO_BY_RESOLUTION
+    )
+    return table.get(res, 0.0)
 
 
 def _require_key() -> str:
@@ -103,6 +139,16 @@ def _extract_video_url(result: dict[str, Any]) -> str:
     raise RuntimeError(f"Fal request completed without a video URL: {result}")
 
 
+def _extract_video_duration(result: dict[str, Any]) -> float | None:
+    """Read the actual clip duration fal reports, when present."""
+    video = result.get("video")
+    if isinstance(video, dict):
+        duration = video.get("duration")
+        if isinstance(duration, (int, float)) and duration > 0:
+            return float(duration)
+    return None
+
+
 def generate_video_from_image(
     *,
     image_path: str,
@@ -130,8 +176,24 @@ def generate_video_from_image(
         "video_write_mode": "balanced",
     }
 
+    num_frames: int | None = None
+    if _model_supports_frame_count(model):
+        num_frames = _frames_for_duration(scene_duration_seconds)
+        payload["num_frames"] = num_frames
+        payload["frames_per_second"] = FAL_VIDEO_FPS
+        # Keep output duration == num_frames / fps (interpolation would smooth but
+        # otherwise complicate the frame/fps bookkeeping the renderer relies on).
+        payload["interpolator_model"] = "none"
+
     timeout = float(os.environ.get("FAL_TIMEOUT_SECONDS", "900"))
-    logger.info("Starting Fal image-to-video task (model=%s, ratio=%s, resolution=%s)", model, ratio, res)
+    logger.info(
+        "Starting Fal image-to-video task (model=%s, ratio=%s, resolution=%s, num_frames=%s, fps=%s)",
+        model,
+        ratio,
+        res,
+        num_frames if num_frames is not None else "model-default",
+        FAL_VIDEO_FPS if num_frames is not None else "model-default",
+    )
     with httpx.Client(timeout=120.0) as client:
         response = client.post(f"{FAL_QUEUE_BASE}/{model}", headers=_headers(), json=payload)
         response.raise_for_status()
@@ -160,13 +222,23 @@ def generate_video_from_image(
     output_path.write_bytes(download.content)
     os.chmod(output_path, 0o644)
 
-    cost_estimate = FAL_WAN_22_TURBO_PER_VIDEO_BY_RESOLUTION.get(res, 0.0)
+    # Record the clip's actual length, not the requested scene duration: fal
+    # reports it when available, otherwise derive it from the frames we asked for.
+    reported_duration = _extract_video_duration(result)
+    if reported_duration is not None:
+        clip_duration = reported_duration
+    elif num_frames is not None:
+        clip_duration = num_frames / FAL_VIDEO_FPS
+    else:
+        clip_duration = scene_duration_seconds
+
+    cost_estimate = _per_video_cost(model, res)
     metadata = {
         "source_type": "ai_generated_video",
         "provider": "fal",
         "model": model,
         "request_id": request_id,
-        "duration_seconds": scene_duration_seconds,
+        "duration_seconds": clip_duration,
         "ratio": ratio,
         "resolution": res,
         "prompt": prompt,
