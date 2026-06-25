@@ -590,6 +590,75 @@ def test_life_as_a_splits_overlong_scene_into_short_static_chunks(monkeypatch):
     assert all(scene.media_source == "ai" for scene in split_scenes)
 
 
+def test_life_as_a_splits_overlong_single_sentence_on_clauses(monkeypatch):
+    monkeypatch.setenv("LIFE_AS_A_SCENE_CHUNKING_ENABLED", "true")
+    monkeypatch.setenv("LIFE_AS_A_TARGET_SCENE_SECONDS", "8")
+    monkeypatch.setenv("LIFE_AS_A_MAX_SCENE_SECONDS", "12")
+    monkeypatch.setenv("LIFE_AS_A_SINGLE_VISUAL_MAX_SECONDS", "8")
+    narration = (
+        "The objects of full-time crew life have accumulated around you without ceremony — "
+        "worn non-slip shoes by the door, a break room locker key on your keychain, "
+        "an employee meal receipt folded in your back pocket, "
+        "a time card with your name on it in the rack by the office."
+    )
+    content = ScriptContent(
+        title="Your Life At Every Level Of Working At Burger King",
+        format_id="life-as-a",
+        segments=[
+            Segment(name="Level 3, full-time", scenes=[
+                Scene(
+                    id="s1",
+                    narration=narration,
+                    visual_prompt="[ESTABLISHING] The accumulated objects of crew life",
+                    visual_mode="full_frame",
+                    duration_estimate_seconds=16.0,
+                    contains_person=True,
+                ),
+            ]),
+        ],
+    )
+
+    changed = _split_life_as_a_scenes(content)
+    scenes = content.segments[0].scenes
+
+    # The single-sentence run-on must be split rather than kept whole.
+    assert changed == 1
+    assert len(scenes) > 1
+    # Chunks rejoin to the exact original narration (no text rewritten or lost).
+    assert " ".join(scene.narration for scene in scenes) == narration
+    assert all(scene.visual_beat == "static" for scene in scenes)
+
+
+def test_life_as_a_keeps_overlong_unsplittable_single_clause(monkeypatch):
+    monkeypatch.setenv("LIFE_AS_A_SCENE_CHUNKING_ENABLED", "true")
+    monkeypatch.setenv("LIFE_AS_A_TARGET_SCENE_SECONDS", "8")
+    monkeypatch.setenv("LIFE_AS_A_MAX_SCENE_SECONDS", "12")
+    # A long sentence with no clause delimiters can't be split; keep it whole.
+    narration = "You stand at the counter waiting for the long slow shift to finally end somehow"
+    content = ScriptContent(
+        title="Your Life At Every Level Of Working At Burger King",
+        format_id="life-as-a",
+        segments=[
+            Segment(name="Level 1", scenes=[
+                Scene(
+                    id="s1",
+                    narration=narration,
+                    visual_prompt="[ESTABLISHING] Waiting at the counter",
+                    visual_mode="full_frame",
+                    duration_estimate_seconds=16.0,
+                    contains_person=True,
+                ),
+            ]),
+        ],
+    )
+
+    changed = _split_life_as_a_scenes(content)
+    scenes = content.segments[0].scenes
+    assert changed == 0
+    assert len(scenes) == 1
+    assert scenes[0].narration == narration
+
+
 def test_life_as_a_chapter_card_is_not_split(monkeypatch):
     monkeypatch.setenv("LIFE_AS_A_SCENE_CHUNKING_ENABLED", "true")
     content = ScriptContent(

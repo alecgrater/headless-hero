@@ -46,6 +46,10 @@ _LEVEL_NAME_PREFIX_RE = re.compile(
     re.IGNORECASE,
 )
 _SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
+# Fallback boundaries for an overlong run-on beat with no sentence punctuation:
+# break after a clause delimiter (em/en dash, semicolon, colon, comma) + space,
+# keeping the delimiter attached to its clause so joined chunks reproduce the text.
+_CLAUSE_SPLIT_RE = re.compile(r"(?<=[—–;:,])\s+")
 _SOLO_AI_VIDEO_BLOCKER_RE = re.compile(
     r"\b("
     r"crowd|crowds|group|groups|audience|classmates?|colleagues?|"
@@ -282,6 +286,17 @@ def _split_sentences(narration: str) -> list[str]:
     return sentences or ([narration.strip()] if narration.strip() else [])
 
 
+def _split_clauses(narration: str) -> list[str]:
+    """Break a single overlong sentence on clause delimiters as a split fallback.
+
+    Each delimiter stays attached to the clause it follows, so joining the
+    pieces back with spaces reproduces the original narration text exactly.
+    """
+    text = narration.strip()
+    clauses = [part.strip() for part in _CLAUSE_SPLIT_RE.split(text) if part.strip()]
+    return clauses or ([text] if text else [])
+
+
 def _single_frame_directives(scene: Scene) -> list[dict]:
     contains_person = bool(scene.contains_person)
     prompt = scene.visual_prompt.strip() or scene.narration.strip()
@@ -350,7 +365,16 @@ def _split_life_as_a_scenes(content: ScriptContent) -> int:
             estimated_duration = _scene_estimated_duration(scene, target_seconds=target_seconds)
             sentences = _split_sentences(scene.narration)
             effective_max_seconds = min(max(mode_max_seconds, float(max_seconds)), 26.0)
-            if estimated_duration <= effective_max_seconds or len(sentences) <= 1:
+            split_units = sentences
+            used_clause_fallback = False
+            if len(split_units) <= 1 and estimated_duration > effective_max_seconds:
+                # A long single-sentence run-on (e.g. a comma/em-dash list) has no
+                # sentence boundary to cut on; fall back to clause delimiters.
+                clauses = _split_clauses(scene.narration)
+                if len(clauses) > 1:
+                    split_units = clauses
+                    used_clause_fallback = True
+            if estimated_duration <= effective_max_seconds or len(split_units) <= 1:
                 logger.info(
                     "[LIFE_AS_A_CHUNKING] kept scene %s; reason=duration %.1fs within target",
                     scene.id,
@@ -359,21 +383,22 @@ def _split_life_as_a_scenes(content: ScriptContent) -> int:
                 rewritten.append(scene)
                 continue
 
-            chunk_count = min(len(sentences), max(2, math.ceil(estimated_duration / mode_target_seconds)))
-            chunks = _chunk_sentences(sentences, chunk_count)
+            chunk_count = min(len(split_units), max(2, math.ceil(estimated_duration / mode_target_seconds)))
+            chunks = _chunk_sentences(split_units, chunk_count)
             logger.info(
-                "[LIFE_AS_A_CHUNKING] split scene %s into %d chunks; reason=estimated_duration %.1fs > max %.1fs",
+                "[LIFE_AS_A_CHUNKING] split scene %s into %d chunks; reason=estimated_duration %.1fs > max %.1fs%s",
                 scene.id,
                 len(chunks),
                 estimated_duration,
                 float(effective_max_seconds),
+                " (clause fallback)" if used_clause_fallback else "",
             )
             for chunk_index, chunk in enumerate(chunks):
                 chunk_scene = scene.model_copy(deep=True)
                 chunk_scene.narration = " ".join(chunk).strip()
                 chunk_scene.duration_estimate_seconds = max(
                     1.0,
-                    round(estimated_duration * len(chunk) / len(sentences), 2),
+                    round(estimated_duration * len(chunk) / len(split_units), 2),
                 )
                 chunk_scene.visual_beat = "static"
                 chunk_scene.frame_directives = _single_frame_directives(chunk_scene)
