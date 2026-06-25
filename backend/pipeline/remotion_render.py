@@ -32,6 +32,8 @@ SUBTITLE_ROUTER_VERSION = "standard-subtitle-router-v1"
 RENDERER_CONTEXT_STAGE_VERSION = "renderer-context-stage-v4"
 # Bump to invalidate every prior blink render (overlay geometry / detection changes).
 BLINK_RENDERER_VERSION = "full-frame-blink-v1"
+# Bump to invalidate every prior camera-drift render (CameraDrift transform math changes).
+CAMERA_DRIFT_RENDERER_VERSION = "camera-drift-cover-v1"
 SUBTITLE_COVERAGE_MODES = {"all", "punchy"}
 SUBTITLE_STYLES = ("clean", "kinetic", "burst")
 
@@ -449,6 +451,7 @@ def subtitle_render_fingerprint(content: ScriptContent) -> dict[str, Any]:
         "subtitle_router_version": SUBTITLE_ROUTER_VERSION,
         "renderer_context_stage_version": RENDERER_CONTEXT_STAGE_VERSION,
         "blink_renderer_version": BLINK_RENDERER_VERSION,
+        "camera_drift_renderer_version": CAMERA_DRIFT_RENDERER_VERSION,
         "settings": subtitle_settings_from_env(),
         "scenes": [
             {

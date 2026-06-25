@@ -227,6 +227,8 @@ Export bundles must not generate or include standalone long-form audio MP3s; sce
 
 **FX**: AI-generated via Claude (not manually edited). Each scene has an optional `fx: SceneFX`. Active effect: `zoom_punch`. Timing adjustable via scene micro-timeline.
 
+**Camera drift always covers the frame**: `CameraDrift` (`remotion/src/effects/camera/CameraDrift.tsx`) must never reveal the global canvas/background behind a panning or zooming photo. It locks `transformOrigin` to center and derives every translate from the per-frame safe envelope `(scale-1)·dimension/2 · SAFETY` with `scale ≥ 1 + COVER_EPS`, so coverage holds for every motion at every frame by construction. Pans start slightly more zoomed in and ease back out (`REVEAL`) to reveal more of the photo rather than sliding an edge off-frame. Do not reintroduce anchor-as-`transformOrigin` or `scale·translate` overshoot. Bump `CAMERA_DRIFT_RENDERER_VERSION` (in `remotion_render.subtitle_render_fingerprint`) when changing the transform math to invalidate prior drift renders.
+
 **Transitions**: each scene has `transition_in` (cut, fade_black, flash_white, wipe), assigned by Claude alongside FX. `SceneTransition` wraps visual+subtitle+Eli layers; audio plays through.
 
 ## Eli Character Overlay
