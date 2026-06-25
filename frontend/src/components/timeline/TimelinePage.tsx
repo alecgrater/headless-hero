@@ -627,14 +627,10 @@ function CanvasColorButton({
   color,
   updating,
   onSelect,
-  compact = false,
-  dropUp = false,
 }: {
   color: string;
   updating: boolean;
   onSelect: (color: string) => void;
-  compact?: boolean;
-  dropUp?: boolean;
 }) {
   const textInputRef = useRef<HTMLInputElement | null>(null);
   const popoverRef = useRef<HTMLDivElement | null>(null);
@@ -696,9 +692,7 @@ function CanvasColorButton({
   return (
     <div
       ref={popoverRef}
-      className={`relative inline-flex h-9 shrink-0 items-center rounded-lg border bg-neutral-950/70 transition-colors focus-within:border-violet-500 ${
-        compact ? "w-9 justify-center px-0" : "gap-1.5 px-1.5"
-      } ${
+      className={`relative inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border bg-neutral-950/70 px-1.5 transition-colors focus-within:border-violet-500 ${
         invalid ? "border-amber-400/70" : "border-neutral-800 hover:border-violet-500/35"
       } ${updating ? "opacity-70" : ""}`}
       title="Canvas color"
@@ -713,19 +707,17 @@ function CanvasColorButton({
         className="inline-flex h-full items-center gap-1.5 text-xs font-medium text-neutral-200 transition-colors hover:text-violet-100 disabled:cursor-wait"
       >
         <span
-          className={`shrink-0 rounded-sm border border-neutral-300/80 ${compact ? "h-5 w-5" : "h-5 w-7"}`}
+          className="h-5 w-7 shrink-0 rounded-sm border border-neutral-300/80"
           style={{ backgroundColor: previewColor }}
           aria-hidden="true"
         />
-        {!compact && <span>Canvas</span>}
+        <span>Canvas</span>
       </button>
       {open ? (
         <div
           role="dialog"
           aria-label="Edit canvas color"
-          className={`absolute left-0 z-50 w-64 rounded-xl border border-neutral-800 bg-neutral-950 p-3 shadow-2xl shadow-black/50 ${
-            dropUp ? "bottom-10" : "top-10"
-          }`}
+          className="absolute right-0 top-10 z-50 w-64 rounded-xl border border-neutral-800 bg-neutral-950 p-3 shadow-2xl shadow-black/50"
         >
           <div className="mb-2 flex items-center justify-between gap-3">
             <div>
@@ -779,25 +771,9 @@ function CanvasColorButton({
 
 function ProjectDetailsButton({
   onClick,
-  compact = false,
 }: {
   onClick: () => void;
-  compact?: boolean;
 }) {
-  if (compact) {
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-neutral-800 bg-neutral-900/55 text-violet-300/90 transition-colors hover:border-violet-500/35 hover:bg-neutral-800/70 hover:text-violet-100"
-        title="Project details — stats, costs, media, exports"
-        aria-label="Project details"
-      >
-        <Info className="h-4 w-4" />
-      </button>
-    );
-  }
-
   return (
     <button
       type="button"
@@ -1128,28 +1104,16 @@ function ProjectNavRail({
   format,
   asset,
   activeTab,
-  exportsFolderOpening,
   onFormatChange,
   onAssetChange,
   onTabChange,
-  onOpenProjectDetails,
-  onOpenExportsFolder,
-  canvasColor,
-  canvasColorUpdating,
-  onSelectCanvasColor,
 }: {
   format: ViewerFormat;
   asset: ViewerAsset;
   activeTab: ViewerTab;
-  exportsFolderOpening: boolean;
   onFormatChange: (format: ViewerFormat) => void;
   onAssetChange: (asset: ViewerAsset) => void;
   onTabChange: (tab: ViewerTab) => void;
-  onOpenProjectDetails: () => void;
-  onOpenExportsFolder: () => void;
-  canvasColor: string;
-  canvasColorUpdating: boolean;
-  onSelectCanvasColor: (color: string) => void;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const activeKey = resolveActiveNavKey(format, asset, activeTab);
@@ -1218,24 +1182,91 @@ function ProjectNavRail({
           </div>
         ))}
       </div>
-      <div
-        className={`shrink-0 border-t border-neutral-800 p-2 ${
-          collapsed ? "flex flex-col items-center gap-2" : "space-y-2"
-        }`}
-      >
-        <ProjectDetailsButton onClick={onOpenProjectDetails} compact={collapsed} />
-        <div className={collapsed ? "flex flex-col items-center gap-2" : "flex items-center gap-2"}>
-          <CanvasColorButton
-            color={canvasColor}
-            updating={canvasColorUpdating}
-            onSelect={onSelectCanvasColor}
-            compact={collapsed}
-            dropUp
-          />
-          <OpenExportsButton opening={exportsFolderOpening} onOpen={onOpenExportsFolder} />
-        </div>
-      </div>
     </nav>
+  );
+}
+
+function UtilityStat({
+  label,
+  value,
+  tone = "neutral",
+}: {
+  label: string;
+  value: string;
+  tone?: "neutral" | "emerald" | "sky" | "violet";
+}) {
+  const toneClass = {
+    neutral: "text-neutral-100",
+    emerald: "text-emerald-300",
+    sky: "text-sky-300",
+    violet: "text-violet-300",
+  }[tone];
+
+  return (
+    <div className="flex items-baseline gap-1.5 whitespace-nowrap">
+      <span className="text-[11px] font-medium uppercase tracking-wide text-neutral-600">{label}</span>
+      <span className={`text-sm font-semibold tabular-nums ${toneClass}`}>{value}</span>
+    </div>
+  );
+}
+
+function ProjectUtilityBar({
+  sceneCount,
+  segmentCount,
+  durationStr,
+  totalWords,
+  totalCost,
+  exportStatus,
+  projectConfig,
+  activePresetName,
+  exportsFolderOpening,
+  onOpenProjectDetails,
+  onOpenExportsFolder,
+  canvasColor,
+  canvasColorUpdating,
+  onSelectCanvasColor,
+}: {
+  sceneCount: number;
+  segmentCount: number;
+  durationStr: string;
+  totalWords: number;
+  totalCost: number;
+  exportStatus: ExportFileStatus | null;
+  projectConfig: ProjectConfig | null;
+  activePresetName: string | null;
+  exportsFolderOpening: boolean;
+  onOpenProjectDetails: () => void;
+  onOpenExportsFolder: () => void;
+  canvasColor: string;
+  canvasColorUpdating: boolean;
+  onSelectCanvasColor: (color: string) => void;
+}) {
+  const fallbackExportTotal = segmentCount * 3 + 3;
+  const exported = exportStatus?.exported ?? 0;
+  const exportTotal = exportStatus?.total ?? fallbackExportTotal;
+  const eliStatus = projectConfig == null || projectConfig.eli_enabled ? "On" : "Off";
+  const styleStatus =
+    projectConfig && projectConfig.eli_enabled === false && projectConfig.style_preset_enabled
+      ? activePresetName ?? "Set"
+      : "Off";
+
+  return (
+    <div className="flex shrink-0 flex-wrap items-center gap-x-5 gap-y-2 border-t border-neutral-900/80 px-5 py-2.5">
+      <UtilityStat label="Segments" value={segmentCount.toLocaleString()} />
+      <UtilityStat label="Scenes" value={sceneCount.toLocaleString()} />
+      <UtilityStat label="Duration" value={durationStr} />
+      <UtilityStat label="Words" value={totalWords > 0 ? totalWords.toLocaleString() : "0"} />
+      <UtilityStat label="Cost" value={formatCost(totalCost)} tone="emerald" />
+      <UtilityStat label="Exports" value={`${exported}/${exportTotal}`} tone="sky" />
+      <span className="hidden h-4 w-px shrink-0 bg-neutral-800 sm:block" aria-hidden="true" />
+      <UtilityStat label="Eli" value={eliStatus} tone={eliStatus === "On" ? "emerald" : "neutral"} />
+      <UtilityStat label="Style" value={styleStatus} tone={styleStatus === "Off" ? "neutral" : "violet"} />
+      <div className="ml-auto flex shrink-0 items-center gap-2">
+        <CanvasColorButton color={canvasColor} updating={canvasColorUpdating} onSelect={onSelectCanvasColor} />
+        <OpenExportsButton opening={exportsFolderOpening} onOpen={onOpenExportsFolder} />
+        <ProjectDetailsButton onClick={onOpenProjectDetails} />
+      </div>
+    </div>
   );
 }
 
@@ -3208,6 +3239,24 @@ function TimelineEditor({
             productionBusyTask={productionBusyTask}
             anyProductionBusy={anyProductionBusy}
           />
+
+          <ProjectUtilityBar
+            sceneCount={sceneCount}
+            segmentCount={segmentCount}
+            durationStr={durationStr}
+            totalWords={totalWords}
+            totalCost={totalCost}
+            exportStatus={exportFileStatus}
+            projectConfig={projectConfig}
+            activePresetName={activePreset?.name || null}
+            exportsFolderOpening={exportsFolderOpening}
+            canvasColor={state.content.visual_canvas?.background_color ?? "#F6C54A"}
+            canvasColorUpdating={canvasColorUpdating}
+            onOpenProjectDetails={() => setShowProjectDetails(true)}
+            onOpenExportsFolder={() => void handleOpenExportsFolder()}
+            onSelectCanvasColor={handleSelectCanvasColor}
+          />
+
           {yoloRenderRunning && (
             <YoloProgressStrip
               step={yoloStep}
@@ -3263,15 +3312,9 @@ function TimelineEditor({
           format={viewerFormat}
           asset={viewerAsset}
           activeTab={activeTab}
-          exportsFolderOpening={exportsFolderOpening}
-          canvasColor={state.content.visual_canvas?.background_color ?? "#F6C54A"}
-          canvasColorUpdating={canvasColorUpdating}
           onFormatChange={setViewerFormat}
           onAssetChange={setViewerAsset}
           onTabChange={setActiveTab}
-          onOpenProjectDetails={() => setShowProjectDetails(true)}
-          onOpenExportsFolder={() => void handleOpenExportsFolder()}
-          onSelectCanvasColor={handleSelectCanvasColor}
         />
         <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
 
