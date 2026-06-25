@@ -9,6 +9,8 @@ import {
   Info,
   Layers,
   ListVideo,
+  PanelLeftClose,
+  PanelLeftOpen,
   PanelsTopLeft,
   Pencil,
   Search,
@@ -625,10 +627,14 @@ function CanvasColorButton({
   color,
   updating,
   onSelect,
+  compact = false,
+  dropUp = false,
 }: {
   color: string;
   updating: boolean;
   onSelect: (color: string) => void;
+  compact?: boolean;
+  dropUp?: boolean;
 }) {
   const textInputRef = useRef<HTMLInputElement | null>(null);
   const popoverRef = useRef<HTMLDivElement | null>(null);
@@ -690,7 +696,9 @@ function CanvasColorButton({
   return (
     <div
       ref={popoverRef}
-      className={`relative inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border bg-neutral-950/70 px-1.5 transition-colors focus-within:border-violet-500 ${
+      className={`relative inline-flex h-9 shrink-0 items-center rounded-lg border bg-neutral-950/70 transition-colors focus-within:border-violet-500 ${
+        compact ? "w-9 justify-center px-0" : "gap-1.5 px-1.5"
+      } ${
         invalid ? "border-amber-400/70" : "border-neutral-800 hover:border-violet-500/35"
       } ${updating ? "opacity-70" : ""}`}
       title="Canvas color"
@@ -700,21 +708,24 @@ function CanvasColorButton({
         onClick={handleToggleOpen}
         aria-expanded={open}
         aria-haspopup="dialog"
+        aria-label="Canvas color"
         disabled={updating}
         className="inline-flex h-full items-center gap-1.5 text-xs font-medium text-neutral-200 transition-colors hover:text-violet-100 disabled:cursor-wait"
       >
         <span
-          className="h-5 w-7 shrink-0 rounded-sm border border-neutral-300/80"
+          className={`shrink-0 rounded-sm border border-neutral-300/80 ${compact ? "h-5 w-5" : "h-5 w-7"}`}
           style={{ backgroundColor: previewColor }}
           aria-hidden="true"
         />
-        <span>Canvas</span>
+        {!compact && <span>Canvas</span>}
       </button>
       {open ? (
         <div
           role="dialog"
           aria-label="Edit canvas color"
-          className="absolute right-0 top-10 z-50 w-64 rounded-xl border border-neutral-800 bg-neutral-950 p-3 shadow-2xl shadow-black/50"
+          className={`absolute right-0 z-50 w-64 rounded-xl border border-neutral-800 bg-neutral-950 p-3 shadow-2xl shadow-black/50 ${
+            dropUp ? "bottom-10" : "top-10"
+          }`}
         >
           <div className="mb-2 flex items-center justify-between gap-3">
             <div>
@@ -768,9 +779,25 @@ function CanvasColorButton({
 
 function ProjectDetailsButton({
   onClick,
+  compact = false,
 }: {
   onClick: () => void;
+  compact?: boolean;
 }) {
+  if (compact) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-neutral-800 bg-neutral-900/55 text-violet-300/90 transition-colors hover:border-violet-500/35 hover:bg-neutral-800/70 hover:text-violet-100"
+        title="Project details — stats, costs, media, exports"
+        aria-label="Project details"
+      >
+        <Info className="h-4 w-4" />
+      </button>
+    );
+  }
+
   return (
     <button
       type="button"
@@ -1124,6 +1151,7 @@ function ProjectNavRail({
   canvasColorUpdating: boolean;
   onSelectCanvasColor: (color: string) => void;
 }) {
+  const [collapsed, setCollapsed] = useState(false);
   const activeKey = resolveActiveNavKey(format, asset, activeTab);
 
   const handleNavClick = (item: NavItem) => {
@@ -1133,13 +1161,37 @@ function ProjectNavRail({
   };
 
   return (
-    <nav className="flex w-52 shrink-0 flex-col border-r border-neutral-800 bg-neutral-950/45">
-      <div className="flex-1 space-y-5 overflow-y-auto py-4 px-3">
-        {NAV_GROUPS.map((group) => (
+    <nav
+      className={`flex shrink-0 flex-col border-r border-neutral-800 bg-neutral-950/45 transition-[width] duration-200 ${
+        collapsed ? "w-14" : "w-52"
+      }`}
+    >
+      <div
+        className={`flex shrink-0 items-center border-b border-neutral-800/70 px-2 py-2 ${
+          collapsed ? "justify-center" : "justify-end"
+        }`}
+      >
+        <button
+          type="button"
+          onClick={() => setCollapsed((value) => !value)}
+          title={collapsed ? "Expand navigation" : "Collapse navigation"}
+          aria-label={collapsed ? "Expand navigation" : "Collapse navigation"}
+          aria-expanded={!collapsed}
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:bg-neutral-800/60 hover:text-neutral-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+        >
+          {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+        </button>
+      </div>
+      <div className={`flex-1 overflow-y-auto py-4 ${collapsed ? "px-2 space-y-3" : "px-3 space-y-5"}`}>
+        {NAV_GROUPS.map((group, groupIdx) => (
           <div key={group.label} className="space-y-1">
-            <div className="px-3 text-[11px] font-semibold uppercase tracking-wide text-neutral-600">
-              {group.label}
-            </div>
+            {collapsed ? (
+              groupIdx > 0 ? <div className="mx-auto mb-1 h-px w-6 bg-neutral-800" aria-hidden="true" /> : null
+            ) : (
+              <div className="px-3 text-[11px] font-semibold uppercase tracking-wide text-neutral-600">
+                {group.label}
+              </div>
+            )}
             {group.items.map((item) => {
               const isActive = activeKey === item.key;
               const { Icon } = item;
@@ -1147,27 +1199,38 @@ function ProjectNavRail({
                 <button
                   key={item.key}
                   onClick={() => handleNavClick(item)}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
+                  title={collapsed ? item.label : undefined}
+                  aria-label={collapsed ? item.label : undefined}
+                  aria-current={isActive ? "page" : undefined}
+                  className={`w-full flex items-center rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
+                    collapsed ? "justify-center px-0 py-2" : "gap-2.5 px-3 py-2"
+                  } ${
                     isActive
                       ? "bg-violet-500/15 text-violet-100"
                       : "text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/50"
                   }`}
                 >
                   <Icon className="w-4 h-4 shrink-0" />
-                  {item.label}
+                  {!collapsed && item.label}
                 </button>
               );
             })}
           </div>
         ))}
       </div>
-      <div className="shrink-0 border-t border-neutral-800 p-2 space-y-2">
-        <ProjectDetailsButton onClick={onOpenProjectDetails} />
-        <div className="flex items-center gap-2">
+      <div
+        className={`shrink-0 border-t border-neutral-800 p-2 ${
+          collapsed ? "flex flex-col items-center gap-2" : "space-y-2"
+        }`}
+      >
+        <ProjectDetailsButton onClick={onOpenProjectDetails} compact={collapsed} />
+        <div className={collapsed ? "flex flex-col items-center gap-2" : "flex items-center gap-2"}>
           <CanvasColorButton
             color={canvasColor}
             updating={canvasColorUpdating}
             onSelect={onSelectCanvasColor}
+            compact={collapsed}
+            dropUp
           />
           <OpenExportsButton opening={exportsFolderOpening} onOpen={onOpenExportsFolder} />
         </div>
