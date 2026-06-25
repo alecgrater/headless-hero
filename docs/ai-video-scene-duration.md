@@ -106,8 +106,9 @@ so we don't yet know whether the prompt alone stops the talking. Because the
 observed clips still show talking mouths, AI video was turned **off by default**:
 `AI_VIDEO_ENABLED` defaults to `false` and was flipped off in the local DB. When
 re-enabling, first regenerate the affected clips and confirm mouths stay closed;
-if the prompt isn't enough, the lever is the provider's negative-prompt / a
-motion-mask, not another prompt tweak. The Settings → Visuals → "AI Video"
+if the prompt isn't enough, the lever is the provider's dedicated
+negative-prompt parameter / a motion-mask, not another tweak to the prompt text
+(the in-prompt `_NEGATIVE_MOTION_GUIDANCE` list already covers talking). The Settings → Visuals → "AI Video"
 toggle carries a short note flagging this.
 
 ## Current constraints (the system as it stands)
