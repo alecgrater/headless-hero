@@ -1112,6 +1112,7 @@ function ProjectUtilityBar({
         value={`${uploadedCount}/${distributionTotal}`}
         tone={uploadedCount === distributionTotal ? "emerald" : "neutral"}
         panelTitle="Distribution"
+        align="right"
         onOpen={onRefreshUpload}
       >
         <div className="overflow-hidden rounded-lg border border-neutral-800 bg-neutral-950/60 p-3">
@@ -1131,7 +1132,6 @@ function ProjectUtilityBar({
     </div>
   );
 }
-
 
 function TimelineEditor({
   scriptId,
