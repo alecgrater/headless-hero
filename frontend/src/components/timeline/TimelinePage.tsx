@@ -1,12 +1,10 @@
 import { type KeyboardEvent as ReactKeyboardEvent, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import {
-  BarChart3,
   ChevronDown,
   Check,
   Gauge,
   ImageIcon,
   Images,
-  Info,
   Layers,
   ListVideo,
   PanelLeftClose,
@@ -369,50 +367,6 @@ function CostBreakdownPanel({
   );
 }
 
-function formatScenePercent(count: number, total: number) {
-  if (total === 0) return "0%";
-  return `${Math.round((count / total) * 100)}%`;
-}
-
-function MediaBreakdownPanel({
-  modeCounts,
-  totalScenes,
-}: {
-  modeCounts: Record<string, number>;
-  totalScenes: number;
-}) {
-  const rows = [
-    { key: "full_frame", label: "Full frame", color: "text-violet-300", count: modeCounts.full_frame ?? 0 },
-    { key: "video", label: "Video", color: "text-fuchsia-300", count: modeCounts.video ?? 0 },
-    { key: "popup_sequence", label: "Popup sequence", color: "text-sky-300", count: modeCounts.popup_sequence ?? 0 },
-    { key: "comparison_board", label: "Comparison board", color: "text-amber-300", count: modeCounts.comparison_board ?? 0 },
-    { key: "captions", label: "Captions", color: "text-red-300", count: modeCounts.captions ?? 0 },
-  ];
-
-  return (
-    <div className="overflow-hidden rounded-lg border border-neutral-800 bg-neutral-950/60">
-      <div className="flex items-center justify-between border-b border-neutral-800 px-3 py-2">
-        <span className="text-xs font-semibold text-neutral-200">Visual mode mix</span>
-        <span className="text-xs font-mono text-neutral-400">
-          {totalScenes} scene{totalScenes !== 1 ? "s" : ""}
-        </span>
-      </div>
-      <div className="py-1">
-        {rows.map((row) => (
-          <div key={row.key} className="px-3 py-2">
-            <div className="flex items-center justify-between gap-3">
-              <span className={`text-xs font-medium ${row.color}`}>{row.label}</span>
-              <span className="text-xs font-mono text-neutral-200">
-                {row.count}/{totalScenes} = {formatScenePercent(row.count, totalScenes)}
-              </span>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function ExportFileBreakdownPanel({
   status,
   segmentCount,
@@ -769,93 +723,6 @@ function CanvasColorButton({
   );
 }
 
-function ProjectDetailsButton({
-  onClick,
-}: {
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="group inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-neutral-800 bg-neutral-900/55 px-2.5 text-xs font-medium text-neutral-200 transition-colors hover:border-violet-500/35 hover:bg-neutral-800/70 hover:text-violet-100"
-      title="Open project details"
-    >
-      <Info className="h-4 w-4 text-violet-300/90" />
-      <span>Project details</span>
-      <span className="hidden items-center gap-1 text-xs text-neutral-400 2xl:inline-flex">
-        <span className="text-neutral-600">·</span>
-        <span>stats, costs, media, exports</span>
-      </span>
-      <ChevronDown className="h-3.5 w-3.5 text-neutral-500 transition-transform group-hover:translate-y-0.5 group-hover:text-violet-300" />
-    </button>
-  );
-}
-
-function DetailMetric({
-  label,
-  value,
-  tone = "neutral",
-}: {
-  label: string;
-  value: string;
-  tone?: "neutral" | "emerald" | "sky" | "violet";
-}) {
-  const toneClass = {
-    neutral: "text-neutral-100",
-    emerald: "text-emerald-300",
-    sky: "text-sky-300",
-    violet: "text-violet-300",
-  }[tone];
-
-  return (
-    <div className="rounded-lg border border-neutral-800 bg-neutral-950/50 px-3 py-2">
-      <div className="text-[11px] uppercase tracking-[0.08em] text-neutral-500">{label}</div>
-      <div className={`mt-1 truncate text-sm font-semibold tabular-nums ${toneClass}`}>{value}</div>
-    </div>
-  );
-}
-
-function DetailAccordion({
-  id,
-  title,
-  summary,
-  openSection,
-  setOpenSection,
-  children,
-}: {
-  id: string;
-  title: string;
-  summary: string;
-  openSection: string | null;
-  setOpenSection: (section: string | null) => void;
-  children: ReactNode;
-}) {
-  const open = openSection === id;
-
-  return (
-    <div className="overflow-hidden rounded-lg border border-neutral-800 bg-neutral-950/35">
-      <button
-        type="button"
-        onClick={() => setOpenSection(open ? null : id)}
-        aria-expanded={open}
-        className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition-colors hover:bg-neutral-800/50"
-      >
-        <span className="min-w-0">
-          <span className="block text-sm font-medium text-neutral-100">{title}</span>
-          <span className="block truncate text-xs text-neutral-500">{summary}</span>
-        </span>
-        <ChevronDown className={`h-4 w-4 shrink-0 text-neutral-500 transition-transform duration-200 ${open ? "rotate-180 text-neutral-300" : ""}`} />
-      </button>
-      <div className={`grid transition-all duration-300 ease-out ${open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
-        <div className="min-h-0 overflow-hidden">
-          <div className="border-t border-neutral-800 p-3">{children}</div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function DistributionTrackingPanel({
   tracking,
   updating,
@@ -909,176 +776,6 @@ function DistributionTrackingPanel({
           </button>
         );
       })}
-    </div>
-  );
-}
-
-function ProjectDetailsModal({
-  open,
-  onClose,
-  sceneCount,
-  segmentCount,
-  durationStr,
-  totalWords,
-  projectConfig,
-  activePresetName,
-  totalCost,
-  costBreakdown,
-  mediaCounts,
-  mediaSceneTotal,
-  aiScenePercent,
-  exportStatus,
-  uploadTracking,
-  trackingUpdating,
-  onToggleUploadTracking,
-  onOpenUploadSuite,
-}: {
-  open: boolean;
-  onClose: () => void;
-  sceneCount: number;
-  segmentCount: number;
-  durationStr: string;
-  totalWords: number;
-  projectConfig: ProjectConfig | null;
-  activePresetName: string | null;
-  totalCost: number;
-  costBreakdown: ScriptCostBreakdownItem[];
-  mediaCounts: Record<string, number>;
-  mediaSceneTotal: number;
-  aiScenePercent: string;
-  exportStatus: ExportFileStatus | null;
-  uploadTracking: UploadTracking;
-  trackingUpdating: Partial<Record<keyof UploadTracking, boolean>>;
-  onToggleUploadTracking: (key: keyof UploadTracking) => void;
-  onOpenUploadSuite: () => void;
-}) {
-  const [openSection, setOpenSection] = useState<string | null>(null);
-  const fallbackExportTotal = segmentCount * 3 + 3;
-  const exported = exportStatus?.exported ?? 0;
-  const exportTotal = exportStatus?.total ?? fallbackExportTotal;
-  const uploadedCount = DISTRIBUTION_TARGETS.filter(({ key }) => uploadTracking[key]).length;
-  const eliStatus = projectConfig == null || projectConfig.eli_enabled ? "On" : "Off";
-  const styleStatus =
-    projectConfig && projectConfig.eli_enabled === false && projectConfig.style_preset_enabled
-      ? activePresetName ?? "Set"
-      : "Off";
-
-  useEffect(() => {
-    if (!open) return;
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
-    }
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onClose, open]);
-
-  if (!open) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/65 px-4 py-10" onClick={onClose}>
-      <style>{`
-        @keyframes projectDetailsBackdrop {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        @keyframes projectDetailsWindow {
-          from { opacity: 0; transform: translateY(-18px) scale(0.96); filter: blur(6px); }
-          to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
-        }
-      `}</style>
-      <div
-        className="w-full max-w-3xl animate-[projectDetailsWindow_220ms_cubic-bezier(0.16,1,0.3,1)] rounded-lg border border-neutral-700 bg-neutral-900 shadow-2xl shadow-black/60"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="project-details-title"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="flex items-center justify-between border-b border-neutral-800 px-4 py-3">
-          <div className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-500/15 text-violet-300">
-              <BarChart3 className="h-4 w-4" />
-            </span>
-            <div>
-              <h3 id="project-details-title" className="text-sm font-semibold text-neutral-100">
-                Project Details
-              </h3>
-              <p className="text-xs text-neutral-500">Stats, costs, media mix, exports, and distribution.</p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-neutral-800 hover:text-neutral-200"
-            aria-label="Close project details"
-          >
-            <X size={16} />
-          </button>
-        </div>
-
-        <div className="max-h-[calc(100vh-10rem)] overflow-y-auto p-4">
-          <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-            <DetailMetric label="Eli" value={eliStatus} tone={eliStatus === "On" ? "emerald" : "neutral"} />
-            <DetailMetric label="Style" value={styleStatus} tone={styleStatus === "Off" ? "neutral" : "violet"} />
-            <DetailMetric label="Scenes" value={sceneCount.toLocaleString()} />
-            <DetailMetric label="Segments" value={segmentCount.toLocaleString()} />
-            <DetailMetric label="Duration" value={durationStr} />
-            <DetailMetric label="Words" value={totalWords > 0 ? totalWords.toLocaleString() : "0"} />
-            <DetailMetric label="Cost" value={formatCost(totalCost)} tone="emerald" />
-            <DetailMetric label="Exports" value={`${exported}/${exportTotal}`} tone="sky" />
-          </div>
-
-          <div className="mt-4 space-y-2">
-            <DetailAccordion
-              id="cost"
-              title="Cost Breakdown"
-              summary={`${formatCost(totalCost)} across ${costBreakdown.length} tracked item${costBreakdown.length !== 1 ? "s" : ""}`}
-              openSection={openSection}
-              setOpenSection={setOpenSection}
-            >
-              <CostBreakdownPanel totalCost={totalCost} breakdown={costBreakdown} />
-            </DetailAccordion>
-
-            <DetailAccordion
-              id="media"
-              title="Visual Mode Mix"
-              summary={`${aiScenePercent} assigned across ${mediaSceneTotal} visual scene${mediaSceneTotal !== 1 ? "s" : ""}`}
-              openSection={openSection}
-              setOpenSection={setOpenSection}
-            >
-              <MediaBreakdownPanel modeCounts={mediaCounts} totalScenes={mediaSceneTotal} />
-            </DetailAccordion>
-
-            <DetailAccordion
-              id="exports"
-              title="Exported Files"
-              summary={`${exported}/${exportTotal} files in the project export folder`}
-              openSection={openSection}
-              setOpenSection={setOpenSection}
-            >
-              <div className="space-y-3">
-                <ExportFileBreakdownPanel status={exportStatus} segmentCount={segmentCount} />
-              </div>
-            </DetailAccordion>
-
-            <DetailAccordion
-              id="distribution"
-              title="Distribution"
-              summary={`${uploadedCount}/4 destinations marked uploaded`}
-              openSection={openSection}
-              setOpenSection={setOpenSection}
-            >
-              <DistributionTrackingPanel
-                tracking={uploadTracking}
-                updating={trackingUpdating}
-                onToggle={onToggleUploadTracking}
-                onOpenUploadSuite={onOpenUploadSuite}
-              />
-            </DetailAccordion>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
@@ -1210,6 +907,131 @@ function UtilityStat({
   );
 }
 
+function StatPopover({
+  label,
+  value,
+  tone = "neutral",
+  panelTitle,
+  align = "left",
+  onOpen,
+  children,
+}: {
+  label: string;
+  value: string;
+  tone?: "neutral" | "emerald" | "sky" | "violet";
+  panelTitle: string;
+  align?: "left" | "right";
+  onOpen?: () => void;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const toneClass = {
+    neutral: "text-neutral-100",
+    emerald: "text-emerald-300",
+    sky: "text-sky-300",
+    violet: "text-violet-300",
+  }[tone];
+
+  useEffect(() => {
+    if (!open) return;
+    function handlePointerDown(event: MouseEvent) {
+      if (!containerRef.current?.contains(event.target as Node)) setOpen(false);
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
+
+  const handleToggle = () => {
+    setOpen((prev) => {
+      const next = !prev;
+      if (next) onOpen?.();
+      return next;
+    });
+  };
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        onClick={handleToggle}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        title={`${panelTitle} — click for details`}
+        className={`-mx-1.5 flex items-baseline gap-1.5 whitespace-nowrap rounded-md px-1.5 py-1 transition-colors hover:bg-neutral-800/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
+          open ? "bg-neutral-800/60" : ""
+        }`}
+      >
+        <span className="text-[11px] font-medium uppercase tracking-wide text-neutral-600">{label}</span>
+        <span className={`text-sm font-semibold tabular-nums ${toneClass}`}>{value}</span>
+        <ChevronDown className={`h-3 w-3 shrink-0 text-neutral-600 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div
+          role="dialog"
+          aria-label={panelTitle}
+          className={`absolute top-9 z-50 max-h-[60vh] w-80 overflow-y-auto rounded-xl border border-neutral-800 bg-neutral-950 p-2 shadow-2xl shadow-black/50 ${
+            align === "right" ? "right-0" : "left-0"
+          }`}
+        >
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function formatDurationSeconds(total: number): string {
+  const safe = Math.max(0, Math.round(total));
+  const minutes = Math.floor(safe / 60);
+  const seconds = safe % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
+function SegmentDurationPanel({ segments }: { segments: { name: string; seconds: number }[] }) {
+  const total = segments.reduce((sum, seg) => sum + seg.seconds, 0);
+  const hasTiming = total > 0;
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-neutral-800 bg-neutral-950/60">
+      <div className="flex items-center justify-between border-b border-neutral-800 px-3 py-2">
+        <span className="text-xs font-semibold text-neutral-200">Per-segment duration</span>
+        <span className="text-xs font-mono text-neutral-400">{formatDurationSeconds(total)}</span>
+      </div>
+      {segments.length === 0 ? (
+        <div className="px-3 py-5 text-center text-xs text-neutral-500">No segments yet.</div>
+      ) : (
+        <div className="space-y-2.5 px-3 py-2.5">
+          {!hasTiming && (
+            <p className="text-[11px] text-neutral-500">Durations appear after voiceover is generated.</p>
+          )}
+          {segments.map((seg, index) => {
+            const pct = hasTiming ? (seg.seconds / total) * 100 : 0;
+            return (
+              <div key={index} className="space-y-1">
+                <div className="flex items-center justify-between gap-3 text-xs">
+                  <span className="truncate text-neutral-300">{seg.name || `Segment ${index + 1}`}</span>
+                  <span className="shrink-0 font-mono tabular-nums text-neutral-400">{formatDurationSeconds(seg.seconds)}</span>
+                </div>
+                <div className="h-1 overflow-hidden rounded-full bg-neutral-800">
+                  <div className="h-full rounded-full bg-violet-500/70" style={{ width: `${hasTiming ? Math.max(2, pct) : 0}%` }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ProjectUtilityBar({
   sceneCount,
   segmentCount,
@@ -1219,12 +1041,20 @@ function ProjectUtilityBar({
   exportStatus,
   projectConfig,
   activePresetName,
+  costBreakdown,
+  segmentDurations,
+  uploadTracking,
+  trackingUpdating,
+  onToggleUploadTracking,
+  onOpenUploadSuite,
   exportsFolderOpening,
-  onOpenProjectDetails,
   onOpenExportsFolder,
   canvasColor,
   canvasColorUpdating,
   onSelectCanvasColor,
+  onRefreshCost,
+  onRefreshExports,
+  onRefreshUpload,
 }: {
   sceneCount: number;
   segmentCount: number;
@@ -1234,12 +1064,20 @@ function ProjectUtilityBar({
   exportStatus: ExportFileStatus | null;
   projectConfig: ProjectConfig | null;
   activePresetName: string | null;
+  costBreakdown: ScriptCostBreakdownItem[];
+  segmentDurations: { name: string; seconds: number }[];
+  uploadTracking: UploadTracking;
+  trackingUpdating: Partial<Record<keyof UploadTracking, boolean>>;
+  onToggleUploadTracking: (key: keyof UploadTracking) => void;
+  onOpenUploadSuite: () => void;
   exportsFolderOpening: boolean;
-  onOpenProjectDetails: () => void;
   onOpenExportsFolder: () => void;
   canvasColor: string;
   canvasColorUpdating: boolean;
   onSelectCanvasColor: (color: string) => void;
+  onRefreshCost: () => void;
+  onRefreshExports: () => void;
+  onRefreshUpload: () => void;
 }) {
   const fallbackExportTotal = segmentCount * 3 + 3;
   const exported = exportStatus?.exported ?? 0;
@@ -1249,26 +1087,51 @@ function ProjectUtilityBar({
     projectConfig && projectConfig.eli_enabled === false && projectConfig.style_preset_enabled
       ? activePresetName ?? "Set"
       : "Off";
+  const distributionTotal = DISTRIBUTION_TARGETS.length;
+  const uploadedCount = DISTRIBUTION_TARGETS.filter(({ key }) => uploadTracking[key]).length;
 
   return (
-    <div className="flex shrink-0 flex-wrap items-center gap-x-5 gap-y-2 border-t border-neutral-900/80 px-5 py-2.5">
+    <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-t border-neutral-900/80 px-5 py-2.5">
       <UtilityStat label="Segments" value={segmentCount.toLocaleString()} />
       <UtilityStat label="Scenes" value={sceneCount.toLocaleString()} />
-      <UtilityStat label="Duration" value={durationStr} />
+      <StatPopover label="Duration" value={durationStr} panelTitle="Per-segment duration">
+        <SegmentDurationPanel segments={segmentDurations} />
+      </StatPopover>
       <UtilityStat label="Words" value={totalWords > 0 ? totalWords.toLocaleString() : "0"} />
-      <UtilityStat label="Cost" value={formatCost(totalCost)} tone="emerald" />
-      <UtilityStat label="Exports" value={`${exported}/${exportTotal}`} tone="sky" />
+      <StatPopover label="Cost" value={formatCost(totalCost)} tone="emerald" panelTitle="Cost breakdown" onOpen={onRefreshCost}>
+        <CostBreakdownPanel totalCost={totalCost} breakdown={costBreakdown} />
+      </StatPopover>
+      <StatPopover label="Exports" value={`${exported}/${exportTotal}`} tone="sky" panelTitle="Exported files" onOpen={onRefreshExports}>
+        <ExportFileBreakdownPanel status={exportStatus} segmentCount={segmentCount} />
+      </StatPopover>
       <span className="hidden h-4 w-px shrink-0 bg-neutral-800 sm:block" aria-hidden="true" />
       <UtilityStat label="Eli" value={eliStatus} tone={eliStatus === "On" ? "emerald" : "neutral"} />
       <UtilityStat label="Style" value={styleStatus} tone={styleStatus === "Off" ? "neutral" : "violet"} />
+      <StatPopover
+        label="Uploaded"
+        value={`${uploadedCount}/${distributionTotal}`}
+        tone={uploadedCount === distributionTotal ? "emerald" : "neutral"}
+        panelTitle="Distribution"
+        onOpen={onRefreshUpload}
+      >
+        <div className="overflow-hidden rounded-lg border border-neutral-800 bg-neutral-950/60 p-3">
+          <p className="mb-2 text-xs font-semibold text-neutral-200">Distribution</p>
+          <DistributionTrackingPanel
+            tracking={uploadTracking}
+            updating={trackingUpdating}
+            onToggle={onToggleUploadTracking}
+            onOpenUploadSuite={onOpenUploadSuite}
+          />
+        </div>
+      </StatPopover>
       <div className="ml-auto flex shrink-0 items-center gap-2">
         <CanvasColorButton color={canvasColor} updating={canvasColorUpdating} onSelect={onSelectCanvasColor} />
         <OpenExportsButton opening={exportsFolderOpening} onOpen={onOpenExportsFolder} />
-        <ProjectDetailsButton onClick={onOpenProjectDetails} />
       </div>
     </div>
   );
 }
+
 
 function TimelineEditor({
   scriptId,
@@ -1375,7 +1238,6 @@ function TimelineEditor({
   const [showThumbnailModal, setShowThumbnailModal] = useState(false);
   const [totalCost, setTotalCost] = useState<number>(0);
   const [costBreakdown, setCostBreakdown] = useState<ScriptCostBreakdownItem[]>([]);
-  const [showProjectDetails, setShowProjectDetails] = useState(false);
   const [exportFileStatus, setExportFileStatus] = useState<ExportFileStatus | null>(null);
   const [uploadTracking, setUploadTracking] = useState<UploadTracking>(DEFAULT_UPLOAD_TRACKING);
   const [trackingUpdating, setTrackingUpdating] = useState<Partial<Record<keyof UploadTracking, boolean>>>({});
@@ -1611,20 +1473,6 @@ function TimelineEditor({
     if (isActive) void refreshUploadTracking();
   }, [isActive, refreshUploadTracking]);
 
-  useEffect(() => {
-    if (!showProjectDetails) return;
-    void refreshUploadTracking();
-    void refreshCost();
-    void refreshExportFileStatus();
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setShowProjectDetails(false);
-    }
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [refreshCost, refreshExportFileStatus, refreshUploadTracking, showProjectDetails]);
-
   const handleToggleUploadTracking = useCallback(async (key: keyof UploadTracking) => {
     if (Object.values(trackingUpdating).some(Boolean)) return;
     const next = !uploadTracking[key];
@@ -1641,7 +1489,6 @@ function TimelineEditor({
   }, [scriptId, trackingUpdating, uploadTracking]);
 
   const handleOpenDistributionUpload = useCallback(() => {
-    setShowProjectDetails(false);
     void openUploadPanel();
   }, [openUploadPanel]);
 
@@ -1910,21 +1757,6 @@ function TimelineEditor({
     (sum, sc) => sum + (sc.narration ? sc.narration.split(/\s+/).filter(Boolean).length : 0),
     0,
   );
-
-  // Visual mode counts (exclude title cards)
-  const mediaCounts = allScenes
-    .filter((sc) => !sc.is_title_card)
-    .reduce(
-      (acc, sc) => {
-        const mode = sc.visual_mode ?? "full_frame";
-        acc[mode] = (acc[mode] ?? 0) + 1;
-        return acc;
-      },
-      {} as Record<string, number>,
-    );
-  const mediaSceneTotal = allScenes.filter((sc) => !sc.is_title_card).length;
-  const aiSceneCount = Object.values(mediaCounts).reduce((sum, count) => sum + count, 0);
-  const aiScenePercent = formatScenePercent(aiSceneCount, mediaSceneTotal);
 
   // Check if assets already exist for overwrite confirmation
   const hasExistingImages = allScenes.some((sc) => !sc.is_title_card && sceneVisualAssetsComplete(sc));
@@ -3136,27 +2968,6 @@ function TimelineEditor({
             />
           </div>
 
-          <ProjectDetailsModal
-            open={showProjectDetails}
-            onClose={() => setShowProjectDetails(false)}
-            sceneCount={sceneCount}
-            segmentCount={segmentCount}
-            durationStr={durationStr}
-            totalWords={totalWords}
-            projectConfig={projectConfig}
-            activePresetName={activePreset?.name || null}
-            totalCost={totalCost}
-            costBreakdown={costBreakdown}
-            mediaCounts={mediaCounts}
-            mediaSceneTotal={mediaSceneTotal}
-            aiScenePercent={aiScenePercent}
-            exportStatus={exportFileStatus}
-            uploadTracking={uploadTracking}
-            trackingUpdating={trackingUpdating}
-            onToggleUploadTracking={handleToggleUploadTracking}
-            onOpenUploadSuite={handleOpenDistributionUpload}
-          />
-
           <PipelineSteps
             yoloButton={yoloButton}
             thumbnailsBusy={thumbnailsBusy}
@@ -3249,12 +3060,23 @@ function TimelineEditor({
             exportStatus={exportFileStatus}
             projectConfig={projectConfig}
             activePresetName={activePreset?.name || null}
+            costBreakdown={costBreakdown}
+            segmentDurations={state.content.segments.map((seg) => ({
+              name: seg.name,
+              seconds: seg.scenes.reduce((sum, sc) => sum + (sc.audio_duration_seconds ?? 0), 0),
+            }))}
+            uploadTracking={uploadTracking}
+            trackingUpdating={trackingUpdating}
+            onToggleUploadTracking={handleToggleUploadTracking}
+            onOpenUploadSuite={handleOpenDistributionUpload}
             exportsFolderOpening={exportsFolderOpening}
             canvasColor={state.content.visual_canvas?.background_color ?? "#F6C54A"}
             canvasColorUpdating={canvasColorUpdating}
-            onOpenProjectDetails={() => setShowProjectDetails(true)}
             onOpenExportsFolder={() => void handleOpenExportsFolder()}
             onSelectCanvasColor={handleSelectCanvasColor}
+            onRefreshCost={() => void refreshCost()}
+            onRefreshExports={() => void refreshExportFileStatus()}
+            onRefreshUpload={() => void refreshUploadTracking()}
           />
 
           {yoloRenderRunning && (
