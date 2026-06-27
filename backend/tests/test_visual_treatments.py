@@ -222,6 +222,33 @@ def test_visual_treatment_assignment_can_change_video_scene_to_full_frame():
     assert scene.visual_treatment == "full_frame"
 
 
+def test_analyze_demotes_popup_sequence_with_no_derivable_layers_to_full_frame():
+    # A scene marked popup_sequence whose narration yields no list items would
+    # otherwise become a layered assignment with empty layers — producing no asset
+    # and leaving the scene permanently incomplete (blocks image gen / YOLO).
+    scene = scene_with_words("scene_001", "She freezes in the doorway.")
+    scene.visual_mode = "popup_sequence"
+    content = content_with_scenes(scene)
+
+    assignments = analyze_visual_treatments(content, script_id="test")
+
+    assert assignments[0].scene_id == "scene_001"
+    assert assignments[0].visual_mode == "full_frame"
+    assert assignments[0].visual_layers == []
+
+
+def test_analyze_demotes_comparison_board_with_no_subjects_to_full_frame():
+    scene = scene_with_words("scene_001", "She freezes in the doorway.")
+    scene.visual_mode = "comparison_board"
+    content = content_with_scenes(scene)
+
+    assignments = analyze_visual_treatments(content, script_id="test")
+
+    assert assignments[0].scene_id == "scene_001"
+    assert assignments[0].visual_mode == "full_frame"
+    assert assignments[0].visual_layers == []
+
+
 def test_visual_layer_image_filename_is_stable_and_png():
     assert visual_layer_image_filename("scene_001", "scene_001_panel_1") == "scene_001_layer_scene_001_panel_1.png"
 

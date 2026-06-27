@@ -368,6 +368,13 @@ def _analyze_scene(scene: Scene, *, script_id: str | None = None) -> VisualTreat
 
     if scene.visual_mode == "popup_sequence":
         layers = list(scene.visual_layers) or _popup_layers_for_scene(scene)
+        if not layers:
+            # A layered mode with no derivable layers produces no generatable asset,
+            # leaving the scene permanently incomplete. Demote to a full-frame image.
+            return _full_frame_assignment(
+                scene.id,
+                "Marked popup-sequence but no list items could be derived; using a full-frame image.",
+            )
         return VisualTreatmentAssignment(
             scene_id=scene.id,
             visual_mode="popup_sequence",
@@ -375,11 +382,17 @@ def _analyze_scene(scene: Scene, *, script_id: str | None = None) -> VisualTreat
             visual_layers=layers,
         )
     if scene.visual_mode == "comparison_board":
+        layers = list(scene.visual_layers) or _comparison_layers_for_scene(scene)
+        if not layers:
+            return _full_frame_assignment(
+                scene.id,
+                "Marked comparison-board but no contrasted subjects could be derived; using a full-frame image.",
+            )
         return VisualTreatmentAssignment(
             scene_id=scene.id,
             visual_mode="comparison_board",
             reasoning="Scene is explicitly marked for comparison-board rendering.",
-            visual_layers=list(scene.visual_layers) or _comparison_layers_for_scene(scene),
+            visual_layers=layers,
         )
     if scene.visual_mode == "multi_frame" or scene.visual_beat in {"quick_cuts", "montage", "multi_frame"}:
         return VisualTreatmentAssignment(
