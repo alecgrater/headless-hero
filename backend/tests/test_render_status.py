@@ -2,6 +2,8 @@ import json
 import os
 from pathlib import Path
 
+import pytest
+from fastapi import HTTPException
 from api import render as render_api
 from api import short_form as short_form_api
 from api import upload_suite as upload_suite_api
@@ -342,3 +344,119 @@ def test_upload_suite_thumbnail_prefers_newer_current_cache_over_stale_export(tm
         1,
         content,
     ) == cached
+
+
+def _seed_script(engine, script_id: str, project_title: str, content: ScriptContent) -> None:
+    with Session(engine) as session:
+        session.add(
+            Script(
+                id=script_id,
+                brand_id="brand-1",
+                topic_title=project_title,
+                topic_description="",
+                script_json=content.model_dump_json(),
+            )
+        )
+        session.commit()
+
+
+def test_upload_suite_status_reports_internal_folder_path(tmp_path, monkeypatch):
+    monkeypatch.setenv("DOWNLOADS_DIR", str(tmp_path / "Exports"))
+    monkeypatch.setattr(upload_suite_api, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(render_api, "DATA_DIR", tmp_path)
+
+    engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
+    SQLModel.metadata.create_all(engine)
+
+    script_id = "script-internal-folder"
+    project_title = "Project Name"
+    content = ScriptContent(title=project_title, segments=[Segment(name="Segment", scenes=[])])
+    _seed_script(engine, script_id, project_title, content)
+
+    with Session(engine) as session:
+        result = upload_suite_api.upload_suite_status(script_id, session=session)
+
+    assert result.internal_folder_path == str(tmp_path / "projects" / script_id)
+
+
+def test_delete_exports_folder_removes_folder_and_keeps_internal(tmp_path, monkeypatch):
+    monkeypatch.setenv("DOWNLOADS_DIR", str(tmp_path / "Exports"))
+    monkeypatch.setattr(upload_suite_api, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(render_api, "DATA_DIR", tmp_path)
+
+    engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
+    SQLModel.metadata.create_all(engine)
+
+    script_id = "script-delete-exports"
+    project_title = "Project Name"
+    content = ScriptContent(title=project_title, segments=[Segment(name="Segment", scenes=[])])
+    _seed_script(engine, script_id, project_title, content)
+
+    folder = project_downloads_folder(project_title)
+    (folder / "video.mp4").write_bytes(b"video")
+    internal = tmp_path / "projects" / script_id
+    internal.mkdir(parents=True)
+    (internal / "keep.txt").write_text("safe", encoding="utf-8")
+
+    with Session(engine) as session:
+        result = upload_suite_api.delete_exports_folder(script_id, session=session)
+
+    assert result.deleted is True
+    assert not folder.exists()
+    assert (internal / "keep.txt").is_file()
+
+
+def test_delete_exports_folder_absent_is_not_an_error(tmp_path, monkeypatch):
+    monkeypatch.setenv("DOWNLOADS_DIR", str(tmp_path / "Exports"))
+    monkeypatch.setattr(upload_suite_api, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(render_api, "DATA_DIR", tmp_path)
+
+    engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
+    SQLModel.metadata.create_all(engine)
+
+    script_id = "script-delete-missing"
+    project_title = "Project Name"
+    content = ScriptContent(title=project_title, segments=[Segment(name="Segment", scenes=[])])
+    _seed_script(engine, script_id, project_title, content)
+
+    with Session(engine) as session:
+        result = upload_suite_api.delete_exports_folder(script_id, session=session)
+
+    assert result.deleted is False
+
+
+def test_delete_exports_folder_rejects_folder_outside_root(tmp_path, monkeypatch):
+    monkeypatch.setenv("DOWNLOADS_DIR", str(tmp_path / "Exports"))
+    monkeypatch.setattr(upload_suite_api, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(render_api, "DATA_DIR", tmp_path)
+
+    engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
+    SQLModel.metadata.create_all(engine)
+
+    script_id = "script-delete-escape"
+    # A title that resolves to a path escaping the Exports root would be unsafe.
+    project_title = "Project Name"
+    content = ScriptContent(title=project_title, segments=[Segment(name="Segment", scenes=[])])
+    _seed_script(engine, script_id, project_title, content)
+
+    folder = project_downloads_folder(project_title)
+    folder.mkdir(parents=True, exist_ok=True)
+
+    # Force the resolved folder to live outside the Exports root.
+    def _escaped_folder(_title, *, create=True):
+        outside = tmp_path / "elsewhere" / "victim"
+        if create:
+            outside.mkdir(parents=True, exist_ok=True)
+        return outside
+
+    monkeypatch.setattr(upload_suite_api, "project_downloads_folder", _escaped_folder)
+    victim = tmp_path / "elsewhere" / "victim"
+    victim.mkdir(parents=True, exist_ok=True)
+    (victim / "precious.txt").write_text("do not delete", encoding="utf-8")
+
+    with Session(engine) as session:
+        with pytest.raises(HTTPException) as exc_info:
+            upload_suite_api.delete_exports_folder(script_id, session=session)
+
+    assert exc_info.value.status_code == 400
+    assert (victim / "precious.txt").is_file()

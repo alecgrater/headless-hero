@@ -120,6 +120,7 @@ Required: `ANTHROPIC_API_KEY`, `GOOGLE_AI_KEY`, `ELEVENLABS_API_KEY`. Optional: 
 - **JSON blobs over migrations**: script content stored as JSON TEXT in SQLite.
 - **Exports dir is the single final-media root**: user-facing exports live under Settings → General → Storage `Exports` (default `backend/config.DEFAULT_EXPORTS_DIR`, currently `~/Headless Hero Videos`). Project folders are `{Exports}/[project] {Project Title}` (title sanitized). No second export root.
 - **Exported videos dedupe**: rendered MP4 exports go through `pipeline.export_paths.copy_to_project_downloads`, which hardlinks same-drive exports; fall back to a copy only when hardlinking is unavailable (cross-device). Keep internal render path and export path compatible.
+- **Upload Suite folder actions**: the manual Upload Suite (`UploadPanel`) is the post-export handoff. "Open In Finder" opens the project's exports folder (`folder_path`); click-and-hold/right-click picks between exports and the internal `data/projects/{id}` folder (`internal_folder_path`). The large "Done" button calls `DELETE /api/upload-suite/exports-folder` after an inline confirm — it deletes only the project's exports folder (and only when that folder resolves directly under the Exports root), never the internal `data/projects` copy.
 - **Async rendering with polling**: long renders run in background threads; frontend polls `/api/render/status/{job_id}`.
 - **IPC fallback**: frontend works with or without Electron (direct HTTP in dev).
 - **Static serving**: FastAPI mounts `/static/projects` → `data/projects/`.

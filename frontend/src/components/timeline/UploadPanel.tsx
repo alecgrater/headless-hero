@@ -1,13 +1,21 @@
-import { useMemo, useState, type ReactNode } from "react";
-import { ChevronLeft, ChevronRight, Copy, ExternalLink, Film, FolderOpen, Smartphone, X } from "lucide-react";
-import { assetUrl, openUploadShortsWindows, openYouTubeUploadWindow, showInFolder, type UploadSuiteStatus } from "../../api";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Check, ChevronLeft, ChevronRight, Copy, ExternalLink, Film, FolderOpen, HardDrive, Smartphone, Trash2, X } from "lucide-react";
+import { assetUrl, deleteExportsFolder, openPath, openUploadShortsWindows, openYouTubeUploadWindow, type UploadSuiteStatus } from "../../api";
 import { showToast } from "../ToastContainer";
 
 type UploadTab = "long-form" | "short-form";
 
 interface Props {
   suite: UploadSuiteStatus;
+  scriptId: string;
   onClose: () => void;
+}
+
+/** Strip the final path segment to get a parent directory (POSIX or Windows). */
+function parentDir(fullPath: string): string {
+  const trimmed = fullPath.replace(/[\\/]+$/, "");
+  const idx = Math.max(trimmed.lastIndexOf("/"), trimmed.lastIndexOf("\\"));
+  return idx > 0 ? trimmed.slice(0, idx) : trimmed;
 }
 
 function sectionBody(markdown: string, heading: string, includeRest = false): string {
@@ -111,14 +119,114 @@ function CopyButton({ label, text, icon }: { label: string; text: string; icon?:
   );
 }
 
+/**
+ * "Open In Finder" with press-and-hold disclosure. A short click opens the
+ * exports project folder; holding (or right-click) reveals a small menu to pick
+ * between the exports folder and the internal data/projects folder.
+ */
+function OpenFolderButton({ exportsPath, internalPath }: { exportsPath: string; internalPath: string }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const holdTimer = useRef<number | null>(null);
+  const heldRef = useRef(false);
+
+  const clearTimer = () => {
+    if (holdTimer.current !== null) {
+      window.clearTimeout(holdTimer.current);
+      holdTimer.current = null;
+    }
+  };
+
+  const open = (path: string) => {
+    setMenuOpen(false);
+    void openPath(path);
+  };
+
+  const handlePointerDown = () => {
+    heldRef.current = false;
+    clearTimer();
+    holdTimer.current = window.setTimeout(() => {
+      heldRef.current = true;
+      setMenuOpen(true);
+    }, 450);
+  };
+
+  const handlePointerUp = () => {
+    clearTimer();
+    if (!heldRef.current && !menuOpen) {
+      open(exportsPath);
+    }
+  };
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (!wrapperRef.current?.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [menuOpen]);
+
+  return (
+    <div ref={wrapperRef} className="relative">
+      <button
+        type="button"
+        onPointerDown={handlePointerDown}
+        onPointerUp={handlePointerUp}
+        onPointerLeave={clearTimer}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          clearTimer();
+          setMenuOpen(true);
+        }}
+        title="Click to open the exports folder · hold to choose a folder"
+        className="flex h-9 w-full items-center justify-center gap-2 rounded-md border border-sky-400/50 bg-sky-500/15 px-3 text-xs font-semibold text-sky-100 transition-colors hover:border-sky-300 hover:bg-sky-500/25"
+      >
+        <FolderOpen className="h-3.5 w-3.5" />
+        Open In Finder
+      </button>
+      {menuOpen && (
+        <div className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-md border border-neutral-700 bg-neutral-900 shadow-xl shadow-black/50">
+          <button
+            type="button"
+            onClick={() => open(exportsPath)}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-neutral-200 transition-colors hover:bg-neutral-800"
+          >
+            <FolderOpen className="h-3.5 w-3.5 shrink-0 text-sky-300" />
+            <span className="min-w-0">
+              <span className="block font-semibold">Exports folder</span>
+              <span className="block truncate text-[11px] text-neutral-500" title={exportsPath}>{exportsPath}</span>
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => open(internalPath)}
+            className="flex w-full items-center gap-2 border-t border-neutral-800 px-3 py-2 text-left text-xs text-neutral-200 transition-colors hover:bg-neutral-800"
+          >
+            <HardDrive className="h-3.5 w-3.5 shrink-0 text-neutral-400" />
+            <span className="min-w-0">
+              <span className="block font-semibold">Internal data folder</span>
+              <span className="block truncate text-[11px] text-neutral-500" title={internalPath}>{internalPath}</span>
+            </span>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PrimaryActionStack({
-  onOpenFolder,
+  exportsPath,
+  internalPath,
   onOpenDestination,
   destinationLabel,
   destinationIcon,
   accentClass,
 }: {
-  onOpenFolder: () => void;
+  exportsPath: string;
+  internalPath: string;
   onOpenDestination: () => void;
   destinationLabel: string;
   destinationIcon: ReactNode;
@@ -126,14 +234,7 @@ function PrimaryActionStack({
 }) {
   return (
     <div className="flex w-full max-w-[18rem] flex-col items-stretch gap-2">
-      <button
-        type="button"
-        onClick={onOpenFolder}
-        className="flex h-9 items-center justify-center gap-2 rounded-md border border-sky-400/50 bg-sky-500/15 px-3 text-xs font-semibold text-sky-100 transition-colors hover:border-sky-300 hover:bg-sky-500/25"
-      >
-        <FolderOpen className="h-3.5 w-3.5" />
-        Open In Finder
-      </button>
+      <OpenFolderButton exportsPath={exportsPath} internalPath={internalPath} />
       <button
         type="button"
         onClick={onOpenDestination}
@@ -307,15 +408,41 @@ function ShortCarouselControls({
   );
 }
 
-export default function UploadPanel({ suite, onClose }: Props) {
+export default function UploadPanel({ suite, scriptId, onClose }: Props) {
   const [activeTab, setActiveTab] = useState<UploadTab>("long-form");
   const [activeShort, setActiveShort] = useState(0);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const activeShortItem = suite.shorts[activeShort];
   const shortCount = suite.shorts.length;
+
+  const exportsParent = parentDir(suite.folder_path);
+  const internalParent = parentDir(suite.internal_folder_path);
 
   const moveShort = (delta: number) => {
     if (shortCount === 0) return;
     setActiveShort((idx) => (idx + delta + shortCount) % shortCount);
+  };
+
+  const handleDone = async () => {
+    if (!confirmingDelete) {
+      setConfirmingDelete(true);
+      return;
+    }
+    setDeleting(true);
+    try {
+      const res = await deleteExportsFolder(scriptId);
+      showToast(
+        res.deleted
+          ? "Exports folder deleted — project is still saved internally"
+          : "Exports folder was already removed",
+      );
+      onClose();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Failed to delete exports folder");
+      setDeleting(false);
+      setConfirmingDelete(false);
+    }
   };
 
   return (
@@ -362,7 +489,8 @@ export default function UploadPanel({ suite, onClose }: Props) {
           <div className="mt-3">
             {activeTab === "long-form" ? (
               <PrimaryActionStack
-                onOpenFolder={() => showInFolder(suite.longform_video_path || suite.folder_path)}
+                exportsPath={suite.folder_path}
+                internalPath={suite.internal_folder_path}
                 onOpenDestination={openYouTubeUploadWindow}
                 destinationLabel="Open YouTube"
                 destinationIcon={<ExternalLink className="h-3.5 w-3.5" />}
@@ -370,7 +498,8 @@ export default function UploadPanel({ suite, onClose }: Props) {
               />
             ) : (
               <PrimaryActionStack
-                onOpenFolder={() => showInFolder(activeShortItem?.video_path || suite.folder_path)}
+                exportsPath={suite.folder_path}
+                internalPath={suite.internal_folder_path}
                 onOpenDestination={openUploadShortsWindows}
                 destinationLabel="Open Short Form Apps"
                 destinationIcon={<ExternalLink className="h-3.5 w-3.5" />}
@@ -444,6 +573,52 @@ export default function UploadPanel({ suite, onClose }: Props) {
               )}
             </div>
           )}
+        </div>
+
+        <div className="shrink-0 border-t border-neutral-800 bg-neutral-950/95 px-6 py-4">
+          <div className="flex items-center justify-between gap-4">
+            <p className="max-w-2xl text-xs leading-5 text-neutral-400">
+              {confirmingDelete ? (
+                <>
+                  This permanently deletes the exports folder under{" "}
+                  <span className="font-medium text-neutral-200">{exportsParent}</span>. Your project stays safe under{" "}
+                  <span className="font-medium text-neutral-200">{internalParent}</span>.
+                </>
+              ) : (
+                <>
+                  Once upload is complete, clicking Done deletes the project folder in{" "}
+                  <span className="font-medium text-neutral-200">{exportsParent}</span>{" "}
+                  (project still safe under{" "}
+                  <span className="font-medium text-neutral-200">{internalParent}</span>).
+                </>
+              )}
+            </p>
+            <div className="flex shrink-0 items-center gap-2">
+              {confirmingDelete && (
+                <button
+                  type="button"
+                  onClick={() => setConfirmingDelete(false)}
+                  disabled={deleting}
+                  className="flex h-11 items-center justify-center rounded-lg border border-neutral-700 px-4 text-sm font-semibold text-neutral-300 transition-colors hover:border-neutral-600 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Keep
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleDone}
+                disabled={deleting}
+                className={`flex h-11 items-center justify-center gap-2 rounded-lg border px-6 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                  confirmingDelete
+                    ? "border-red-400/60 bg-red-500/20 text-red-100 hover:border-red-300 hover:bg-red-500/30"
+                    : "border-emerald-400/50 bg-emerald-500/15 text-emerald-100 hover:border-emerald-300 hover:bg-emerald-500/25"
+                }`}
+              >
+                {confirmingDelete ? <Trash2 className="h-4 w-4" /> : <Check className="h-4 w-4" />}
+                {deleting ? "Deleting…" : confirmingDelete ? "Confirm delete" : "Done"}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

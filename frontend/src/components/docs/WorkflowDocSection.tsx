@@ -110,8 +110,10 @@ const WORKFLOW_STAGES = [
     goal: "Publish the finished media and confirm the platform-facing result is correct.",
     details: [
       "Use Publishing controls to upload rendered shorts to connected platforms, or upload manually from the export folder when direct publishing is not configured.",
+      "In the Upload Suite, Open In Finder opens the project's exports folder; click and hold (or right-click) to choose between the exports folder and the internal data/projects folder.",
       "Check platform title, description, visibility, thumbnail, and video playback after upload. Platform UI is the final source of truth.",
       "Keep exported files in the project folder as the local archive. Avoid creating parallel download roots or ad hoc copies outside the configured export structure.",
+      "Once every upload is confirmed, click Done in the Upload Suite to delete the exports folder. It asks for confirmation first, and the internal data/projects copy is always retained.",
       "If upload state, credentials, or platform responses change, refresh status in the app before deciding whether a retry is needed.",
     ],
     done: "The project has published videos or a verified upload-ready export folder, with local files and metadata still matching the app state.",

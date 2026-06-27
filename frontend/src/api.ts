@@ -1238,6 +1238,7 @@ export interface UploadSuiteStatus {
   ready: boolean;
   project_title: string;
   folder_path: string;
+  internal_folder_path: string;
   missing: string[];
   longform_video_path: string | null;
   longform_thumbnail_url: string | null;
@@ -1264,6 +1265,18 @@ export async function getUploadSuiteStatus(scriptId: string): Promise<UploadSuit
   const res = await api.get(`/api/upload-suite/status?script_id=${encodeURIComponent(scriptId)}`);
   if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to check upload suite");
   return res.data as UploadSuiteStatus;
+}
+
+export interface DeleteExportsFolderResponse {
+  deleted: boolean;
+  folder_path: string;
+}
+
+/** Delete the project's exported folder (internal data/projects copy is retained). */
+export async function deleteExportsFolder(scriptId: string): Promise<DeleteExportsFolderResponse> {
+  const res = await api.delete(`/api/upload-suite/exports-folder?script_id=${encodeURIComponent(scriptId)}`);
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to delete export folder");
+  return res.data as DeleteExportsFolderResponse;
 }
 
 /** Count actual exported project files in the configured export folder. */

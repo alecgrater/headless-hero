@@ -3465,6 +3465,7 @@ function TimelineEditor({
       {showUpload && uploadSuite && (
         <UploadPanel
           suite={uploadSuite}
+          scriptId={scriptId}
           onClose={() => setShowUpload(false)}
         />
       )}

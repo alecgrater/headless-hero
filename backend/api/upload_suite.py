@@ -1,6 +1,8 @@
 """Read-only upload suite helpers for manual publishing workflows."""
 
 import json
+import logging
+import shutil
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -15,6 +17,7 @@ from database import get_session
 from models.script import Script, ScriptContent
 from pipeline.script_helpers import _format_longform_seo_markdown, _format_shortform_seo_markdown
 from pipeline.export_paths import (
+    downloads_base,
     has_export_label,
     longform_filename,
     project_downloads_folder,
@@ -22,6 +25,8 @@ from pipeline.export_paths import (
     shortform_video_filename,
 )
 from pipeline.short_form_thumbnails import is_short_thumbnail_current, short_thumbnail_filename
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/upload-suite", tags=["upload-suite"])
 
@@ -38,11 +43,17 @@ class UploadSuiteStatusResponse(BaseModel):
     ready: bool
     project_title: str
     folder_path: str
+    internal_folder_path: str
     missing: list[str]
     longform_video_path: str | None = None
     longform_thumbnail_url: str | None = None
     longform_seo_markdown: str
     shorts: list[ShortUploadSuiteItem]
+
+
+class DeleteExportsFolderResponse(BaseModel):
+    deleted: bool
+    folder_path: str
 
 
 class ExportFileCategoryStatus(BaseModel):
@@ -308,12 +319,48 @@ def upload_suite_status(script_id: str, session: Session = Depends(get_session))
         ready=len(missing) == 0,
         project_title=project_title,
         folder_path=str(folder),
+        internal_folder_path=str(DATA_DIR / "projects" / script_id),
         missing=missing,
         longform_video_path=longform_video_path,
         longform_thumbnail_url=longform_thumbnail_url,
         longform_seo_markdown=longform_seo_markdown,
         shorts=shorts,
     )
+
+
+@router.delete("/exports-folder", response_model=DeleteExportsFolderResponse)
+def delete_exports_folder(script_id: str, session: Session = Depends(get_session)):
+    """Delete the project's exported folder once uploads are complete.
+
+    The internal ``data/projects/{script_id}`` copy is never touched — this only
+    removes the user-facing export folder under the configured Exports root.
+    """
+    record, content = _load_script(session, script_id)
+    project_title = record.topic_title or content.title or "Untitled"
+    folder = project_downloads_folder(project_title, create=False)
+
+    # Safety: only ever delete a folder that lives directly under the Exports root.
+    base = downloads_base().resolve()
+    try:
+        resolved = folder.resolve()
+    except OSError:
+        resolved = folder
+    if resolved.parent != base:
+        logger.error("Refusing to delete exports folder outside Exports root: %s", resolved)
+        raise HTTPException(status_code=400, detail="Export folder is outside the configured Exports root")
+
+    if not folder.is_dir():
+        logger.info("Exports folder already absent for '%s': %s", project_title, folder)
+        return DeleteExportsFolderResponse(deleted=False, folder_path=str(folder))
+
+    try:
+        shutil.rmtree(folder)
+    except OSError as exc:
+        logger.error("Failed to delete exports folder %s: %s", folder, exc)
+        raise HTTPException(status_code=500, detail=f"Could not delete export folder: {exc}") from exc
+
+    logger.info("Deleted exports folder for '%s' (internal copy retained): %s", project_title, folder)
+    return DeleteExportsFolderResponse(deleted=True, folder_path=str(folder))
 
 
 @router.get("/longform-thumbnail")
