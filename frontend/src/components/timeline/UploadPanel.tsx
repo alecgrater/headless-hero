@@ -137,9 +137,13 @@ function OpenFolderButton({ exportsPath, internalPath }: { exportsPath: string; 
     }
   };
 
-  const open = (path: string) => {
+  const open = async (path: string) => {
     setMenuOpen(false);
-    void openPath(path);
+    try {
+      await openPath(path);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Could not open folder");
+    }
   };
 
   const handlePointerDown = () => {
@@ -154,7 +158,7 @@ function OpenFolderButton({ exportsPath, internalPath }: { exportsPath: string; 
   const handlePointerUp = () => {
     clearTimer();
     if (!heldRef.current && !menuOpen) {
-      open(exportsPath);
+      void open(exportsPath);
     }
   };
 
@@ -191,7 +195,7 @@ function OpenFolderButton({ exportsPath, internalPath }: { exportsPath: string; 
         <div className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-md border border-neutral-700 bg-neutral-900 shadow-xl shadow-black/50">
           <button
             type="button"
-            onClick={() => open(exportsPath)}
+            onClick={() => void open(exportsPath)}
             className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-neutral-200 transition-colors hover:bg-neutral-800"
           >
             <FolderOpen className="h-3.5 w-3.5 shrink-0 text-sky-300" />
@@ -202,7 +206,7 @@ function OpenFolderButton({ exportsPath, internalPath }: { exportsPath: string; 
           </button>
           <button
             type="button"
-            onClick={() => open(internalPath)}
+            onClick={() => void open(internalPath)}
             className="flex w-full items-center gap-2 border-t border-neutral-800 px-3 py-2 text-left text-xs text-neutral-200 transition-colors hover:bg-neutral-800"
           >
             <HardDrive className="h-3.5 w-3.5 shrink-0 text-neutral-400" />
