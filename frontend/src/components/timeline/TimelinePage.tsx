@@ -3,6 +3,7 @@ import {
   ChevronDown,
   Check,
   Film,
+  FileText,
   Gauge,
   ImageIcon,
   Images,
@@ -68,6 +69,7 @@ import type { SaveState } from "../../App";
 import type { MicroTimelineHandle } from "./SceneMicroTimeline";
 import ExportTestModal from "./ExportTestModal";
 import ImageReviewTab from "./image-review/ImageReviewTab";
+import ScriptReviewTab from "./ScriptReviewTab";
 import MainCharacterDrawer from "./MainCharacterDrawer";
 import UploadPanel from "./UploadPanel";
 import MediaSourcesTab from "./MediaSourcesTab";
@@ -439,7 +441,7 @@ function sceneProgressCounter(step: string, progress: number, total: number): st
 
 type ViewerFormat = "long-form" | "short-form";
 type ViewerAsset = "render" | "thumbnails" | "seo";
-type ViewerTab = "timeline" | "media-sources" | "segments" | "image-review" | "script-rating";
+type ViewerTab = "timeline" | "media-sources" | "segments" | "image-review" | "script-rating" | "script-review";
 
 type NavItem = {
   key: string;
@@ -454,10 +456,11 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
     label: "Script",
     items: [
+      { key: "script-review", label: "Review", Icon: FileText, asset: "render", tab: "script-review" },
+      { key: "script-rating", label: "Score", Icon: Gauge, asset: "render", tab: "script-rating" },
       { key: "segments", label: "Segments", Icon: Layers, asset: "render", tab: "segments" },
       { key: "media-sources", label: "Visual Modes", Icon: PanelsTopLeft, asset: "render", tab: "media-sources" },
       { key: "image-review", label: "Image Review", Icon: Images, asset: "render", tab: "image-review" },
-      { key: "script-rating", label: "Script Rating", Icon: Gauge, asset: "render", tab: "script-rating" },
     ],
   },
   {
@@ -805,6 +808,8 @@ function resolveActiveNavKey(format: ViewerFormat, asset: ViewerAsset, activeTab
   if (asset === "thumbnails") return format === "short-form" ? "sf-thumbnails" : "lf-thumbnail";
   if (asset === "seo") return format === "short-form" ? "sf-seo" : "lf-seo";
   switch (activeTab) {
+    case "script-review":
+      return "script-review";
     case "segments":
       return "segments";
     case "media-sources":
@@ -3413,6 +3418,8 @@ function TimelineEditor({
           exporting={shortFormSeoExporting}
           progress={render.shortFormSeoProgress}
         />
+      ) : activeTab === "script-review" ? (
+        <ScriptReviewTab content={state.content} title={editableTitle} />
       ) : activeTab === "media-sources" ? (
         <MediaSourcesTab
           scriptId={scriptId}
