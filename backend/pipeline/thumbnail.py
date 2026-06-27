@@ -528,6 +528,24 @@ def gemini_enhance_thumbnail(
             f"{_CTR_EXPRESSION_GUIDANCE}\n\n"
         )
 
+    if eli_frame_path:
+        circle_rule = (
+            "- You MAY replace EXACTLY ONE segment circle (the one you chose) with the character portal. "
+            "Every OTHER segment circle must be preserved EXACTLY as in the base image — "
+            "same interior image, same label text, same position. Do NOT redraw them from memory.\n"
+        )
+        no_extra_character_rule = (
+            "- DO NOT add a second copy of the character anywhere else in the image.\n\n"
+        )
+    else:
+        circle_rule = (
+            "- PRESERVE EVERY segment circle EXACTLY as in the base image — same interior image, "
+            "same label text, same position. Do NOT replace, redraw, or restyle the circle interiors.\n"
+            "- DO NOT add any character, person, portal, or glowing vortex anywhere in the image. "
+            "There is no character to insert.\n"
+        )
+        no_extra_character_rule = "\n"
+
     prompt = (
         "You are a YouTube thumbnail optimizer. You have been given:\n"
         "1. A base title card image with a grid of circular segment thumbnails, each with a label badge below it.\n"
@@ -555,14 +573,12 @@ def gemini_enhance_thumbnail(
         "composition energy, and character treatment only.\n"
         "- Do NOT add title subtitles or taglines such as 'DEBUNKED FOREVER', 'EXPLAINED', "
         "'THE TRUTH', 'SHOCKING FACTS', or any similar invented phrase.\n"
-        "- You MAY replace EXACTLY ONE segment circle (the one you chose) with the character portal. "
-        "Every OTHER segment circle must be preserved EXACTLY as in the base image — "
-        "same interior image, same label text, same position. Do NOT redraw them from memory.\n"
+        f"{circle_rule}"
         "- DO NOT duplicate any segment's image or label into another cell. Every segment label "
         "must stay unique. If you find yourself repeating a label (e.g. 'BOY IN THE BOX' twice), stop and correct it.\n"
         "- DO NOT leave any segment blank, faded, or missing.\n"
         "- DO NOT invent extra segments or add/remove circles — the grid size must match the input exactly.\n"
-        "- DO NOT add a second copy of the character anywhere else in the image.\n\n"
+        f"{no_extra_character_rule}"
         "- DO NOT add any arrow, pointer, caret, callout line, or direction marker anywhere in the image.\n\n"
         "Return the modified image."
     )

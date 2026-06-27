@@ -237,6 +237,9 @@ def test_gemini_enhance_thumbnail_no_portal_when_eli_disabled(tmp_path, monkeypa
     assert str(base) in captured["image_paths"]
     assert str(ref_file) in captured["image_paths"]
     assert "CHARACTER INSERTION" not in captured["prompt"]
+    # Gemini must be told not to invent a portal/character of its own.
+    assert "There is no character to insert." in captured["prompt"]
+    assert "Do NOT replace, redraw, or restyle the circle interiors" in captured["prompt"]
 
 
 # ---------------------------------------------------------------------------
