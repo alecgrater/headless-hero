@@ -336,12 +336,91 @@ async function waitForBackend(retries = 30, delay = 500) {
   throw new Error("Backend failed to start");
 }
 
+const WINDOW_MIN_SIZE = { width: 1000, height: 700 };
+
+// Persisted window bounds live next to the app's other user data so the window
+// reopens at whatever size/position it was last left at (see createWindow).
+function getWindowStateFile() {
+  return path.join(app.getPath("userData"), "window-state.json");
+}
+
+function loadWindowState() {
+  try {
+    const state = JSON.parse(fs.readFileSync(getWindowStateFile(), "utf8"));
+    if (
+      state &&
+      ["x", "y", "width", "height"].every((key) => typeof state[key] === "number")
+    ) {
+      return state;
+    }
+  } catch {
+    // No saved state yet (first launch) or unreadable — caller falls back.
+  }
+  return null;
+}
+
+// Guard against restoring onto a display that no longer exists (e.g. an external
+// monitor was unplugged), which would open the window off-screen.
+function boundsVisibleOnSomeDisplay(bounds) {
+  return screen.getAllDisplays().some((display) => {
+    const area = display.workArea;
+    const interWidth =
+      Math.min(bounds.x + bounds.width, area.x + area.width) - Math.max(bounds.x, area.x);
+    const interHeight =
+      Math.min(bounds.y + bounds.height, area.y + area.height) - Math.max(bounds.y, area.y);
+    return interWidth > 200 && interHeight > 100;
+  });
+}
+
+// First-launch default: fill the primary display's work area (large, like a
+// maximized window, but still a normal resizable/movable window).
+function getDefaultWindowBounds() {
+  const { workArea } = screen.getPrimaryDisplay();
+  return { x: workArea.x, y: workArea.y, width: workArea.width, height: workArea.height };
+}
+
+function saveWindowState(win) {
+  if (!win || win.isDestroyed()) return;
+  try {
+    // getNormalBounds() returns the un-maximized size so a maximized window
+    // still restores to a sensible size when later un-maximized.
+    const bounds = win.getNormalBounds();
+    fs.writeFileSync(
+      getWindowStateFile(),
+      JSON.stringify({ ...bounds, isMaximized: win.isMaximized() }),
+    );
+  } catch (err) {
+    debug("Failed to save window state", err);
+  }
+}
+
+function persistWindowState(win) {
+  let timer = null;
+  const scheduleSave = () => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => saveWindowState(win), 400);
+  };
+  win.on("resize", scheduleSave);
+  win.on("move", scheduleSave);
+  win.on("maximize", scheduleSave);
+  win.on("unmaximize", scheduleSave);
+  win.on("close", () => {
+    if (timer) clearTimeout(timer);
+    saveWindowState(win);
+  });
+}
+
 function createWindow() {
+  const saved = loadWindowState();
+  const useSaved = saved && boundsVisibleOnSomeDisplay(saved);
+  const bounds = useSaved
+    ? { x: saved.x, y: saved.y, width: saved.width, height: saved.height }
+    : getDefaultWindowBounds();
+
   mainWindow = new BrowserWindow({
-    width: 1400,
-    height: 900,
-    minWidth: 1000,
-    minHeight: 700,
+    ...bounds,
+    minWidth: WINDOW_MIN_SIZE.width,
+    minHeight: WINDOW_MIN_SIZE.height,
     title: "Headless Hero",
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
@@ -349,6 +428,12 @@ function createWindow() {
       nodeIntegration: false,
     },
   });
+
+  if (useSaved && saved.isMaximized) {
+    mainWindow.maximize();
+  }
+
+  persistWindowState(mainWindow);
 
   if (isDev) {
     mainWindow.loadURL("http://localhost:5173");
