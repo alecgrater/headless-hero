@@ -418,9 +418,12 @@ def gemini_enhance_thumbnail(
 ) -> str | None:
     """Enhance a base title card composite using Gemini with reference thumbnails.
 
-    Sends the base image + a reference thumbnail + a random Eli character frame
-    to Gemini, which chooses ONE segment circle and replaces it with Eli bursting
-    out as a portal. All other segment circles must be preserved exactly.
+    Sends the base image + a reference thumbnail to Gemini, which applies the
+    reference visual style to the segment circles. When Eli is enabled for the
+    project, a random Eli character frame is also sent and Gemini turns ONE
+    segment circle into a portal with Eli bursting out (all other circles
+    preserved exactly). When Eli is disabled, no character frame is sent and no
+    circle is replaced — the thumbnail keeps every segment circle intact.
 
     Args:
         base_image_path: Path to the base Pillow-generated composite.
@@ -456,32 +459,51 @@ def gemini_enhance_thumbnail(
     ref_path = str(random.choice(ref_files))
     logger.info("Using thumbnail reference: %s", ref_path)
 
-    # Pick a random Eli character frame
-    eli_frame_path = None
-    try:
-        manifest = get_manifest()
-        if manifest and manifest.get("frames"):
-            # Prefer thumbnail frames with open mouth
-            thumbnail_frames = manifest.get("thumbnail_frames", [])
-            frames = thumbnail_frames if thumbnail_frames else manifest["frames"]
-            frame = random.choice(frames)
-            mouth_key = "file_open" if thumbnail_frames else "file_closed"
-            file_name = frame.get(mouth_key, "")
-            if file_name:
-                candidate = FRAMES_DIR / file_name
-                if candidate.exists():
-                    eli_frame_path = str(candidate)
-                    logger.info("[%s] Selected Eli frame for thumbnail: %s", script_id or "no-id", file_name)
-    except Exception as exc:
-        logger.debug("Could not load Eli frame for thumbnail: %s", exc)
+    # Whether the Eli character portal applies to this project. When Eli is
+    # disabled (e.g. listicles using a style-preset character), the thumbnail
+    # must NOT replace a segment circle with a character portal at all — we only
+    # apply the reference styling to the existing circles.
+    eli_enabled = True
+    if script_id:
+        from sqlmodel import Session
 
-    # Build image list: base image first, then reference, then Eli frame, then style preset
+        from database import engine
+        from models.project_config import get_project_config
+
+        with Session(engine) as session:
+            eli_enabled = get_project_config(session, script_id).eli_enabled
+
+    # Pick a random Eli character frame — only when Eli is enabled for the project.
+    eli_frame_path = None
+    if eli_enabled:
+        try:
+            manifest = get_manifest()
+            if manifest and manifest.get("frames"):
+                # Prefer thumbnail frames with open mouth
+                thumbnail_frames = manifest.get("thumbnail_frames", [])
+                frames = thumbnail_frames if thumbnail_frames else manifest["frames"]
+                frame = random.choice(frames)
+                mouth_key = "file_open" if thumbnail_frames else "file_closed"
+                file_name = frame.get(mouth_key, "")
+                if file_name:
+                    candidate = FRAMES_DIR / file_name
+                    if candidate.exists():
+                        eli_frame_path = str(candidate)
+                        logger.info("[%s] Selected Eli frame for thumbnail: %s", script_id or "no-id", file_name)
+        except Exception as exc:
+            logger.debug("Could not load Eli frame for thumbnail: %s", exc)
+    else:
+        logger.info(
+            "[%s] Eli disabled for project — skipping thumbnail character portal insertion",
+            script_id or "no-id",
+        )
+
+    # Build image list: base image first, then reference, then the Eli frame.
+    # The Eli frame is present only when Eli is enabled; no character image
+    # means Gemini applies styling to the circles without any portal.
     image_paths = [base_image_path, ref_path]
     if eli_frame_path:
         image_paths.append(eli_frame_path)
-    style_ref = _resolve_thumbnail_style_ref(script_id) if script_id else None
-    if style_ref:
-        image_paths.append(style_ref)
 
     # Build prompt
     character_instruction = ""

@@ -194,9 +194,10 @@ def ensure_title_card_images(
         card_subtitle=card_subtitle,
     )
 
-    # Step 4: Gemini enhancement — chooses one segment circle at random and turns
-    # it into a portal with Eli bursting out. Strong prompt guards on alignment
-    # and anti-duplication live in gemini_enhance_thumbnail().
+    # Step 4: Gemini enhancement — applies the reference thumbnail styling to the
+    # segment circles. When Eli is enabled it also turns one circle into a portal
+    # with Eli bursting out; when Eli is off no circle is replaced. Strong prompt
+    # guards on alignment and anti-duplication live in gemini_enhance_thumbnail().
     from pipeline.thumbnail import gemini_enhance_thumbnail
 
     base_path = str(images_dir / "composite_title_card_base.png")

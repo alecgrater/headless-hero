@@ -1,9 +1,12 @@
-"""Tests confirming thumbnail paths thread the style preset into
-transform_with_references' image_paths list.
+"""Tests for how the thumbnail paths handle the style preset and the Eli portal.
 
-Both call sites live in pipeline.thumbnail:
-  1. enhance_split_progression  (used by cinematic-chapters strategy)
-  2. gemini_enhance_thumbnail   (used by long-form / title-card thumbnail flow)
+  1. enhance_split_progression  (cinematic-chapters) threads the style preset
+     into transform_with_references' image_paths list.
+  2. gemini_enhance_thumbnail   (long-form / title-card flow) inserts the Eli
+     character portal only when Eli is enabled, and sends no character frame
+     when Eli is disabled.
+
+Both call sites live in pipeline.thumbnail.
 """
 
 from unittest.mock import patch
@@ -130,39 +133,47 @@ def test_enhance_split_progression_no_style_ref_unchanged(tmp_path, monkeypatch)
 
 
 # ---------------------------------------------------------------------------
-# gemini_enhance_thumbnail appends style ref
+# gemini_enhance_thumbnail gates the Eli portal on eli_enabled
 # ---------------------------------------------------------------------------
 
 
-def test_gemini_enhance_thumbnail_appends_style_ref(tmp_path, monkeypatch):
-    """When a style preset is active, gemini_enhance_thumbnail appends it to image_paths."""
+def test_gemini_enhance_thumbnail_inserts_eli_when_enabled(tmp_path, monkeypatch):
+    """When Eli is enabled, the Eli frame is sent and the prompt asks for a portal."""
     import pipeline.thumbnail as thumb_module
 
     monkeypatch.setattr(thumb_module, "DATA_DIR", tmp_path)
 
-    # Create a thumbnail references directory with one ref so the function doesn't short-circuit
     ref_dir = tmp_path / "character" / "thumbnail_references"
     ref_dir.mkdir(parents=True)
     ref_file = ref_dir / "ref1.png"
     ref_file.write_bytes(b"refpng")
-
     monkeypatch.setattr(thumb_module, "THUMBNAIL_REFERENCES_DIR", ref_dir)
 
-    style_ref = tmp_path / "preset.png"
-    style_ref.write_bytes(b"stylepng")
+    # Eli frame on disk + a manifest that points at it.
+    frames_dir = tmp_path / "frames"
+    frames_dir.mkdir()
+    eli_frame = frames_dir / "eli_thumb.png"
+    eli_frame.write_bytes(b"elipng")
 
-    monkeypatch.setattr(thumb_module, "_resolve_thumbnail_style_ref", lambda script_id: str(style_ref))
+    class FakeCfg:
+        eli_enabled = True
+        style_preset_enabled = True
 
     captured = {}
 
     def fake_transform(prompt, image_paths, script_id=None):
+        captured["prompt"] = prompt
         captured["image_paths"] = list(image_paths)
         out = tmp_path / "enhanced.png"
         out.write_bytes(b"fakepng")
         return str(out)
 
-    # Stub character frame manifest so no eli frame is added (keeps test focused)
-    with patch("pipeline.character_frames.get_manifest", return_value=None), \
+    with patch("models.project_config.get_project_config", lambda session, script_id: FakeCfg()), \
+         patch("pipeline.character_frames.get_manifest", return_value={
+             "frames": [{"file_open": "eli_thumb.png"}],
+             "thumbnail_frames": [{"file_open": "eli_thumb.png"}],
+         }), \
+         patch("pipeline.character_frames.FRAMES_DIR", frames_dir), \
          patch("integrations.google_image_client.transform_with_references", fake_transform):
         base = tmp_path / "base.png"
         base.write_bytes(b"basepng")
@@ -174,11 +185,12 @@ def test_gemini_enhance_thumbnail_appends_style_ref(tmp_path, monkeypatch):
         )
 
     assert captured.get("image_paths") is not None, "transform_with_references was not called"
-    assert str(style_ref) in captured["image_paths"]
+    assert str(eli_frame) in captured["image_paths"]
+    assert "CHARACTER INSERTION" in captured["prompt"]
 
 
-def test_gemini_enhance_thumbnail_no_style_ref_unchanged(tmp_path, monkeypatch):
-    """When no style preset is active, gemini_enhance_thumbnail does not add extra image_paths."""
+def test_gemini_enhance_thumbnail_no_portal_when_eli_disabled(tmp_path, monkeypatch):
+    """When Eli is disabled, no character frame is sent and no portal is requested."""
     import pipeline.thumbnail as thumb_module
 
     monkeypatch.setattr(thumb_module, "DATA_DIR", tmp_path)
@@ -187,20 +199,28 @@ def test_gemini_enhance_thumbnail_no_style_ref_unchanged(tmp_path, monkeypatch):
     ref_dir.mkdir(parents=True)
     ref_file = ref_dir / "ref1.png"
     ref_file.write_bytes(b"refpng")
-
     monkeypatch.setattr(thumb_module, "THUMBNAIL_REFERENCES_DIR", ref_dir)
 
-    monkeypatch.setattr(thumb_module, "_resolve_thumbnail_style_ref", lambda script_id: None)
+    class FakeCfg:
+        eli_enabled = False
+        style_preset_enabled = True
 
     captured = {}
 
     def fake_transform(prompt, image_paths, script_id=None):
+        captured["prompt"] = prompt
         captured["image_paths"] = list(image_paths)
         out = tmp_path / "enhanced.png"
         out.write_bytes(b"fakepng")
         return str(out)
 
-    with patch("pipeline.character_frames.get_manifest", return_value=None), \
+    # get_manifest would normally return Eli frames — assert it is never consulted
+    # by making it raise if called.
+    def explode():
+        raise AssertionError("Eli frames must not be loaded when Eli is disabled")
+
+    with patch("models.project_config.get_project_config", lambda session, script_id: FakeCfg()), \
+         patch("pipeline.character_frames.get_manifest", side_effect=explode), \
          patch("integrations.google_image_client.transform_with_references", fake_transform):
         base = tmp_path / "base.png"
         base.write_bytes(b"basepng")
@@ -211,11 +231,12 @@ def test_gemini_enhance_thumbnail_no_style_ref_unchanged(tmp_path, monkeypatch):
             script_id="proj-1",
         )
 
-    # Should be [base, ref] — no style ref appended
+    # Only the base image and the reference thumbnail — no character frame.
     assert captured.get("image_paths") is not None
     assert len(captured["image_paths"]) == 2
     assert str(base) in captured["image_paths"]
     assert str(ref_file) in captured["image_paths"]
+    assert "CHARACTER INSERTION" not in captured["prompt"]
 
 
 # ---------------------------------------------------------------------------
