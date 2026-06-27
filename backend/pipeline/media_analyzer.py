@@ -646,6 +646,14 @@ def apply_assignments(
             if mode not in {"popup_sequence", "comparison_board", "stat_card"}:
                 scene.visual_layers = []
 
+            # A scene downgraded to an image-backed mode (e.g. captions/stat_card/
+            # comparison_board → full_frame) must carry a visual prompt so it stays
+            # regenerable; otherwise it renders a "No image" placeholder.
+            if mode in {"full_frame", "multi_frame", "continuous"} and not scene.visual_prompt.strip():
+                fallback = scene.caption_text.strip() or scene.narration.strip()
+                if fallback:
+                    scene.visual_prompt = fallback
+
             scene.original_visual_prompt = ""
 
             if mode == "video" and script_content.format_id == "life-as-a":

@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from config import BACKEND_PORT, DATA_DIR, FPS, VIDEO_HEIGHT, VIDEO_WIDTH
-from models.script import ChapterMarker, Scene, SceneFX, ScriptContent, WordTimestamp
+from models.script import ChapterMarker, Scene, SceneFX, Script, ScriptContent, WordTimestamp
 from pipeline.export_paths import copy_to_project_downloads, longform_filename
 from pipeline.process_manager import register_process, run_tracked, terminate_process_group, unregister_process
 
@@ -828,6 +828,120 @@ def _reencode_h264(input_path: Path, output_path: Path) -> bool:
     return True
 
 
+# Visual modes whose render REQUIRES a generated scene image/frames. If one of
+# these reaches render with no image, the renderer draws a "No image" placeholder.
+_IMAGE_BACKED_RENDER_MODES = {"full_frame", "multi_frame", "continuous"}
+
+
+def _persist_repaired_scene_images(
+    script_id: str,
+    content: ScriptContent,
+    scene_ids: list[str],
+) -> None:
+    """Merge repaired scene image fields back into the stored full script JSON.
+
+    `content` may be a filtered subset (e.g. a single-segment export-test copy),
+    so we merge per-scene into the DB's full content rather than overwriting it.
+    """
+    from database import engine
+    from sqlmodel import Session
+    from pipeline.script_utils import find_scene_in_content
+
+    repaired = {sid: find_scene_in_content(content, sid) for sid in scene_ids}
+    with Session(engine) as session:
+        record = session.get(Script, script_id)
+        if not record:
+            return
+        full = ScriptContent.model_validate_json(record.script_json)
+        changed = False
+        for sid, src in repaired.items():
+            if src is None:
+                continue
+            dst = find_scene_in_content(full, sid)
+            if dst is None:
+                continue
+            dst.visual_prompt = src.visual_prompt
+            dst.image_url = src.image_url
+            dst.frame_urls = src.frame_urls
+            dst.visual_source_metadata = src.visual_source_metadata
+            changed = True
+        if changed:
+            record.script_json = full.model_dump_json()
+            session.add(record)
+            session.commit()
+
+
+def ensure_renderable_scene_images(script_id: str, content: ScriptContent) -> int:
+    """Guarantee every image-backed scene has a renderable image before render.
+
+    A scene can reach render in an image-backed visual_mode (full_frame /
+    multi_frame / continuous) with no generated image — e.g. a captions /
+    stat_card / comparison_board scene that was promoted to full_frame without
+    regenerating assets, or a scene-length split chunk that lost its prompt.
+    The renderer would otherwise draw the gray "No image" placeholder into the
+    final MP4.
+
+    For each such scene this backfills an empty ``visual_prompt`` from the
+    scene's caption_text/narration, generates the missing image, mutates
+    ``content`` in place, and persists the repaired scenes to the DB. Returns
+    the count of scenes repaired. Scenes with no usable source text are left
+    as-is and logged as errors so the gap is observable on the dev dashboard.
+    """
+    from pipeline.image_gen import generate_scene_image
+
+    repaired_ids: list[str] = []
+    for scene in content.all_scenes():
+        if scene.is_title_card:
+            continue
+        if scene.visual_mode not in _IMAGE_BACKED_RENDER_MODES:
+            continue
+        if scene.image_url or scene.frame_urls or scene.video_url:
+            continue
+
+        fallback = (scene.caption_text or "").strip() or (scene.narration or "").strip()
+        prompt = (scene.visual_prompt or "").strip() or fallback
+        if not prompt:
+            logger.error(
+                "[ENSURE_IMAGES] %s scene %s is %s with no image and no prompt/narration to "
+                "generate from; render will show a blank frame",
+                script_id, scene.id, scene.visual_mode,
+            )
+            continue
+
+        backfilled = not (scene.visual_prompt or "").strip()
+        if backfilled:
+            scene.visual_prompt = prompt
+        logger.warning(
+            "[ENSURE_IMAGES] %s scene %s (%s) has no generated image; generating from %s "
+            "to avoid a blank frame",
+            script_id, scene.id, scene.visual_mode,
+            "scene narration" if backfilled else "visual prompt",
+        )
+        try:
+            image_url, _, source_metadata = generate_scene_image(
+                scene_id=scene.id,
+                visual_prompt=scene.visual_prompt,
+                script_id=script_id,
+                contains_person=bool(scene.contains_person),
+                force=True,
+            )
+        except Exception as exc:  # noqa: BLE001 — keep rendering other scenes
+            logger.error(
+                "[ENSURE_IMAGES] %s failed to generate fallback image for scene %s: %s",
+                script_id, scene.id, exc, exc_info=True,
+            )
+            continue
+        scene.image_url = image_url
+        scene.frame_urls = []
+        if source_metadata:
+            scene.visual_source_metadata = source_metadata
+        repaired_ids.append(scene.id)
+
+    if repaired_ids:
+        _persist_repaired_scene_images(script_id, content, repaired_ids)
+    return len(repaired_ids)
+
+
 def render_full_video(
     script_id: str,
     content: ScriptContent,
@@ -866,6 +980,14 @@ def render_full_video(
             on_progress(0.3 * (i + 1) / total, f"Preparing scene {i + 1}/{total}")
         logger.info("[%s] Preparing scene %d/%d (scene_id=%s)", script_id, i + 1, total, scene.id)
         scenes[i] = strategy.prepare_title_card_scene(scene, script_id, content, brand_dict)
+
+    check_cancelled()
+    repaired_count = ensure_renderable_scene_images(script_id, content)
+    if repaired_count:
+        logger.warning(
+            "[%s] generated %d missing image-backed scene image(s) before render",
+            script_id, repaired_count,
+        )
 
     check_cancelled()
     if on_progress:

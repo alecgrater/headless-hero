@@ -160,7 +160,15 @@ def _phase_images(ctx: ExportContext) -> None:
             sc_info["_frame_urls"] = []
         else:
             logger.info("[%s] Generating image for scene %s (%d/%d)", ctx.script_id, sid, i + 1, scene_count)
-            image_url, _, _ = generate_scene_image(sid, sc_info["visual_prompt"], ctx.script_id, force=True)
+            # Image-backed scenes must never generate from an empty prompt (would
+            # yield a blank "No image" frame); fall back to caption/narration text.
+            prompt = (
+                str(sc_info.get("visual_prompt") or "").strip()
+                or (scene_now.visual_prompt.strip() if scene_now is not None else "")
+                or (scene_now.caption_text.strip() if scene_now is not None else "")
+                or (scene_now.narration.strip() if scene_now is not None else "")
+            )
+            image_url, _, _ = generate_scene_image(sid, prompt, ctx.script_id, force=True)
             sc_info["_image_url"] = image_url
             sc_info["_frame_urls"] = None
         sc_info["_full_frame_blink"] = None

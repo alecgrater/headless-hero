@@ -446,3 +446,45 @@ def test_media_analyzer_apply_assignments_clears_stale_layers_for_non_layered_mo
     assert scene.visual_mode == "full_frame"
     assert scene.visual_treatment == "full_frame"
     assert scene.visual_layers == []
+
+
+def test_apply_assignments_backfills_visual_prompt_when_downgrading_to_full_frame():
+    """A captions scene downgraded to full_frame must keep a usable image prompt."""
+    content = ScriptContent(
+        title="Downgrade",
+        segments=[
+            Segment(
+                name="Segment",
+                scenes=[
+                    Scene(
+                        id="scene_001",
+                        narration="It is not about material; it is about the filter.",
+                        visual_prompt="",
+                        visual_mode="captions",
+                        caption_text="It is about the filter.",
+                        caption_emphasis="filter",
+                    )
+                ],
+            )
+        ],
+    )
+
+    media_analyzer.apply_assignments(
+        content,
+        [
+            media_analyzer.MediaAssignment(
+                scene_id="scene_001",
+                media_source="ai",
+                game_name=None,
+                search_query=None,
+                reasoning="Downgraded to full_frame.",
+                visual_mode="full_frame",
+            )
+        ],
+    )
+
+    scene = content.all_scenes()[0]
+    assert scene.visual_mode == "full_frame"
+    # Prompt is backfilled (caption_text preferred over narration) so the scene
+    # stays regenerable instead of rendering a "No image" placeholder.
+    assert scene.visual_prompt.strip() == "It is about the filter."
