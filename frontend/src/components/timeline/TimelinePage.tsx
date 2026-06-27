@@ -921,7 +921,7 @@ function UtilityStat({
   }[tone];
 
   return (
-    <div className="flex items-baseline gap-1.5 whitespace-nowrap">
+    <div className="flex items-baseline gap-1 whitespace-nowrap">
       <span className="text-[11px] font-medium uppercase tracking-wide text-neutral-600">{label}</span>
       <span className={`text-sm font-semibold tabular-nums ${toneClass}`}>{value}</span>
     </div>
@@ -986,7 +986,7 @@ function StatPopover({
         aria-expanded={open}
         aria-haspopup="dialog"
         title={`${panelTitle} — click for details`}
-        className={`-mx-1.5 flex items-baseline gap-1.5 whitespace-nowrap rounded-md px-1.5 py-1 transition-colors hover:bg-neutral-800/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
+        className={`-mx-1 flex items-baseline gap-1 whitespace-nowrap rounded-md px-1 py-1 transition-colors hover:bg-neutral-800/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
           open ? "bg-neutral-800/60" : ""
         }`}
       >
@@ -1112,7 +1112,7 @@ function ProjectUtilityBar({
   const uploadedCount = DISTRIBUTION_TARGETS.filter(({ key }) => uploadTracking[key]).length;
 
   return (
-    <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-t border-neutral-900/80 px-5 py-2.5">
+    <div className="flex shrink-0 items-center gap-x-3 border-t border-neutral-900/80 px-4 py-2.5">
       <UtilityStat label="Segments" value={segmentCount.toLocaleString()} />
       <UtilityStat label="Scenes" value={sceneCount.toLocaleString()} />
       <StatPopover label="Duration" value={durationStr} panelTitle="Per-segment duration">
