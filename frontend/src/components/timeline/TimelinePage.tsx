@@ -2,18 +2,22 @@ import { type KeyboardEvent as ReactKeyboardEvent, type ReactNode, useCallback, 
 import {
   ChevronDown,
   Check,
+  Film,
   Gauge,
   ImageIcon,
   Images,
   Layers,
   ListVideo,
+  Mic,
   PanelLeftClose,
   PanelLeftOpen,
   PanelsTopLeft,
   Pencil,
   Search,
   Smartphone,
+  Sparkles,
   Upload,
+  UserRound,
   X,
   Zap,
   type LucideIcon,
@@ -69,6 +73,7 @@ import UploadPanel from "./UploadPanel";
 import MediaSourcesTab from "./MediaSourcesTab";
 import SegmentsTab from "./SegmentsTab";
 import PipelineSteps from "./PipelineSteps";
+import ProjectOverviewPanel, { type OverviewStep } from "./ProjectOverviewPanel";
 import PropertiesPanel from "./PropertiesPanel";
 import ThumbnailModal from "./ThumbnailModal";
 import TimelineLanes from "./TimelineLanes";
@@ -2957,6 +2962,100 @@ function TimelineEditor({
     </button>
   );
 
+  const eliDisabledForProject = projectConfig != null && !projectConfig.eli_enabled;
+  const characterStepDone = eliDisabledForProject
+    ? mainCharacterReferenceReady
+    : allEliGenerated || eliScenes.length === 0;
+  const characterStepMissing = eliDisabledForProject
+    ? mainCharacterReferenceReady
+      ? 0
+      : 1
+    : missingEliCount;
+
+  const overviewSteps: OverviewStep[] = [
+    {
+      key: "thumbnails",
+      label: "Thumbnails",
+      Icon: ImageIcon,
+      description: "Generate title cards and thumbnails for long and short form.",
+      cta: "Generate thumbnails",
+      done: allThumbnailsDone,
+      missingCount: missingThumbnailCount,
+      busy: thumbnailsBusy,
+      onRun: confirmAndGenerateThumbnails,
+    },
+    {
+      key: "audio",
+      label: "Audio",
+      Icon: Mic,
+      description: "Generate ElevenLabs voiceover for every narrated scene.",
+      cta: "Generate audio",
+      done: allAudioGenerated,
+      missingCount: missingAudioCount,
+      busy: state.batchGeneratingAudio,
+      onRun: confirmAndGenerateAudio,
+    },
+    {
+      key: "images",
+      label: "Images",
+      Icon: Images,
+      description: "Generate the scene visuals for each shot.",
+      cta: "Generate images",
+      done: allImagesGenerated,
+      missingCount: missingImageCount,
+      busy: state.batchGenerating,
+      onRun: confirmAndGenerateImages,
+    },
+    {
+      key: "fx",
+      label: "FX",
+      Icon: Sparkles,
+      description: "Assign camera moves and transitions across the timeline.",
+      cta: "Generate FX",
+      done: allFXGenerated,
+      missingCount: missingFXCount,
+      busy: generatingFX,
+      onRun: confirmAndGenerateFX,
+    },
+    {
+      key: "character",
+      label: "Main character",
+      Icon: UserRound,
+      description: eliDisabledForProject
+        ? "Create and select a main character reference."
+        : "Generate Eli overlay keyframes for narrated scenes.",
+      cta: eliDisabledForProject ? "Set up character" : "Generate Eli",
+      done: characterStepDone,
+      missingCount: characterStepMissing,
+      busy: generatingEli,
+      onRun: eliDisabledForProject
+        ? () => setShowMainCharacterDrawer(true)
+        : confirmAndGenerateEli,
+    },
+    {
+      key: "seo",
+      label: "SEO",
+      Icon: Search,
+      description: "Write titles, descriptions, and tags for long and short form.",
+      cta: "Generate SEO",
+      done: allSeoDone,
+      missingCount: missingSeoCount,
+      busy: seoBusy,
+      onRun: confirmAndGenerateSeo,
+    },
+    {
+      key: "export",
+      label: "Export",
+      Icon: Film,
+      description: "Render and export the final long-form and short-form videos.",
+      cta: "Render & export",
+      done: allExportsDone,
+      missingCount: missingExportCount,
+      busy: exportBusy,
+      onRun: confirmAndExport,
+    },
+  ];
+
   return (
     <div className="flex flex-col h-[calc(100vh-105px)]">
       {/* Header — Title + Pipeline + Thumbnail */}
@@ -2964,7 +3063,7 @@ function TimelineEditor({
         {/* Left — Title, Pipeline, Export */}
         <div className="flex flex-col flex-1 min-w-0">
           {/* Row 1 — Navigation + Title */}
-          <div className="flex items-center gap-4 px-5 py-2.5 border-b border-neutral-900/80">
+          <div className="flex items-center gap-4 px-5 py-3 border-b border-neutral-900/80">
             <button
               onClick={onBack}
               className="text-sm px-3 py-1.5 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 rounded-lg transition-colors"
@@ -2983,7 +3082,7 @@ function TimelineEditor({
                     }}
                     autoFocus
                     disabled={titleSaving}
-                    className="h-8 min-w-0 flex-1 rounded-md border border-violet-500/40 bg-neutral-900 px-2.5 text-sm font-semibold text-neutral-100 outline-none transition-colors placeholder:text-neutral-500 focus:border-violet-400"
+                    className="h-9 min-w-0 flex-1 rounded-md border border-violet-500/40 bg-neutral-900 px-2.5 text-lg font-semibold tracking-tight text-neutral-100 outline-none transition-colors placeholder:text-neutral-500 focus:border-violet-400"
                   />
                   <button
                     type="button"
@@ -3006,11 +3105,11 @@ function TimelineEditor({
                 </>
               ) : (
                 <>
-                  <h2 className="min-w-0 truncate text-base font-semibold" title={editableTitle}>{editableTitle}</h2>
+                  <h2 className="min-w-0 truncate text-lg font-semibold leading-tight tracking-tight text-neutral-100" title={editableTitle}>{editableTitle}</h2>
                   <button
                     type="button"
                     onClick={startTitleEdit}
-                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-neutral-800 hover:text-neutral-200"
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-neutral-600 transition-colors hover:bg-neutral-800 hover:text-neutral-200"
                     title="Edit video title"
                   >
                     <Pencil size={14} />
@@ -3419,11 +3518,14 @@ function TimelineEditor({
             />
           </div>
         ) : (
-          <div className="flex-1 border-t border-neutral-800/60 px-4 py-3 flex items-center justify-center">
-            <p className="text-sm text-neutral-600">
-              Select a scene to preview
-            </p>
-          </div>
+          <ProjectOverviewPanel
+            steps={overviewSteps}
+            segmentCount={segmentCount}
+            sceneCount={sceneCount}
+            durationStr={durationStr}
+            totalWords={totalWords}
+            onOpenUploadSuite={() => void openUploadPanel()}
+          />
         )}
       </div>
       )}
