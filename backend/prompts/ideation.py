@@ -19,6 +19,8 @@ Rules:
 - Return ONLY valid JSON — no markdown fences, no commentary.
 
 Return a JSON object with a single key "ideas" whose value is an array of objects with keys: title, segments_est, description, keywords.
+
+`segments_est` MUST be a single integer (the number of segments), never a list, string, or breakdown of the segments.
 """
 
 

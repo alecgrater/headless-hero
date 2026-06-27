@@ -1,13 +1,17 @@
 """Idea generation pipeline — uses the routed LLM provider to brainstorm video topics."""
 
 import logging
+import re
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from config import parse_json_array_response
 from integrations.llm_client import chat
 
 logger = logging.getLogger(__name__)
+
+# Sensible default segment count when the model returns an unusable value.
+_DEFAULT_SEGMENTS_EST = 6
 
 class VideoIdea(BaseModel):
     """A single video topic idea returned by the generator."""
@@ -20,6 +24,31 @@ class VideoIdea(BaseModel):
     format_id: str = "youtube-listicle"
     closing_image: str | None = None  # life-as-a only
     creator_guidance: str | None = None
+
+    @field_validator("segments_est", mode="before")
+    @classmethod
+    def _coerce_segments_est(cls, value: object) -> int:
+        """Coerce a non-int ``segments_est`` into a usable count.
+
+        The LLM occasionally emits a list of per-segment hooks, a string, or a
+        float here instead of an integer count. Rather than crashing the whole
+        batch on one malformed idea, coerce to the closest sensible integer and
+        fall back to a default. ``generate_ideas`` clamps the result to the
+        format's allowed level range.
+        """
+        if isinstance(value, bool):
+            return _DEFAULT_SEGMENTS_EST
+        if isinstance(value, int):
+            return value
+        if isinstance(value, float):
+            return int(value)
+        if isinstance(value, (list, tuple)):
+            # Model emitted per-segment descriptions instead of a count.
+            return len(value) or _DEFAULT_SEGMENTS_EST
+        if isinstance(value, str):
+            match = re.search(r"\d+", value)
+            return int(match.group()) if match else _DEFAULT_SEGMENTS_EST
+        return _DEFAULT_SEGMENTS_EST
 
 def generate_ideas(
     niche: str,
@@ -79,9 +108,31 @@ def generate_ideas(
     raw = chat(system_prompt, user_message, json_mode=True, task="idea")
 
     ideas_data = parse_json_array_response(raw, key="ideas")
-    ideas = [VideoIdea.model_validate(item) for item in ideas_data]
-    for idea in ideas:
+
+    # Determine the format's allowed segment range for clamping coerced values.
+    if isinstance(fmt.level_count, int):
+        lo_segments = hi_segments = fmt.level_count
+    else:
+        lo_segments, hi_segments = fmt.level_count
+
+    ideas: list[VideoIdea] = []
+    for item in ideas_data:
+        try:
+            idea = VideoIdea.model_validate(item)
+        except Exception:
+            # One malformed idea must not sink the whole batch; skip and log it.
+            logger.warning(
+                "Skipping malformed idea (format=%s): %r", fmt.id, item, exc_info=True
+            )
+            continue
+        idea.segments_est = max(lo_segments, min(hi_segments, idea.segments_est))
         idea.format_id = fmt.id
         idea.creator_guidance = normalized_guide or None
+        ideas.append(idea)
+
+    if not ideas:
+        raise ValueError(
+            f"No valid ideas could be parsed from the model response (format={fmt.id})."
+        )
     logger.info("Generated %s ideas for niche %r (format=%s)", len(ideas), niche, fmt.id)
     return ideas
