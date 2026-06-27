@@ -157,7 +157,7 @@ export default function ScriptReviewTab({ content, title }: ScriptReviewTabProps
     }
   };
 
-  const isEmpty = stats.scenes === 0;
+  const isEmpty = visibleSegments.every((segment) => segment.scenes.length === 0);
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -167,8 +167,9 @@ export default function ScriptReviewTab({ content, title }: ScriptReviewTabProps
           <div className="min-w-0">
             <h2 className="text-base font-semibold tracking-tight text-neutral-100">Review</h2>
             <p className="text-xs text-neutral-500">
-              {stats.segments} segments · {stats.scenes} scenes · {stats.words.toLocaleString()} words ·{" "}
-              {formatDuration(stats.duration)}
+              {stats.segments} {stats.segments === 1 ? "segment" : "segments"} · {stats.scenes}{" "}
+              {stats.scenes === 1 ? "scene" : "scenes"} · {stats.words.toLocaleString()}{" "}
+              {stats.words === 1 ? "word" : "words"} · {formatDuration(stats.duration)}
             </p>
           </div>
 
@@ -333,7 +334,7 @@ function ReadingScene({ scene, number, toggles }: { scene: Scene; number: number
         className={`leading-relaxed ${
           scene.is_title_card
             ? "text-sm font-medium italic text-neutral-400"
-            : "text-[15px] text-neutral-200"
+            : "text-base text-neutral-200"
         }`}
       >
         {text || <span className="text-neutral-600">(no narration)</span>}
@@ -425,7 +426,7 @@ function serializeScript(
       if (toggles.sceneIds) metaParts.push(scene.id);
       if (toggles.visualModes || scene.is_title_card) metaParts.push(visualModeLabel(scene));
       if (toggles.durations) metaParts.push(formatDuration(sceneDuration(scene)));
-      if (metaParts.length > 1 || toggles.durations || toggles.visualModes || toggles.sceneIds) {
+      if (metaParts.length > 1) {
         lines.push(`[${metaParts.join(" · ")}]`);
       }
       lines.push(scene.narration || "(no narration)");
