@@ -91,7 +91,7 @@ import { LongFormThumbnailsPanel } from "./ThumbnailsPanel";
 import { YoloProgressStrip } from "./YoloProgressStrip";
 import type { ProductionTask } from "./timelineProduction";
 import type { ThumbnailPhaseItem, ThumbnailPhaseStatus } from "./ThumbnailPhaseProgress";
-import { sceneVisualAssetsComplete } from "./assetCompletion";
+import { LAYERED_PREP_MODES, sceneVisualAssetsComplete } from "./assetCompletion";
 
 const DEFAULT_UPLOAD_TRACKING: UploadTracking = {
   longform_youtube: false,
@@ -502,12 +502,11 @@ function getCreationStatus(content: ScriptContent, projectConfig?: ProjectConfig
   };
 }
 
-// Layered visual modes whose per-scene layer specs are filled by the post-voiceover
-// visual-treatment analyzer, not by script generation. Until those specs exist, batch
-// image generation produces no assets for the scene (see _generate_one_scene), so the
-// images-complete check can never pass for them.
-const LAYERED_PREP_MODES = new Set(["popup_sequence", "comparison_board"]);
-
+// The post-voiceover visual-treatment analyzer fills per-scene visual_layers for
+// these layered modes. Until those specs exist, batch image generation produces no
+// assets for the scene (see _generate_one_scene), so the images-complete check can
+// never pass for them. The mode set lives in assetCompletion to stay in sync with
+// sceneVisualAssetsComplete.
 function scenesNeedingVisualModePrep(content: ScriptContent): number {
   return content.segments
     .flatMap((seg) => seg.scenes)
