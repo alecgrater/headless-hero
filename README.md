@@ -76,13 +76,6 @@ remotion/     Remotion rendering project (scenes, effects, transitions)
 git clone https://github.com/alecgrater/headless-hero.git
 cd headless-hero
 
-# API keys (see docs/SETUP.md for details)
-export ANTHROPIC_API_KEY="..."      # or OPENAI_API_KEY
-export GOOGLE_AI_KEY="..."          # image generation
-export ELEVENLABS_API_KEY="..."     # voiceover
-# Optional — YouTube publishing:
-# export GOOGLE_CLIENT_ID="..." GOOGLE_CLIENT_SECRET="..."
-
 npm install
 cd backend && uv sync && cd ..
 cd frontend && npm install && cd ..
