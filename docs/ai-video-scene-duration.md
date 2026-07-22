@@ -101,7 +101,8 @@ negative list. The prompt is part of the video cache marker, so changing it
 regenerates clips.
 
 **This fix is UNVERIFIED.** The clips were never regenerated after the prompt
-change (fal is unreachable from the dev sandbox — egress proxy 403s `fal.run`),
+change (`fal.run` was unreachable in the dev environment due to network
+restrictions),
 so we don't yet know whether the prompt alone stops the talking. Because the
 observed clips still show talking mouths, AI video was turned **off by default**:
 `AI_VIDEO_ENABLED` defaults to `false` and was flipped off in the local DB. When

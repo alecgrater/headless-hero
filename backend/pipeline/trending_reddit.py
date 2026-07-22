@@ -25,7 +25,6 @@ SUBREDDITS = [
 
 HEADERS = {"User-Agent": "HeadlessHero/1.0"}
 TIMEOUT = 15.0
-# Bypass env-var proxy — these are public API calls that don't need proxying
 NO_PROXY = {"http": None, "https": None, "http://": None, "https://": None}
 
 # Module-level cache (15-minute TTL)

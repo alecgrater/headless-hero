@@ -199,7 +199,7 @@ Before render/export, use the project **Img Review** tab to inspect and non-dest
 |---------|-------------|
 | Images fail to generate | `GOOGLE_AI_KEY` not set or invalid |
 | Audio fails to generate | `ELEVENLABS_API_KEY` not set or invalid |
-| Script/idea generation fails | `ANTHROPIC_API_KEY` not set and no local proxy running |
+| Script/idea generation fails | `ANTHROPIC_API_KEY` not set or invalid |
 | YouTube publish fails | `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` not set, or OAuth redirect URI misconfigured |
 | Audio export fails | FFmpeg not installed or not on PATH |
 | Discover: "Some sources failed" | Normal if a source times out or rate-limits you. Successful sources still show results. |

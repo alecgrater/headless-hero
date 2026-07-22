@@ -44,7 +44,7 @@ def generate_smart_ideas(
 ) -> list[dict]:
     """Generate video ideas combining trending data with optional creator context.
 
-    Splits into parallel batches to stay within proxy timeout limits.
+    Splits into parallel batches to keep each request within timeout limits.
     """
     payload: dict = {}
 
