@@ -31,7 +31,7 @@ def generate_image(
     used by Google provider for retry on content filter blocks.
     """
     provider = os.environ.get("IMAGE_PROVIDER", "google")
-    if provider not in {"google", "google"}:
+    if provider != "google":
         logger.warning("Unsupported image provider %s; falling back to google", provider)
         provider = "google"
     logger.info("Image generation via %s (width=%d, height=%d, has_reference=%s, has_style_ref=%s)",

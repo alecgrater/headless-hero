@@ -15,7 +15,6 @@ interface KeyInfo {
 
 const IMAGE_PROVIDERS = [
   { value: "google", label: "Google Gemini" },
-  { value: "google", label: "Gemini - Gemini" },
 ] as const;
 
 const AI_VIDEO_PROVIDERS = [
@@ -367,7 +366,7 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
         setExportsDir(exportVal);
         setOriginalExportsDir(exportVal);
         const rawProvider = data.IMAGE_PROVIDER?.masked || "google";
-        const provVal = rawProvider === "replicate" ? "google" : rawProvider;
+        const provVal = IMAGE_PROVIDERS.some((p) => p.value === rawProvider) ? rawProvider : "google";
         setImageProvider(provVal);
         setOriginalProvider(provVal);
         const googleBatchVal = data.GOOGLE_IMAGE_BATCH_ENABLED?.masked === "true";

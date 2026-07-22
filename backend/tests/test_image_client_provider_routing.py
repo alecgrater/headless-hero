@@ -39,23 +39,6 @@ def test_google_provider_routes_to_gemini(monkeypatch):
     }
 
 
-def test_google_provider_routes_to_gemini(monkeypatch):
-    from integrations import image_client
-    from integrations import google_image_client
-
-    called = {}
-
-    def fake_generate_image(prompt, **kwargs):
-        called["provider"] = "google"
-        return "/tmp/gemini.png"
-
-    monkeypatch.setenv("IMAGE_PROVIDER", "google")
-    monkeypatch.setattr(google_image_client, "generate_image", fake_generate_image)
-
-    assert image_client.generate_image("a scene") == "/tmp/gemini.png"
-    assert called["provider"] == "google"
-
-
 def test_removed_replicate_provider_falls_back_to_gemini(monkeypatch):
     from integrations import image_client
     from integrations import google_image_client
