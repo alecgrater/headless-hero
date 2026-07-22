@@ -4,7 +4,7 @@
 
 Instead of stitching together ChatGPT, ElevenLabs, Midjourney, a video editor, and Canva by hand, Headless Hero runs the entire faceless-content workflow end to end inside one application, with brand consistency enforced at every step.
 
-![Architecture](media/architecture.png)
+![Headless Hero — projects dashboard](media/screenshots/projects.png)
 
 ---
 
@@ -25,6 +25,17 @@ Every stage is AI-assisted but fully editable, and the output is a 1920×1080 MP
 - **Lane-based timeline editor** with split/merge, a per-scene micro-timeline, and live preview.
 - **One-click thumbnail + SEO generation** and **direct YouTube upload** over OAuth2.
 - **Built-in dev dashboard** — live log streaming, render-job monitoring, an API explorer, a read-only DB browser, and per-service API cost tracking.
+
+## A Look Inside
+
+The project editor is a lane-based timeline — every scene carries its own image, voiceover, FX, timer, and subtitle tracks, with a step-by-step generation pipeline across the top:
+
+![Project editor](media/screenshots/project-editor.png)
+
+| Test Lab | Developer dashboard | In-app docs |
+|:--:|:--:|:--:|
+| ![Test Lab](media/screenshots/test-lab.png) | ![Developer dashboard](media/screenshots/dev-dashboard.png) | ![In-app docs](media/screenshots/docs.png) |
+| Exercise any scene mode against the real pipeline | Live logs, jobs, DB browser & API-cost tracking | System behavior documented inside the app |
 
 ## Tech Stack
 
