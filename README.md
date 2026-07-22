@@ -1,331 +1,89 @@
 # Headless Hero
 
-AI-powered desktop app for creating faceless educational YouTube content. Full pipeline from idea to published video — in one tool.
+**A desktop app that turns a single topic into a finished, publish-ready YouTube video — script, illustrations, voiceover, and rendered video — in one integrated pipeline.**
 
-Replace the fragmented workflow of ChatGPT + ElevenLabs + Midjourney + InVideo + Canva with a single integrated application that enforces brand consistency across every video.
+Instead of stitching together ChatGPT, ElevenLabs, Midjourney, a video editor, and Canva by hand, Headless Hero runs the entire faceless-content workflow end to end inside one application, with brand consistency enforced at every step.
 
-![Architecture Diagram](media/architecture.png)
+![Architecture](media/architecture.png)
 
-## What It Does
+---
 
-Headless Hero handles the entire content creation pipeline:
+## Overview
 
-1. **Idea Generation** — AI suggests video topics for your niche with keyword analysis
-2. **Script Writing** — Generates segmented scripts with visual storytelling arc, hooks, and transitions
-3. **Timeline Editing** — Lane-based timeline editor with scene editing, split, merge, and full editorial control
-4. **Image Generation** — Per-scene AI illustrations via Google Gemini
-5. **Voiceover** — AI voice synthesis with voice cloning support via ElevenLabs
-6. **Video Rendering** — Remotion-based frame-by-frame rendering with kinetic captions, zoom punch, and Eli character overlay
-7. **Thumbnail & SEO** — AI-generated thumbnails and optimized metadata for YouTube
-8. **YouTube Publishing** — Direct upload via OAuth2
+Producing educational YouTube content normally means juggling half a dozen tools and manually carrying assets between them. Headless Hero collapses that into a single Electron app backed by an AI orchestration pipeline:
 
-## Architecture
+**Idea → Script → Timeline → Images → Voiceover → Effects → Render → Thumbnail & SEO → Publish**
 
-The app is structured as four layers:
+Every stage is AI-assisted but fully editable, and the output is a 1920×1080 MP4 rendered frame-by-frame with captions, camera effects, transitions, and an optional recurring animated host.
 
-| Layer | Tech | Role |
-|-------|------|------|
-| **Desktop Shell** | Electron 41 | Window management, IPC bridge, system integration |
-| **Frontend** | React 19, Vite, TypeScript, Tailwind 4 | UI views: dashboard, ideation, script editor, timeline, settings |
-| **Backend** | FastAPI, Python 3.12, uv, SQLite (SQLModel) | REST API on `:8420`, database, static file serving |
-| **Pipeline** | Routed LLM providers, Google Gemini, ElevenLabs, Remotion, FFmpeg | AI orchestration: ideation, scriptwriting, image gen, TTS, audio utilities, video rendering, SEO, publishing |
+## Key Features
 
-### API Routes
+- **AI scriptwriting** with a segmented narrative arc, hooks, title cards, and a coherent visual storyboard across scenes.
+- **Per-scene image generation** (Google Gemini) with multiple visual modes — full-frame, multi-frame progressions, comparison boards, stat cards, and layered cutout animations.
+- **Voice synthesis & cloning** (ElevenLabs), where generated audio duration becomes the single source of truth for scene timing.
+- **Frame-accurate video rendering** via a Remotion composition — kinetic captions, camera drift/zoom, native transitions, and subtitle styling, all driven by data rather than a manual editor.
+- **Lane-based timeline editor** with split/merge, a per-scene micro-timeline, and live preview.
+- **One-click thumbnail + SEO generation** and **direct YouTube upload** over OAuth2.
+- **Built-in dev dashboard** — live log streaming, render-job monitoring, an API explorer, a read-only DB browser, and per-service API cost tracking.
 
-| Endpoint | Purpose |
-|----------|---------|
-| `/api/brand` | Brand profile (single default) |
-| `/api/ideas` | AI topic generation |
-| `/api/scripts` | Script generation, editing, split, cold opens, hook scoring |
-| `/api/visuals` | Visual generation (single image, frame sequences, layered assets, AI video, title cards) |
-| `/api/voice` | TTS generation, batch audio, voice cloning, voice listing |
-| `/api/render` | Video rendering, export test/status, and export bundle packaging |
-| `/api/fx` | AI-powered FX generation (kinetic captions, zoom punch) |
-| `/api/eli` | Eli character animation keyframe generation |
-| `/api/character/thumbnail-references` | Thumbnail reference image upload/list/delete |
-| `/api/thumbnail` | Thumbnail generation |
-| `/api/seo` | SEO metadata generation |
-| `/api/publish` | YouTube OAuth, upload, status, history |
-| `/api/trending` | Trending topics, content profile, smart ideas |
-| `/api/idea-board` | Idea-board item CRUD |
-| `/api/brainstorm` | AI brainstorming sessions |
-| `/api/media` | Post-voiceover visual-mode analysis and legacy upload rejection |
-| `/api/settings` | API key management |
-| `/api/generation` | Generation time estimates |
-| `/dev/` | Dev dashboard (log viewer, job monitor, API tester, DB inspector, usage tracker) |
+## Tech Stack
 
-### External Services
+| Layer | Technology |
+|-------|-----------|
+| **Desktop shell** | Electron 41 (IPC bridge to a local backend) |
+| **Frontend** | React 19, TypeScript, Vite, Tailwind 4 |
+| **Backend** | Python 3.12, FastAPI, SQLModel / SQLite, `uv` |
+| **Rendering** | Remotion 4 (React frame-by-frame), FFmpeg (audio) |
+| **AI services** | Claude / OpenAI / local Ollama (routed per task), Google Gemini (images), ElevenLabs (voice), Runway / fal (AI video) |
 
-| Service | Purpose | Env Var |
-|---------|---------|---------|
-| [Anthropic Claude](https://console.anthropic.com/) | Optional routed LLM provider for scripts, ideas, SEO, and analysis | `ANTHROPIC_API_KEY` |
-| [OpenAI](https://platform.openai.com/) | Optional routed LLM provider for scripts, ideas, SEO, and analysis | `OPENAI_API_KEY` |
-| [Google Gemini](https://ai.google.dev/) | Image generation (Gemini image model) | `GOOGLE_AI_KEY` |
-| [ElevenLabs](https://elevenlabs.io/) | Text-to-speech + voice cloning | `ELEVENLABS_API_KEY` |
-| [YouTube Data API v3](https://console.cloud.google.com/) | Video upload | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` |
-| FFmpeg 8.1 | Audio conversion, recording cleanup, and media probing utilities | System install |
+## Architecture Highlights
 
-## Prerequisites
+A few pieces I'm particularly happy with:
 
-- **Node.js** 18+
-- **Python** 3.12+
-- **[uv](https://docs.astral.sh/uv/)** (Python package manager)
-- **FFmpeg** 8+
+- **Data-driven video rendering.** The whole video is one Remotion composition built from a JSON scene graph the Python pipeline emits — enabling a global timeline, native transitions, and deterministic re-renders without a manual NLE. Camera moves are computed from a per-frame "safe envelope" so a panning photo can never expose the background.
+- **Audio-duration-as-timing-truth.** Scene lengths derive from the actual generated voiceover, so narration and visuals stay locked in sync automatically.
+- **Pluggable LLM routing.** Each task (ideation, scripting, SEO, classification, FX) is routed to the best-fit provider and reasoning effort, configurable from the UI.
+- **Content-addressed caching.** Image generation and scene rendering skip work when inputs are unchanged (prompt marker files + mtime comparison), making iteration cheap.
+- **Clean module boundaries.** FastAPI routers only validate and delegate; business logic lives in a framework-free `pipeline/` layer; external APIs are isolated behind thin `integrations/` wrappers.
 
-```bash
-# macOS
-brew install node python uv ffmpeg
-
-# Ubuntu/Debian
-sudo apt install nodejs python3 ffmpeg
-curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+electron/     Main process + IPC preload bridge
+frontend/     React 19 + TS + Tailwind UI (dashboard, editor, timeline, settings)
+backend/
+  api/          FastAPI routers (validation + delegation)
+  pipeline/     AI orchestration & business logic (no web framework)
+  integrations/ Thin external-API wrappers (Claude, Gemini, ElevenLabs, YouTube)
+  models/       SQLModel tables + Pydantic schemas
+remotion/     Remotion rendering project (scenes, effects, transitions)
 ```
 
-## Quick Start
+## Running Locally
+
+**Prerequisites:** Node.js 18+, Python 3.12+, [`uv`](https://docs.astral.sh/uv/), FFmpeg 8+.
 
 ```bash
-# 1. Clone the repo
-git clone https://github.com/your-username/headless-hero.git
+git clone https://github.com/alecgrater/headless-hero.git
 cd headless-hero
 
-# 2. Set API keys (add to ~/.zshrc for persistence)
-export ANTHROPIC_API_KEY="sk-ant-..."
-export GOOGLE_AI_KEY="..."
-export ELEVENLABS_API_KEY="..."
+# API keys (see docs/SETUP.md for details)
+export ANTHROPIC_API_KEY="..."      # or OPENAI_API_KEY
+export GOOGLE_AI_KEY="..."          # image generation
+export ELEVENLABS_API_KEY="..."     # voiceover
+# Optional — YouTube publishing:
+# export GOOGLE_CLIENT_ID="..." GOOGLE_CLIENT_SECRET="..."
 
-# Optional — only for YouTube publishing
-export GOOGLE_CLIENT_ID="...apps.googleusercontent.com"
-export GOOGLE_CLIENT_SECRET="GOCSPX-..."
-
-# 3. Install dependencies
 npm install
 cd backend && uv sync && cd ..
 cd frontend && npm install && cd ..
 
-# 4. Run the app (starts backend + frontend + Electron)
-npm run dev
+npm run dev   # backend (:8420) + frontend (:5173) + Electron
 ```
 
-The app opens an Electron window. The backend runs on `http://127.0.0.1:8420` and the frontend dev server on `http://localhost:5173`.
+The dev dashboard is available at `http://127.0.0.1:8420/dev/` while the backend is running. See [docs/SETUP.md](docs/SETUP.md) for obtaining API keys and configuring YouTube OAuth.
 
-## Development
+## Status
 
-### Available Scripts
-
-| Command | What It Does |
-|---------|-------------|
-| `npm run dev` | Start backend + frontend + Electron concurrently |
-| `npm run dev:frontend` | Frontend only (Vite on `:5173`) |
-| `npm run dev:backend` | Backend only (uvicorn on `:8420` with hot reload) |
-| `cd frontend && npm run build` | Build frontend for production |
-
-### Project Structure
-
-```
-headless-hero/
-├── electron/
-│   ├── main.js              # Electron main process, spawns backend
-│   └── preload.js           # IPC bridge → window.api
-├── frontend/
-│   └── src/
-│       ├── api.ts            # API client, assetUrl(), error interceptor
-│       ├── App.tsx           # Root component with view routing
-│       ├── components/
-│       │   ├── brand/        # Voice setup modal + voice cloning
-│       │   ├── dashboard/    # Project list and management
-│       │   ├── ideation/     # Idea generation UI
-│       │   ├── postit/       # Post-it brainstorming board
-│       │   ├── script/       # Script generation + editing
-│       │   ├── settings/     # API keys, voice, character, general settings
-│       │   ├── timeline/     # Timeline editor (lanes, blocks, properties,
-│       │   │                 #   export, render/publish state hooks)
-│       │   ├── trending/     # Discover page (trending topics + smart ideas)
-│       │   ├── ErrorBoundary.tsx
-│       │   ├── GenerationProgressBar.tsx
-│       │   └── ToastContainer.tsx
-│       └── types/            # TypeScript interfaces (script, audio, render, publish, etc.)
-├── backend/
-│   ├── config.py            # Shared constants (DATA_DIR, FPS, dimensions, utilities)
-│   ├── database.py          # SQLite engine + session dependency
-│   ├── api/
-│   │   ├── __init__.py       # FastAPI app, router registration, static mount
-│   │   ├── brands.py         # Brand CRUD endpoints
-│   │   ├── ideas.py          # Idea generation endpoint
-│   │   ├── scripts.py        # Script generation + CRUD
-│   │   ├── visuals.py        # Visual generation (single + batch + title cards)
-│   │   ├── voiceover.py      # TTS generation + voice cloning
-│   │   ├── render.py         # Video render endpoints + job status
-│   │   ├── fx.py             # FX generation (kinetic captions, zoom punch)
-│   │   ├── eli.py            # Eli animation keyframe generation
-│   │   ├── thumbnail_references.py # Thumbnail reference image management
-│   │   ├── thumbnail.py      # Thumbnail generation
-│   │   ├── seo.py            # SEO metadata generation
-│   │   ├── publish.py        # YouTube OAuth + upload
-│   │   ├── settings.py       # API key management
-│   │   └── generation.py     # Generation time estimates
-│   ├── pipeline/
-│   │   ├── ideation.py       # Routed LLM idea generation
-│   │   ├── scriptwriter.py   # Routed LLM script generation
-│   │   ├── image_gen.py      # Image gen: prompt → Gemini → local file
-│   │   ├── voiceover.py      # TTS: ElevenLabs → MP3 + duration
-│   │   ├── remotion_render.py # Remotion CLI orchestration → full video
-│   │   ├── render_jobs.py    # Background job tracking with threading
-│   │   ├── fx_generator.py   # Routed LLM FX assignment
-│   │   ├── eli_animator.py   # Routed LLM Eli animation
-│   │   ├── character_frames.py # Eli frame library generation
-│   │   ├── thumbnail.py      # Thumbnail generation + variant management
-│   │   ├── seo.py            # Routed LLM SEO metadata
-│   │   ├── publishing.py     # YouTube upload orchestration
-│   │   ├── title_card.py     # Per-segment title card generation
-│   │   ├── title_card_composer.py # Composite title card grid assembly
-│   │   ├── refine.py         # Scene refinement
-│   │   ├── trending_scorer.py # Trending topic aggregation + scoring
-│   │   └── modifiers/        # Content modifier plugin system
-│   ├── integrations/
-│   │   ├── llm_client.py          # Routed LLM provider wrapper
-│   │   ├── google_image_client.py # google-genai SDK wrapper
-│   │   ├── elevenlabs_client.py   # ElevenLabs httpx wrapper
-│   │   ├── youtube_client.py      # YouTube Data API v3 wrapper
-│   │   ├── image_client.py        # Image provider router (Google)
-│   │   ├── google_image_scraper.py # Opt-in scraped-image fallback for failed AI generations
-│   │   └── usage_tracker.py       # API usage recording + pricing constants
-│   ├── models/
-│   │   ├── brand.py          # BrandProfile table + schemas
-│   │   ├── script.py         # Script table + Scene/Segment/FX models
-│   │   ├── credential.py     # OAuth token storage
-│   │   ├── publish.py        # Upload history tracking
-│   │   ├── settings.py       # Key-value app settings
-│   │   ├── generation_duration.py  # Render time estimation data
-│   │   └── api_usage.py      # API call tracking (tokens, cost, etc.)
-│   ├── dev/
-│   │   ├── log_handler.py    # SQLite logging handler + DevLog model
-│   │   ├── routes.py         # Dashboard API routes + WebSocket
-│   │   └── dashboard.html    # Self-contained dashboard UI
-│   ├── prompts.py            # Central prompt registry (all LLM system prompts)
-│   └── pyproject.toml        # Python dependencies (uv)
-├── remotion/
-│   └── src/
-│       ├── Root.tsx           # Remotion composition definitions
-│       ├── FullVideo.tsx      # Main video composition (all scenes sequenced)
-│       ├── scenes/            # Scene components (StaticImage, MultiFrame,
-│       │                      #   TitleCard, Subtitle, SceneRenderer)
-│       ├── effects/
-│       │   ├── camera/        # ZoomPunch effect
-│       │   ├── typography/    # KineticCaption overlay
-│       │   ├── overlays/      # EliOverlay, ChapterIndicator
-│       │   └── structural/    # AnimatedChapterMap
-│       ├── utils/             # Frame/second conversion helpers
-│       └── types.ts           # Input props types mirroring Python models
-├── data/                      # Runtime data (gitignored)
-│   ├── db.sqlite             # SQLite database
-│   ├── character/            # Eli frame library
-│   └── projects/             # Generated assets per script
-│       └── {script_id}/
-│           ├── images/       # Scene images (.png)
-│           ├── audio/        # Scene audio (.mp3)
-│           └── renders/      # Rendered videos + thumbnails
-├── docs/
-│   ├── PRD.md                # Product Requirements Document
-│   └── SETUP.md              # API keys & service setup guide
-├── package.json              # Root package (Electron + concurrently)
-└── CLAUDE.md                 # Development conventions & AI instructions
-```
-
-### Dev Dashboard
-
-A browser-based developer dashboard is available at **http://localhost:8420/dev/** whenever the backend is running. It provides real-time visibility into backend activity without needing to watch the terminal.
-
-#### Accessing the Dashboard
-
-Start the backend (`npm run dev` or `npm run dev:backend`), then open [http://localhost:8420/dev/](http://localhost:8420/dev/) in any browser.
-
-#### Logs Tab
-
-The Logs tab streams backend log entries in real time over WebSocket:
-
-- **Filters** — Filter by log level (DEBUG through CRITICAL), module name, or free-text search
-- **Live streaming** — New log entries appear instantly via WebSocket. Auto-scrolls to the latest entry, but pauses when you scroll up to inspect older logs
-- **Expandable rows** — Click any log entry to see the full message, source file/function/line number, and exception traceback (if present)
-- **Pause/Resume** — Temporarily pause the live stream without disconnecting
-- **Analytics sidebar** — Shows log distribution by level, top recurring messages (last 24h), per-module log counts, and messages that appeared for the first time in the last hour
-
-#### Jobs Tab
-
-The Jobs tab monitors active and completed render jobs:
-
-- **Active jobs** — Each running job shows a progress bar, current step description, and elapsed time
-- **Completed/failed jobs** — Lists finished jobs with duration and status. Failed jobs show an expandable error traceback
-- **Auto-refresh** — The Jobs tab polls every 2 seconds while visible
-
-#### API Tester Tab
-
-The API tab provides an interactive explorer for all backend endpoints:
-
-- **Endpoint discovery** — Fetches the OpenAPI schema automatically and lists all endpoints grouped by tag (brands, scripts, render, etc.)
-- **Search/filter** — Filter endpoints by path or tag name
-- **Request builder** — Click an endpoint to populate path parameters, query parameters, and a pre-filled JSON body generated from the schema
-- **Response viewer** — Displays status code, response time, and syntax-highlighted JSON response
-
-#### Database Tab
-
-The Database tab provides a browser for the SQLite database:
-
-- **Table list** — All tables with row counts. Click to browse rows
-- **Row browser** — Paginated data table (50 rows/page) with clickable rows for detailed view. JSON blobs are pretty-printed in the detail modal
-- **Sensitive field redaction** — `access_token`, `refresh_token`, and `value` fields in credential/settings tables are automatically masked
-- **SQL query runner** — Collapsible textarea for running custom `SELECT`/`PRAGMA` queries. Write operations are rejected
-
-#### Usage Tab
-
-The Usage tab tracks API costs across all external services:
-
-- **Service cards** — Per-service cost breakdown for Anthropic, Google AI Studio, OpenAI, and ElevenLabs with call counts and relevant metrics (tokens, characters, images).
-- **Daily cost chart** — Stacked bar chart showing cost per day per service
-- **Operation breakdown** — Table of costs grouped by service, operation type, and model
-- **Recent calls log** — Detailed table of recent API calls with timestamps, token counts, and per-call cost
-- **Time range** — Configurable window (7, 30, 90, or 365 days)
-
-Cost estimates are approximate and based on standard published pricing. Usage is recorded automatically whenever any integration client makes an API call.
-
-#### Log Persistence
-
-Logs are stored in SQLite (`data/db.sqlite` in the `dev_logs` table) and persist across backend restarts. Logs older than 7 days are automatically pruned on startup.
-
-#### API Endpoints
-
-| Endpoint | Purpose |
-|----------|---------|
-| `GET /dev/` | Dashboard HTML |
-| `GET /dev/api/logs` | Query logs (params: `level`, `logger_name`, `search`, `since`, `limit`, `offset`) |
-| `GET /dev/api/logs/stats` | Log analytics (top messages, by level/module, new messages) |
-| `GET /dev/api/logs/modules` | List distinct logger names for filtering |
-| `GET /dev/api/jobs` | Current render job statuses |
-| `WebSocket /dev/ws/logs` | Live log stream |
-| `GET /dev/api/db/tables` | List all tables with row counts and columns |
-| `GET /dev/api/db/tables/{name}` | Paginated row browser (params: `limit`, `offset`) |
-| `POST /dev/api/db/query` | Execute read-only SQL (body: `{sql, limit}`) |
-| `GET /dev/api/usage/summary` | Aggregated usage stats per service (param: `days`) |
-| `GET /dev/api/usage/recent` | Recent API call log (param: `limit`) |
-
-### How It Works
-
-1. **Brand Setup** — Configure voice preferences and Eli character overlay in Settings
-2. **Ideate** — Enter a niche/topic, and the configured LLM provider generates video ideas with keyword analysis
-3. **Script** — Select an idea, and the configured LLM provider writes a segmented script with narration, scene descriptions, and title cards
-4. **Timeline** — Edit scenes in the lane-based timeline editor. Generate images (Gemini) and audio (ElevenLabs) per scene
-5. **Effects** — AI generates kinetic captions and zoom punch effects; Eli character animation keyframes
-6. **Render** — Remotion renders the full video with all effects, overlays, and transitions
-7. **Export** — Download YouTube 16:9 video, thumbnails, SEO, and short-form assets
-8. **Publish** — Upload directly to YouTube with metadata
-
-### Caching
-
-- **Image generation** — Skips regeneration if the prompt hasn't changed (`.prompt` marker files)
-- **Scene rendering** — Skips re-render if source image/audio haven't been modified (mtime comparison)
-
-## API Key Setup
-
-See [docs/SETUP.md](docs/SETUP.md) for detailed instructions on obtaining each API key and configuring Google OAuth2 for YouTube publishing.
+A personal project built to explore end-to-end AI media pipelines and desktop app architecture. It is functional across the full workflow and under active iteration.
 
 ## License
 

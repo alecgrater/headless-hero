@@ -19,7 +19,7 @@ def test_record_fallback_emits_parseable_json(caplog):
         severity="fail",
         metadata={
             "provider": "google",
-            "asset_path": "~/git/headless-hero/data/projects/script-1/images/scene-2.png",
+            "asset_path": "/tmp/projects/script-1/images/scene-2.png",
             "prompt": "do not leak prompt text",
             "duration_seconds": 4.2,
         },

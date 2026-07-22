@@ -67,7 +67,7 @@ THUMBNAIL_HEIGHT = 720
 BACKEND_PORT = 8420
 
 # Default directory for final exported project assets.
-DEFAULT_EXPORTS_DIR = Path("~/Headless Hero Videos")
+DEFAULT_EXPORTS_DIR = Path.home() / "Headless Hero Videos"
 
 
 def strip_markdown_fences(text: str) -> str:

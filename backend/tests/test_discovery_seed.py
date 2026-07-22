@@ -14,7 +14,7 @@ def test_build_discovery_seed_sanitizes_profile_and_queries():
         "avg_segment_count": 7.5,
         "analyzed_at": "2026-05-29T10:00:00+00:00",
         "is_stale": False,
-        "local_path": "~/secret",
+        "local_path": "/tmp/secret",
         "script_bodies": ["do not leak"],
     }
 
