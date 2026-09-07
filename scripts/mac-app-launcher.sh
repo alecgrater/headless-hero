@@ -12,8 +12,9 @@
 # Logs: launcher  → ~/Library/Logs/HeadlessHero.log
 #       dev stack → /tmp/headless-hero-dev.log
 #
-# Deliberately not `set -euo pipefail`: the `[ -z "$pids" ] && return 0` guards
-# and `(( i++ ))` below both return non-zero during normal operation.
+# Deliberately not `set -euo pipefail`: the `[ -z "$pids" ] && return 0`,
+# `[ -n "$pids" ] && kill $pids` and `is_live_child … && pkill` guards below all
+# return non-zero during normal operation.
 #
 
 LOG_FILE="$HOME/Library/Logs/HeadlessHero.log"
@@ -34,23 +35,32 @@ FRONTEND_PORT=5173
 STARTUP_TIMEOUT=240
 # Electron opens a window at t=5s regardless of backend state, so say something
 # reassuring long before the hard timeout rather than leaving the user staring
-# at a broken window for four minutes.
+# at a broken window for four minutes. Must stay below STARTUP_TIMEOUT: the
+# timeout branch exits first, so an advisory above it would never fire.
 STARTUP_ADVISORY=60
 OLLAMA_TIMEOUT=15
+CLEANED=0
 DEV_PID=""
 OLLAMA_PID=""
 WATCHDOG_PID=""
 QUIT_REQUESTED=0
-# Exists once the backend has answered, or once the watchdog has already reported
-# a problem. Its absence after the stack exits is what makes a silent startup
-# crash audible.
+MARKER_UNAVAILABLE=0
+# Exists once the backend has answered, or once the watchdog has reported a
+# terminal problem (the 60s advisory deliberately does not write it, so a later
+# crash is still reported). Its absence after the stack exits is what makes a
+# silent startup crash audible.
 STARTUP_MARKER="${TMPDIR:-/tmp}/headless-hero-startup.$$"
 rm -f "$STARTUP_MARKER"
 # The marker's absence means "failed", so an unwritable TMPDIR would turn every
 # healthy launch into a failure notification. Prove it's writable once, here,
-# where there's still a fallback to fall back to.
+# where there's still a fallback to fall back to — and if even /tmp refuses,
+# stay silent rather than crying wolf on every launch.
 if ! { : > "$STARTUP_MARKER"; } 2>/dev/null; then
     STARTUP_MARKER="/tmp/headless-hero-startup.$$"
+    if ! { : > "$STARTUP_MARKER"; } 2>/dev/null; then
+        MARKER_UNAVAILABLE=1
+        echo "No writable location for the startup marker — startup reporting disabled"
+    fi
 fi
 rm -f "$STARTUP_MARKER"
 
@@ -158,7 +168,11 @@ is_live_child() {
 # startup behavior: a dock launch owns the dev ports, so a stack left running in
 # a terminal is fair game.
 cleanup() {
-    trap - EXIT INT TERM HUP
+    # Idempotency guard rather than `trap - EXIT INT TERM HUP`: resetting a trap
+    # from inside its own handler trips a bash 3.2 bug that logs
+    # "run_pending_traps: bad value in trap_list" and resends the signal.
+    [ "$CLEANED" -eq 1 ] && return 0
+    CLEANED=1
     is_live_child "$OLLAMA_PID" && pkill -P "$OLLAMA_PID" 2>/dev/null
     kill_live_children
     reap_stale_stack
@@ -269,6 +283,6 @@ wait "$DEV_PID" 2>/dev/null
 # health time is the only thing preventing a spurious failure notification.
 # (A quit within the first few seconds of a cold start can still trip this — an
 # advisory notification beats silence on a real crash.)
-if [ ! -f "$STARTUP_MARKER" ] && [ "$QUIT_REQUESTED" -eq 0 ]; then
+if [ "$MARKER_UNAVAILABLE" -eq 0 ] && [ ! -f "$STARTUP_MARKER" ] && [ "$QUIT_REQUESTED" -eq 0 ]; then
     notify "Headless Hero failed to start - check /tmp/headless-hero-dev.log"
 fi
