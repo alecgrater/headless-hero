@@ -38,6 +38,7 @@ AI-powered Electron desktop app for faceless educational YouTube content. Pipeli
 
 ```bash
 npm run dev              # backend + frontend + electron
+npm run dev:app          # same stack, --kill-others (used by the macOS .app launcher)
 npm run dev:frontend     # Vite on :5173
 npm run dev:backend      # uvicorn on :8420
 npm run test             # backend pytest (shells into uv run --project backend pytest)
@@ -45,6 +46,8 @@ npm run test:backend     # uv run --project backend pytest
 npm run test:frontend    # frontend Vitest
 cd frontend && npm run build
 ```
+
+**macOS dock launcher**: `scripts/mac-app-launcher.sh` is the source of truth for `~/Applications/HeadlessHero.app/Contents/MacOS/HeadlessHero`. Edit it here, then copy it into the bundle (`cp scripts/mac-app-launcher.sh ~/Applications/HeadlessHero.app/Contents/MacOS/HeadlessHero`). It launches the Electron app only — no dev-console browser window, no editor — frees stale `:8420`/`:5173` holders first, and runs `dev:app` so closing the Electron window tears down the whole stack and lets the launcher process exit (macOS won't relaunch a bundle whose process is still alive).
 
 ## Python — Always Use UV
 
