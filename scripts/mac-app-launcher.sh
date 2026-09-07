@@ -20,6 +20,7 @@ LOG_FILE="$HOME/Library/Logs/HeadlessHero.log"
 
 # Appended, not truncated, so a failed launch's log survives the retry. Trimmed
 # here rather than rotated — this only ever has one writer.
+mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null
 if [ -f "$LOG_FILE" ] && [ "$(stat -f%z "$LOG_FILE" 2>/dev/null || echo 0)" -gt 1048576 ]; then
     tail -n 500 "$LOG_FILE" > "$LOG_FILE.tmp" 2>/dev/null && mv "$LOG_FILE.tmp" "$LOG_FILE"
 fi
@@ -28,17 +29,25 @@ exec >> "$LOG_FILE" 2>&1
 PROJECT_DIR="${HEADLESS_HERO_DIR:-$HOME/git/headless-hero}"
 BACKEND_PORT=8420
 FRONTEND_PORT=5173
+STARTUP_TIMEOUT=120
 DEV_PID=""
 OLLAMA_PID=""
+WATCHDOG_PID=""
 
 echo ""
 echo "=== Headless Hero starting at $(date) ==="
 
 # Nothing here is attached to a terminal, so failures need to surface somewhere
-# the user will actually see. Keep messages free of quotes for osascript.
+# the user will actually see. The message is passed as an argv item rather than
+# spliced into the AppleScript source, so a quote in a path can't break the very
+# notification that exists to report that path.
 notify() {
     echo "$1"
-    osascript -e "display notification \"$1\" with title \"Headless Hero\"" 2>/dev/null
+    osascript - "$1" <<'APPLESCRIPT' 2>/dev/null
+on run argv
+    display notification (item 1 of argv) with title "Headless Hero"
+end run
+APPLESCRIPT
 }
 
 # .app bundles don't inherit the user's shell environment, so source the profile
@@ -74,7 +83,7 @@ free_port() {
     pids=$(lsof -ti "tcp:$port" -sTCP:LISTEN 2>/dev/null)
     [ -z "$pids" ] && return 0
 
-    echo "Port $port held by: $pids — terminating"
+    echo "Port $port held by: $(echo $pids) — terminating"
     kill $pids 2>/dev/null
 
     tries=5
@@ -106,8 +115,14 @@ reap_stale_stack() {
 
 # Safety net for the paths concurrently's --kill-others can't cover: this
 # launcher being killed (logout, `killall`) or exiting with something still bound.
+# It also runs on the early-bail paths, where it doubles as the documented
+# startup behavior: a dock launch owns the dev ports, so a stack left running in
+# a terminal is fair game.
 cleanup() {
-    trap - EXIT INT TERM
+    trap - EXIT INT TERM HUP
+    # First, so the watchdog can't see DEV_PID die and cry failure on a quit the
+    # user asked for.
+    [ -n "$WATCHDOG_PID" ] && kill "$WATCHDOG_PID" 2>/dev/null
     [ -n "$DEV_PID" ] && kill "$DEV_PID" 2>/dev/null
     reap_stale_stack
     # "fast": macOS swallows dock clicks while the bundle is still exiting, so a
@@ -120,9 +135,13 @@ cleanup() {
     fi
     echo "=== Headless Hero stopped at $(date) ==="
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT INT TERM HUP
 
 cd "$PROJECT_DIR" || { notify "Project folder not found - $PROJECT_DIR"; exit 1; }
+# Normalize after the cd: reap_stale_stack interpolates PROJECT_DIR into pgrep
+# patterns, and a trailing slash (`//`) or a symlinked checkout would silently
+# match nothing, quietly bringing back the every-other-launch bug.
+PROJECT_DIR="$(pwd -P)"
 
 if ! command -v npm > /dev/null 2>&1; then
     notify "npm not found on PATH - see the log in Console"
@@ -160,15 +179,23 @@ if command -v ollama > /dev/null 2>&1 && ! curl -s http://localhost:11434/api/ta
     done
 fi
 
-# A stack that dies before the backend ever answers means no window and no error,
-# so watch for it. Exits silently the moment the backend is healthy.
+# A stack that dies — or hangs — before the backend ever answers means no window
+# and no error, which is indistinguishable from the bug this launcher fixes.
+# Exits silently the moment the backend is healthy; cleanup() kills it on quit.
 (
+    waited=0
     while true; do
         curl -s "http://127.0.0.1:$BACKEND_PORT/api/health" > /dev/null 2>&1 && exit 0
         kill -0 "$DEV_PID" 2>/dev/null || break
+        waited=$(( waited + 1 ))
+        if [ "$waited" -ge "$STARTUP_TIMEOUT" ]; then
+            notify "Headless Hero is taking too long to start - check /tmp/headless-hero-dev.log"
+            exit 1
+        fi
         sleep 1
     done
     notify "Headless Hero failed to start - check /tmp/headless-hero-dev.log"
 ) &
+WATCHDOG_PID=$!
 
 wait "$DEV_PID" 2>/dev/null
