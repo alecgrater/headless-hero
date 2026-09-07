@@ -32,6 +32,11 @@ BACKEND_PORT=8420
 FRONTEND_PORT=5173
 # Generous: a first-ever cold start pays for `uv sync` plus Vite's first prebundle.
 STARTUP_TIMEOUT=240
+# Electron opens a window at t=5s regardless of backend state, so say something
+# reassuring long before the hard timeout rather than leaving the user staring
+# at a broken window for four minutes.
+STARTUP_ADVISORY=60
+OLLAMA_TIMEOUT=15
 DEV_PID=""
 OLLAMA_PID=""
 WATCHDOG_PID=""
@@ -40,6 +45,13 @@ QUIT_REQUESTED=0
 # a problem. Its absence after the stack exits is what makes a silent startup
 # crash audible.
 STARTUP_MARKER="${TMPDIR:-/tmp}/headless-hero-startup.$$"
+rm -f "$STARTUP_MARKER"
+# The marker's absence means "failed", so an unwritable TMPDIR would turn every
+# healthy launch into a failure notification. Prove it's writable once, here,
+# where there's still a fallback to fall back to.
+if ! { : > "$STARTUP_MARKER"; } 2>/dev/null; then
+    STARTUP_MARKER="/tmp/headless-hero-startup.$$"
+fi
 rm -f "$STARTUP_MARKER"
 
 echo ""
@@ -50,7 +62,9 @@ echo "=== Headless Hero starting at $(date) ==="
 # spliced into the AppleScript source, so a quote in a path can't break the very
 # notification that exists to report that path.
 notify() {
-    echo "$1"
+    # Tagged because bash echoes a killed background job's source text into this
+    # same log, so bare message text is not greppable evidence of a real report.
+    echo "NOTIFICATION: $1"
     osascript - "$1" <<'APPLESCRIPT' 2>/dev/null
 on run argv
     display notification (item 1 of argv) with title "Headless Hero"
@@ -201,14 +215,17 @@ echo "Dev stack running (pid $DEV_PID)."
 if command -v ollama > /dev/null 2>&1 && ! curl -s --connect-timeout 2 --max-time 3 http://localhost:11434/api/tags > /dev/null 2>&1; then
     ollama serve > /tmp/ollama.log 2>&1 &
     OLLAMA_PID=$!
-    i=0
+    # Wall clock, not iterations: with a bounded curl each pass can cost 4s, so a
+    # counted loop would block the launcher (and delay the watchdog) far longer
+    # than the cap reads.
+    ollama_started=$(date +%s)
     while ! curl -s --connect-timeout 2 --max-time 3 http://localhost:11434/api/tags > /dev/null 2>&1; do
         if ! kill -0 "$OLLAMA_PID" 2>/dev/null; then
             echo "ollama serve exited early — continuing without it"
             OLLAMA_PID=""
             break
         fi
-        (( i++ )); [[ $i -gt 15 ]] && break
+        [ "$(( $(date +%s) - ollama_started ))" -ge "$OLLAMA_TIMEOUT" ] && break
         sleep 1
     done
 fi
@@ -220,16 +237,23 @@ fi
 # stall the loop past STARTUP_TIMEOUT.
 (
     started=$(date +%s)
+    advised=0
     while true; do
         if curl -s --connect-timeout 2 --max-time 3 "http://127.0.0.1:$BACKEND_PORT/api/health" > /dev/null 2>&1; then
             : > "$STARTUP_MARKER"
             exit 0
         fi
         kill -0 "$DEV_PID" 2>/dev/null || exit 1
-        if [ "$(( $(date +%s) - started ))" -ge "$STARTUP_TIMEOUT" ]; then
+        elapsed=$(( $(date +%s) - started ))
+        if [ "$elapsed" -ge "$STARTUP_TIMEOUT" ]; then
             : > "$STARTUP_MARKER"
             notify "Headless Hero is taking too long to start - check /tmp/headless-hero-dev.log"
             exit 1
+        fi
+        # Advisory only — no marker, so a later crash is still reported.
+        if [ "$advised" -eq 0 ] && [ "$elapsed" -ge "$STARTUP_ADVISORY" ]; then
+            advised=1
+            notify "Headless Hero is still starting - a first run installs dependencies"
         fi
         sleep 1
     done
@@ -239,9 +263,12 @@ WATCHDOG_PID=$!
 wait "$DEV_PID" 2>/dev/null
 
 # The stack exited without the backend ever answering, and the user didn't ask
-# for that: no window, no error, so say something. (A quit within the first few
-# seconds of a cold start can trip this too — an advisory notification beats
-# silence on a real crash.)
+# for that: no window, no error, so say something. The marker is what carries
+# this, not QUIT_REQUESTED — the ordinary quit (closing the Electron window)
+# sends this script no signal at all, so on that path the marker written at
+# health time is the only thing preventing a spurious failure notification.
+# (A quit within the first few seconds of a cold start can still trip this — an
+# advisory notification beats silence on a real crash.)
 if [ ! -f "$STARTUP_MARKER" ] && [ "$QUIT_REQUESTED" -eq 0 ]; then
     notify "Headless Hero failed to start - check /tmp/headless-hero-dev.log"
 fi
