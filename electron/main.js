@@ -577,6 +577,10 @@ app.whenReady().then(async () => {
   });
 });
 
+// Quits on macOS too, instead of the conventional keep-alive: the dock launcher
+// (scripts/mac-app-launcher.sh) relies on Electron exiting here so concurrently's
+// --kill-others tears down the dev stack and the launcher process can exit.
+// Without that, macOS sees the bundle as still running and ignores the next click.
 app.on("window-all-closed", () => {
   if (backendProcess) {
     backendProcess.kill();

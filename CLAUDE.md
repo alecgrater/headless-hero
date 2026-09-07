@@ -47,7 +47,7 @@ npm run test:frontend    # frontend Vitest
 cd frontend && npm run build
 ```
 
-**macOS dock launcher**: `scripts/mac-app-launcher.sh` is the source of truth for `~/Applications/HeadlessHero.app/Contents/MacOS/HeadlessHero`. Edit it here, then copy it into the bundle (`cp scripts/mac-app-launcher.sh ~/Applications/HeadlessHero.app/Contents/MacOS/HeadlessHero`). It launches the Electron app only — no dev-console browser window, no editor — frees stale `:8420`/`:5173` holders first, and runs `dev:app` so closing the Electron window tears down the whole stack and lets the launcher process exit (macOS won't relaunch a bundle whose process is still alive).
+**macOS dock launcher**: `scripts/mac-app-launcher.sh` is the source of truth for `~/Applications/HeadlessHero.app/Contents/MacOS/HeadlessHero`; edit it there and reinstall with `scripts/install-mac-launcher.sh` (copies + verifies, since the bundle holds a copy). It launches the Electron app only — no dev-console browser window, no editor — starts `ollama serve` if it isn't already up, frees stale `:8420`/`:5173` **listeners** first (never clients, which would kill the user's browser), and runs `dev:app` so closing the Electron window tears down the whole stack and lets the launcher process exit (macOS won't relaunch a bundle whose process is still alive — that requires `window-all-closed` in `electron/main.js` to keep calling `app.quit()`). Launcher log `~/Library/Logs/HeadlessHero.log`, dev-stack output `/tmp/headless-hero-dev.log`; startup failures surface as a macOS notification.
 
 ## Python — Always Use UV
 
