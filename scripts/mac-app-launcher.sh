@@ -27,12 +27,20 @@ fi
 exec >> "$LOG_FILE" 2>&1
 
 PROJECT_DIR="${HEADLESS_HERO_DIR:-$HOME/git/headless-hero}"
+PROJECT_RE=""
 BACKEND_PORT=8420
 FRONTEND_PORT=5173
-STARTUP_TIMEOUT=120
+# Generous: a first-ever cold start pays for `uv sync` plus Vite's first prebundle.
+STARTUP_TIMEOUT=240
 DEV_PID=""
 OLLAMA_PID=""
 WATCHDOG_PID=""
+QUIT_REQUESTED=0
+# Exists once the backend has answered, or once the watchdog has already reported
+# a problem. Its absence after the stack exits is what makes a silent startup
+# crash audible.
+STARTUP_MARKER="${TMPDIR:-/tmp}/headless-hero-startup.$$"
+rm -f "$STARTUP_MARKER"
 
 echo ""
 echo "=== Headless Hero starting at $(date) ==="
@@ -80,24 +88,24 @@ echo "---"
 # Returns non-zero if the port is still held after a force kill.
 free_port() {
     local port="$1" mode="${2:-}" pids tries i
-    pids=$(lsof -ti "tcp:$port" -sTCP:LISTEN 2>/dev/null)
+    pids=$(lsof -ti "tcp:$port" -sTCP:LISTEN 2>/dev/null | tr '\n' ' ')
     [ -z "$pids" ] && return 0
 
-    echo "Port $port held by: $(echo $pids) — terminating"
+    echo "Port $port held by: $pids— terminating"
     kill $pids 2>/dev/null
 
     tries=5
     [ "$mode" = "fast" ] && tries=1
     for (( i = 0; i < tries; i++ )); do
         sleep 1
-        pids=$(lsof -ti "tcp:$port" -sTCP:LISTEN 2>/dev/null)
+        pids=$(lsof -ti "tcp:$port" -sTCP:LISTEN 2>/dev/null | tr '\n' ' ')
         [ -z "$pids" ] && return 0
     done
 
-    echo "Port $port still held by: $pids — force killing"
+    echo "Port $port still held by: $pids— force killing"
     kill -9 $pids 2>/dev/null
     sleep 1
-    pids=$(lsof -ti "tcp:$port" -sTCP:LISTEN 2>/dev/null)
+    pids=$(lsof -ti "tcp:$port" -sTCP:LISTEN 2>/dev/null | tr '\n' ' ')
     if [ -n "$pids" ]; then
         echo "Port $port STILL held by: $pids"
         return 1
@@ -108,9 +116,26 @@ free_port() {
 # Reap a previous dev stack. Both patterns are project-local absolute paths, so
 # they can't match this launcher or an unrelated Electron app. The Electron main
 # process holds no listening port, so free_port alone would leave it orphaned.
+# Bails on an empty pattern rather than degrading to "every Node project".
 reap_stale_stack() {
-    pkill -f "$PROJECT_DIR/node_modules/.bin/concurrently" 2>/dev/null
-    pkill -f "$PROJECT_DIR/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron" 2>/dev/null
+    [ -n "$PROJECT_RE" ] || return 0
+    pkill -f "$PROJECT_RE/node_modules/\.bin/concurrently" 2>/dev/null
+    pkill -f "$PROJECT_RE/node_modules/electron/dist/Electron\.app/Contents/MacOS/Electron" 2>/dev/null
+}
+
+# Kill only pids that are still children of this shell. A stored pid whose
+# process was already reaped is just a number, and this app churns pids hard
+# enough (uv, npm, remotion) that reuse within a session isn't exotic.
+kill_live_children() {
+    local pids
+    pids=$(jobs -p 2>/dev/null | tr '\n' ' ')
+    [ -n "$pids" ] && kill $pids 2>/dev/null
+    return 0
+}
+
+is_live_child() {
+    [ -n "$1" ] || return 1
+    jobs -p 2>/dev/null | grep -qx "$1"
 }
 
 # Safety net for the paths concurrently's --kill-others can't cover: this
@@ -120,28 +145,37 @@ reap_stale_stack() {
 # a terminal is fair game.
 cleanup() {
     trap - EXIT INT TERM HUP
-    # First, so the watchdog can't see DEV_PID die and cry failure on a quit the
-    # user asked for.
-    [ -n "$WATCHDOG_PID" ] && kill "$WATCHDOG_PID" 2>/dev/null
-    [ -n "$DEV_PID" ] && kill "$DEV_PID" 2>/dev/null
+    is_live_child "$OLLAMA_PID" && pkill -P "$OLLAMA_PID" 2>/dev/null
+    kill_live_children
     reap_stale_stack
     # "fast": macOS swallows dock clicks while the bundle is still exiting, so a
     # slow teardown reproduces the original symptom in miniature.
     free_port "$BACKEND_PORT" fast
     free_port "$FRONTEND_PORT" fast
-    if [ -n "$OLLAMA_PID" ]; then
-        pkill -P "$OLLAMA_PID" 2>/dev/null
-        kill "$OLLAMA_PID" 2>/dev/null
-    fi
+    rm -f "$STARTUP_MARKER"
     echo "=== Headless Hero stopped at $(date) ==="
 }
-trap cleanup EXIT INT TERM HUP
+
+# A bare `trap cleanup INT TERM` would run the handler and then *resume* the
+# interrupted line with every trap disarmed — a signal during the port loops or
+# the ollama wait would tear the stack down and then launch an unsupervised one.
+on_signal() {
+    QUIT_REQUESTED=1
+    cleanup
+    exit 143
+}
+trap cleanup EXIT
+trap on_signal INT TERM HUP
 
 cd "$PROJECT_DIR" || { notify "Project folder not found - $PROJECT_DIR"; exit 1; }
-# Normalize after the cd: reap_stale_stack interpolates PROJECT_DIR into pgrep
-# patterns, and a trailing slash (`//`) or a symlinked checkout would silently
-# match nothing, quietly bringing back the every-other-launch bug.
+# Normalize after the cd: the pgrep patterns below are built from this, and a
+# trailing slash (`//`) or a symlinked checkout would silently match nothing,
+# quietly bringing back the every-other-launch bug.
 PROJECT_DIR="$(pwd -P)"
+[ -n "$PROJECT_DIR" ] || { notify "Cannot resolve the project folder"; exit 1; }
+# pkill -f takes an extended regex, so a `+`, `(` or `[` anywhere in the path
+# would otherwise turn reaping into a silent no-op.
+PROJECT_RE="$(printf '%s' "$PROJECT_DIR" | sed 's/[][^$.*+?(){}|\\]/\\&/g')"
 
 if ! command -v npm > /dev/null 2>&1; then
     notify "npm not found on PATH - see the log in Console"
@@ -164,11 +198,11 @@ echo "Dev stack running (pid $DEV_PID)."
 
 # Ollama is optional and nothing blocks on it, so it starts after the dev stack
 # rather than delaying the window.
-if command -v ollama > /dev/null 2>&1 && ! curl -s http://localhost:11434/api/tags > /dev/null 2>&1; then
+if command -v ollama > /dev/null 2>&1 && ! curl -s --connect-timeout 2 --max-time 3 http://localhost:11434/api/tags > /dev/null 2>&1; then
     ollama serve > /tmp/ollama.log 2>&1 &
     OLLAMA_PID=$!
     i=0
-    while ! curl -s http://localhost:11434/api/tags > /dev/null 2>&1; do
+    while ! curl -s --connect-timeout 2 --max-time 3 http://localhost:11434/api/tags > /dev/null 2>&1; do
         if ! kill -0 "$OLLAMA_PID" 2>/dev/null; then
             echo "ollama serve exited early — continuing without it"
             OLLAMA_PID=""
@@ -179,23 +213,35 @@ if command -v ollama > /dev/null 2>&1 && ! curl -s http://localhost:11434/api/ta
     done
 fi
 
-# A stack that dies — or hangs — before the backend ever answers means no window
-# and no error, which is indistinguishable from the bug this launcher fixes.
-# Exits silently the moment the backend is healthy; cleanup() kills it on quit.
+# Records that the backend came up. A start that hangs (bound but unresponsive,
+# uv blocked on a lock) never dies on its own, so the watchdog reports that case
+# itself; a start that crashes is reported by the parent after wait, which can't
+# lose the race with its own teardown. curl is bounded so a hung socket can't
+# stall the loop past STARTUP_TIMEOUT.
 (
-    waited=0
+    started=$(date +%s)
     while true; do
-        curl -s "http://127.0.0.1:$BACKEND_PORT/api/health" > /dev/null 2>&1 && exit 0
-        kill -0 "$DEV_PID" 2>/dev/null || break
-        waited=$(( waited + 1 ))
-        if [ "$waited" -ge "$STARTUP_TIMEOUT" ]; then
+        if curl -s --connect-timeout 2 --max-time 3 "http://127.0.0.1:$BACKEND_PORT/api/health" > /dev/null 2>&1; then
+            : > "$STARTUP_MARKER"
+            exit 0
+        fi
+        kill -0 "$DEV_PID" 2>/dev/null || exit 1
+        if [ "$(( $(date +%s) - started ))" -ge "$STARTUP_TIMEOUT" ]; then
+            : > "$STARTUP_MARKER"
             notify "Headless Hero is taking too long to start - check /tmp/headless-hero-dev.log"
             exit 1
         fi
         sleep 1
     done
-    notify "Headless Hero failed to start - check /tmp/headless-hero-dev.log"
 ) &
 WATCHDOG_PID=$!
 
 wait "$DEV_PID" 2>/dev/null
+
+# The stack exited without the backend ever answering, and the user didn't ask
+# for that: no window, no error, so say something. (A quit within the first few
+# seconds of a cold start can trip this too — an advisory notification beats
+# silence on a real crash.)
+if [ ! -f "$STARTUP_MARKER" ] && [ "$QUIT_REQUESTED" -eq 0 ]; then
+    notify "Headless Hero failed to start - check /tmp/headless-hero-dev.log"
+fi
