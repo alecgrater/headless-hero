@@ -12,9 +12,9 @@
 # Logs: launcher  → ~/Library/Logs/HeadlessHero.log
 #       dev stack → /tmp/headless-hero-dev.log
 #
-# Deliberately not `set -euo pipefail`: the `[ -z "$pids" ] && return 0`,
-# `[ -n "$pids" ] && kill $pids` and `is_live_child … && pkill` guards below all
-# return non-zero during normal operation.
+# Deliberately not `set -euo pipefail`: `pids=$(lsof -ti … )` below exits 1 on
+# the ordinary "port is free" path, and `is_live_child … && pkill` / `kill $pids`
+# exit non-zero whenever the target is already gone.
 #
 
 LOG_FILE="$HOME/Library/Logs/HeadlessHero.log"
@@ -40,6 +40,7 @@ STARTUP_TIMEOUT=240
 STARTUP_ADVISORY=60
 OLLAMA_TIMEOUT=15
 CLEANED=0
+CLEANING=0
 DEV_PID=""
 OLLAMA_PID=""
 WATCHDOG_PID=""
@@ -50,11 +51,16 @@ MARKER_UNAVAILABLE=0
 # crash is still reported). Its absence after the stack exits is what makes a
 # silent startup crash audible.
 STARTUP_MARKER="${TMPDIR:-/tmp}/headless-hero-startup.$$"
-rm -f "$STARTUP_MARKER"
+
+echo ""
+echo "=== Headless Hero starting at $(date) ==="
+
 # The marker's absence means "failed", so an unwritable TMPDIR would turn every
 # healthy launch into a failure notification. Prove it's writable once, here,
 # where there's still a fallback to fall back to — and if even /tmp refuses,
-# stay silent rather than crying wolf on every launch.
+# stay silent rather than crying wolf on every launch. Runs after the banner so
+# a complaint lands under this session's header, not the previous one's.
+rm -f "$STARTUP_MARKER"
 if ! { : > "$STARTUP_MARKER"; } 2>/dev/null; then
     STARTUP_MARKER="/tmp/headless-hero-startup.$$"
     if ! { : > "$STARTUP_MARKER"; } 2>/dev/null; then
@@ -63,9 +69,6 @@ if ! { : > "$STARTUP_MARKER"; } 2>/dev/null; then
     fi
 fi
 rm -f "$STARTUP_MARKER"
-
-echo ""
-echo "=== Headless Hero starting at $(date) ==="
 
 # Nothing here is attached to a terminal, so failures need to surface somewhere
 # the user will actually see. The message is passed as an argv item rather than
@@ -169,10 +172,10 @@ is_live_child() {
 # a terminal is fair game.
 cleanup() {
     # Idempotency guard rather than `trap - EXIT INT TERM HUP`: resetting a trap
-    # from inside its own handler trips a bash 3.2 bug that logs
+    # from inside its own handler can trip a bash 3.2 bug that logs
     # "run_pending_traps: bad value in trap_list" and resends the signal.
     [ "$CLEANED" -eq 1 ] && return 0
-    CLEANED=1
+    CLEANING=1
     is_live_child "$OLLAMA_PID" && pkill -P "$OLLAMA_PID" 2>/dev/null
     kill_live_children
     reap_stale_stack
@@ -182,13 +185,21 @@ cleanup() {
     free_port "$FRONTEND_PORT" fast
     rm -f "$STARTUP_MARKER"
     echo "=== Headless Hero stopped at $(date) ==="
+    CLEANED=1
+    CLEANING=0
 }
 
 # A bare `trap cleanup INT TERM` would run the handler and then *resume* the
-# interrupted line with every trap disarmed — a signal during the port loops or
-# the ollama wait would tear the stack down and then launch an unsupervised one.
+# interrupted line with CLEANED already latched, so the resumed code would launch
+# a stack that no later cleanup tears down — a signal during the port loops or
+# the ollama wait would leave exactly the orphaned listeners this launcher exists
+# to prevent.
 on_signal() {
     QUIT_REQUESTED=1
+    # bash defers a repeat of the *same* signal, but a different one (INT during
+    # a TERM teardown) would re-enter here and exit out of the middle of cleanup,
+    # skipping the port frees. Let the in-flight cleanup finish instead.
+    [ "$CLEANING" -eq 1 ] && return 0
     cleanup
     exit 143
 }
@@ -254,13 +265,13 @@ fi
     advised=0
     while true; do
         if curl -s --connect-timeout 2 --max-time 3 "http://127.0.0.1:$BACKEND_PORT/api/health" > /dev/null 2>&1; then
-            : > "$STARTUP_MARKER"
+            { : > "$STARTUP_MARKER"; } 2>/dev/null
             exit 0
         fi
         kill -0 "$DEV_PID" 2>/dev/null || exit 1
         elapsed=$(( $(date +%s) - started ))
         if [ "$elapsed" -ge "$STARTUP_TIMEOUT" ]; then
-            : > "$STARTUP_MARKER"
+            { : > "$STARTUP_MARKER"; } 2>/dev/null
             notify "Headless Hero is taking too long to start - check /tmp/headless-hero-dev.log"
             exit 1
         fi
