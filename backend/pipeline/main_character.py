@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from config import DATA_DIR, IMAGE_HEIGHT, IMAGE_WIDTH
-from integrations.google_image_client import generate_image
+from integrations.image_client import generate_image
 from models.script import MainCharacter
 from models.style_preset_character import StylePresetCharacter, StylePresetCharacterResponse
 from pipeline.character_assets import PROCESSOR_VERSION, process_character_asset_bundle

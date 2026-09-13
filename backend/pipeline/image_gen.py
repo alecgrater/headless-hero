@@ -12,8 +12,8 @@ from statistics import median
 from PIL import Image, ImageDraw, ImageFont
 
 from config import DATA_DIR, IMAGE_HEIGHT, IMAGE_WIDTH, VIDEO_HEIGHT, VIDEO_WIDTH
-from integrations.google_image_client import GoogleBatchImageRequest, generate_images_batch
-from integrations.image_client import generate_image
+from integrations.google_image_client import GoogleBatchImageRequest
+from integrations.image_client import generate_image, generate_images_batch, provider_fingerprint
 from models.script import MainCharacter
 from pipeline.asset_vault import VaultKind, save_vault_image
 from pipeline.character_assets import process_character_asset_bundle

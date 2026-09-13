@@ -178,7 +178,7 @@ def enhance_split_progression(
     source is newer, prompt or labels changed, style changed, or force=True.
     On Gemini failure, falls back to copying the clean image to output_path.
     """
-    from integrations.google_image_client import transform_with_references
+    from integrations.image_client import transform_with_references
     from prompts import SPLIT_PROGRESSION_PROMPT
 
     prompt = SPLIT_PROGRESSION_PROMPT.template.format(
@@ -436,7 +436,7 @@ def gemini_enhance_thumbnail(
     """
     logger.info("[%s] Starting Gemini thumbnail enhancement for %r", script_id or "no-id", video_title)
 
-    from integrations.google_image_client import transform_with_references
+    from integrations.image_client import transform_with_references
     from pipeline.character_frames import get_manifest, FRAMES_DIR
 
     # Check for reference thumbnails
