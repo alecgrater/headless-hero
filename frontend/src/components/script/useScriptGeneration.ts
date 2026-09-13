@@ -83,6 +83,24 @@ export default function useScriptGeneration({ brandId, idea, supportsColdOpen = 
   const [estimateSource, setEstimateSource] = useState<EstimateSource>("measured");
   const [scriptProgress, setScriptProgress] = useState<number | null>(null);
 
+  // Fetch the script estimate once on mount, not only when a run starts. The
+  // pre-run Local Mode notice quotes it, and that notice is only on screen
+  // *before* generation begins — so an estimate fetched at kickoff would never
+  // reach it, leaving the notice permanently on its hardcoded fallback copy.
+  useEffect(() => {
+    let cancelled = false;
+    fetchGenerationEstimate("script_generation_youtube")
+      .then((est) => {
+        if (cancelled) return;
+        setEstimatedSeconds(est.average_seconds);
+        setEstimateSource(est.source ?? "measured");
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const [genSegments, setGenSegments] = useState<{ segment: number; total: number; name: string } | null>(null);
   const [genCompletedSegments, setGenCompletedSegments] = useState<number[]>([]);
   const [elapsedSeconds, setElapsedSeconds] = useState<number | null>(null);

@@ -1,8 +1,11 @@
 import { useCallback, useRef, useState } from "react";
 import { fetchGenerationEstimate, recordDuration } from "../api";
+import type { EstimateSource } from "../api";
 
 interface UseOperationProgressReturn {
   estimatedSeconds: number | null;
+  /** Anything but "measured" is an approximation the UI should caption. */
+  estimateSource: EstimateSource;
   active: boolean;
   start: (sceneCount?: number) => void;
   end: (sceneCount?: number) => void;
@@ -10,6 +13,7 @@ interface UseOperationProgressReturn {
 
 export function useOperationProgress(operationType: string): UseOperationProgressReturn {
   const [estimatedSeconds, setEstimatedSeconds] = useState<number | null>(null);
+  const [estimateSource, setEstimateSource] = useState<EstimateSource>("measured");
   const [active, setActive] = useState(false);
   const startTime = useRef<number>(0);
 
@@ -18,7 +22,10 @@ export function useOperationProgress(operationType: string): UseOperationProgres
       setActive(true);
       startTime.current = Date.now();
       fetchGenerationEstimate(operationType, sceneCount)
-        .then((est) => setEstimatedSeconds(est.average_seconds))
+        .then((est) => {
+          setEstimatedSeconds(est.average_seconds);
+          setEstimateSource(est.source ?? "measured");
+        })
         .catch(() => {});
     },
     [operationType],
@@ -36,5 +43,5 @@ export function useOperationProgress(operationType: string): UseOperationProgres
     [operationType],
   );
 
-  return { estimatedSeconds, active, start, end };
+  return { estimatedSeconds, estimateSource, active, start, end };
 }

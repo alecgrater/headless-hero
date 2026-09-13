@@ -51,11 +51,17 @@ ENGINE_INDEPENDENT_OPERATIONS: frozenset[str] = frozenset({
     "single_video_generation",
 })
 
-# What a first local run should be told before any local sample exists, from
-# docs/local-models-run-report.md. Without these the UI either shows a
-# cloud-calibrated ETA against a run that is 40x longer, or no ETA at all in
-# front of an hour-and-a-half wait. Replaced by real measurements as soon as
-# one local run of that operation completes.
+# What a first local run should be told before any local sample exists. Without
+# these the UI either shows a cloud-calibrated ETA against a run that is 40x
+# longer, or no ETA at all in front of an hour-and-a-half wait. Every value is
+# replaced by a real measurement as soon as one local run of that operation
+# completes, so these only have to be the right order of magnitude.
+#
+# Measured: the script figure (docs/local-models-run-report.md) and the image
+# and voice figures (docs/local-models-benchmarks.md). The remaining text tasks
+# are ESTIMATES scaled from the measured ~15 tok/s, not measurements — on a
+# default config LOCAL_TEXT_FAST_MODEL is the narrative model, so treat them as
+# a floor rather than a promise.
 LOCAL_BASELINE_SECONDS: dict[str, float] = {
     # Outline plus eight segment calls at ~11 min each, measured on an M4 Max.
     "script_generation_youtube": 5700.0,

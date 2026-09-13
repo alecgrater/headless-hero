@@ -60,18 +60,22 @@ export default function GenerationProgressBar({
   const progress = done ? 1 : isDeterminate ? Math.min(0.95, elapsed / estimatedSeconds) : 0;
   const remaining = isDeterminate ? Math.round(estimatedSeconds - elapsed) : null;
 
-  const formatDuration = (seconds: number) =>
+  // Ceil for "remaining" (never promise sooner than it can arrive), floor for
+  // "so far" (150s elapsed is 2m gone, not 3m).
+  const formatRemaining = (seconds: number) =>
     seconds >= 60 ? `${Math.ceil(seconds / 60)}m` : `${seconds}s`;
+  const formatElapsed = (seconds: number) =>
+    seconds >= 60 ? `${Math.floor(seconds / 60)}m` : `${seconds}s`;
 
   let caption: string | null = null;
   if (active && remaining !== null) {
     if (remaining > 0) {
-      caption = `~${formatDuration(remaining)} remaining`;
+      caption = `~${formatRemaining(remaining)} remaining`;
       if (estimateSource !== "measured") caption += " (estimated — not measured on this machine yet)";
     } else {
       // Past the estimate the bar would otherwise sit at 95% saying nothing,
       // which on a long local run is indistinguishable from a hang.
-      caption = `Taking longer than expected — still running (${formatDuration(Math.round(elapsed))} so far)`;
+      caption = `Taking longer than expected — still running (${formatElapsed(Math.round(elapsed))} so far)`;
     }
   }
 

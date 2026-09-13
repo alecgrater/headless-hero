@@ -166,6 +166,10 @@ def test_every_recorded_operation_is_classified():
         text = path.read_text(encoding="utf-8")
         recorded.update(re.findall(r'recordDuration\(\s*"([a-z0-9_]+)"', text))
         recorded.update(re.findall(r'fetchGenerationEstimate\(\s*"([a-z0-9_]+)"', text))
+        # useOperationProgress passes its operationType through to
+        # recordDuration as a *variable*, so eleven of the thirteen frontend
+        # types are invisible without matching the hook's own call site.
+        recorded.update(re.findall(r'useOperationProgress\(\s*"([a-z0-9_]+)"', text))
 
     assert recorded, "found no recording sites — did the scan break?"
     classified = set(OPERATION_ENGINE_SCOPE) | set(ENGINE_INDEPENDENT_OPERATIONS)
@@ -256,3 +260,16 @@ def test_a_per_scene_baseline_scales_with_the_batch(client, monkeypatch):
 
     assert one["source"] == "baseline"
     assert eight["average_seconds"] == one["average_seconds"] * 8
+
+
+def test_every_scoped_llm_task_is_a_real_task():
+    """A typo would fall back to the global provider and silently pool the op."""
+    from integrations.llm_client import LLM_TASKS
+
+    tasks = {task for modality, task in OPERATION_ENGINE_SCOPE.values() if task is not None}
+    assert tasks <= set(LLM_TASKS), sorted(tasks - set(LLM_TASKS))
+
+    # And a text operation always names one.
+    for operation, (modality, task) in OPERATION_ENGINE_SCOPE.items():
+        if modality == "text":
+            assert task is not None, f"{operation} is text-scoped but names no LLM task"

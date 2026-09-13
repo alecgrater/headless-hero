@@ -1,14 +1,23 @@
 import { useEffect, useRef, useState } from "react";
 
+import type { EstimateSource } from "../api";
+
 interface Props {
   estimatedSeconds: number | null;
   active: boolean;
+  /** Accepted for parity with GenerationProgressBar; this bar has no caption
+   *  room, so a non-measured estimate is shown dimmed instead of labelled. */
+  estimateSource?: EstimateSource;
 }
 
 /** One tick a second — see GenerationProgressBar for why not rAF. */
 const TICK_MS = 1000;
 
-export default function MiniProgressBar({ estimatedSeconds, active }: Props) {
+export default function MiniProgressBar({
+  estimatedSeconds,
+  active,
+  estimateSource = "measured",
+}: Props) {
   const [elapsed, setElapsed] = useState(0);
   const [visible, setVisible] = useState(false);
   const [done, setDone] = useState(false);
@@ -50,7 +59,9 @@ export default function MiniProgressBar({ estimatedSeconds, active }: Props) {
     <div className="w-full h-1 rounded-full bg-neutral-800 overflow-hidden mt-1">
       {isDeterminate ? (
         <div
-          className="h-full rounded-full bg-violet-500 transition-all duration-300 ease-out"
+          className={`h-full rounded-full transition-all duration-300 ease-out ${
+            estimateSource === "measured" ? "bg-violet-500" : "bg-violet-500/60"
+          }`}
           style={{ width: `${progress * 100}%` }}
         />
       ) : (

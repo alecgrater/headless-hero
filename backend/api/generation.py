@@ -133,9 +133,13 @@ class RecordDurationResponse(BaseModel):
 
 @router.post("/record-duration", response_model=RecordDurationResponse)
 def record_duration(body: RecordDurationRequest, session: Session = Depends(get_session)):
-    # The operation_type arrives from the browser, so the classification tables
-    # cannot be enforced by scanning the backend alone. Reject an unknown one
-    # rather than silently recording a sample that pools across every engine.
+    """Record a duration measured by the browser.
+
+    The operation_type arrives from the browser, so the classification tables
+    cannot be enforced by scanning the backend alone. An unknown one is
+    rejected rather than silently recorded as a sample that pools across every
+    engine.
+    """
     if body.operation_type not in OPERATION_ENGINE_SCOPE and (
         body.operation_type not in ENGINE_INDEPENDENT_OPERATIONS
     ):
@@ -148,7 +152,6 @@ def record_duration(body: RecordDurationRequest, session: Session = Depends(get_
                 "right engine."
             ),
         )
-    """Record a generation duration from the frontend (for frontend-driven batch operations)."""
     logger.info("Recording duration: %s = %.1fs (scenes=%s)", body.operation_type, body.duration_seconds, body.scene_count)
     record = GenerationDuration(
         operation_type=body.operation_type,
