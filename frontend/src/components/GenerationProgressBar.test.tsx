@@ -50,13 +50,13 @@ describe("GenerationProgressBar", () => {
   it("marks a baseline estimate as not measured on this machine", () => {
     bar({ estimateSource: "baseline" });
     advance(10);
-    expect(screen.getByText(/no local run measured yet/)).toBeTruthy();
+    expect(screen.getByText(/not measured on this machine yet/)).toBeTruthy();
   });
 
   it("does not add that qualifier to a measured estimate", () => {
     bar({ estimateSource: "measured" });
     advance(10);
-    expect(screen.queryByText(/no local run measured yet/)).toBeNull();
+    expect(screen.queryByText(/not measured on this machine yet/)).toBeNull();
   });
 
   it("fills linearly rather than on a curve that reads as stalled", () => {

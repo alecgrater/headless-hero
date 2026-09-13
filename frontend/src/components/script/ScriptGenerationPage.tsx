@@ -40,7 +40,12 @@ export default function ScriptGenerationPage({
   const localModalityList = (["text", "image", "voice"] as const)
     .filter((m) => localMode.local[m])
     .map((m) => (m === "text" ? "the script" : m === "image" ? "images" : "voice"))
-    .join(" and ");
+    .reduce((acc, part, i, all) =>
+      i === 0 ? part : i === all.length - 1 ? `${acc} and ${part}` : `${acc}, ${part}`, "");
+  const localModalityVerb =
+    (["text", "image", "voice"] as const).filter((m) => localMode.local[m]).length === 1
+      ? "runs"
+      : "run";
   const [format, setFormat] = useState<VideoFormat | null>(null);
   const formatId = idea.format_id ?? "youtube-listicle";
 
@@ -85,7 +90,7 @@ export default function ScriptGenerationPage({
   const localScriptEstimate =
     estimatedSeconds && estimatedSeconds > 0
       ? `expect about ${Math.round(estimatedSeconds / 60)} minutes${
-          estimateSource === "baseline" ? " (estimated — no local run measured yet)" : ""
+          estimateSource !== "measured" ? " (estimated — not measured on this machine yet)" : ""
         }`
       : "expect well over an hour";
 
@@ -243,7 +248,7 @@ export default function ScriptGenerationPage({
                 </p>
               ) : (
                 <p className="mt-1">
-                  The script still comes from the cloud, but {localModalityList} run on this machine,
+                  The script still comes from the cloud, but {localModalityList} {localModalityVerb} on this machine,
                   so later stages take longer than usual.
                 </p>
               )}

@@ -135,7 +135,7 @@ describe("ScriptGenerationPage — Local Mode notice", () => {
     renderPage();
     const notice = await screen.findByTestId("local-mode-generation-notice");
     expect(notice.textContent).toMatch(/about 60 minutes/);
-    expect(notice.textContent).not.toMatch(/no local run measured yet/);
+    expect(notice.textContent).not.toMatch(/not measured on this machine yet/);
   });
 
   it("flags an estimate that came from the published baseline", async () => {
@@ -143,7 +143,7 @@ describe("ScriptGenerationPage — Local Mode notice", () => {
     generationState.estimateSource = "baseline";
     renderPage();
     const notice = await screen.findByTestId("local-mode-generation-notice");
-    expect(notice.textContent).toMatch(/no local run measured yet/);
+    expect(notice.textContent).toMatch(/not measured on this machine yet/);
   });
 
   it("names a daemon that is down, because generation will fail without it", async () => {

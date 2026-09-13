@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 
+import type { EstimateSource } from "../api";
+
 interface Props {
   estimatedSeconds: number | null;
   active: boolean;
-  /** "baseline" means a published figure, not something this machine measured. */
-  estimateSource?: "measured" | "baseline";
+  /** Anything but "measured" is an approximation — see EstimateSource. */
+  estimateSource?: EstimateSource;
 }
 
 /** Ticks once a second.
@@ -65,7 +67,7 @@ export default function GenerationProgressBar({
   if (active && remaining !== null) {
     if (remaining > 0) {
       caption = `~${formatDuration(remaining)} remaining`;
-      if (estimateSource === "baseline") caption += " (estimated — no local run measured yet)";
+      if (estimateSource !== "measured") caption += " (estimated — not measured on this machine yet)";
     } else {
       // Past the estimate the bar would otherwise sit at 95% saying nothing,
       // which on a long local run is indistinguishable from a hang.

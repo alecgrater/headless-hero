@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import api, { fetchGenerationEstimate, refineHook } from "../../api";
+import type { EstimateSource } from "../../api";
 import { DEFAULT_MODEL } from "../../constants";
 import { useOperationProgress } from "../../hooks/useOperationProgress";
 import { usePollJob } from "../../hooks/usePollJob";
@@ -51,7 +52,7 @@ export interface ScriptGenerationState {
   generationStarted: boolean;
   settingsLoaded: boolean;
   estimatedSeconds: number | null;
-  estimateSource: "measured" | "baseline";
+  estimateSource: EstimateSource;
   scriptProgress: number | null;
   elapsedSeconds: number | null;
   genSegments: { segment: number; total: number; name: string } | null;
@@ -79,7 +80,7 @@ export default function useScriptGeneration({ brandId, idea, supportsColdOpen = 
   const [generationStarted, setGenerationStarted] = useState(false);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [estimatedSeconds, setEstimatedSeconds] = useState<number | null>(null);
-  const [estimateSource, setEstimateSource] = useState<"measured" | "baseline">("measured");
+  const [estimateSource, setEstimateSource] = useState<EstimateSource>("measured");
   const [scriptProgress, setScriptProgress] = useState<number | null>(null);
 
   const [genSegments, setGenSegments] = useState<{ segment: number; total: number; name: string } | null>(null);
@@ -285,7 +286,10 @@ export default function useScriptGeneration({ brandId, idea, supportsColdOpen = 
           setEstimatedSeconds(est.average_seconds);
           setEstimateSource(est.source ?? "measured");
         })
-        .catch(() => setEstimatedSeconds(null));
+        .catch(() => {
+          setEstimatedSeconds(null);
+          setEstimateSource("measured");
+        });
 
       try {
         const res = await api.post("/api/scripts/generate", {
@@ -413,10 +417,17 @@ export default function useScriptGeneration({ brandId, idea, supportsColdOpen = 
     setElapsedSeconds(null);
     setGenSegments(null);
     setGenCompletedSegments([]);
+    setScriptProgress(null);
 
     fetchGenerationEstimate("script_generation_youtube")
-      .then((est) => setEstimatedSeconds(est.average_seconds))
-      .catch(() => setEstimatedSeconds(null));
+      .then((est) => {
+        setEstimatedSeconds(est.average_seconds);
+        setEstimateSource(est.source ?? "measured");
+      })
+      .catch(() => {
+        setEstimatedSeconds(null);
+        setEstimateSource("measured");
+      });
 
     api
       .post("/api/scripts/generate", {

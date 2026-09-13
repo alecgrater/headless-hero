@@ -32,6 +32,11 @@ OPERATION_ENGINE_SCOPE: dict[str, tuple[str, str | None]] = {
     "single_image_generation": ("image", None),
     "title_card_generation": ("image", None),
     "thumbnail_generation": ("image", None),
+    # Recorded by the frontend through POST /api/generation/record-duration.
+    # These are the two longest waits a user actually watches on the timeline.
+    "batch_image_generation": ("image", None),
+    "batch_audio_generation": ("voice", None),
+    "eli_generation": ("text", "eli"),
 }
 
 # Recorded operations whose duration does not depend on any model engine, so
@@ -66,6 +71,17 @@ LOCAL_BASELINE_SECONDS: dict[str, float] = {
     "script_rating": 180.0,
     "hook_score": 180.0,
     "scene_refinement": 120.0,
+    "eli_generation": 120.0,
+}
+
+# Baselines quoted per scene rather than per operation, so a batch is scaled by
+# the scene count the caller asks about. A first local title-card batch of eight
+# announced as one card's worth is the same wrong-by-an-order-of-magnitude
+# problem these baselines exist to avoid.
+LOCAL_BASELINE_PER_SCENE_SECONDS: dict[str, float] = {
+    "batch_image_generation": 35.0,
+    "title_card_generation": 35.0,
+    "batch_audio_generation": 5.0,
 }
 
 

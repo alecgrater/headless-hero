@@ -369,13 +369,21 @@ export function assetUrl(path: string): string {
 }
 
 /** Fetch generation time estimate for a given operation type. */
+/** Where an estimate came from.
+ *
+ * "measured" is this machine's own history for this engine. "baseline" is a
+ * published figure for a first local run, and "pooled" is the cross-engine
+ * average used when neither exists. Only "measured" describes what this
+ * machine actually does, so the other two are captioned as approximations.
+ */
+export type EstimateSource = "measured" | "baseline" | "pooled";
+
 export interface GenerationEstimate {
   average_seconds: number | null;
   sample_count: number;
   /** Engine the estimate describes, e.g. "ollama:..." or "cloud". */
   engine?: string;
-  /** "baseline" = a published figure, not measured on this machine. */
-  source?: "measured" | "baseline";
+  source?: EstimateSource;
 }
 
 export async function fetchGenerationEstimate(

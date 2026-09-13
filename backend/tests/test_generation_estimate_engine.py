@@ -152,7 +152,20 @@ def test_every_recorded_operation_is_classified():
     recorded: set[str] = set()
     for directory in ("api", "pipeline"):
         for path in (backend / directory).rglob("*.py"):
-            recorded.update(re.findall(r'operation_type="([a-z_]+)"', path.read_text(encoding="utf-8")))
+            recorded.update(
+                re.findall(r'operation_type="([a-z0-9_]+)"', path.read_text(encoding="utf-8"))
+            )
+
+    # The browser records its own durations through POST /record-duration, so a
+    # backend-only scan would pass while the timeline's two longest waits
+    # (batch images, batch audio) pooled cloud and local timings together.
+    frontend = backend.parent / "frontend" / "src"
+    for path in list(frontend.rglob("*.ts")) + list(frontend.rglob("*.tsx")):
+        if path.name.endswith((".test.ts", ".test.tsx")):
+            continue
+        text = path.read_text(encoding="utf-8")
+        recorded.update(re.findall(r'recordDuration\(\s*"([a-z0-9_]+)"', text))
+        recorded.update(re.findall(r'fetchGenerationEstimate\(\s*"([a-z0-9_]+)"', text))
 
     assert recorded, "found no recording sites — did the scan break?"
     classified = set(OPERATION_ENGINE_SCOPE) | set(ENGINE_INDEPENDENT_OPERATIONS)
@@ -208,3 +221,38 @@ def test_legacy_samples_fall_back_to_a_labelled_pooled_average(client, db_engine
     body = _estimate(client)
     assert body["source"] == "pooled"
     assert body["average_seconds"] == 90.0
+
+
+def test_recording_an_unclassified_operation_is_rejected(client):
+    """The browser supplies its own operation_type, so the classification
+    tables cannot be enforced by scanning the backend alone."""
+    res = client.post("/api/generation/record-duration", json={
+        "operation_type": "something_nobody_classified",
+        "duration_seconds": 1.0,
+    })
+    assert res.status_code == 400
+    assert "OPERATION_ENGINE_SCOPE" in res.json()["detail"]
+
+
+def test_recording_a_classified_operation_still_works(client):
+    res = client.post("/api/generation/record-duration", json={
+        "operation_type": "batch_image_generation",
+        "duration_seconds": 42.0,
+        "scene_count": 6,
+    })
+    assert res.status_code == 200, res.text
+    assert res.json()["recorded"] is True
+
+
+def test_a_per_scene_baseline_scales_with_the_batch(client, monkeypatch):
+    """A first local title-card batch of eight is not one card's worth of wait."""
+    monkeypatch.setattr("api.generation.engine_for_operation", lambda _op: "local:flux2-klein-4b")
+    one = client.get(
+        "/api/generation/estimate?operation_type=batch_image_generation&scene_count=1"
+    ).json()
+    eight = client.get(
+        "/api/generation/estimate?operation_type=batch_image_generation&scene_count=8"
+    ).json()
+
+    assert one["source"] == "baseline"
+    assert eight["average_seconds"] == one["average_seconds"] * 8

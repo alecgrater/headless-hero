@@ -2,14 +2,17 @@
 
 import logging
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlmodel import Session, func, select
 
 from database import get_session
 from models.generation_duration import (
+    ENGINE_INDEPENDENT_OPERATIONS,
+    LOCAL_BASELINE_PER_SCENE_SECONDS,
     LOCAL_BASELINE_SECONDS,
     GenerationDuration,
+    OPERATION_ENGINE_SCOPE,
     GenerationEstimateResponse,
     engine_for_operation,
 )
@@ -78,7 +81,11 @@ def get_estimate(
     # rather than to the cloud average, which would be wrong by more than an
     # order of magnitude in the dangerous direction.
     if engine.startswith("local:") or engine.startswith("ollama:"):
-        baseline = LOCAL_BASELINE_SECONDS.get(operation_type)
+        per_scene = LOCAL_BASELINE_PER_SCENE_SECONDS.get(operation_type)
+        if per_scene is not None and scene_count and scene_count > 0:
+            baseline: float | None = round(per_scene * scene_count, 1)
+        else:
+            baseline = LOCAL_BASELINE_SECONDS.get(operation_type)
         if baseline is not None:
             return GenerationEstimateResponse(
                 operation_type=operation_type,
@@ -88,11 +95,11 @@ def get_estimate(
                 source="baseline",
             )
 
-    # Last resort: the cross-engine average. Reached by an install upgrading
-    # into engine scoping, whose entire history predates the column and is
-    # therefore of an unknown configuration. Better a labelled approximation
-    # than silently dropping to an indeterminate bar for every operation until
-    # each has been run once again.
+    # Last resort: the cross-engine average. Reached whenever there is no
+    # sample for the engine yet and no baseline covers it — an install upgrading
+    # into engine scoping (whose whole history predates the column), and every
+    # switch to a new model. Better a labelled approximation than silently
+    # dropping to an indeterminate bar until each operation is run again.
     pooled_avg, pooled_count = session.exec(select(
         func.avg(GenerationDuration.duration_seconds),
         func.count(GenerationDuration.id),
@@ -126,6 +133,21 @@ class RecordDurationResponse(BaseModel):
 
 @router.post("/record-duration", response_model=RecordDurationResponse)
 def record_duration(body: RecordDurationRequest, session: Session = Depends(get_session)):
+    # The operation_type arrives from the browser, so the classification tables
+    # cannot be enforced by scanning the backend alone. Reject an unknown one
+    # rather than silently recording a sample that pools across every engine.
+    if body.operation_type not in OPERATION_ENGINE_SCOPE and (
+        body.operation_type not in ENGINE_INDEPENDENT_OPERATIONS
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Unknown operation_type {body.operation_type!r}. Add it to "
+                "OPERATION_ENGINE_SCOPE or ENGINE_INDEPENDENT_OPERATIONS in "
+                "models/generation_duration.py so its timings are scoped to the "
+                "right engine."
+            ),
+        )
     """Record a generation duration from the frontend (for frontend-driven batch operations)."""
     logger.info("Recording duration: %s = %.1fs (scenes=%s)", body.operation_type, body.duration_seconds, body.scene_count)
     record = GenerationDuration(
