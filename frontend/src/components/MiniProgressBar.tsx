@@ -5,45 +5,43 @@ interface Props {
   active: boolean;
 }
 
+/** One tick a second — see GenerationProgressBar for why not rAF. */
+const TICK_MS = 1000;
+
 export default function MiniProgressBar({ estimatedSeconds, active }: Props) {
-  const [progress, setProgress] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
   const [visible, setVisible] = useState(false);
+  const [done, setDone] = useState(false);
   const startTime = useRef<number | null>(null);
-  const rafId = useRef<number>(0);
 
   useEffect(() => {
     if (active) {
-      setProgress(0);
+      setElapsed(0);
+      setDone(false);
       setVisible(true);
       startTime.current = Date.now();
-
-      if (estimatedSeconds && estimatedSeconds > 0) {
-        const tick = () => {
-          if (!startTime.current) return;
-          const elapsed = (Date.now() - startTime.current) / 1000;
-          const ratio = elapsed / estimatedSeconds;
-          const eased = Math.min(0.95, Math.pow(ratio, 2));
-          setProgress(Math.max(0, eased));
-          rafId.current = requestAnimationFrame(tick);
-        };
-        rafId.current = requestAnimationFrame(tick);
-      }
-
-      return () => cancelAnimationFrame(rafId.current);
-    } else if (visible) {
-      cancelAnimationFrame(rafId.current);
-      setProgress(1);
+      const id = setInterval(() => {
+        if (startTime.current) setElapsed((Date.now() - startTime.current) / 1000);
+      }, TICK_MS);
+      return () => clearInterval(id);
+    }
+    if (visible) {
+      setDone(true);
       const timeout = setTimeout(() => {
         setVisible(false);
-        setProgress(0);
-      }, 400);
+        setDone(false);
+        setElapsed(0);
+      }, 600);
       return () => clearTimeout(timeout);
     }
-  }, [active, estimatedSeconds, visible]);
+  }, [active, visible]);
 
   if (!visible) return null;
 
   const isDeterminate = estimatedSeconds !== null && estimatedSeconds > 0;
+  // Linear, matching GenerationProgressBar: an ease-in reads as stalled on the
+  // hour-plus runs Local Mode produces.
+  const progress = done ? 1 : isDeterminate ? Math.min(0.95, elapsed / estimatedSeconds) : 0;
 
   return (
     <div className="w-full h-1 rounded-full bg-neutral-800 overflow-hidden mt-1">

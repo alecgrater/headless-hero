@@ -3,59 +3,72 @@ import { useEffect, useRef, useState } from "react";
 interface Props {
   estimatedSeconds: number | null;
   active: boolean;
+  /** "baseline" means a published figure, not something this machine measured. */
+  estimateSource?: "measured" | "baseline";
 }
 
-export default function GenerationProgressBar({ estimatedSeconds, active }: Props) {
-  const [progress, setProgress] = useState(0);
+/** Ticks once a second.
+ *
+ * Not requestAnimationFrame: a local-model generation runs for over an hour,
+ * which at 60fps is a third of a million re-renders of a bar that moves a pixel
+ * a minute. A second is finer than the bar can show.
+ */
+const TICK_MS = 1000;
+
+export default function GenerationProgressBar({
+  estimatedSeconds,
+  active,
+  estimateSource = "measured",
+}: Props) {
+  const [elapsed, setElapsed] = useState(0);
   const [visible, setVisible] = useState(false);
+  const [done, setDone] = useState(false);
   const startTime = useRef<number | null>(null);
-  const rafId = useRef<number>(0);
 
   useEffect(() => {
     if (active) {
-      setProgress(0);
+      setElapsed(0);
+      setDone(false);
       setVisible(true);
       startTime.current = Date.now();
-
-      if (estimatedSeconds && estimatedSeconds > 0) {
-        const tick = () => {
-          if (!startTime.current) return;
-          const elapsed = (Date.now() - startTime.current) / 1000;
-          const ratio = elapsed / estimatedSeconds;
-          // Ease-in: gradual fill that accelerates toward 95% cap
-          const eased = Math.min(0.95, Math.pow(ratio, 2));
-          setProgress(Math.max(0, eased));
-          rafId.current = requestAnimationFrame(tick);
-        };
-        rafId.current = requestAnimationFrame(tick);
-      }
-
-      return () => cancelAnimationFrame(rafId.current);
-    } else if (visible) {
-      // Generation finished — jump to 100% then hide
-      cancelAnimationFrame(rafId.current);
-      setProgress(1);
+      const id = setInterval(() => {
+        if (startTime.current) setElapsed((Date.now() - startTime.current) / 1000);
+      }, TICK_MS);
+      return () => clearInterval(id);
+    }
+    if (visible) {
+      setDone(true);
       const timeout = setTimeout(() => {
         setVisible(false);
-        setProgress(0);
+        setDone(false);
+        setElapsed(0);
       }, 600);
       return () => clearTimeout(timeout);
     }
-  }, [active, estimatedSeconds, visible]);
+  }, [active, visible]);
 
   if (!visible) return null;
 
-  const remaining = estimatedSeconds && startTime.current
-    ? Math.max(0, Math.round(estimatedSeconds - (Date.now() - startTime.current) / 1000))
-    : null;
-
-  const remainingText = remaining !== null && remaining > 0 && active
-    ? remaining >= 60
-      ? `~${Math.ceil(remaining / 60)}m remaining`
-      : `~${remaining}s remaining`
-    : null;
-
   const isDeterminate = estimatedSeconds !== null && estimatedSeconds > 0;
+  // Linear. A quadratic ease-in reads as stalled on a long run — half way
+  // through a ninety-minute script it would show 25%.
+  const progress = done ? 1 : isDeterminate ? Math.min(0.95, elapsed / estimatedSeconds) : 0;
+  const remaining = isDeterminate ? Math.round(estimatedSeconds - elapsed) : null;
+
+  const formatDuration = (seconds: number) =>
+    seconds >= 60 ? `${Math.ceil(seconds / 60)}m` : `${seconds}s`;
+
+  let caption: string | null = null;
+  if (active && remaining !== null) {
+    if (remaining > 0) {
+      caption = `~${formatDuration(remaining)} remaining`;
+      if (estimateSource === "baseline") caption += " (estimated — no local run measured yet)";
+    } else {
+      // Past the estimate the bar would otherwise sit at 95% saying nothing,
+      // which on a long local run is indistinguishable from a hang.
+      caption = `Taking longer than expected — still running (${formatDuration(Math.round(elapsed))} so far)`;
+    }
+  }
 
   return (
     <div className="w-full space-y-1.5">
@@ -69,9 +82,7 @@ export default function GenerationProgressBar({ estimatedSeconds, active }: Prop
           <div className="h-full rounded-full bg-violet-500 animate-pulse w-full opacity-50" />
         )}
       </div>
-      {remainingText && (
-        <p className="text-xs text-neutral-500 text-center">{remainingText}</p>
-      )}
+      {caption && <p className="text-xs text-neutral-500 text-center">{caption}</p>}
     </div>
   );
 }

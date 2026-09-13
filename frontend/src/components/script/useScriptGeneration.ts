@@ -49,6 +49,7 @@ export interface ScriptGenerationState {
   generationStarted: boolean;
   settingsLoaded: boolean;
   estimatedSeconds: number | null;
+  estimateSource: "measured" | "baseline";
   elapsedSeconds: number | null;
   genSegments: { segment: number; total: number; name: string } | null;
   genCompletedSegments: number[];
@@ -75,6 +76,7 @@ export default function useScriptGeneration({ brandId, idea, supportsColdOpen = 
   const [generationStarted, setGenerationStarted] = useState(false);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [estimatedSeconds, setEstimatedSeconds] = useState<number | null>(null);
+  const [estimateSource, setEstimateSource] = useState<"measured" | "baseline">("measured");
 
   const [genSegments, setGenSegments] = useState<{ segment: number; total: number; name: string } | null>(null);
   const [genCompletedSegments, setGenCompletedSegments] = useState<number[]>([]);
@@ -271,7 +273,10 @@ export default function useScriptGeneration({ brandId, idea, supportsColdOpen = 
       setPhase("script");
 
       fetchGenerationEstimate("script_generation_youtube")
-        .then((est) => setEstimatedSeconds(est.average_seconds))
+        .then((est) => {
+          setEstimatedSeconds(est.average_seconds);
+          setEstimateSource(est.source ?? "measured");
+        })
         .catch(() => setEstimatedSeconds(null));
 
       try {
@@ -468,6 +473,7 @@ export default function useScriptGeneration({ brandId, idea, supportsColdOpen = 
     generationStarted,
     settingsLoaded,
     estimatedSeconds,
+    estimateSource,
     elapsedSeconds,
     genSegments,
     genCompletedSegments,

@@ -369,17 +369,23 @@ export function assetUrl(path: string): string {
 }
 
 /** Fetch generation time estimate for a given operation type. */
+export interface GenerationEstimate {
+  average_seconds: number | null;
+  sample_count: number;
+  /** Engine the estimate describes, e.g. "ollama:..." or "cloud". */
+  engine?: string;
+  /** "baseline" = a published figure, not measured on this machine. */
+  source?: "measured" | "baseline";
+}
+
 export async function fetchGenerationEstimate(
   operationType: string,
   sceneCount?: number,
-): Promise<{ average_seconds: number | null; sample_count: number }> {
+): Promise<GenerationEstimate> {
   let url = `/api/generation/estimate?operation_type=${operationType}`;
   if (sceneCount != null) url += `&scene_count=${sceneCount}`;
   const res = await api.get(url);
-  if (res.ok) {
-    const data = res.data as { average_seconds: number | null; sample_count: number };
-    return data;
-  }
+  if (res.ok) return res.data as GenerationEstimate;
   return { average_seconds: null, sample_count: 0 };
 }
 

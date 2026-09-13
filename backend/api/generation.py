@@ -7,7 +7,12 @@ from pydantic import BaseModel
 from sqlmodel import Session, func, select
 
 from database import get_session
-from models.generation_duration import GenerationDuration, GenerationEstimateResponse
+from models.generation_duration import (
+    LOCAL_BASELINE_SECONDS,
+    GenerationDuration,
+    GenerationEstimateResponse,
+    engine_for_operation,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -20,39 +25,74 @@ def get_estimate(
     scene_count: int | None = Query(None, description="Scale estimate by scene count"),
     session: Session = Depends(get_session),
 ):
-    logger.info("Fetching generation estimate for %s (scene_count=%s)", operation_type, scene_count)
+    engine = engine_for_operation(operation_type)
+    logger.info(
+        "Fetching generation estimate for %s (scene_count=%s, engine=%s)",
+        operation_type, scene_count, engine or "any",
+    )
+
+    # Only this engine's samples. A two-minute Claude script and a
+    # ninety-five-minute local one average into an ETA that is wrong for both,
+    # and the pooled average never converges because it depends on how often
+    # the user switches. An engine-independent operation has engine == "" and
+    # pools across every row, as before.
+    def _scoped(statement):
+        statement = statement.where(GenerationDuration.operation_type == operation_type)
+        if engine:
+            statement = statement.where(GenerationDuration.engine == engine)
+        return statement
 
     if scene_count and scene_count > 0:
-        rows_with_scenes = select(
+        rows_with_scenes = _scoped(select(
             func.avg(GenerationDuration.duration_seconds / GenerationDuration.scene_count),
             func.count(GenerationDuration.id),
-        ).where(
-            GenerationDuration.operation_type == operation_type,
+        )).where(
             GenerationDuration.scene_count.is_not(None),
             GenerationDuration.scene_count > 0,
         )
-        result = session.exec(rows_with_scenes).one()
-        per_scene_avg, per_scene_count = result
+        per_scene_avg, per_scene_count = session.exec(rows_with_scenes).one()
         if per_scene_avg is not None and per_scene_count > 0:
-            scaled = round(per_scene_avg * scene_count, 1)
             return GenerationEstimateResponse(
                 operation_type=operation_type,
-                average_seconds=scaled,
+                average_seconds=round(per_scene_avg * scene_count, 1),
                 sample_count=per_scene_count,
+                engine=engine,
             )
 
-    statement = select(
+    avg_seconds, count = session.exec(_scoped(select(
         func.avg(GenerationDuration.duration_seconds),
         func.count(GenerationDuration.id),
-    ).where(GenerationDuration.operation_type == operation_type)
+    ))).one()
 
-    result = session.exec(statement).one()
-    avg_seconds, count = result
+    if avg_seconds is not None and count > 0:
+        return GenerationEstimateResponse(
+            operation_type=operation_type,
+            average_seconds=round(avg_seconds, 1),
+            sample_count=count,
+            engine=engine,
+        )
+
+    # No sample for this engine yet. For a local engine that is the *first* run,
+    # and it is the one where the user most needs a number — an unannounced
+    # ninety-minute wait is the worst case. Fall back to the published baseline
+    # rather than to the cloud average, which would be wrong by more than an
+    # order of magnitude in the dangerous direction.
+    if engine.startswith("local:") or engine.startswith("ollama:"):
+        baseline = LOCAL_BASELINE_SECONDS.get(operation_type)
+        if baseline is not None:
+            return GenerationEstimateResponse(
+                operation_type=operation_type,
+                average_seconds=baseline,
+                sample_count=0,
+                engine=engine,
+                source="baseline",
+            )
 
     return GenerationEstimateResponse(
         operation_type=operation_type,
-        average_seconds=round(avg_seconds, 1) if avg_seconds is not None else None,
-        sample_count=count,
+        average_seconds=None,
+        sample_count=0,
+        engine=engine,
     )
 
 

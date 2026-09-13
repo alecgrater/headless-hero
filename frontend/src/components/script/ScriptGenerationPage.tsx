@@ -11,6 +11,7 @@ import useSceneEditing from "./useSceneEditing";
 import ColdOpenSelector from "./ColdOpenSelector";
 import MainCharacterDrawer from "../timeline/MainCharacterDrawer";
 import ScriptRatingCard from "./ScriptRatingCard";
+import { useLocalModeStatus } from "../../hooks/useLocalModeStatus";
 
 interface Props {
   brandId: string;
@@ -35,6 +36,7 @@ export default function ScriptGenerationPage({
   onBack,
   onContinue,
 }: Props) {
+  const localMode = useLocalModeStatus();
   const [format, setFormat] = useState<VideoFormat | null>(null);
   const formatId = idea.format_id ?? "youtube-listicle";
 
@@ -58,6 +60,7 @@ export default function ScriptGenerationPage({
     generationStarted,
     settingsLoaded,
     estimatedSeconds,
+    estimateSource,
     elapsedSeconds,
     genSegments,
     genCompletedSegments,
@@ -208,6 +211,40 @@ export default function ScriptGenerationPage({
             </div>
           </div>
 
+          {localMode.enabled && (
+            <div
+              data-testid="local-mode-generation-notice"
+              className="rounded-xl border border-amber-500/40 bg-amber-500/5 p-4 text-xs leading-relaxed text-amber-200/90"
+            >
+              <p className="font-medium text-amber-200">
+                Local Mode is on{localMode.local.text ? "" : " for images and voice"}
+              </p>
+              {localMode.local.text ? (
+                <p className="mt-1">
+                  The script is written by a model on this machine. Expect roughly{" "}
+                  <span className="font-medium">an hour and a half</span> for a full eight-segment
+                  script, against a couple of minutes on the cloud — each segment is its own call.
+                  Progress is shown per segment, and a run that fails part way resumes from where it
+                  stopped rather than starting over.
+                </p>
+              ) : (
+                <p className="mt-1">
+                  The script still comes from the cloud, but images and voice run on this machine,
+                  so later stages take longer than usual.
+                </p>
+              )}
+              {localMode.unhealthy.length > 0 && (
+                <p className="mt-2 text-amber-300">
+                  {localMode.unhealthy.join(", ")} {localMode.unhealthy.length === 1 ? "is" : "are"}{" "}
+                  not responding. Start{" "}
+                  {localMode.unhealthy.length === 1 ? "it" : "them"} with
+                  <code className="mx-1 text-amber-200">scripts/install-local-models.sh</code>
+                  or switch that modality back to Cloud in Settings — generation will fail otherwise.
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="flex items-center gap-3 pt-1">
             <Button variant="primary" size="lg" onClick={handleGenerate}>
               Generate Script
@@ -275,7 +312,11 @@ export default function ScriptGenerationPage({
 
           {phase === "script" && !genSegments && (
             <div className="max-w-md mx-auto">
-              <GenerationProgressBar estimatedSeconds={estimatedSeconds} active={loading} />
+              <GenerationProgressBar
+                estimatedSeconds={estimatedSeconds}
+                active={loading}
+                estimateSource={estimateSource}
+              />
             </div>
           )}
           <button

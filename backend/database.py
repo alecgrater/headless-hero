@@ -27,6 +27,7 @@ def init_db() -> None:
     _migrate_llm_task_route_defaults()
     _migrate_add_script_id_to_api_usage()
     _migrate_add_scene_count_to_generation_durations()
+    _migrate_add_engine_to_generation_durations()
     _migrate_add_export_folder_to_publish_records()
     _migrate_add_short_upload_fields_to_publish_records()
     _migrate_add_cutout_image_url_to_style_preset_characters()
@@ -268,6 +269,27 @@ def _migrate_add_scene_count_to_generation_durations() -> None:
             conn.execute("ALTER TABLE generation_durations ADD COLUMN scene_count INTEGER DEFAULT NULL")
             conn.commit()
             logger.info("Migrated: added scene_count to generation_durations")
+    finally:
+        conn.close()
+
+
+def _migrate_add_engine_to_generation_durations() -> None:
+    """Add engine column to generation_durations if missing.
+
+    Existing rows keep "" — they were recorded before timings were pooled per
+    engine, so they are legacy samples of an unknown configuration rather than
+    samples of the current one.
+    """
+    import sqlite3
+
+    conn = sqlite3.connect(str(_db_path))
+    try:
+        cursor = conn.execute("PRAGMA table_info(generation_durations)")
+        columns = {row[1] for row in cursor.fetchall()}
+        if "engine" not in columns:
+            conn.execute("ALTER TABLE generation_durations ADD COLUMN engine TEXT DEFAULT ''")
+            conn.commit()
+            logger.info("Migrated: added engine to generation_durations")
     finally:
         conn.close()
 

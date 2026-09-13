@@ -436,7 +436,13 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
 
     def _run_generation() -> list[str]:
         def _progress(segment: int, total: int, name: str) -> None:
-            update_job(job_id, current_step=json.dumps({
+            # Report a real fraction, not just the step label. Against a cloud
+            # model the whole job is a couple of minutes and a spinner is fine;
+            # a local one runs for over an hour, where an indeterminate bar is
+            # indistinguishable from a hang. Capped below 1.0 — the job is not
+            # done until the content is persisted.
+            fraction = min(0.95, (segment - 1) / total) if total > 0 else 0.0
+            update_job(job_id, progress=fraction, current_step=json.dumps({
                 "segment": segment,
                 "total": total,
                 "name": name,
