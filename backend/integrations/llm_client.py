@@ -503,6 +503,12 @@ def _chat_ollama(
     # Lazy import for BadRequestError; client is fetched from the singleton helper.
     from openai import BadRequestError
 
+    # Local import: pipeline imports integrations, so a module-level import here
+    # would close an import cycle.
+    from pipeline.local_runtime import ollama_keep_alive
+
+    keep_alive = ollama_keep_alive()
+
     qwen_model = model.strip() or _DEFAULT_QWEN_MODEL
 
     try:
@@ -526,8 +532,8 @@ def _chat_ollama(
 
     client = get_ollama_client()
     logger.info(
-        "Calling Ollama task=%s model=%s max_tokens=%d num_ctx=%d timeout=%.0fs json_mode=%s keep_alive=30m",
-        task or "default", qwen_model, max_tokens, num_ctx, timeout, json_mode,
+        "Calling Ollama task=%s model=%s max_tokens=%d num_ctx=%d timeout=%.0fs json_mode=%s keep_alive=%s",
+        task or "default", qwen_model, max_tokens, num_ctx, timeout, json_mode, keep_alive,
     )
     t0 = time.monotonic()
 
@@ -535,7 +541,7 @@ def _chat_ollama(
         "model": qwen_model,
         "max_completion_tokens": max_tokens,
         "messages": messages,
-        "extra_body": {"keep_alive": "30m", "options": {"num_ctx": num_ctx}},
+        "extra_body": {"keep_alive": keep_alive, "options": {"num_ctx": num_ctx}},
         "timeout": timeout,
     }
     if json_mode:
