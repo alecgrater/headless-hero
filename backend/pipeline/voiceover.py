@@ -1,4 +1,4 @@
-"""Voiceover pipeline — connects narration text to ElevenLabs TTS."""
+"""Voiceover pipeline — connects narration text to the active TTS engine."""
 
 import logging
 import os
@@ -8,9 +8,24 @@ import struct
 from concurrent.futures import ThreadPoolExecutor
 
 from config import DATA_DIR, DEFAULT_TTS_MODEL
-from integrations.elevenlabs_client import generate_speech
+from integrations.elevenlabs_client import generate_speech as _elevenlabs_generate_speech
+from integrations.local_models import modality_source as _modality_source
 
 logger = logging.getLogger(__name__)
+
+
+def active_speech_client():
+    """The TTS function for the current mode.
+
+    Both clients return (MP3 bytes, [{word, start_ms, end_ms}]), so callers do
+    not branch on which one is active.
+    """
+    if _modality_source("voice") == "local":
+        from integrations.local_tts_client import generate_speech as _local_generate_speech
+
+        return _local_generate_speech
+    return _elevenlabs_generate_speech
+
 
 _TITLE_CARD_LEVEL_PREFIX_RE = re.compile(
     r"^level\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\b[\s,.:;!?\-—–]*",
@@ -247,7 +262,7 @@ def generate_scene_audio(
     Returns (web-relative path, duration in seconds, word_timestamps, phrase_timestamps).
     """
     logger.info("Generating audio for scene %s (script=%s, voice=%s, model=%s, chars=%d)", scene_id, script_id, voice_id, model_id, len(narration))
-    audio_bytes, word_timestamps = generate_speech(
+    audio_bytes, word_timestamps = active_speech_client()(
         text=narration,
         voice_id=voice_id,
         model_id=model_id,
@@ -262,14 +277,15 @@ def generate_scene_audio(
     local_path = audio_dir / f"{scene_id}.mp3"
     local_path.write_bytes(audio_bytes)
 
-    # Prefer ElevenLabs-reported duration (last word end_ms) as it's more accurate
-    # than MP3 frame parsing. Fall back to MP3 parsing if timestamps are unavailable.
+    # Prefer the reported word timings (last word end_ms) as they are more
+    # accurate than MP3 frame parsing. Fall back to MP3 parsing when the active
+    # TTS engine returned no timestamps.
     if word_timestamps:
         last_end_ms = word_timestamps[-1].get("end_ms", 0)
         if last_end_ms > 0:
             duration = round(last_end_ms / 1000, 3)
             logger.info(
-                "Audio generated for scene %s: %.3fs duration (from ElevenLabs timestamps)",
+                "Audio generated for scene %s: %.3fs duration (from word timestamps)",
                 scene_id, duration,
             )
         else:
