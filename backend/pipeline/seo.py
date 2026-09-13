@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from config import strip_markdown_fences
 from integrations.llm_client import chat
+from integrations.local_models import active_model, attribution_for, modality_source
 from models.script import ScriptContent
 from prompts import SEO_SYSTEM, SHORT_FORM_SEO_SYSTEM
 
@@ -193,6 +194,28 @@ def build_short_form_seo_contexts(content: ScriptContent) -> list[dict]:
         })
     return shorts
 
+def required_voice_attribution() -> str:
+    """The licence credit the active voice model requires, or "".
+
+    Higgs TTS 3 permits monetized video under a Creator Use Grant only when the
+    work credits Boson AI, so the credit is a property of the model rather than
+    a user preference. There is deliberately no setting to disable this.
+    """
+    if modality_source("voice") != "local":
+        return ""
+    return attribution_for(active_model("voice").id)
+
+
+def apply_voice_attribution(description: str) -> str:
+    """Append the required voice credit to a description, idempotently."""
+    credit = required_voice_attribution()
+    if not credit or credit in description:
+        return description
+    if not description:
+        return credit
+    return f"{description}\n\n{credit}"
+
+
 def generate_seo(
     video_title: str,
     segments: list[tuple[str, str]],
@@ -227,6 +250,7 @@ def generate_seo(
     yt = result.youtube
 
     yt.tags = _trim_tags(yt.tags)
+    yt.description = apply_voice_attribution(yt.description)
     total_len = len(", ".join(yt.tags))
 
     logger.info("[%s] SEO metadata generated for %r (title=%d chars, %d tags, %d tag chars)", script_id or "no-id", video_title, len(yt.title), len(yt.tags), total_len)
