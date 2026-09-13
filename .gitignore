@@ -20,6 +20,7 @@ __pycache__/
 !/data/identity.json
 !/data/style/
 !/data/style/**
+data/style/**/debug_*
 !/data/character/
 !/data/character/frames/
 !/data/character/frames/**
