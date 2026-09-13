@@ -10,6 +10,7 @@ from database import get_session
 from config import DEFAULT_CLAUDE_MODEL, DEFAULT_EXPORTS_DIR
 from integrations.llm_client import ALLOWED_PROVIDERS, LLM_TASKS, VALID_OPENAI_REASONING_EFFORTS
 from integrations import llm_client as _llm_client_module
+from integrations import local_models as _local_models_registry
 from integrations import elevenlabs_client as _elevenlabs_client_module
 from models.settings import AppSetting
 
@@ -77,6 +78,16 @@ ALLOWED_KEYS = {
     "AUDIO_FILTER_COMPRESSOR",
     "LLM_PROVIDER",
     "QWEN_MODEL",
+    "LOCAL_MODELS_ENABLED",
+    "LOCAL_TEXT_MODE",
+    "LOCAL_IMAGE_MODE",
+    "LOCAL_VOICE_MODE",
+    "LOCAL_TEXT_MODEL",
+    "LOCAL_TEXT_FAST_MODEL",
+    "LOCAL_IMAGE_MODEL",
+    "LOCAL_VOICE_MODEL",
+    "LOCAL_COMFYUI_URL",
+    "LOCAL_TTS_URL",
     "HOOK_REFINEMENT_ENABLED",
     "SHOW_SPEED_RENDER_BUTTON",
     "ELI_ENABLED_DEFAULT",
@@ -117,6 +128,16 @@ _PLAINTEXT_KEYS = {
     "ELEVENLABS_SPEED",
     "LLM_PROVIDER",
     "QWEN_MODEL",
+    "LOCAL_MODELS_ENABLED",
+    "LOCAL_TEXT_MODE",
+    "LOCAL_IMAGE_MODE",
+    "LOCAL_VOICE_MODE",
+    "LOCAL_TEXT_MODEL",
+    "LOCAL_TEXT_FAST_MODEL",
+    "LOCAL_IMAGE_MODEL",
+    "LOCAL_VOICE_MODEL",
+    "LOCAL_COMFYUI_URL",
+    "LOCAL_TTS_URL",
     "HOOK_REFINEMENT_ENABLED",
     "SHOW_SPEED_RENDER_BUTTON",
     "ELI_ENABLED_DEFAULT",
@@ -156,6 +177,16 @@ _DEFAULTS: dict[str, str] = {
     "ELEVENLABS_SPEED": "1.0",
     "LLM_PROVIDER": "ollama",
     "QWEN_MODEL": "qwen3:14b",
+    "LOCAL_MODELS_ENABLED": "false",
+    "LOCAL_TEXT_MODE": "auto",
+    "LOCAL_IMAGE_MODE": "auto",
+    "LOCAL_VOICE_MODE": "auto",
+    "LOCAL_TEXT_MODEL": _local_models_registry.DEFAULT_MODEL_IDS["text"],
+    "LOCAL_TEXT_FAST_MODEL": _local_models_registry.DEFAULT_MODEL_IDS["text"],
+    "LOCAL_IMAGE_MODEL": _local_models_registry.DEFAULT_MODEL_IDS["image"],
+    "LOCAL_VOICE_MODEL": _local_models_registry.DEFAULT_MODEL_IDS["voice"],
+    "LOCAL_COMFYUI_URL": "http://127.0.0.1:8188",
+    "LOCAL_TTS_URL": "http://127.0.0.1:8770",
     "HOOK_REFINEMENT_ENABLED": "true",
     "SHOW_SPEED_RENDER_BUTTON": "true",
     "ELI_ENABLED_DEFAULT": "false",
@@ -306,6 +337,39 @@ async def save_keys(
                 detail="Invalid AI_VIDEO_SCENES_PER_SEGMENT: must be an integer from 0 to 5.",
             )
         keys["AI_VIDEO_SCENES_PER_SEGMENT"] = str(scenes_per_segment)
+    for modality in ("TEXT", "IMAGE", "VOICE"):
+        mode_key = f"LOCAL_{modality}_MODE"
+        if mode_key not in keys:
+            continue
+        mode = (keys[mode_key] or "").strip().lower()
+        if mode and mode not in set(_local_models_registry.VALID_MODES):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid {mode_key}: {mode!r}. Must be one of "
+                f"{sorted(_local_models_registry.VALID_MODES)}.",
+            )
+        keys[mode_key] = mode
+
+    for modality, model_key in (
+        ("text", "LOCAL_TEXT_MODEL"),
+        ("text", "LOCAL_TEXT_FAST_MODEL"),
+        ("image", "LOCAL_IMAGE_MODEL"),
+        ("voice", "LOCAL_VOICE_MODEL"),
+    ):
+        if model_key not in keys:
+            continue
+        model_id = (keys[model_key] or "").strip()
+        if not model_id:
+            continue
+        model = _local_models_registry.REGISTRY.get(model_id)
+        if model is None or model.modality != modality:
+            valid = sorted(m.id for m in _local_models_registry.models_for(modality))
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid {model_key}: {model_id!r}. Must be one of {valid}.",
+            )
+        keys[model_key] = model_id
+
     if "ELEVENLABS_TTS_MODEL" in keys:
         tts_model = (keys["ELEVENLABS_TTS_MODEL"] or "").strip()
         if tts_model and tts_model not in {"eleven_multilingual_v2", "eleven_v3"}:

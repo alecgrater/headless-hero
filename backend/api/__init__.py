@@ -29,6 +29,7 @@ from api.render import router as render_router
 from api.scripts import router as scripts_router
 from api.generation import router as generation_router
 from api.seo import router as seo_router
+from api.local_models import router as local_models_router
 from api.settings import router as settings_router
 from api.test_lab import router as test_lab_router
 from api.thumbnail_references import router as thumbnail_references_router
@@ -114,6 +115,7 @@ app.include_router(brainstorm_router)
 app.include_router(cold_opens_router)
 app.include_router(eli_router)
 app.include_router(formats_router)
+app.include_router(local_models_router)
 app.include_router(fx_router)
 app.include_router(image_review_router)
 app.include_router(ideas_router)
