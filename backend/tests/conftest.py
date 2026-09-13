@@ -100,6 +100,31 @@ def _isolate_database(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _silence_dev_log_handler(monkeypatch):
+    """Stop the lifespan from installing a real SQLite log writer per test.
+
+    `lifespan` builds a `SQLiteLogHandler` — each with its own writer thread —
+    and adds it to the root logger without ever removing it. Across the suite
+    that accumulates hundreds of live threads all writing through the single
+    connection a StaticPool in-memory engine hands out, which segfaults inside
+    the SQLite C extension partway through a full run. Nothing under test
+    asserts on dev-log persistence.
+    """
+    import logging
+
+    import api
+
+    class _InertLogHandler(logging.Handler):
+        def __init__(self, engine) -> None:
+            super().__init__()
+
+        def emit(self, record: logging.LogRecord) -> None:
+            pass
+
+    monkeypatch.setattr(api, "SQLiteLogHandler", _InertLogHandler)
+
+
+@pytest.fixture(autouse=True)
 def _isolate_local_runtime(monkeypatch):
     from pipeline import local_runtime
 
