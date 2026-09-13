@@ -77,13 +77,13 @@ def test_no_sensitive_file_is_actually_tracked() -> None:
         capture_output=True,
         text=True,
         check=True,
-    ).stdout.split()
+    ).stdout.splitlines()
 
     forbidden = [
         name
         for name in tracked
         if PurePosixPath(name).name.startswith("db.sqlite")
-        or PurePosixPath(name).match("*.env")
+        or ".env" in PurePosixPath(name).name
         or PurePosixPath(name).suffix in {".mp4", ".mp3", ".wav", ".mov"}
     ]
     assert not forbidden, f"sensitive or generated files are tracked under data/: {forbidden}"

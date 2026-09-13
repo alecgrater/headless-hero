@@ -208,13 +208,15 @@ def write_snapshot(session: Session | None = None) -> None:
         body = json.dumps(payload, indent=2) + "\n"
 
         with _WRITE_LOCK:
-            # A unique temp name so a crashed writer can't leave a file the
-            # next one appends into.
+            # Unique temp name so concurrent writers never share a handle and
+            # a crashed writer can't leave one the next writer collides with.
             fd, tmp_name = tempfile.mkstemp(dir=path.parent, suffix=".json.tmp")
             tmp = Path(tmp_name)
             try:
                 with os.fdopen(fd, "w", encoding="utf-8") as handle:
                     handle.write(body)
+                # mkstemp creates 0600; this file is committed and read back.
+                tmp.chmod(0o644)
                 tmp.replace(path)
             except BaseException:
                 tmp.unlink(missing_ok=True)

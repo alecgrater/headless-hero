@@ -64,6 +64,17 @@ def seed_identity() -> None:
             seed_from_snapshot(session)
     except Exception:
         logger.warning("Identity seeding failed; continuing startup", exc_info=True)
+        return
+
+    # The snapshot can name a retired model id, and init_db()'s LLM-default
+    # migrations already ran before it. Re-apply them to the seeded values so a
+    # stale SCRIPT_MODEL/{TASK}_MODEL is corrected rather than restored on
+    # every boot.
+    try:
+        _migrate_script_model_default()
+        _migrate_llm_task_route_defaults()
+    except Exception:
+        logger.warning("Re-applying LLM defaults after seeding failed", exc_info=True)
 
 
 def get_default_brand_id(session: Session) -> str:

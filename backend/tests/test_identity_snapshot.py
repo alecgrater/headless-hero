@@ -280,6 +280,51 @@ def test_empty_brand_fields_do_not_blank_local_values(identity_engine, tmp_path)
         assert brand.voice_id == "voice-abc"
 
 
+def test_canvas_color_save_writes_the_snapshot(identity_engine, tmp_path) -> None:
+    """Regression guard for the palette write-through.
+
+    VISUAL_CANVAS_COLOR_PALETTE is an exported setting, so without a
+    write_snapshot call here startup seeding silently reverts every color
+    added since the last Settings save.
+    """
+    import json
+
+    from fastapi.testclient import TestClient
+
+    from api import app
+    from api import visual_treatments as vt_api
+    from models.script import Script, ScriptContent
+
+    with Session(identity_engine) as session:
+        session.add(
+            Script(
+                id="script-1",
+                brand_id="brand-1",
+                topic_title="Demo",
+                script_json=ScriptContent(title="Demo", segments=[]).model_dump_json(),
+            )
+        )
+        session.commit()
+
+    def override_get_session():
+        with Session(identity_engine) as session:
+            yield session
+
+    app.dependency_overrides[vt_api.get_session] = override_get_session
+    try:
+        with TestClient(app) as client:
+            response = client.put(
+                "/api/visual-treatments/script-1/canvas",
+                json={"background_color": "#123456"},
+            )
+        assert response.status_code == 200
+    finally:
+        app.dependency_overrides.pop(vt_api.get_session, None)
+
+    payload = json.loads((tmp_path / "identity.json").read_text(encoding="utf-8"))
+    assert "#123456" in payload["settings"]["VISUAL_CANVAS_COLOR_PALETTE"]
+
+
 # --- The artifact that actually ships ---
 
 def test_committed_snapshot_carries_no_unexportable_setting() -> None:
