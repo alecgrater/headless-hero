@@ -11,6 +11,9 @@ from typing import Any
 import anthropic
 
 from config import BALANCED_CLAUDE_MODEL, DEFAULT_CLAUDE_MODEL, DEFAULT_OPENAI_MODEL, FAST_CLAUDE_MODEL
+from integrations.local_models import REGISTRY as _LOCAL_REGISTRY
+from integrations.local_models import active_model as _active_local_model
+from integrations.local_models import modality_source as _modality_source
 from integrations.usage_tracker import record_usage, get_model_pricing
 
 logger = logging.getLogger(__name__)
@@ -239,7 +242,36 @@ def _get_provider() -> str:
     return provider
 
 
+def _text_is_local() -> bool:
+    """True when Local Mode owns text generation for this call."""
+    return _modality_source("text") == "local"
+
+
+def _local_text_model(task: str | None) -> str:
+    """The Ollama model reference Local Mode should use for one task.
+
+    Tasks declared with openai_reasoning_effort="minimal" are the cheap
+    structured-JSON calls, so they read LOCAL_TEXT_FAST_MODEL. That key
+    defaults to the narrative model, because under the single-resident memory
+    arena a second text model costs an unload/reload cycle per alternation.
+    """
+    task_config = LLM_TASKS.get(task or "")
+    is_fast_tier = bool(task_config) and task_config.get("openai_reasoning_effort") == "minimal"
+    if is_fast_tier:
+        configured = (os.environ.get("LOCAL_TEXT_FAST_MODEL", "") or "").strip()
+        if configured:
+            model = _LOCAL_REGISTRY.get(configured)
+            if model is not None and model.modality == "text":
+                return model.weights
+            logger.warning(
+                "Ignoring LOCAL_TEXT_FAST_MODEL=%r (not a registered text model)", configured,
+            )
+    return _active_local_model("text").weights
+
+
 def _resolve_provider(task: str | None) -> str:
+    if _text_is_local():
+        return "ollama"
     task_config = LLM_TASKS.get(task or "")
     if task_config:
         task_provider = os.environ.get(task_config["provider_key"], "").strip().lower()
@@ -281,6 +313,8 @@ def _normalize_model_for_provider(provider: str, task: str | None, model: str) -
 
 
 def _resolve_model(provider: str, task: str | None, model: str | None) -> str:
+    if _text_is_local() and provider == "ollama":
+        return _local_text_model(task)
     if model:
         return _normalize_model_for_provider(provider, task, model)
     task_config = LLM_TASKS.get(task or "")
