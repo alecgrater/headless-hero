@@ -113,7 +113,11 @@ REGISTRY: dict[str, LocalModel] = {
 
 DEFAULT_MODEL_IDS: dict[str, str] = {
     "text": "qwen3.8-27b",
-    "image": "qwen-image-edit-2511",
+    # Chosen by measurement, not preference: on this machine klein-4B renders a
+    # 1920x1080 scene in ~33s against ~800s for Qwen-Image-Edit, at comparable
+    # style quality and with character references holding. See
+    # docs/local-models-benchmarks.md.
+    "image": "flux2-klein-4b",
     "voice": "higgs-tts-3-4b",
 }
 

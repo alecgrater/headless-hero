@@ -4,7 +4,7 @@
     "inputs": {
       "seed": "__SEED__",
       "steps": 20,
-      "cfg": 4.0,
+      "cfg": 2.5,
       "sampler_name": "euler",
       "scheduler": "simple",
       "denoise": 1.0,
@@ -15,16 +15,16 @@
     }
   },
   "5": {
-    "class_type": "EmptyLatentImage",
+    "class_type": "EmptySD3LatentImage",
     "inputs": { "width": "__WIDTH__", "height": "__HEIGHT__", "batch_size": 1 }
   },
   "6": {
-    "class_type": "CLIPTextEncode",
-    "inputs": { "text": "__PROMPT__", "clip": ["11", 0] }
+    "class_type": "TextEncodeQwenImageEditPlus",
+    "inputs": { "clip": ["11", 0], "prompt": "__PROMPT__", "vae": ["12", 0] }
   },
   "7": {
-    "class_type": "CLIPTextEncode",
-    "inputs": { "text": "", "clip": ["11", 0] }
+    "class_type": "TextEncodeQwenImageEditPlus",
+    "inputs": { "clip": ["11", 0], "prompt": "", "vae": ["12", 0] }
   },
   "8": {
     "class_type": "VAEDecode",
@@ -36,14 +36,14 @@
   },
   "10": {
     "class_type": "UnetLoaderGGUF",
-    "inputs": { "unet_name": "__MODEL__" }
+    "inputs": { "unet_name": "qwen-image-edit-2511-Q4_K_M.gguf" }
   },
   "11": {
     "class_type": "CLIPLoader",
-    "inputs": { "clip_name": "__CLIP__", "type": "qwen_image" }
+    "inputs": { "clip_name": "qwen_2.5_vl_7b_fp8_scaled.safetensors", "type": "qwen_image" }
   },
   "12": {
     "class_type": "VAELoader",
-    "inputs": { "vae_name": "__VAE__" }
+    "inputs": { "vae_name": "qwen_image_vae.safetensors" }
   }
 }

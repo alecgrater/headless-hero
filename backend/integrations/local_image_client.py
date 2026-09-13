@@ -15,6 +15,7 @@ import os
 import random
 import tempfile
 import time
+from dataclasses import dataclass
 from pathlib import Path
 
 import httpx
@@ -27,15 +28,38 @@ from pipeline.local_runtime import daemon_url, ensure_daemon, hold
 logger = logging.getLogger(__name__)
 
 WORKFLOW_DIR = Path(__file__).resolve().parent.parent / "comfy_workflows"
-WORKFLOW_FILES: dict[str, str] = {
-    "qwen-image-edit-2511": "qwen_image_edit_2511.json",
-    "flux2-klein-4b": "flux2_klein_4b.json",
+
+
+@dataclass(frozen=True)
+class WorkflowSpec:
+    """How one local image model's workflow graph is parameterised.
+
+    reference_mode says how reference images attach to the graph, because the
+    two supported models condition on references in structurally different ways:
+
+    - "encoder_slots": Qwen-Image-Edit's TextEncodeQwenImageEditPlus takes
+      image1..imageN inputs directly on the prompt encoder.
+    - "reference_latent": FLUX.2 encodes each reference through the VAE and
+      chains ReferenceLatent nodes onto the positive conditioning.
+    """
+
+    filename: str
+    reference_mode: str
+    max_references: int
+
+
+WORKFLOW_SPECS: dict[str, WorkflowSpec] = {
+    "qwen-image-edit-2511": WorkflowSpec("qwen_image_edit_2511.json", "encoder_slots", 3),
+    "flux2-klein-4b": WorkflowSpec("flux2_klein_4b.json", "reference_latent", 3),
 }
+
 POLL_INTERVAL_SECONDS = 1.0
 DEFAULT_TIMEOUT_SECONDS = 900.0
 
-# Node id of the SaveImage node in every committed workflow.
-OUTPUT_NODE_ID = "9"
+# Graph conventions shared by every committed workflow file.
+PROMPT_NODE_ID = "6"
+SAMPLER_NODE_ID = "3"
+VAE_NODE_ID = "12"
 
 
 def _http() -> httpx.Client:
@@ -55,18 +79,54 @@ def _upload_image(path: str) -> str:
     return response.json().get("name", name)
 
 
-def _load_workflow(model_id: str) -> dict:
-    filename = WORKFLOW_FILES.get(model_id)
-    if filename is None:
+def _workflow_spec(model_id: str) -> WorkflowSpec:
+    spec = WORKFLOW_SPECS.get(model_id)
+    if spec is None:
         raise RuntimeError(f"No ComfyUI workflow registered for local image model {model_id!r}")
-    path = WORKFLOW_DIR / filename
+    return spec
+
+
+def _load_workflow(spec: WorkflowSpec) -> dict:
+    path = WORKFLOW_DIR / spec.filename
     if not path.exists():
         raise RuntimeError(f"ComfyUI workflow file is missing: {path}")
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _attach_references(graph: dict, spec: WorkflowSpec, reference_names: list[str]) -> None:
+    """Wire uploaded reference images into the graph for this model's scheme."""
+    if spec.reference_mode == "encoder_slots":
+        for index, name in enumerate(reference_names):
+            node_id = f"ref_{index}"
+            graph[node_id] = {"class_type": "LoadImage", "inputs": {"image": name}}
+            graph[PROMPT_NODE_ID]["inputs"][f"image{index + 1}"] = [node_id, 0]
+        return
+
+    if spec.reference_mode == "reference_latent":
+        # Each reference is VAE-encoded and chained onto the positive
+        # conditioning, so the final ReferenceLatent carries every reference.
+        conditioning: list = [PROMPT_NODE_ID, 0]
+        for index, name in enumerate(reference_names):
+            load_id, encode_id, ref_id = f"ref_{index}", f"refenc_{index}", f"reflat_{index}"
+            graph[load_id] = {"class_type": "LoadImage", "inputs": {"image": name}}
+            graph[encode_id] = {
+                "class_type": "VAEEncode",
+                "inputs": {"pixels": [load_id, 0], "vae": [VAE_NODE_ID, 0]},
+            }
+            graph[ref_id] = {
+                "class_type": "ReferenceLatent",
+                "inputs": {"conditioning": conditioning, "latent": [encode_id, 0]},
+            }
+            conditioning = [ref_id, 0]
+        graph[SAMPLER_NODE_ID]["inputs"]["positive"] = conditioning
+        return
+
+    raise RuntimeError(f"Unknown reference mode {spec.reference_mode!r}")
+
+
 def _substitute(
     workflow: dict,
+    spec: WorkflowSpec,
     *,
     prompt: str,
     width: int,
@@ -74,12 +134,15 @@ def _substitute(
     seed: int,
     reference_names: list[str],
 ) -> dict:
-    """Replace placeholder tokens in a workflow graph and add reference loaders.
+    """Replace placeholder tokens in a workflow graph and wire reference loaders.
 
     The numeric placeholders are quoted in the JSON files, so replacing the
     quoted form yields real ints rather than strings — ComfyUI rejects string
     widths. The prompt is escaped through json.dumps so quotes in a visual
     prompt cannot break the graph.
+
+    References beyond the model's limit are dropped with a warning rather than
+    silently producing an invalid graph.
     """
     raw = json.dumps(workflow)
     raw = raw.replace("__PROMPT__", json.dumps(prompt)[1:-1])
@@ -87,8 +150,15 @@ def _substitute(
     raw = raw.replace('"__HEIGHT__"', str(int(height)))
     raw = raw.replace('"__SEED__"', str(int(seed)))
     graph = json.loads(raw)
-    for index, name in enumerate(reference_names):
-        graph[f"ref_{index}"] = {"class_type": "LoadImage", "inputs": {"image": name}}
+
+    if len(reference_names) > spec.max_references:
+        logger.warning(
+            "Local image model accepts %d reference images; dropping %d extra",
+            spec.max_references, len(reference_names) - spec.max_references,
+        )
+        reference_names = reference_names[:spec.max_references]
+
+    _attach_references(graph, spec, reference_names)
     return graph
 
 
@@ -135,12 +205,14 @@ def transform_with_references(
     """
     ensure_daemon("comfyui")
     model = active_model("image")
+    spec = _workflow_spec(model.id)
     timeout_seconds = float(os.environ.get("LOCAL_IMAGE_TIMEOUT_SECONDS", DEFAULT_TIMEOUT_SECONDS))
 
     with hold("image"):
         reference_names = [_upload_image(path) for path in image_paths]
         graph = _substitute(
-            _load_workflow(model.id),
+            _load_workflow(spec),
+            spec,
             prompt=prompt,
             width=width,
             height=height,

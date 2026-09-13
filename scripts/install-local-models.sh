@@ -19,14 +19,35 @@ COMFY_DIR="$LOCAL_ROOT/ComfyUI"
 ALLOWLIST="$HOME/.claude/apple/dangerous_allowed_domains.csv"
 
 CHECK_ONLY=0
-[ "${1:-}" = "--check" ] && CHECK_ONLY=1
+WITH_QWEN_IMAGE=0
+for arg in "$@"; do
+  case "$arg" in
+    --check) CHECK_ONLY=1 ;;
+    --with-qwen-image) WITH_QWEN_IMAGE=1 ;;
+    *) echo "Unknown option: $arg"; echo "Usage: $0 [--check] [--with-qwen-image]"; exit 2 ;;
+  esac
+done
 
 # Model pull specs. Keep these in sync with backend/integrations/local_models.py.
+# The exact tags matter: Unsloth publishes the text GGUF as UD-Q4_K_M (Unsloth
+# Dynamic), and mlx-audio needs MLX-converted voice repos rather than the
+# upstream PyTorch ones.
 TEXT_MODEL="hf.co/unsloth/Qwen3.8-27B-GGUF:UD-Q4_K_M"
-IMAGE_REPO_QWEN="unsloth/Qwen-Image-Edit-2511-GGUF"
-IMAGE_FILE_QWEN="Qwen-Image-Edit-2511-Q4_K_M.gguf"
-IMAGE_REPO_FLUX="black-forest-labs/FLUX.2-klein-4B"
 VOICE_REPO="whitelabel/mlx-q6-higgs-tts-3-4b"
+
+# Default image model (fastest by a wide margin — see docs/local-models-benchmarks.md).
+FLUX_REPO="Comfy-Org/vae-text-encorder-for-flux-klein-4b"
+FLUX_UNET="split_files/diffusion_models/flux-2-klein-4b.safetensors"
+FLUX_CLIP="split_files/text_encoders/qwen_3_4b.safetensors"
+FLUX_VAE="split_files/vae/flux2-vae.safetensors"
+
+# Optional high-fidelity image model, ~24x slower on this hardware. Installed
+# only with --with-qwen-image.
+QWEN_IMAGE_REPO="unsloth/Qwen-Image-Edit-2511-GGUF"
+QWEN_IMAGE_FILE="qwen-image-edit-2511-Q4_K_M.gguf"
+QWEN_COMPANION_REPO="Comfy-Org/Qwen-Image_ComfyUI"
+QWEN_CLIP="split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors"
+QWEN_VAE="split_files/vae/qwen_image_vae.safetensors"
 
 # Hosts this stack needs. Apple's proxy blocks everything not listed in the
 # allowlist CSV; huggingface.co and its CDN hosts are usually already present.
@@ -50,7 +71,9 @@ ok()   { printf '    \033[0;32mok\033[0m   %s\n' "$1"; }
 warn() { printf '    \033[0;33mwarn\033[0m %s\n' "$1"; }
 fail() { printf '    \033[0;31mfail\033[0m %s\n' "$1"; }
 
-probe() { curl -s -o /dev/null --max-time 3 "$1" 2>/dev/null; }
+# -f so curl fails on HTTP >= 400. Without it curl exits 0 for an error page
+# (including a proxy's 502), which would report a dead daemon as healthy.
+probe() { curl -sf -o /dev/null --max-time 3 "$1" 2>/dev/null; }
 
 # ---------------------------------------------------------------- allowlist
 say "Checking the proxy domain allowlist"
@@ -133,29 +156,53 @@ if [ -d "$COMFY_DIR" ] && [ "$CHECK_ONLY" != "1" ]; then
   (cd "$COMFY_DIR" && uv pip install -q gguf huggingface_hub)
   ok "ComfyUI dependencies installed"
 
-  say "Fetching image weights (about 27 GB for both models)"
-  mkdir -p "$COMFY_DIR/models/unet" "$COMFY_DIR/models/clip" "$COMFY_DIR/models/vae"
-  if [ ! -f "$COMFY_DIR/models/unet/$IMAGE_FILE_QWEN" ]; then
-    (cd "$COMFY_DIR" && uv run huggingface-cli download "$IMAGE_REPO_QWEN" "$IMAGE_FILE_QWEN" \
-      --local-dir models/unet)
-    ok "downloaded $IMAGE_FILE_QWEN"
+  say "Fetching image weights"
+  mkdir -p "$COMFY_DIR/models/diffusion_models" "$COMFY_DIR/models/unet" \
+           "$COMFY_DIR/models/text_encoders" "$COMFY_DIR/models/vae"
+
+  # hf, not huggingface-cli: the old CLI is deprecated and exits 0 without
+  # downloading anything, which silently produces an empty model directory.
+  hf_get() {  # repo, path-in-repo, destination dir
+    local repo="$1" path="$2" dest="$3" name
+    name="$(basename "$path")"
+    if [ -f "$dest/$name" ]; then ok "$name present"; return 0; fi
+    (cd "$COMFY_DIR" && uv run --with huggingface_hub hf download "$repo" "$path" --local-dir /tmp/hh-dl)
+    mv "/tmp/hh-dl/$path" "$dest/$name"
+    ok "downloaded $name"
+  }
+
+  hf_get "$FLUX_REPO" "$FLUX_UNET" "$COMFY_DIR/models/diffusion_models"
+  hf_get "$FLUX_REPO" "$FLUX_CLIP" "$COMFY_DIR/models/text_encoders"
+  hf_get "$FLUX_REPO" "$FLUX_VAE"  "$COMFY_DIR/models/vae"
+
+  if [ "$WITH_QWEN_IMAGE" = "1" ]; then
+    say "Fetching Qwen-Image-Edit weights (optional, ~21 GB, much slower to run)"
+    if [ ! -f "$COMFY_DIR/models/unet/$QWEN_IMAGE_FILE" ]; then
+      (cd "$COMFY_DIR" && uv run --with huggingface_hub hf download "$QWEN_IMAGE_REPO" \
+        --include "*Q4_K_M*" --local-dir models/unet)
+      ok "downloaded $QWEN_IMAGE_FILE"
+    else
+      ok "$QWEN_IMAGE_FILE present"
+    fi
+    hf_get "$QWEN_COMPANION_REPO" "$QWEN_CLIP" "$COMFY_DIR/models/text_encoders"
+    hf_get "$QWEN_COMPANION_REPO" "$QWEN_VAE"  "$COMFY_DIR/models/vae"
   else
-    ok "$IMAGE_FILE_QWEN present"
+    ok "skipping Qwen-Image-Edit (pass --with-qwen-image to install it)"
   fi
-  if [ ! -d "$COMFY_DIR/models/diffusion_models/FLUX.2-klein-4B" ]; then
-    (cd "$COMFY_DIR" && uv run huggingface-cli download "$IMAGE_REPO_FLUX" \
-      --local-dir "models/diffusion_models/FLUX.2-klein-4B") || \
-      warn "FLUX.2-klein-4B download failed (gated repo needs `huggingface-cli login`)"
-  else
-    ok "FLUX.2-klein-4B present"
-  fi
+  rm -rf /tmp/hh-dl
 fi
 
 # ---------------------------------------------------------------- mlx-audio
 say "Setting up mlx-audio (voice)"
-if ! command -v mlx_audio.server > /dev/null 2>&1 && ! uv tool list 2>/dev/null | grep -q mlx-audio; then
+if ! command -v mlx_audio.server > /dev/null 2>&1 && [ ! -x "$HOME/.local/bin/mlx_audio.server" ]; then
   if [ "$CHECK_ONLY" = "1" ]; then fail "mlx-audio is not installed"; MISSING=1; else
-    uv tool install --force mlx-audio --prerelease=allow
+    # The server entrypoint needs uvicorn/fastapi, and webrtcvad's C extension
+    # does not build against this machine's SDK — webrtcvad-wheels ships a
+    # prebuilt arm64 binary instead. misaki is required by Kokoro.
+    uv tool install --force --prerelease=allow \
+      --with uvicorn --with fastapi --with python-multipart \
+      --with webrtcvad-wheels --with misaki \
+      mlx-audio
     ok "installed mlx-audio"
   fi
 else
@@ -164,9 +211,19 @@ fi
 
 if [ "$CHECK_ONLY" != "1" ]; then
   say "Fetching voice weights (about 4 GB)"
-  uv run --with huggingface_hub huggingface-cli download "$VOICE_REPO" > /dev/null || \
+  uv run --with huggingface_hub hf download "$VOICE_REPO" > /dev/null || \
     warn "voice weight prefetch failed; mlx-audio will fetch on first use"
   ok "voice weights ready"
+fi
+
+# ffmpeg backs local TTS transcoding and the existing audio-export path.
+if ! command -v ffmpeg > /dev/null 2>&1; then
+  if [ "$CHECK_ONLY" = "1" ]; then fail "ffmpeg is not installed"; MISSING=1; else
+    brew install ffmpeg
+    ok "installed ffmpeg"
+  fi
+else
+  ok "ffmpeg present"
 fi
 
 # ------------------------------------------------------------------- verify

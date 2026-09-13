@@ -263,12 +263,12 @@ fi
 LOCAL_ROOT="${HEADLESS_HERO_LOCAL_ROOT:-$HOME/.headless-hero-local}"
 COMFY_DIR="$LOCAL_ROOT/ComfyUI"
 
-if [ -d "$COMFY_DIR/.venv" ] && ! curl -s --connect-timeout 2 --max-time 3 http://127.0.0.1:8188/system_stats > /dev/null 2>&1; then
+if [ -d "$COMFY_DIR/.venv" ] && ! curl -sf --connect-timeout 2 --max-time 3 http://127.0.0.1:8188/system_stats > /dev/null 2>&1; then
     ( cd "$COMFY_DIR" && ./.venv/bin/python main.py --port 8188 > /tmp/headless-hero-comfyui.log 2>&1 ) &
     echo "Started ComfyUI (local image models)."
 fi
 
-if command -v mlx_audio.server > /dev/null 2>&1 && ! curl -s --connect-timeout 2 --max-time 3 http://127.0.0.1:8770/v1/models > /dev/null 2>&1; then
+if command -v mlx_audio.server > /dev/null 2>&1 && ! curl -sf --connect-timeout 2 --max-time 3 http://127.0.0.1:8770/v1/models > /dev/null 2>&1; then
     mlx_audio.server --host 127.0.0.1 --port 8770 > /tmp/headless-hero-mlx-audio.log 2>&1 &
     echo "Started mlx-audio (local voice models)."
 fi

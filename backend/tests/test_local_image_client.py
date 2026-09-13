@@ -139,10 +139,50 @@ def test_missing_daemon_raises_actionable_error(monkeypatch):
 
 
 def test_unregistered_model_raises(fake_comfy, monkeypatch):
-    monkeypatch.setattr(local_image_client, "WORKFLOW_FILES", {})
+    monkeypatch.setattr(local_image_client, "WORKFLOW_SPECS", {})
     monkeypatch.setenv("LOCAL_IMAGE_MODEL", "flux2-klein-4b")
     with pytest.raises(RuntimeError, match="workflow"):
         local_image_client.generate_image("x", width=64, height=64)
+
+
+def test_reference_latent_mode_chains_onto_the_sampler(fake_comfy, tmp_path, monkeypatch):
+    """FLUX.2 conditions on references through chained ReferenceLatent nodes."""
+    monkeypatch.setenv("LOCAL_IMAGE_MODEL", "flux2-klein-4b")
+    paths = []
+    for name in ("a.png", "b.png"):
+        p = tmp_path / name
+        p.write_bytes(b"\x89PNG\r\n\x1a\n")
+        paths.append(str(p))
+    local_image_client.transform_with_references("merge", paths, width=64, height=64)
+    graph = fake_comfy.submitted[0]["prompt"]
+    assert graph["refenc_0"]["class_type"] == "VAEEncode"
+    assert graph["reflat_0"]["inputs"]["conditioning"] == ["6", 0]
+    assert graph["reflat_1"]["inputs"]["conditioning"] == ["reflat_0", 0]
+    assert graph["3"]["inputs"]["positive"] == ["reflat_1", 0]
+
+
+def test_encoder_slot_mode_fills_image_inputs(fake_comfy, tmp_path, monkeypatch):
+    """Qwen-Image-Edit takes references directly on the prompt encoder."""
+    monkeypatch.setenv("LOCAL_IMAGE_MODEL", "qwen-image-edit-2511")
+    p = tmp_path / "a.png"
+    p.write_bytes(b"\x89PNG\r\n\x1a\n")
+    local_image_client.transform_with_references("x", [str(p)], width=64, height=64)
+    graph = fake_comfy.submitted[0]["prompt"]
+    assert graph["6"]["inputs"]["image1"] == ["ref_0", 0]
+    assert graph["3"]["inputs"]["positive"] == ["6", 0]
+
+
+def test_extra_references_beyond_the_limit_are_dropped(fake_comfy, tmp_path, monkeypatch):
+    monkeypatch.setenv("LOCAL_IMAGE_MODEL", "qwen-image-edit-2511")
+    paths = []
+    for name in ("a.png", "b.png", "c.png", "d.png"):
+        p = tmp_path / name
+        p.write_bytes(b"\x89PNG\r\n\x1a\n")
+        paths.append(str(p))
+    local_image_client.transform_with_references("x", paths, width=64, height=64)
+    graph = fake_comfy.submitted[0]["prompt"]
+    assert "ref_2" in graph
+    assert "ref_3" not in graph
 
 
 def test_timeout_raises_rather_than_hanging(fake_comfy, monkeypatch):

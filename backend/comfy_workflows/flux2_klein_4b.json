@@ -15,7 +15,7 @@
     }
   },
   "5": {
-    "class_type": "EmptyLatentImage",
+    "class_type": "EmptySD3LatentImage",
     "inputs": { "width": "__WIDTH__", "height": "__HEIGHT__", "batch_size": 1 }
   },
   "6": {
@@ -36,14 +36,14 @@
   },
   "10": {
     "class_type": "UNETLoader",
-    "inputs": { "unet_name": "__MODEL__", "weight_dtype": "default" }
+    "inputs": { "unet_name": "flux-2-klein-4b.safetensors", "weight_dtype": "default" }
   },
   "11": {
     "class_type": "CLIPLoader",
-    "inputs": { "clip_name": "__CLIP__", "type": "flux2" }
+    "inputs": { "clip_name": "qwen_3_4b.safetensors", "type": "flux2" }
   },
   "12": {
     "class_type": "VAELoader",
-    "inputs": { "vae_name": "__VAE__" }
+    "inputs": { "vae_name": "flux2-vae.safetensors" }
   }
 }
