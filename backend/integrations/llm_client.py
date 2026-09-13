@@ -378,6 +378,18 @@ def get_client(provider: str | None = None) -> anthropic.Anthropic:
     return get_anthropic_client()
 
 
+def text_fingerprint(task: str | None = None, model: str | None = None) -> str:
+    """Identity of the engine a `chat()` with these arguments would use.
+
+    "<provider>:<model>", e.g. `ollama:hf.co/unsloth/Qwen3.8-27B-GGUF:UD-Q4_K_M`
+    or `anthropic:claude-opus-4-7`. Callers that cache generated text key on
+    this for the same reason image_client.provider_fingerprint() exists: a
+    cached artefact produced by one engine must not be reused as another's.
+    """
+    provider = _resolve_provider(task)
+    return f"{provider}:{_resolve_model(provider, task, model)}"
+
+
 def chat(
     system: str,
     user_message: str,

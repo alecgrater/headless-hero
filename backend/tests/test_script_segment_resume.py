@@ -147,3 +147,155 @@ def test_an_unreadable_progress_cache_does_not_block_generation(isolated_progres
     content = scriptwriter._generate_segmented("sys", "user", "topic", "", "", None)
 
     assert content.segments[0].scenes[0].narration == "fresh"
+
+
+def test_a_malformed_json_segment_is_retried(isolated_progress, monkeypatch):
+    _patch_outline(monkeypatch, _outline(1))
+    responses = ["{not json at all", _scene_json("recovered")]
+    calls: list[str] = []
+
+    def fake_chat(system, user, **kwargs):
+        calls.append(user)
+        return responses[len(calls) - 1]
+
+    monkeypatch.setattr(scriptwriter, "chat", fake_chat)
+    content = scriptwriter._generate_segmented("sys", "user", "topic", "", "", None)
+
+    assert len(calls) == 2
+    assert content.segments[0].scenes[0].narration == "recovered"
+
+
+def test_a_segment_with_zero_scenes_is_retried(isolated_progress, monkeypatch):
+    """`{"scenes": []}` parses, but it is the same non-answer as an empty body."""
+    _patch_outline(monkeypatch, _outline(1))
+    responses = [json.dumps({"scenes": []}), _scene_json("recovered")]
+    calls: list[str] = []
+
+    def fake_chat(system, user, **kwargs):
+        calls.append(user)
+        return responses[len(calls) - 1]
+
+    monkeypatch.setattr(scriptwriter, "chat", fake_chat)
+    content = scriptwriter._generate_segmented("sys", "user", "topic", "", "", None)
+
+    assert len(calls) == 2
+    assert [len(seg.scenes) for seg in content.segments] == [1]
+
+
+def test_a_resumed_segment_still_gets_cross_segment_continuity(isolated_progress, monkeypatch):
+    """The continuity context is derived from the previous segment's scenes,
+    reused or freshly generated — a resume must not drop it."""
+    _patch_outline(monkeypatch, _outline(2))
+
+    first: list[str] = [_scene_json("segment one"), "", ""]
+    calls: list[str] = []
+    monkeypatch.setattr(
+        scriptwriter, "chat",
+        lambda system, user, **kw: (calls.append(user), first[len(calls) - 1])[1],
+    )
+    with pytest.raises(RuntimeError):
+        scriptwriter._generate_segmented("sys", "user", "topic", "", "", None)
+
+    prompts: list[str] = []
+    monkeypatch.setattr(
+        scriptwriter, "chat",
+        lambda system, user, **kw: (prompts.append(user), _scene_json("segment two"))[1],
+    )
+    scriptwriter._generate_segmented("sys", "user", "topic", "", "", None)
+
+    assert len(prompts) == 1
+    assert "CROSS-SEGMENT CONTINUITY" in prompts[0]
+
+
+def test_a_cached_segment_that_no_longer_validates_is_regenerated(isolated_progress, monkeypatch):
+    outline = _outline(2)
+    _patch_outline(monkeypatch, outline)
+    key = scriptwriter._progress_key("sys", "user", None)
+    scriptwriter._PROGRESS_DIR.mkdir(parents=True, exist_ok=True)
+    (scriptwriter._PROGRESS_DIR / f"{key}.json").write_text(json.dumps({
+        "version": scriptwriter._PROGRESS_VERSION,
+        "saved_at": __import__("time").time(),
+        "outline": outline,
+        # A scene shape Scene.model_validate will reject.
+        "segments": [[{"narration": []}]],
+    }), encoding="utf-8")
+
+    calls: list[str] = []
+    monkeypatch.setattr(
+        scriptwriter, "chat",
+        lambda system, user, **kw: (calls.append(user), _scene_json("fresh"))[1],
+    )
+    content = scriptwriter._generate_segmented("sys", "user", "topic", "", "", None)
+
+    assert len(calls) == 2, "both segments should have been regenerated"
+    assert all(seg.scenes[0].narration == "fresh" for seg in content.segments)
+
+
+def test_an_unusable_outline_is_never_parked(isolated_progress, monkeypatch):
+    """A structurally valid but segment-less outline must not become permanent."""
+    outline_calls: list[int] = []
+
+    def fake_outline(*args, **kwargs):
+        outline_calls.append(1)
+        return {"title": "T"}  # no segments
+
+    monkeypatch.setattr(scriptwriter, "_generate_outline", fake_outline)
+    monkeypatch.setattr(scriptwriter, "chat", lambda system, user, **kw: _scene_json("x"))
+
+    for _ in range(2):
+        with pytest.raises(KeyError):
+            scriptwriter._generate_segmented("sys", "user", "topic", "", "", None)
+
+    assert outline_calls == [1, 1], "the bad outline must not be replayed from cache"
+
+
+def test_switching_text_engine_does_not_resume_the_other_engines_segments(
+    isolated_progress, monkeypatch
+):
+    outline = _outline(2)
+    _patch_outline(monkeypatch, outline)
+    monkeypatch.setattr(scriptwriter, "text_fingerprint", lambda task, model: "ollama:local-27b")
+
+    first: list[str] = [_scene_json("LOCAL"), "", ""]
+    calls: list[str] = []
+    monkeypatch.setattr(
+        scriptwriter, "chat",
+        lambda system, user, **kw: (calls.append(user), first[len(calls) - 1])[1],
+    )
+    with pytest.raises(RuntimeError):
+        scriptwriter._generate_segmented("sys", "user", "topic", "", "", None)
+
+    # Same prompt, different engine: nothing from the local attempt may be reused.
+    monkeypatch.setattr(scriptwriter, "text_fingerprint", lambda task, model: "anthropic:claude")
+    monkeypatch.setattr(scriptwriter, "chat", lambda system, user, **kw: _scene_json("CLOUD"))
+    content = scriptwriter._generate_segmented("sys", "user", "topic", "", "", None)
+
+    narrations = [sc.narration for sc in content.all_scenes()]
+    assert narrations == ["CLOUD", "CLOUD"], f"spliced two engines: {narrations}"
+
+
+def test_a_stale_cache_is_ignored(isolated_progress, monkeypatch):
+    import time as _time
+
+    outline = _outline(1)
+    outline_calls: list[int] = []
+
+    def fake_outline(*args, **kwargs):
+        outline_calls.append(1)
+        return outline
+
+    monkeypatch.setattr(scriptwriter, "_generate_outline", fake_outline)
+    key = scriptwriter._progress_key("sys", "user", None)
+    scriptwriter._PROGRESS_DIR.mkdir(parents=True, exist_ok=True)
+    (scriptwriter._PROGRESS_DIR / f"{key}.json").write_text(json.dumps({
+        "version": scriptwriter._PROGRESS_VERSION,
+        "saved_at": _time.time() - scriptwriter._PROGRESS_MAX_AGE_SECONDS - 60,
+        "outline": outline,
+        "segments": [[{"id": "x", "narration": "stale", "visual_prompt": "p"}]],
+    }), encoding="utf-8")
+
+    monkeypatch.setattr(scriptwriter, "chat", lambda system, user, **kw: _scene_json("fresh"))
+    content = scriptwriter._generate_segmented("sys", "user", "topic", "", "", None)
+
+    assert outline_calls == [1], "a stale cache must not short-circuit the outline"
+    assert content.segments[0].scenes[0].narration == "fresh"

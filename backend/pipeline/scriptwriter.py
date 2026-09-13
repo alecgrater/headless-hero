@@ -1,8 +1,10 @@
 """Script generation pipeline — uses the routed LLM provider to write segmented video scripts."""
 
 import hashlib
+import itertools
 import json
 import logging
+import os
 import re
 import time
 from collections.abc import Callable
@@ -15,7 +17,7 @@ from config import (
     parse_json_array_response,
     strip_markdown_fences,
 )
-from integrations.llm_client import chat
+from integrations.llm_client import chat, text_fingerprint
 from models.script import LevelMeta, MainCharacter, Scene, ScriptContent, Segment
 from pipeline.visual_mode_policy import (
     duration_profile_for_mode,
@@ -907,13 +909,42 @@ _SEGMENT_PARSE_ATTEMPTS = 2
 _PROGRESS_DIR = DATA_DIR / "script-progress"
 
 
-def _progress_key(system_prompt: str, user_message: str) -> str:
-    digest = hashlib.sha256(f"{system_prompt}\n\n{user_message}".encode("utf-8"))
-    return digest.hexdigest()[:16]
+# Bumped when the cache's shape or the meaning of its contents changes, so an
+# entry written by an older build is ignored rather than misread.
+_PROGRESS_VERSION = 1
+
+# A parked run is only worth resuming for about a day; past that the prompts,
+# the model, or the user's intent have probably moved on.
+_PROGRESS_MAX_AGE_SECONDS = 24 * 60 * 60
+
+
+def _progress_key(system_prompt: str, user_message: str, model: str | None = None) -> str:
+    """Identity of one script generation, for the resume cache.
+
+    The resolved text engine is part of it, for the reason
+    `image_client.provider_fingerprint()` is part of the image cache marker:
+    resuming a half-finished local run on a cloud model would otherwise splice
+    two models' prose into one script with nothing to show for it.
+    """
+    try:
+        engine = text_fingerprint("script", model)
+    except Exception:  # noqa: BLE001 — a key is never worth failing generation for
+        engine = "unknown"
+    material = f"{_PROGRESS_VERSION}\n{engine}\n{system_prompt}\n\n{user_message}"
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()[:16]
 
 
 def _progress_path(key: str) -> Path:
     return _PROGRESS_DIR / f"{key}.json"
+
+
+def _is_usable_outline(outline: object) -> bool:
+    """True when an outline has the one thing phase 2 requires: segments."""
+    return (
+        isinstance(outline, dict)
+        and isinstance(outline.get("segments"), list)
+        and bool(outline["segments"])
+    )
 
 
 def _load_progress(key: str) -> dict:
@@ -927,10 +958,20 @@ def _load_progress(key: str) -> dict:
         if not path.exists():
             return {}
         data = json.loads(path.read_text(encoding="utf-8"))
-        if not isinstance(data, dict) or not isinstance(data.get("outline"), dict):
+        if not isinstance(data, dict) or data.get("version") != _PROGRESS_VERSION:
             return {}
-        segments = data.get("segments")
-        if not isinstance(segments, list):
+        if not isinstance(data.get("segments"), list):
+            return {}
+        if not _is_usable_outline(data.get("outline")):
+            # A structurally valid but useless outline would otherwise be
+            # replayed forever: the run dies on it, and the next attempt reads
+            # the same file back instead of generating a new outline.
+            logger.warning("SEGMENTED: Cached outline is unusable; regenerating it")
+            path.unlink(missing_ok=True)
+            return {}
+        saved_at = data.get("saved_at")
+        if not isinstance(saved_at, (int, float)) or time.time() - saved_at > _PROGRESS_MAX_AGE_SECONDS:
+            path.unlink(missing_ok=True)
             return {}
         return data
     except Exception as exc:  # noqa: BLE001
@@ -940,14 +981,43 @@ def _load_progress(key: str) -> dict:
 
 def _save_progress(key: str, outline: dict, completed: list[list[dict]]) -> None:
     """Record the outline and every segment generated so far. Never raises."""
+    if not _is_usable_outline(outline):
+        # Refuse to park an outline phase 2 cannot use. Writing it would make a
+        # one-off bad outline permanent for that prompt.
+        return
     try:
         _PROGRESS_DIR.mkdir(parents=True, exist_ok=True)
-        _progress_path(key).write_text(
-            json.dumps({"outline": outline, "segments": completed}),
-            encoding="utf-8",
-        )
+        payload = json.dumps({
+            "version": _PROGRESS_VERSION,
+            "saved_at": time.time(),
+            "outline": outline,
+            "segments": completed,
+        })
+        # Atomic: a run killed mid-write (likely, on an hour-long generation)
+        # must not leave a half-file where the resume used to be.
+        path = _progress_path(key)
+        tmp = path.with_suffix(".json.tmp")
+        tmp.write_text(payload, encoding="utf-8")
+        os.replace(tmp, path)
+        _prune_progress()
     except Exception as exc:  # noqa: BLE001
         logger.warning("SEGMENTED: Could not write script progress cache (%s); continuing", exc)
+
+
+def _prune_progress() -> None:
+    """Drop parked runs past their useful life. Never raises.
+
+    Nothing else deletes these: a run that is abandoned rather than retried
+    leaves its file behind, one per distinct prompt, and a full script is tens
+    to hundreds of KB.
+    """
+    try:
+        cutoff = time.time() - _PROGRESS_MAX_AGE_SECONDS
+        for entry in _PROGRESS_DIR.glob("*.json*"):
+            if entry.stat().st_mtime < cutoff:
+                entry.unlink(missing_ok=True)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("SEGMENTED: Could not prune the script progress cache (%s)", exc)
 
 
 def _clear_progress(key: str) -> None:
@@ -1110,6 +1180,9 @@ def _generate_segment_scenes(
     # to throw away the whole run — a failure rate that is harmless against a
     # three-second cloud call is close to fatal here. Regenerating one segment
     # costs one segment.
+    # Deliberately only covers a bad *response*: a raising chat() (timeout,
+    # connection error) propagates, because the progress cache already makes the
+    # next run resume from here and a second 30-minute local call would not.
     scenes_data = None
     last_error: Exception | None = None
     for attempt in range(1, _SEGMENT_PARSE_ATTEMPTS + 1):
@@ -1139,7 +1212,18 @@ def _generate_segment_scenes(
             continue
 
         try:
-            scenes_data = parse_json_array_response(text, key="scenes")
+            parsed = parse_json_array_response(text, key="scenes")
+            if not parsed:
+                # A well-formed `{"scenes": []}` is the same non-answer as an
+                # empty string, just harder to see: it parses, so without this
+                # it would be parked in the cache as a zero-scene segment.
+                last_error = RuntimeError("model returned zero scenes")
+                logger.warning(
+                    "SEGMENTED: Segment %d/%d (%r) returned zero scenes (attempt %d/%d)",
+                    segment_index + 1, total, seg_name, attempt, _SEGMENT_PARSE_ATTEMPTS,
+                )
+                continue
+            scenes_data = parsed
             break
         except (json.JSONDecodeError, ValueError) as e:
             last_error = e
@@ -1227,12 +1311,16 @@ def _generate_segmented(
     # failure part-way through phase 2 costs the remaining segments rather than
     # the whole run. On a local model that is the difference between losing ~11
     # minutes and losing over an hour.
-    progress_key = _progress_key(system_prompt, user_message)
+    progress_key = _progress_key(system_prompt, user_message, model)
     progress = _load_progress(progress_key)
     resumed_segments: list[list[dict]] = []
     if progress:
         outline = progress["outline"]
-        resumed_segments = [seg for seg in progress["segments"] if isinstance(seg, list)]
+        # takewhile, not a filter: dropping a corrupt entry would shift every
+        # later segment down an index and serve segment 3's scenes as segment 2.
+        resumed_segments = list(
+            itertools.takewhile(lambda seg: isinstance(seg, list), progress["segments"])
+        )
         logger.info(
             "SEGMENTED: Resuming a previous attempt — outline reused, %d/%d segments already generated",
             len(resumed_segments), len(outline.get("segments", [])),
@@ -1370,6 +1458,9 @@ def _generate_segmented(
         main_character=main_character,
     )
 
+    # Cleared here rather than after generate_script's post-processing: those
+    # steps are deterministic, so resuming into them would replay the same
+    # failure rather than avoid it.
     _clear_progress(progress_key)
 
     total_elapsed = time.monotonic() - total_t0
