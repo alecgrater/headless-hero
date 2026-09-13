@@ -1,15 +1,20 @@
 """Test-session isolation from the developer's real app state.
 
 `TestClient(app)` runs the real FastAPI lifespan, and that lifespan reaches for
-the developer's actual `data/db.sqlite`: it copies every saved setting into
-`os.environ`, prunes rows out of `dev_logs`, and installs a log handler that
-writes more in. Nothing in the suite asked for any of that, and all three leak
-across tests.
+the developer's actual `data/` directory: it copies every saved setting into
+`os.environ`, prunes rows out of `dev_logs`, installs a log handler that writes
+more in, and — since identity snapshots — rewrites `data/identity.json` whenever
+a test exercises a style preset or settings endpoint. Nothing in the suite asked
+for any of that, and all of it leaks across tests or into tracked files.
 
 Local Models Mode made it concrete: turning Local Mode on in Settings writes
 `LOCAL_MODELS_ENABLED=true`, which then routed later routing and thumbnail
 tests to the local providers and failed twelve of them on a machine where
 nothing was actually broken.
+
+`HH_DATA_DIR` is set at module scope rather than in a fixture because
+`config.DATA_DIR` resolves it at import time, and pytest loads this file before
+any backend module.
 
 Three fixtures, all autouse:
 
@@ -20,9 +25,9 @@ Three fixtures, all autouse:
 * **Database.** Point the lifespan's *settings and dev-log* engine at an empty
   in-memory database, so the suite reads defaults and never prunes or writes the
   developer's `dev_logs`. `init_db()` and `ensure_default_brand()` still run
-  against the real file — both are idempotent `CREATE TABLE IF NOT EXISTS` /
-  "insert one row if absent" calls — so this is not full database isolation, and
-  tests still supply their own engine via the `get_session` override.
+  against a file engine — but that file now lives in the throwaway data
+  directory, so tests still supply their own engine via the `get_session`
+  override and nothing touches real state.
 * **Local-model arena.** `pipeline.local_runtime` holds process-global state and
   its `_unload` sends a real "free your models" POST to whichever daemon is
   running. Reset the state around every test and make `_unload` inert; a test
@@ -30,13 +35,18 @@ Three fixtures, all autouse:
 """
 
 import os
+import tempfile
 
-import pytest
-from sqlalchemy.pool import StaticPool
-from sqlmodel import SQLModel, create_engine
+# Must precede every backend import below — config.DATA_DIR is read at import.
+_TEST_DATA_DIR = tempfile.mkdtemp(prefix="headless-hero-tests-")
+os.environ["HH_DATA_DIR"] = _TEST_DATA_DIR
 
-import models.settings  # noqa: F401  -- registers app_settings on SQLModel.metadata
-import dev.log_handler  # noqa: F401  -- registers dev_logs on SQLModel.metadata
+import pytest  # noqa: E402
+from sqlalchemy.pool import StaticPool  # noqa: E402
+from sqlmodel import SQLModel, create_engine  # noqa: E402
+
+import models.settings  # noqa: F401, E402  -- registers app_settings on SQLModel.metadata
+import dev.log_handler  # noqa: F401, E402  -- registers dev_logs on SQLModel.metadata
 
 # One empty database for the whole session; it only ever has to be readable.
 # StaticPool + check_same_thread: a default in-memory SQLite engine hands every
@@ -48,6 +58,21 @@ _EMPTY_DB_ENGINE = create_engine(
     poolclass=StaticPool,
 )
 SQLModel.metadata.create_all(_EMPTY_DB_ENGINE)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _create_test_schema():
+    """Give the throwaway file database the full schema.
+
+    Some tests reach the module-level engine rather than an injected one and
+    previously borrowed the developer's populated db.sqlite for its tables.
+    Importing the app first registers every SQLModel table, so the schema is
+    complete even when a single test file runs on its own.
+    """
+    import api  # noqa: F401 -- registers all tables
+    from database import init_db
+
+    init_db()
 
 
 @pytest.fixture(autouse=True)

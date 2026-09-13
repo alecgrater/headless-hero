@@ -439,6 +439,11 @@ async def save_keys(
             elevenlabs_credential_changed = True
 
     session.commit()
+    # Keep the committed identity snapshot current; secrets are filtered out by
+    # the allowlist in pipeline.identity
+    from pipeline.identity import write_snapshot
+
+    write_snapshot(session)
     # Invalidate cached SDK clients so they pick up the new credentials
     # without a backend restart.
     if llm_credential_changed:

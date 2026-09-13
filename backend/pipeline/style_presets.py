@@ -65,6 +65,10 @@ def generate_preset(prompt: str, name: str) -> str:
         session.commit()
 
     logger.info("Style preset saved id=%s path=%s", preset_id, final_path)
+
+    from pipeline.identity import write_snapshot
+
+    write_snapshot()
     return preset_id
 
 

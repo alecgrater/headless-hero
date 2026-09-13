@@ -131,6 +131,16 @@ Settings → AI & Generation → **Local Models** swaps cloud models for models 
 - **Progress bars tick once a second and fill linearly.** Both `GenerationProgressBar` and `MiniProgressBar` used `requestAnimationFrame` with a quadratic ease-in; over a local run that is ~340k re-renders, and the curve shows 25% at the halfway mark. Past the estimate they say so rather than sitting silently at 95%, which on a long run is indistinguishable from a hang.
 - **Measured performance and the reasoning behind the defaults live in `docs/local-models-benchmarks.md`.** Read it before changing a default model — the image default was chosen from a 24× measured difference, not preference.
 
+## Portable Visual Identity
+
+Visual identity travels with the repo so a fresh clone can generate video in the house style. Setup guide: `docs/setup-on-another-machine.md`.
+
+- **Assets are tracked in `data/`**: `data/style/presets/`, `data/character/{frames,references,thumbnail_references}/`, and `data/projects/asset-vault/` are committed. `.gitignore` is **deny-all under `data/` plus explicit re-includes** — anything new there is ignored until opted in, because `data/db.sqlite` holds plaintext API keys, `data/projects/` holds every render, and the repo is public. `backend/tests/test_gitignore_identity.py` asserts both directions; add a case whenever you add a negation.
+- **DB rows travel in `data/identity.json`**: style presets, preset characters, the brand profile, and allowlisted settings. Written through by `pipeline.identity.write_snapshot()` on every identity mutation (preset create/delete/activate, character create/select, settings save, brand update) — no export command. Seeded by `database.seed_identity()` from `lifespan`, after `ensure_default_brand()` and before `load_keys_into_env()`.
+- **Setting export is a strict allowlist** (`pipeline.identity.is_exportable_setting`). Anything unlisted is excluded, so a credential added later is safe by default; `_SECRET_MARKERS` is a second net. Never export credentials or machine-specific paths (`DOWNLOADS_DIR`, `EXPORT_FOLDER`). Note `GOOGLE_CLIENT_ID` is sensitive while `ACTIVE_STYLE_PRESET_ID` is not — hence exact-match, not pattern-inference.
+- **Snapshot wins on boot, deletions don't sync**: seeding upserts and never deletes, so a preset removed on one machine must be removed on the other too. `seed_identity()` must never trigger `write_snapshot()`.
+- **Tests never touch the dev data dir**: `backend/tests/conftest.py` points `HH_DATA_DIR` at a temp directory and creates the schema there.
+
 ## Brand Profile
 
 Single auto-created default brand (no picker). All endpoints auto-resolve `brand_id` — never put it in request bodies.

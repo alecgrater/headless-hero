@@ -17,6 +17,7 @@ from sqlmodel import Session, select
 
 from config import DATA_DIR
 from database import get_session
+from pipeline.identity import write_snapshot
 from models.settings import AppSetting
 from models.script import MainCharacter
 from models.style_preset import (
@@ -155,6 +156,7 @@ def delete_preset(preset_id: str, session: Session = Depends(get_session)):
     if character_dir.exists():
         shutil.rmtree(character_dir.parent, ignore_errors=True)
 
+    write_snapshot(session)
     return {"ok": True}
 
 
@@ -181,6 +183,7 @@ def set_active(req: SetActivePresetRequest, session: Session = Depends(get_sessi
         if not _preset_image_path(preset.id).exists():
             raise HTTPException(status_code=404, detail="preset image not found")
     _write_active_id(session, req.preset_id)
+    write_snapshot(session)
     return {"ok": True, "active_id": req.preset_id}
 
 
@@ -251,6 +254,7 @@ def create_preset_character(
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     session.commit()
+    write_snapshot(session)
     return response
 
 
@@ -270,6 +274,7 @@ def select_preset_character(
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     session.commit()
+    write_snapshot(session)
     return response
 
 

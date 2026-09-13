@@ -13,7 +13,7 @@ from api.assets import router as assets_router
 from api.brands import router as brands_router
 from api.brainstorm import router as brainstorm_router
 from api.cold_opens import router as cold_opens_router
-from database import init_db, ensure_default_brand
+from database import init_db, ensure_default_brand, seed_identity
 from database import engine as _db_engine
 from api.eli import router as eli_router
 from api.formats import router as formats_router
@@ -62,6 +62,9 @@ from config import DATA_DIR
 async def lifespan(app: FastAPI):
     init_db()
     ensure_default_brand()
+    # Restore committed visual identity before keys load, so seeded model and
+    # provider settings reach the environment on a fresh clone's first boot
+    seed_identity()
     # Install dev dashboard log handler
     prune_old_logs(_db_engine)
     log_handler = SQLiteLogHandler(_db_engine)

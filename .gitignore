@@ -11,11 +11,27 @@ __pycache__/
 *.egg-info/
 
 # Data
-data/
-data/projects/
-data/voices/
-data/character/
-data/db.sqlite
+# Deny everything under data/, then re-include only the curated visual identity.
+# New files are ignored by default, so db.sqlite (plaintext API keys) and project
+# renders can never be committed by accident. Each directory level needs its own
+# negation — git will not descend into an excluded directory.
+# This block must stay above the .DS_Store rule below (gitignore is last-match-wins).
+/data/**
+!/data/identity.json
+!/data/style/
+!/data/style/**
+!/data/character/
+!/data/character/frames/
+!/data/character/frames/**
+!/data/character/references/
+!/data/character/references/**
+!/data/character/thumbnail_references/
+!/data/character/thumbnail_references/**
+!/data/character/manifest.json
+!/data/character/reference_selection.json
+!/data/projects/
+!/data/projects/asset-vault/
+!/data/projects/asset-vault/**
 backend/data/
 
 # Superpowers brainstorm sessions

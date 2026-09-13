@@ -49,6 +49,23 @@ def ensure_default_brand() -> None:
         else:
             logger.info("Default brand exists: %s", existing.id)
 
+def seed_identity() -> None:
+    """Apply data/identity.json to the database, if present.
+
+    Makes a fresh clone usable immediately: style presets, preset characters,
+    the brand profile, and non-secret settings are restored from the committed
+    snapshot. Must run after ensure_default_brand() (which guarantees the brand
+    row exists) and before API keys are loaded into the environment.
+    """
+    from pipeline.identity import seed_from_snapshot
+
+    try:
+        with Session(engine) as session:
+            seed_from_snapshot(session)
+    except Exception:
+        logger.warning("Identity seeding failed; continuing startup", exc_info=True)
+
+
 def get_default_brand_id(session: Session) -> str:
     """Return the single default brand's ID."""
     from models.brand import BrandProfile

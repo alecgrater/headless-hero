@@ -76,4 +76,8 @@ def update_brand(body: BrandProfileUpdate, session: Session = Depends(get_sessio
     session.commit()
     session.refresh(brand)
     logger.info("Brand updated: %s (id=%s)", brand.name, brand.id)
+
+    from pipeline.identity import write_snapshot
+
+    write_snapshot(session)
     return _brand_to_read(brand)
