@@ -290,6 +290,13 @@ def _migrate_add_engine_to_generation_durations() -> None:
             conn.execute("ALTER TABLE generation_durations ADD COLUMN engine TEXT DEFAULT ''")
             conn.commit()
             logger.info("Migrated: added engine to generation_durations")
+        # create_all skips a table that already exists, so an upgraded database
+        # never gets the model's declared index from it.
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS ix_generation_durations_engine "
+            "ON generation_durations(engine)"
+        )
+        conn.commit()
     finally:
         conn.close()
 

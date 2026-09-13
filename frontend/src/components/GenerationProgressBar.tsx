@@ -31,6 +31,9 @@ export default function GenerationProgressBar({
       setDone(false);
       setVisible(true);
       startTime.current = Date.now();
+      // Nothing reads `elapsed` without an estimate, so an indeterminate run
+      // should not re-render once a second for its whole duration.
+      if (!estimatedSeconds || estimatedSeconds <= 0) return;
       const id = setInterval(() => {
         if (startTime.current) setElapsed((Date.now() - startTime.current) / 1000);
       }, TICK_MS);
@@ -45,7 +48,7 @@ export default function GenerationProgressBar({
       }, 600);
       return () => clearTimeout(timeout);
     }
-  }, [active, visible]);
+  }, [active, visible, estimatedSeconds]);
 
   if (!visible) return null;
 

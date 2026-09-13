@@ -88,6 +88,24 @@ def get_estimate(
                 source="baseline",
             )
 
+    # Last resort: the cross-engine average. Reached by an install upgrading
+    # into engine scoping, whose entire history predates the column and is
+    # therefore of an unknown configuration. Better a labelled approximation
+    # than silently dropping to an indeterminate bar for every operation until
+    # each has been run once again.
+    pooled_avg, pooled_count = session.exec(select(
+        func.avg(GenerationDuration.duration_seconds),
+        func.count(GenerationDuration.id),
+    ).where(GenerationDuration.operation_type == operation_type)).one()
+    if pooled_avg is not None and pooled_count > 0:
+        return GenerationEstimateResponse(
+            operation_type=operation_type,
+            average_seconds=round(pooled_avg, 1),
+            sample_count=pooled_count,
+            engine=engine,
+            source="pooled",
+        )
+
     return GenerationEstimateResponse(
         operation_type=operation_type,
         average_seconds=None,

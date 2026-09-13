@@ -12,7 +12,12 @@ from sqlmodel import Session, SQLModel, create_engine
 
 from api import app
 from database import get_session
-from models.generation_duration import GenerationDuration, engine_for_operation
+from models.generation_duration import (
+    ENGINE_INDEPENDENT_OPERATIONS,
+    OPERATION_ENGINE_SCOPE,
+    GenerationDuration,
+    engine_for_operation,
+)
 
 
 @pytest.fixture
@@ -131,3 +136,75 @@ def test_an_unknown_operation_is_not_scoped(db_engine):
         session.commit()
         session.refresh(row)
         assert row.engine == ""
+
+
+def test_every_recorded_operation_is_classified():
+    """A new operation must not inherit "pooled across every engine" by omission.
+
+    Scans the real recording sites rather than a hand-kept list, so adding a
+    `GenerationDuration(operation_type="…")` anywhere forces a decision about
+    whether its duration depends on a model engine.
+    """
+    import re
+    from pathlib import Path
+
+    backend = Path(__file__).resolve().parent.parent
+    recorded: set[str] = set()
+    for directory in ("api", "pipeline"):
+        for path in (backend / directory).rglob("*.py"):
+            recorded.update(re.findall(r'operation_type="([a-z_]+)"', path.read_text(encoding="utf-8")))
+
+    assert recorded, "found no recording sites — did the scan break?"
+    classified = set(OPERATION_ENGINE_SCOPE) | set(ENGINE_INDEPENDENT_OPERATIONS)
+    assert recorded <= classified, (
+        "unclassified operation types: "
+        f"{sorted(recorded - classified)} — add them to OPERATION_ENGINE_SCOPE "
+        "or ENGINE_INDEPENDENT_OPERATIONS in models/generation_duration.py"
+    )
+
+
+def test_text_operations_are_scoped_to_their_own_llm_task(monkeypatch):
+    """Stamping every text timing with the `script` engine would discard SEO
+    history whenever SCRIPT_MODEL changed, and pool it when SEO_MODEL did."""
+    monkeypatch.setenv("LOCAL_MODELS_ENABLED", "false")
+    monkeypatch.setenv("SCRIPT_LLM_PROVIDER", "anthropic")
+    monkeypatch.setenv("SCRIPT_MODEL", "claude-opus-4-7")
+    monkeypatch.setenv("SEO_LLM_PROVIDER", "openai")
+    monkeypatch.setenv("SEO_MODEL", "gpt-5-mini")
+
+    script_engine = engine_for_operation("script_generation_youtube")
+    seo_engine = engine_for_operation("seo_generation")
+    assert script_engine == "anthropic:claude-opus-4-7"
+    assert seo_engine == "openai:gpt-5-mini"
+
+    # Changing the script model must not move the SEO scope.
+    monkeypatch.setenv("SCRIPT_MODEL", "claude-sonnet-4-6")
+    assert engine_for_operation("seo_generation") == seo_engine
+    assert engine_for_operation("script_generation_youtube") != script_engine
+
+
+def test_image_operations_follow_the_image_provider(monkeypatch):
+    monkeypatch.setenv("LOCAL_MODELS_ENABLED", "false")
+    monkeypatch.delenv("LOCAL_IMAGE_MODE", raising=False)
+    cloud = engine_for_operation("single_image_generation")
+
+    monkeypatch.setenv("LOCAL_MODELS_ENABLED", "true")
+    monkeypatch.setenv("LOCAL_IMAGE_MODEL", "flux2-klein-4b")
+    local = engine_for_operation("single_image_generation")
+
+    assert cloud != local
+    assert local.startswith("local:")
+
+
+def test_legacy_samples_fall_back_to_a_labelled_pooled_average(client, db_engine, monkeypatch):
+    """An install upgrading into engine scoping keeps a determinate bar."""
+    with Session(db_engine) as session:
+        session.add(GenerationDuration(
+            operation_type="script_generation_youtube", duration_seconds=90.0, engine="",
+        ))
+        session.commit()
+
+    monkeypatch.setattr("api.generation.engine_for_operation", lambda _op: "anthropic:claude")
+    body = _estimate(client)
+    assert body["source"] == "pooled"
+    assert body["average_seconds"] == 90.0

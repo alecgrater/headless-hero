@@ -17,6 +17,8 @@ interface Params {
 interface GenJobStatus {
   status: string;
   current_step: string;
+  /** Fraction of segments started, so the bar is determinate on a long run. */
+  progress?: number;
   error: string | null;
   script_id?: string;
   elapsed_seconds?: number;
@@ -50,6 +52,7 @@ export interface ScriptGenerationState {
   settingsLoaded: boolean;
   estimatedSeconds: number | null;
   estimateSource: "measured" | "baseline";
+  scriptProgress: number | null;
   elapsedSeconds: number | null;
   genSegments: { segment: number; total: number; name: string } | null;
   genCompletedSegments: number[];
@@ -77,6 +80,7 @@ export default function useScriptGeneration({ brandId, idea, supportsColdOpen = 
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [estimatedSeconds, setEstimatedSeconds] = useState<number | null>(null);
   const [estimateSource, setEstimateSource] = useState<"measured" | "baseline">("measured");
+  const [scriptProgress, setScriptProgress] = useState<number | null>(null);
 
   const [genSegments, setGenSegments] = useState<{ segment: number; total: number; name: string } | null>(null);
   const [genCompletedSegments, setGenCompletedSegments] = useState<number[]>([]);
@@ -107,6 +111,9 @@ export default function useScriptGeneration({ brandId, idea, supportsColdOpen = 
     onStatus: async (job) => {
       if (job.elapsed_seconds != null) {
         setElapsedSeconds(job.elapsed_seconds);
+      }
+      if (typeof job.progress === "number") {
+        setScriptProgress(job.progress);
       }
 
       // Parse per-segment progress
@@ -262,6 +269,7 @@ export default function useScriptGeneration({ brandId, idea, supportsColdOpen = 
     setError(null);
     setGenSegments(null);
     setGenCompletedSegments([]);
+    setScriptProgress(null);
     setElapsedSeconds(null);
     setColdOpenResult(null);
     setSelectedColdOpen(null);
@@ -474,6 +482,7 @@ export default function useScriptGeneration({ brandId, idea, supportsColdOpen = 
     settingsLoaded,
     estimatedSeconds,
     estimateSource,
+    scriptProgress,
     elapsedSeconds,
     genSegments,
     genCompletedSegments,

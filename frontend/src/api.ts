@@ -61,7 +61,7 @@ function extractErrorMessage(status: number, data: unknown): string {
 }
 
 /** Paths that should not trigger toast notifications on error. */
-const SILENT_PATHS = ["/api/health", "/api/render/status/", "/api/publish/status/", "/api/publish/short-form/status/", "/api/visuals/title-cards-status/", "/api/visuals/generate-batch-status/", "/api/character/status/", "/api/scripts/generate-status/", "/api/scripts/cold-opens-status/", "/api/scripts/refine-hook-status/", "/api/trending/refresh-status/", "/api/trending/smart-ideas-status/", "/api/eli/generate-status/", "/api/fx/generate-status/", "/api/media/analyze/status/", "/api/visual-treatments/analyze/status/", "/api/idea-board/", "/api/recording/session/", "/api/recording/score-status/", "/api/short-form/jobs/", "/api/short-form/rendered", "/api/style/presets/jobs/", "/api/test-lab/runs/status/"];
+const SILENT_PATHS = ["/api/health", "/api/render/status/", "/api/publish/status/", "/api/publish/short-form/status/", "/api/visuals/title-cards-status/", "/api/visuals/generate-batch-status/", "/api/character/status/", "/api/scripts/generate-status/", "/api/scripts/cold-opens-status/", "/api/scripts/refine-hook-status/", "/api/trending/refresh-status/", "/api/trending/smart-ideas-status/", "/api/eli/generate-status/", "/api/fx/generate-status/", "/api/media/analyze/status/", "/api/visual-treatments/analyze/status/", "/api/idea-board/", "/api/recording/session/", "/api/recording/score-status/", "/api/short-form/jobs/", "/api/short-form/rendered", "/api/style/presets/jobs/", "/api/test-lab/runs/status/", "/api/local-models"];
 
 function shouldSilence(path: string): boolean {
   return SILENT_PATHS.some((p) => path.startsWith(p));

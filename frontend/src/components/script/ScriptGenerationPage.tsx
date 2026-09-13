@@ -37,6 +37,10 @@ export default function ScriptGenerationPage({
   onContinue,
 }: Props) {
   const localMode = useLocalModeStatus();
+  const localModalityList = (["text", "image", "voice"] as const)
+    .filter((m) => localMode.local[m])
+    .map((m) => (m === "text" ? "the script" : m === "image" ? "images" : "voice"))
+    .join(" and ");
   const [format, setFormat] = useState<VideoFormat | null>(null);
   const formatId = idea.format_id ?? "youtube-listicle";
 
@@ -61,6 +65,7 @@ export default function ScriptGenerationPage({
     settingsLoaded,
     estimatedSeconds,
     estimateSource,
+    scriptProgress,
     elapsedSeconds,
     genSegments,
     genCompletedSegments,
@@ -73,6 +78,16 @@ export default function ScriptGenerationPage({
     handleColdOpenSelect,
     setSegmented,
   } = useScriptGeneration({ brandId, idea, supportsColdOpen, eliEnabled, stylePresetEnabled });
+
+  const segmentWord = format?.level_label === "level" ? "level" : "segment";
+  // Prefer the machine's own measurement over the published baseline the
+  // estimate falls back to, so the notice stops quoting a figure it can beat.
+  const localScriptEstimate =
+    estimatedSeconds && estimatedSeconds > 0
+      ? `expect about ${Math.round(estimatedSeconds / 60)} minutes${
+          estimateSource === "baseline" ? " (estimated — no local run measured yet)" : ""
+        }`
+      : "expect well over an hour";
 
   const {
     editingKey,
@@ -217,19 +232,18 @@ export default function ScriptGenerationPage({
               className="rounded-xl border border-amber-500/40 bg-amber-500/5 p-4 text-xs leading-relaxed text-amber-200/90"
             >
               <p className="font-medium text-amber-200">
-                Local Mode is on{localMode.local.text ? "" : " for images and voice"}
+                Local Mode is on for {localModalityList}
               </p>
               {localMode.local.text ? (
                 <p className="mt-1">
-                  The script is written by a model on this machine. Expect roughly{" "}
-                  <span className="font-medium">an hour and a half</span> for a full eight-segment
-                  script, against a couple of minutes on the cloud — each segment is its own call.
-                  Progress is shown per segment, and a run that fails part way resumes from where it
-                  stopped rather than starting over.
+                  The script is written by a model on this machine — {localScriptEstimate}, against a
+                  couple of minutes on the cloud, because each {segmentWord} is its own call.
+                  Progress is shown per {segmentWord}, and a run that fails part way resumes from
+                  where it stopped rather than starting over.
                 </p>
               ) : (
                 <p className="mt-1">
-                  The script still comes from the cloud, but images and voice run on this machine,
+                  The script still comes from the cloud, but {localModalityList} run on this machine,
                   so later stages take longer than usual.
                 </p>
               )}
@@ -286,6 +300,21 @@ export default function ScriptGenerationPage({
           {/* Per-segment progress (only during script phase) */}
           {phase === "script" && genSegments && genSegments.total > 1 && (
             <div className="max-w-sm mx-auto text-left space-y-1.5 py-2">
+              <div className="flex items-center justify-between pb-1 text-xs text-neutral-500">
+                <span>
+                  {format?.level_label === "level" ? "Level" : "Segment"} {genSegments.segment} of{" "}
+                  {genSegments.total}
+                </span>
+                {scriptProgress != null && <span>{Math.round(scriptProgress * 100)}%</span>}
+              </div>
+              {scriptProgress != null && (
+                <div className="h-1 w-full overflow-hidden rounded-full bg-neutral-800">
+                  <div
+                    className="h-full rounded-full bg-violet-500 transition-all duration-300 ease-out"
+                    style={{ width: `${Math.round(scriptProgress * 100)}%` }}
+                  />
+                </div>
+              )}
               {Array.from({ length: genSegments.total }, (_, i) => {
                 const segNum = i + 1;
                 const done = genCompletedSegments.includes(segNum);
