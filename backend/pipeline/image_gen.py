@@ -507,7 +507,7 @@ def generate_visual_layer_panels(
             local_path,
             {
                 "source_type": "visual_layer_panel",
-                "provider": os.environ.get("IMAGE_PROVIDER", "google"),
+                "provider": provider_fingerprint(),
                 "fallback": False,
             },
         )
@@ -1534,7 +1534,7 @@ def generate_scene_image(
                     category="image_generation",
                     event="scraped_image_fallback_used",
                     reason="AI image generation failed after retries",
-                    from_value=os.environ.get("IMAGE_PROVIDER", "google"),
+                    from_value=provider_fingerprint(),
                     to_value="scraped_web_image",
                     script_id=script_id,
                     scene_id=scene_id,
@@ -1564,7 +1564,7 @@ def generate_scene_image(
             category="image_generation",
             event="image_placeholder_created",
             reason="AI image generation failed and scraped web-image fallback is disabled or unavailable",
-            from_value=os.environ.get("IMAGE_PROVIDER", "google"),
+            from_value=provider_fingerprint(),
             to_value="local_placeholder",
             script_id=script_id,
             scene_id=scene_id,
@@ -1584,7 +1584,7 @@ def generate_scene_image(
 
     metadata = _move_generated_image(tmp_path, local_path, {
         "source_type": "ai_generated",
-        "provider": os.environ.get("IMAGE_PROVIDER", "google"),
+        "provider": provider_fingerprint(),
         "fallback": False,
     })
 
@@ -1759,7 +1759,7 @@ def generate_scene_frames(
         )
         metadata = _move_generated_image(tmp_path, local_path, {
             "source_type": "ai_generated",
-            "provider": os.environ.get("IMAGE_PROVIDER", "google"),
+            "provider": provider_fingerprint(),
             "fallback": False,
         })
         prompt_marker.write_text(prompt, encoding="utf-8")
@@ -1962,7 +1962,7 @@ def generate_scene_frames_v2(
         )
         metadata = _move_generated_image(tmp_path, local_path, {
             "source_type": "ai_generated",
-            "provider": os.environ.get("IMAGE_PROVIDER", "google"),
+            "provider": provider_fingerprint(),
             "fallback": False,
         })
         prompt_marker.write_text(prompt, encoding="utf-8")
@@ -2322,7 +2322,7 @@ def generate_batch_with_google_batch(
                 continue
             metadata = _move_generated_image(batch_result.image_path, local_path, {
                 "source_type": "ai_generated",
-                "provider": os.environ.get("IMAGE_PROVIDER", "google"),
+                "provider": provider_fingerprint(),
                 "batch": True,
                 "fallback": False,
             })

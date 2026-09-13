@@ -445,6 +445,19 @@ def _scene_to_input_props(
     }
 
 
+def voice_engine_fingerprint() -> str:
+    """Stable identity of the active TTS engine, for render cache markers.
+
+    A video voiced locally must not reuse renders produced from ElevenLabs
+    audio, and switching between two local voices must re-render too.
+    """
+    from integrations.local_models import active_model, modality_source
+
+    if modality_source("voice") != "local":
+        return "elevenlabs"
+    return f"local:{active_model('voice').id}"
+
+
 def subtitle_render_fingerprint(content: ScriptContent) -> dict[str, Any]:
     """Return content-sensitive subtitle routing inputs for render cache metadata."""
     return {
@@ -452,6 +465,7 @@ def subtitle_render_fingerprint(content: ScriptContent) -> dict[str, Any]:
         "renderer_context_stage_version": RENDERER_CONTEXT_STAGE_VERSION,
         "blink_renderer_version": BLINK_RENDERER_VERSION,
         "camera_drift_renderer_version": CAMERA_DRIFT_RENDERER_VERSION,
+        "voice_engine": voice_engine_fingerprint(),
         "settings": subtitle_settings_from_env(),
         "scenes": [
             {
