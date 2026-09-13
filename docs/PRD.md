@@ -4,7 +4,7 @@
 
 ## 1. Executive Summary
 
-Headless Hero is a desktop application that provides an end-to-end pipeline for creating faceless educational/explainer YouTube content using AI. It replaces the current fragmented workflow of 5+ separate tools (ChatGPT for scripts, ElevenLabs for voice, InVideo for assembly, Midjourney for images, Canva for thumbnails) with a single integrated application.
+Headless Hero is a reall cool desktop application that provides an end-to-end pipeline for creating faceless educational/explainer YouTube content using AI. It replaces the current fragmented workflow of 5+ separate tools (ChatGPT for scripts, ElevenLabs for voice, InVideo for assembly, Midjourney for images, Canva for thumbnails) with a single integrated application.
 
 The product targets a specific, proven content format: long-form explainer videos composed of named segments (e.g., "Every Drug Explained" with Caffeine, Nicotine, Alcohol as segments), where each segment can be independently exported as a TikTok/Reel/Short. The app handles idea generation, script writing, AI illustration, voiceover, video assembly, thumbnail creation, SEO optimization, and multi-platform publishing — all enforcing a consistent brand identity.
 
