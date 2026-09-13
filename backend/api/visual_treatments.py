@@ -176,6 +176,12 @@ def update_visual_canvas(
     session.add(record)
     palette = add_palette_color(session, background_color)
     session.commit()
+    # The palette is an exported identity setting, so the snapshot must follow
+    # it here too — otherwise startup seeding reverts every color added since
+    # the last Settings save.
+    from pipeline.identity import write_snapshot
+
+    write_snapshot(session)
     mark_render_inputs_changed(script_id)
     logger.info(
         "[VISUAL_CANVAS] script=%s old=%s new=%s",

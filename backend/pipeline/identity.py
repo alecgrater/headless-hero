@@ -16,6 +16,9 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import tempfile
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -31,6 +34,9 @@ from models.style_preset_character import StylePresetCharacter
 logger = logging.getLogger(__name__)
 
 SNAPSHOT_VERSION = 1
+
+# Serializes snapshot writes; preset generation writes from a background thread.
+_WRITE_LOCK = threading.Lock()
 
 
 def identity_path() -> Path:
@@ -182,6 +188,11 @@ def write_snapshot(session: Session | None = None) -> None:
     Best-effort: an identity mutation must not fail because the snapshot could
     not be written. Never call this from startup seeding — a partially seeded
     database would overwrite a good snapshot.
+
+    Serialized, because preset generation calls this from a background thread
+    while request threads can be writing too. Two unsynchronized writers
+    sharing one temp path could interleave and publish a corrupt file into a
+    tracked, public artifact.
     """
     try:
         if session is not None:
@@ -194,9 +205,20 @@ def write_snapshot(session: Session | None = None) -> None:
 
         path = identity_path()
         path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_suffix(".json.tmp")
-        tmp.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-        tmp.replace(path)
+        body = json.dumps(payload, indent=2) + "\n"
+
+        with _WRITE_LOCK:
+            # A unique temp name so a crashed writer can't leave a file the
+            # next one appends into.
+            fd, tmp_name = tempfile.mkstemp(dir=path.parent, suffix=".json.tmp")
+            tmp = Path(tmp_name)
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                    handle.write(body)
+                tmp.replace(path)
+            except BaseException:
+                tmp.unlink(missing_ok=True)
+                raise
         logger.debug("Wrote identity snapshot to %s", path)
     except Exception:
         logger.warning("Failed to write identity snapshot", exc_info=True)
@@ -294,14 +316,13 @@ def seed_from_snapshot(session: Session) -> None:
     if isinstance(brand_entry, dict):
         brand = session.exec(select(BrandProfile)).first()
         if brand is not None:
-            brand.name = brand_entry.get("name", brand.name)
-            brand.voice_id = brand_entry.get("voice_id", brand.voice_id)
-            brand.youtube_channel_id = brand_entry.get(
-                "youtube_channel_id", brand.youtube_channel_id
-            )
-            brand.eli_position_json = brand_entry.get(
-                "eli_position_json", brand.eli_position_json
-            )
+            # Empty values are skipped rather than applied: a snapshot taken
+            # before a field was filled in would otherwise blank the name
+            # ensure_default_brand() just created on a fresh clone.
+            for field in ("name", "voice_id", "youtube_channel_id", "eli_position_json"):
+                value = brand_entry.get(field)
+                if isinstance(value, str) and value:
+                    setattr(brand, field, value)
             session.add(brand)
 
     seeded_settings = 0

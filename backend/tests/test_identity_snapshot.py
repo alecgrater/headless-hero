@@ -253,6 +253,56 @@ def test_snapshot_rejects_a_smuggled_secret(identity_engine, tmp_path) -> None:
         assert session.get(AppSetting, "ANTHROPIC_API_KEY") is None
 
 
+def test_empty_brand_fields_do_not_blank_local_values(identity_engine, tmp_path) -> None:
+    """A snapshot taken before a field was filled must not wipe it on a clone."""
+    import json
+
+    (tmp_path / "identity.json").write_text(
+        json.dumps(
+            {
+                "version": identity.SNAPSHOT_VERSION,
+                "style_presets": [],
+                "style_preset_characters": [],
+                "brand_profile": {"name": "", "voice_id": "voice-abc"},
+                "settings": {},
+            }
+        ),
+        encoding="utf-8",
+    )
+    with Session(identity_engine) as session:
+        session.add(BrandProfile(name="Headless Hero"))
+        session.commit()
+
+        identity.seed_from_snapshot(session)
+
+        brand = session.exec(select(BrandProfile)).first()
+        assert brand.name == "Headless Hero"
+        assert brand.voice_id == "voice-abc"
+
+
+# --- The artifact that actually ships ---
+
+def test_committed_snapshot_carries_no_unexportable_setting() -> None:
+    """Guard the real data/identity.json, not just the function that writes it.
+
+    Every other allowlist test exercises is_exportable_setting in isolation; a
+    hand-edit or a future write_snapshot regression could still publish a
+    credential to a public repo with all of them green.
+    """
+    import json
+    from pathlib import Path
+
+    committed = Path(__file__).resolve().parents[2] / "data" / "identity.json"
+    if not committed.exists():
+        pytest.skip("no committed identity snapshot in this checkout")
+
+    payload = json.loads(committed.read_text(encoding="utf-8"))
+    assert payload["version"] == identity.SNAPSHOT_VERSION
+
+    leaked = [k for k in payload.get("settings", {}) if not identity.is_exportable_setting(k)]
+    assert not leaked, f"committed snapshot exports keys it must not: {leaked}"
+
+
 # --- Degraded input ---
 
 def test_missing_snapshot_is_a_no_op(identity_engine) -> None:

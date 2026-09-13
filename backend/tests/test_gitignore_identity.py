@@ -7,7 +7,7 @@ negations; these assertions fail loudly if an edit re-opens that hole.
 """
 
 import subprocess
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import pytest
 
@@ -15,6 +15,9 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 MUST_BE_IGNORED = [
     "data/db.sqlite",
+    "data/db.sqlite-wal",
+    "data/db.sqlite-shm",
+    "data/identity.json.tmp",
     "data/projects/abc-123/renders/full_youtube.mp4",
     "data/projects/abc-123/images/scene1.png",
     "data/projects/abc-123/audio/scene1.mp3",
@@ -22,6 +25,7 @@ MUST_BE_IGNORED = [
     "data/character/.DS_Store",
     "data/voices/sample.mp3",
     "data/brands/brand.json",
+    "data/style/presets/preset-id/characters/debug_char-id.cutout_blink.png",
 ]
 
 MUST_BE_TRACKED = [
@@ -59,3 +63,27 @@ def test_runtime_scratch_is_ignored(path: str) -> None:
 @pytest.mark.parametrize("path", MUST_BE_TRACKED)
 def test_identity_assets_are_tracked(path: str) -> None:
     assert not _is_ignored(path), f"{path} is ignored — it must travel with the repo"
+
+
+def test_no_sensitive_file_is_actually_tracked() -> None:
+    """git check-ignore says nothing about a file already in the index.
+
+    A `git add -f data/db.sqlite` would leave every assertion above green while
+    publishing 14 plaintext credentials, so assert against the index directly.
+    """
+    tracked = subprocess.run(
+        ["git", "ls-files", "--", "data/"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.split()
+
+    forbidden = [
+        name
+        for name in tracked
+        if PurePosixPath(name).name.startswith("db.sqlite")
+        or PurePosixPath(name).match("*.env")
+        or PurePosixPath(name).suffix in {".mp4", ".mp3", ".wav", ".mov"}
+    ]
+    assert not forbidden, f"sensitive or generated files are tracked under data/: {forbidden}"
