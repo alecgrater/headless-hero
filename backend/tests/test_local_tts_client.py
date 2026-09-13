@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from integrations import local_tts_client
+from integrations.local_models import REGISTRY
 
 
 @pytest.fixture
@@ -42,7 +43,7 @@ def test_request_carries_the_active_voice_model(stub_backend, monkeypatch):
         lambda **kwargs: captured.update(kwargs) or b"RIFFFAKEWAVDATA",
     )
     local_tts_client.generate_speech(text="hi", voice_id="af_heart")
-    assert captured["model"] == "hexgrad/Kokoro-82M"
+    assert captured["model"] == REGISTRY["kokoro-82m"].weights
     assert captured["voice"] == "af_heart"
     assert captured["text"] == "hi"
 

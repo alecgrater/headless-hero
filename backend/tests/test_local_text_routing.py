@@ -1,4 +1,7 @@
 from integrations import llm_client
+from integrations.local_models import REGISTRY
+
+TEXT_WEIGHTS = REGISTRY["qwen3.8-27b"].weights
 
 
 def _local(monkeypatch):
@@ -31,27 +34,27 @@ def test_text_pinned_cloud_overrides_master_switch(monkeypatch):
 def test_narrative_task_uses_local_text_model(monkeypatch):
     _local(monkeypatch)
     monkeypatch.setenv("LOCAL_TEXT_MODEL", "qwen3.8-27b")
-    assert llm_client._resolve_model("ollama", "script", None) == "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M"
+    assert llm_client._resolve_model("ollama", "script", None) == TEXT_WEIGHTS
 
 
 def test_minimal_effort_task_uses_fast_model_when_set(monkeypatch):
     _local(monkeypatch)
     monkeypatch.setenv("LOCAL_TEXT_FAST_MODEL", "qwen3.8-27b")
     # "fx" is declared with openai_reasoning_effort="minimal"
-    assert llm_client._resolve_model("ollama", "fx", None) == "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M"
+    assert llm_client._resolve_model("ollama", "fx", None) == TEXT_WEIGHTS
 
 
 def test_local_mode_ignores_stale_cloud_model_setting(monkeypatch):
     _local(monkeypatch)
     monkeypatch.setenv("SCRIPT_MODEL", "claude-opus-4-7")
     resolved = llm_client._resolve_model("ollama", "script", None)
-    assert resolved.startswith("hf.co/")
+    assert resolved == TEXT_WEIGHTS
 
 
 def test_local_mode_ignores_explicit_cloud_model_argument(monkeypatch):
     _local(monkeypatch)
     resolved = llm_client._resolve_model("ollama", "script", "claude-opus-4-7")
-    assert resolved.startswith("hf.co/")
+    assert resolved == TEXT_WEIGHTS
 
 
 def test_explicit_model_argument_still_wins_outside_local_mode(monkeypatch):
@@ -63,4 +66,4 @@ def test_explicit_model_argument_still_wins_outside_local_mode(monkeypatch):
 def test_fast_tier_ignores_a_wrong_modality_id(monkeypatch):
     _local(monkeypatch)
     monkeypatch.setenv("LOCAL_TEXT_FAST_MODEL", "kokoro-82m")
-    assert llm_client._resolve_model("ollama", "fx", None) == "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M"
+    assert llm_client._resolve_model("ollama", "fx", None) == TEXT_WEIGHTS

@@ -255,6 +255,24 @@ if command -v ollama > /dev/null 2>&1 && ! curl -s --connect-timeout 2 --max-tim
     done
 fi
 
+# The ComfyUI and mlx-audio daemons back Local Models Mode. They are optional in
+# exactly the same way ollama is: started fire-and-forget after the dev stack,
+# never waited on, and never fatal. The app surfaces its own actionable error if
+# a modality is set to local while its daemon is down, so a failure here must not
+# block the window or the launcher's exit.
+LOCAL_ROOT="${HEADLESS_HERO_LOCAL_ROOT:-$HOME/.headless-hero-local}"
+COMFY_DIR="$LOCAL_ROOT/ComfyUI"
+
+if [ -d "$COMFY_DIR/.venv" ] && ! curl -s --connect-timeout 2 --max-time 3 http://127.0.0.1:8188/system_stats > /dev/null 2>&1; then
+    ( cd "$COMFY_DIR" && ./.venv/bin/python main.py --port 8188 > /tmp/headless-hero-comfyui.log 2>&1 ) &
+    echo "Started ComfyUI (local image models)."
+fi
+
+if command -v mlx_audio.server > /dev/null 2>&1 && ! curl -s --connect-timeout 2 --max-time 3 http://127.0.0.1:8770/v1/models > /dev/null 2>&1; then
+    mlx_audio.server --host 127.0.0.1 --port 8770 > /tmp/headless-hero-mlx-audio.log 2>&1 &
+    echo "Started mlx-audio (local voice models)."
+fi
+
 # Records that the backend came up. A start that hangs (bound but unresponsive,
 # uv blocked on a lock) never dies on its own, so the watchdog reports that case
 # itself; a start that crashes is reported by the parent after wait, which can't
