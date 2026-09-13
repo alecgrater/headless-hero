@@ -1,12 +1,20 @@
 """Script generation pipeline — uses the routed LLM provider to write segmented video scripts."""
 
+import hashlib
 import json
 import logging
 import re
 import time
 from collections.abc import Callable
+from pathlib import Path
 
-from config import DEFAULT_ACCENT_COLOR, SEGMENT_COUNT, parse_json_array_response, strip_markdown_fences
+from config import (
+    DATA_DIR,
+    DEFAULT_ACCENT_COLOR,
+    SEGMENT_COUNT,
+    parse_json_array_response,
+    strip_markdown_fences,
+)
 from integrations.llm_client import chat
 from models.script import LevelMeta, MainCharacter, Scene, ScriptContent, Segment
 from pipeline.visual_mode_policy import (
@@ -890,6 +898,65 @@ _SEGMENT_SCENES_INSTRUCTIONS = SCRIPT_SEGMENT_SCENES_INSTRUCTIONS.template
 
 _OUTLINE_MAX_TOKENS = 8192
 
+# Attempts per segment scene call, including the first.
+_SEGMENT_PARSE_ATTEMPTS = 2
+
+# Where a partly-generated script parks between attempts. Keyed by the prompt
+# rather than by script_id, because a retry from the UI mints a fresh script_id
+# and would otherwise never match its own previous attempt.
+_PROGRESS_DIR = DATA_DIR / "script-progress"
+
+
+def _progress_key(system_prompt: str, user_message: str) -> str:
+    digest = hashlib.sha256(f"{system_prompt}\n\n{user_message}".encode("utf-8"))
+    return digest.hexdigest()[:16]
+
+
+def _progress_path(key: str) -> Path:
+    return _PROGRESS_DIR / f"{key}.json"
+
+
+def _load_progress(key: str) -> dict:
+    """Outline + completed segments from a previous attempt, or {}.
+
+    Best effort throughout: a resume is an optimisation, and a corrupt or
+    unreadable cache must never be the reason a script cannot be generated.
+    """
+    try:
+        path = _progress_path(key)
+        if not path.exists():
+            return {}
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(data, dict) or not isinstance(data.get("outline"), dict):
+            return {}
+        segments = data.get("segments")
+        if not isinstance(segments, list):
+            return {}
+        return data
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("SEGMENTED: Could not read script progress cache (%s); starting fresh", exc)
+        return {}
+
+
+def _save_progress(key: str, outline: dict, completed: list[list[dict]]) -> None:
+    """Record the outline and every segment generated so far. Never raises."""
+    try:
+        _PROGRESS_DIR.mkdir(parents=True, exist_ok=True)
+        _progress_path(key).write_text(
+            json.dumps({"outline": outline, "segments": completed}),
+            encoding="utf-8",
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("SEGMENTED: Could not write script progress cache (%s); continuing", exc)
+
+
+def _clear_progress(key: str) -> None:
+    """Drop the cache once a script has been assembled. Never raises."""
+    try:
+        _progress_path(key).unlink(missing_ok=True)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("SEGMENTED: Could not clear script progress cache (%s)", exc)
+
 
 def _visual_opportunity_summary(outline: dict) -> dict[str, int]:
     counts: dict[str, int] = {}
@@ -1038,42 +1105,68 @@ def _generate_segment_scenes(
         level_label=level_label,
     )
 
-    raw = chat(
-        system_prompt,
-        user_msg,
-        model=model,
-        max_tokens=32768,
-        timeout=300.0,
-        json_mode=True,
-        task="script",
-        script_id=script_id,
-        cache=True,
-    )
-    text = strip_markdown_fences(raw)
-
-    try:
-        scenes_data = parse_json_array_response(text, key="scenes")
-    except (json.JSONDecodeError, ValueError) as e:
-        # Best-effort shape sniff so the dev dashboard log shows the actual JSON
-        # structure the model returned (helps diagnose new dict-wrapping variants).
-        shape_hint = "unparseable"
-        try:
-            preview = json.loads(strip_markdown_fences(text))
-            if isinstance(preview, dict):
-                shape_hint = f"dict keys={list(preview.keys())[:20]}"
-            else:
-                shape_hint = f"{type(preview).__name__}"
-        except Exception:
-            pass
-        logger.error(
-            "SEGMENTED: Segment %d/%d (%r) response failed to parse — %d chars, shape=%s\n"
-            "FULL RESPONSE:\n%s",
-            segment_index + 1, total, seg_name, len(text), shape_hint, text,
+    # One retry. A segment call is one of nine sequential calls, and on a local
+    # model each costs ~11 minutes, so a single empty or malformed response used
+    # to throw away the whole run — a failure rate that is harmless against a
+    # three-second cloud call is close to fatal here. Regenerating one segment
+    # costs one segment.
+    scenes_data = None
+    last_error: Exception | None = None
+    for attempt in range(1, _SEGMENT_PARSE_ATTEMPTS + 1):
+        raw = chat(
+            system_prompt,
+            user_msg,
+            model=model,
+            max_tokens=32768,
+            timeout=300.0,
+            json_mode=True,
+            task="script",
+            script_id=script_id,
+            cache=True,
         )
+        text = strip_markdown_fences(raw)
+
+        if not text.strip():
+            # Seen on a local Qwen3 call that returned 200 with a non-empty slot:
+            # everything it produced was stripped as a reasoning block, leaving
+            # nothing for the parser. Treat it as a retryable empty response
+            # rather than a JSON error, because the message is different.
+            last_error = RuntimeError("model returned an empty response")
+            logger.warning(
+                "SEGMENTED: Segment %d/%d (%r) returned an empty response (attempt %d/%d)",
+                segment_index + 1, total, seg_name, attempt, _SEGMENT_PARSE_ATTEMPTS,
+            )
+            continue
+
+        try:
+            scenes_data = parse_json_array_response(text, key="scenes")
+            break
+        except (json.JSONDecodeError, ValueError) as e:
+            last_error = e
+            # Best-effort shape sniff so the dev dashboard log shows the actual JSON
+            # structure the model returned (helps diagnose new dict-wrapping variants).
+            shape_hint = "unparseable"
+            try:
+                preview = json.loads(strip_markdown_fences(text))
+                if isinstance(preview, dict):
+                    shape_hint = f"dict keys={list(preview.keys())[:20]}"
+                else:
+                    shape_hint = f"{type(preview).__name__}"
+            except Exception:
+                pass
+            logger.error(
+                "SEGMENTED: Segment %d/%d (%r) response failed to parse on attempt %d/%d — "
+                "%d chars, shape=%s\nFULL RESPONSE:\n%s",
+                segment_index + 1, total, seg_name, attempt, _SEGMENT_PARSE_ATTEMPTS,
+                len(text), shape_hint, text,
+            )
+
+    if scenes_data is None:
         raise RuntimeError(
             f"SEGMENTED: Segment {segment_index + 1}/{total} (\"{seg_name}\") "
-            f"response could not be parsed (likely truncated or malformed): {e}"
-        ) from e
+            f"response could not be parsed after {_SEGMENT_PARSE_ATTEMPTS} attempts "
+            f"(likely truncated or malformed): {last_error}"
+        ) from last_error
 
     # Some models return segment-shaped wrappers ({"name": "...", "scenes": [...]})
     # instead of a flat scene array, despite explicit prompting. Flatten by extracting
@@ -1130,11 +1223,26 @@ def _generate_segmented(
     if not eli_enabled:
         outline_instructions = outline_instructions + build_outline_main_character_addendum()
 
-    # Phase 1: outline
-    outline = _generate_outline(
-        system_prompt, user_message, model, script_id,
-        outline_instructions=outline_instructions,
-    )
+    # Phase 1: outline — reused from a previous attempt when one is parked, so a
+    # failure part-way through phase 2 costs the remaining segments rather than
+    # the whole run. On a local model that is the difference between losing ~11
+    # minutes and losing over an hour.
+    progress_key = _progress_key(system_prompt, user_message)
+    progress = _load_progress(progress_key)
+    resumed_segments: list[list[dict]] = []
+    if progress:
+        outline = progress["outline"]
+        resumed_segments = [seg for seg in progress["segments"] if isinstance(seg, list)]
+        logger.info(
+            "SEGMENTED: Resuming a previous attempt — outline reused, %d/%d segments already generated",
+            len(resumed_segments), len(outline.get("segments", [])),
+        )
+    else:
+        outline = _generate_outline(
+            system_prompt, user_message, model, script_id,
+            outline_instructions=outline_instructions,
+        )
+        _save_progress(progress_key, outline, [])
     planned_opportunities = _visual_opportunity_summary(outline)
     if planned_opportunities:
         logger.info("SEGMENTED: Planned visual opportunities by mode: %s", planned_opportunities)
@@ -1150,26 +1258,51 @@ def _generate_segmented(
         seg_name = seg_outline.get("name", f"{section_title} {i + 1}")
         if progress_callback:
             progress_callback(i + 1, len(outline["segments"]), seg_name)
-        try:
-            first_level_opening = ""
-            if i == 0 and cold_open_text:
-                first_level_opening = (
-                    "MANDATORY LONG-FORM OPENING — begin this first segment's non-title "
-                    "content scenes with this exact selected opening. These opening scenes "
-                    "are for the long-form video and may be skipped from short #1:\n\n"
-                    f"{cold_open_text}\n\n"
-                )
 
-            scenes = _generate_segment_scenes(
-                system_prompt,
-                outline,
-                i,
-                model,
-                first_level_opening + trailing_context,
-                script_id=script_id,
-                segment_scenes_instructions=segment_scenes_instructions,
-                level_label=section_label,
-            )
+        if i < len(resumed_segments):
+            try:
+                scenes = [Scene.model_validate(sc) for sc in resumed_segments[i]]
+                logger.info(
+                    "SEGMENTED: Reusing %s %d/%d (%r) from the previous attempt",
+                    section_label, i + 1, len(outline["segments"]), seg_name,
+                )
+            except Exception as exc:  # noqa: BLE001
+                # A cached segment that no longer validates is not worth failing
+                # over — drop the rest of the cache and regenerate from here.
+                logger.warning(
+                    "SEGMENTED: Cached %s %d could not be restored (%s); regenerating",
+                    section_label, i + 1, exc,
+                )
+                resumed_segments = resumed_segments[:i]
+                scenes = None
+        else:
+            scenes = None
+
+        try:
+            if scenes is None:
+                first_level_opening = ""
+                if i == 0 and cold_open_text:
+                    first_level_opening = (
+                        "MANDATORY LONG-FORM OPENING — begin this first segment's non-title "
+                        "content scenes with this exact selected opening. These opening scenes "
+                        "are for the long-form video and may be skipped from short #1:\n\n"
+                        f"{cold_open_text}\n\n"
+                    )
+
+                scenes = _generate_segment_scenes(
+                    system_prompt,
+                    outline,
+                    i,
+                    model,
+                    first_level_opening + trailing_context,
+                    script_id=script_id,
+                    segment_scenes_instructions=segment_scenes_instructions,
+                    level_label=section_label,
+                )
+                # Park it before the next call, so the next failure costs one
+                # segment instead of every segment generated so far.
+                resumed_segments = resumed_segments[:i] + [[sc.model_dump(mode="json") for sc in scenes]]
+                _save_progress(progress_key, outline, resumed_segments)
         except Exception as e:
             seg_name = seg_outline.get("name", f"Segment {i + 1}")
             logger.exception(
@@ -1236,6 +1369,8 @@ def _generate_segmented(
         levels=levels,
         main_character=main_character,
     )
+
+    _clear_progress(progress_key)
 
     total_elapsed = time.monotonic() - total_t0
     total_scenes = sum(len(s.scenes) for s in segments)

@@ -52,11 +52,17 @@ candidates, not distinguished here:
 * `response_format: json_object` produced content the OpenAI-compatible shim
   returned as an empty `message.content`.
 
-Either way the failure is **unhandled**: `_generate_segment_scenes` raises and
-the whole 65-minute run is lost, with no retry and no partial save. Four
-segments' work was thrown away. Worth fixing before local text is offered as a
-supported path — a one-shot retry on an empty response would have cost ~11 more
-minutes instead of everything.
+At the time of the run this was **unhandled**: `_generate_segment_scenes`
+raised and the whole 65-minute run was lost, with no retry and no partial save.
+Four segments' work was thrown away.
+
+**Fixed since.** A segment call now retries once, and `_generate_segmented`
+parks the outline and every completed segment under `data/script-progress/`
+keyed by the prompt, so a re-run picks up where it stopped instead of
+regenerating from the outline. This exact failure would now have cost ~11 extra
+minutes rather than everything. Covered by
+`backend/tests/test_script_segment_resume.py`. **The full run has not been
+re-attempted since that fix** — that is the next step.
 
 ## Stage 1 — script (measured, aborted)
 
@@ -119,11 +125,11 @@ minutes to a single unparseable segment with no retry.
 
 Three things follow, and the first is not about model choice at all:
 
-**0. A segment that comes back empty must not cost the whole script.** Nine
-sequential calls at ~11 minutes each means a per-call failure probability that
-would be negligible against a 3-second cloud call is close to fatal here. One
-retry on an empty/unparseable response, and persisting completed segments so a
-resume is possible, are worth more than any speedup below.
+**0. A segment that comes back empty must not cost the whole script — done.**
+Nine sequential calls at ~11 minutes each means a per-call failure probability
+that would be negligible against a 3-second cloud call is close to fatal here.
+The retry and the resumable progress cache are now in place; this was the
+blocker to attempting a full local run at all.
 
 Two levers, in the order they should be tried:
 
