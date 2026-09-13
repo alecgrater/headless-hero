@@ -380,3 +380,24 @@ def test_an_invalid_scene_shape_is_retried(isolated_progress, monkeypatch):
 
     assert len(calls) == 2
     assert content.segments[0].scenes[0].narration == "recovered"
+
+
+def test_an_outline_that_only_fails_at_assembly_is_never_parked(isolated_progress, monkeypatch):
+    """A malformed `levels` block dies at assembly, not in phase 2 — parking it
+    would replay the same doomed outline on every retry for a day."""
+    outline = _outline(1)
+    outline["levels"] = [{"number": "not-an-int"}]
+    outline_calls: list[int] = []
+
+    def fake_outline(*args, **kwargs):
+        outline_calls.append(1)
+        return outline
+
+    monkeypatch.setattr(scriptwriter, "_generate_outline", fake_outline)
+    monkeypatch.setattr(scriptwriter, "chat", lambda system, user, **kw: _scene_json("x"))
+
+    for _ in range(2):
+        with pytest.raises(Exception):
+            scriptwriter._generate_segmented("sys", "user", "topic", "", "", None)
+
+    assert outline_calls == [1, 1], "the unassemblable outline must not be replayed from cache"

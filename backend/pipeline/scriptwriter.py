@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import re
+import threading
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -946,12 +947,27 @@ def _progress_path(key: str) -> Path:
 
 
 def _is_usable_outline(outline: object) -> bool:
-    """True when an outline has the one thing phase 2 requires: segments."""
-    return (
-        isinstance(outline, dict)
-        and isinstance(outline.get("segments"), list)
-        and bool(outline["segments"])
-    )
+    """True when an outline can carry a run all the way to assembly.
+
+    Checked on both the write and the read side. It validates the optional
+    `levels` and `main_character` blocks as well as `segments`, because parking
+    an outline that only fails at assembly is the same trap: the run dies, and
+    every retry for the next day replays the same file and dies identically.
+    """
+    if not isinstance(outline, dict):
+        return False
+    if not isinstance(outline.get("segments"), list) or not outline["segments"]:
+        return False
+    try:
+        for level in outline.get("levels") or []:
+            LevelMeta.model_validate(level)
+        raw_character = outline.get("main_character")
+        if raw_character and isinstance(raw_character, dict):
+            MainCharacter.model_validate(raw_character)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("SEGMENTED: Outline is not assemblable (%s)", exc)
+        return False
+    return True
 
 
 def _load_progress(key: str) -> dict:
@@ -1003,7 +1019,7 @@ def _save_progress(key: str, outline: dict, completed: list[list[dict]]) -> None
         # Atomic: a run killed mid-write (likely, on an hour-long generation)
         # must not leave a half-file where the resume used to be.
         path = _progress_path(key)
-        tmp = path.with_suffix(f".{os.getpid()}.json.tmp")
+        tmp = path.with_suffix(f".{os.getpid()}-{threading.get_ident()}.json.tmp")
         tmp.write_text(payload, encoding="utf-8")
         os.replace(tmp, path)
         _prune_progress()
@@ -1273,9 +1289,11 @@ def _generate_segment_scenes(
             last_error = e
             # Best-effort shape sniff so the dev dashboard log shows the actual JSON
             # structure the model returned (helps diagnose new dict-wrapping variants).
+            # This arm now also catches scene validation, where the body parsed
+            # fine — hence "unusable" rather than "failed to parse".
             shape_hint = "unparseable"
             try:
-                preview = json.loads(strip_markdown_fences(text))
+                preview = json.loads(text)
                 if isinstance(preview, dict):
                     shape_hint = f"dict keys={list(preview.keys())[:20]}"
                 else:
@@ -1283,10 +1301,10 @@ def _generate_segment_scenes(
             except Exception:
                 pass
             logger.error(
-                "SEGMENTED: Segment %d/%d (%r) response failed to parse on attempt %d/%d — "
-                "%d chars, shape=%s\nFULL RESPONSE:\n%s",
+                "SEGMENTED: Segment %d/%d (%r) response unusable on attempt %d/%d — "
+                "%d chars, shape=%s, error=%s\nFULL RESPONSE:\n%s",
                 segment_index + 1, total, seg_name, attempt, _SEGMENT_PARSE_ATTEMPTS,
-                len(text), shape_hint, text,
+                len(text), shape_hint, e, text,
             )
 
     if scenes is None:
