@@ -111,6 +111,12 @@ export default function LocalModelsDocSection() {
             Switching a modality between cloud and local invalidates that modality's cached assets,
             so a “local” video never reuses cloud-generated images or a cloud narrator.
           </li>
+          <li>
+            Image cache markers now record the engine that made each file, so a project created
+            before Local Models shipped misses its image cache once. Its first export re-renders
+            scene images with whichever provider is active — on the cloud path that is a real
+            Gemini bill. After that one pass it caches normally again.
+          </li>
         </ul>
       </div>
     </div>

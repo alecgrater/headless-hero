@@ -52,6 +52,27 @@ def reset_for_testing() -> None:
         _OCCUPANT = None
 
 
+def env_timeout(name: str, default: float) -> float:
+    """Read a per-call timeout from the environment, tolerating junk.
+
+    A bare `float(os.environ[...])` raises on an empty or malformed value and
+    aborts the generation it was only meant to bound — a setting typo should
+    not be the reason an image or a voiceover fails.
+    """
+    raw = (os.environ.get(name, "") or "").strip()
+    if not raw:
+        return default
+    try:
+        value = float(raw)
+    except ValueError:
+        logger.warning("Invalid %s=%r; using %.0fs", name, raw, default)
+        return default
+    if value <= 0:
+        logger.warning("Non-positive %s=%r; using %.0fs", name, raw, default)
+        return default
+    return value
+
+
 def daemon_url(backend: str) -> str:
     daemon = DAEMONS[backend]
     return (os.environ.get(daemon.url_env_key, "") or daemon.default_url).rstrip("/")

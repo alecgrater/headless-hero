@@ -18,7 +18,7 @@ import httpx
 from integrations.local_models import active_model, local_voice_id
 from integrations.usage_tracker import record_usage
 from pipeline.audio_alignment import align_audio
-from pipeline.local_runtime import daemon_url, ensure_daemon, hold
+from pipeline.local_runtime import daemon_url, ensure_daemon, env_timeout, hold
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +92,7 @@ def generate_speech(
     # local voice comes from LOCAL_VOICE_ID or the model's default.
     local_voice = local_voice_id()
     speed = float((voice_settings or {}).get("speed", 1.0))
-    timeout = float(os.environ.get("LOCAL_TTS_TIMEOUT_SECONDS", DEFAULT_TIMEOUT_SECONDS))
+    timeout = env_timeout("LOCAL_TTS_TIMEOUT_SECONDS", DEFAULT_TIMEOUT_SECONDS)
 
     if voice_id and voice_id != local_voice:
         logger.debug(

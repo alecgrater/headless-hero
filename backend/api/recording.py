@@ -306,6 +306,10 @@ def align_take(req: AlignTakeRequest, db: Session = Depends(get_session)):
             audio_duration_seconds=duration,
             word_timestamps=word_timestamps,
             phrase_timestamps=phrase_timestamps,
+            # A human-recorded take has no TTS engine. Left unset it would keep
+            # whichever engine voiced the scene before, and seo.apply_voice_
+            # attribution would credit a model that produced none of this audio.
+            voice_engine="",
         )
 
     return AlignTakeResponse(
@@ -435,6 +439,10 @@ def export_recording(script_id: str, db: Session = Depends(get_session)):
             audio_duration_seconds=duration,
             word_timestamps=word_timestamps,
             phrase_timestamps=phrase_timestamps,
+            # A human-recorded take has no TTS engine. Left unset it would keep
+            # whichever engine voiced the scene before, and seo.apply_voice_
+            # attribution would credit a model that produced none of this audio.
+            voice_engine="",
         )
 
         scenes_exported += 1

@@ -19,13 +19,14 @@ import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import urlparse
 
 import httpx
 
 from config import IMAGE_HEIGHT, IMAGE_WIDTH
 from integrations.local_models import active_model
 from integrations.usage_tracker import record_usage
-from pipeline.local_runtime import daemon_url, ensure_daemon, hold
+from pipeline.local_runtime import daemon_url, ensure_daemon, env_timeout, hold
 
 logger = logging.getLogger(__name__)
 
@@ -182,6 +183,38 @@ def _substitute(
     return graph
 
 
+def _discard_comfy_output(image: dict) -> None:
+    """Delete the PNG ComfyUI saved for us, once we have the bytes.
+
+    Every workflow ends in SaveImage, so without this each generated image is
+    also kept forever under ComfyUI's own output directory — around a gigabyte
+    per few dozen videos, growing without bound and never read again.
+
+    Best effort and never raises: it is a cleanup, not part of generation. Only
+    attempted for a loopback daemon whose directory we can actually resolve,
+    and only for a path that stays inside it.
+    """
+    try:
+        host = urlparse(daemon_url("comfyui")).hostname or ""
+        if host not in {"127.0.0.1", "localhost", "::1"}:
+            return
+        if (image.get("type") or "output") != "output":
+            return
+        local_root = Path(
+            os.environ.get("HEADLESS_HERO_LOCAL_ROOT", "") or (Path.home() / ".headless-hero-local")
+        )
+        output_dir = (local_root / "ComfyUI" / "output").resolve()
+        if not output_dir.is_dir():
+            return
+        target = (output_dir / (image.get("subfolder") or "") / image["filename"]).resolve()
+        # The filename comes from the daemon, so confirm it did not walk out.
+        if output_dir not in target.parents:
+            return
+        target.unlink(missing_ok=True)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("Could not remove the ComfyUI output copy (%s); continuing", exc)
+
+
 def _await_image(prompt_id: str, timeout_seconds: float) -> bytes:
     """Poll ComfyUI history until the prompt completes, then fetch the PNG.
 
@@ -217,6 +250,7 @@ def _await_image(prompt_id: str, timeout_seconds: float) -> bytes:
                         f"&type={image.get('type', 'output')}"
                     )
                     fetched.raise_for_status()
+                    _discard_comfy_output(image)
                     return fetched.content
         if time.monotonic() >= deadline:
             raise RuntimeError(
@@ -239,7 +273,7 @@ def transform_with_references(
     ensure_daemon("comfyui")
     model = active_model("image")
     spec = _workflow_spec(model.id)
-    timeout_seconds = float(os.environ.get("LOCAL_IMAGE_TIMEOUT_SECONDS", DEFAULT_TIMEOUT_SECONDS))
+    timeout_seconds = env_timeout("LOCAL_IMAGE_TIMEOUT_SECONDS", DEFAULT_TIMEOUT_SECONDS)
 
     with hold("image"):
         reference_names = [_upload_image(path) for path in image_paths]

@@ -53,11 +53,19 @@ cd frontend && npm run build
 
 Never use `python`, `python3`, `pip`, or `pip3` directly. Use `uv`:
 - `uv run python script.py` — run scripts
-- `uv run --project backend pytest` — backend tests from repo root
-- `cd backend && uv run pytest` — backend tests from inside `backend/`
+- `npm run test:backend` — backend tests (wraps `uv run --frozen --project backend pytest`)
+- `cd backend && uv run --frozen pytest` — backend tests from inside `backend/`
 - `uv pip install pkg` / `uv add pkg` / `uv sync` / `uv venv`
 
 Do not run `uv run pytest` from repo root (the project and pytest live in `backend/`); `npm run test` is fine.
+
+**`--frozen` on every `uv run` that is not deliberately changing dependencies.** A bare
+`uv run` re-locks, and it locks against whatever index the *shell* points at — a machine
+with `UV_INDEX_URL` set to an internal mirror silently rewrites all 1281 entries in
+`backend/uv.lock` to hosts nobody else can resolve, as a side effect of running the tests.
+That has already been committed once. `uv add`/`uv lock` are the deliberate path; if you
+must relock on such a machine, unset `UV_INDEX_URL`/`UV_DEFAULT_INDEX` first and check the
+diff is dependency changes only.
 
 ## Architecture
 
@@ -117,7 +125,7 @@ Settings → AI & Generation → **Local Models** swaps cloud models for models 
 - **`image_client` is the only module allowed to name an image provider.** `thumbnail.py`, `main_character.py`, and `image_gen.py` all route through it; importing `google_image_client` directly in pipeline code reintroduces a path that silently stays on the cloud in Local Mode.
 - **Local model identity is part of the cache fingerprints.** `image_client.provider_fingerprint()` goes into image cache markers and `remotion_render.voice_engine_fingerprint()` into `subtitle_render_fingerprint`, so switching modes or models re-generates instead of reusing cloud assets inside a "local" video.
 - **A local voice is named, not picked from the ElevenLabs list.** Local engines have their own voice namespace, so `LOCAL_VOICE_ID` (Settings → Local Models → **Voice name**) selects one; empty means the active model's `default_voice`. The saved ElevenLabs voice is meaningless to them.
-- **Provisioning:** `scripts/install-local-models.sh` (idempotent, `--check` to verify, `--with-qwen-image` for the optional slow image model). Daemons: ollama `:11434`, ComfyUI `:8188`, mlx-audio `:8770`. The mac launcher starts the latter two fire-and-forget.
+- **Provisioning:** `scripts/install-local-models.sh` (idempotent, `--check` to verify the daemons *and* every weight file, `--with-qwen-image` for the optional slow image model). It never widens a proxy allowlist on its own — it prints the missing hosts and stops unless you pass `--allow-network-setup`. Daemons: ollama `:11434`, ComfyUI `:8188`, mlx-audio `:8770`. The mac launcher starts the latter two fire-and-forget.
 - **Measured performance and the reasoning behind the defaults live in `docs/local-models-benchmarks.md`.** Read it before changing a default model — the image default was chosen from a 24× measured difference, not preference.
 
 ## Brand Profile

@@ -126,6 +126,36 @@ def transform_with_references(
     return _transform(prompt, image_paths, script_id=script_id, **optional)
 
 
+def _dimensions_for_aspect_ratio(aspect_ratio: str) -> tuple[int, int]:
+    """Pixel size for one of the batch request's aspect ratios.
+
+    The cloud batch API takes a ratio string; ComfyUI takes pixels. Without
+    this the local branch silently rendered every batch request at the default
+    landscape size, so cloud and local produced different geometry for the same
+    request. Long edge is held at IMAGE_WIDTH so the sizes match the defaults.
+    """
+    long_edge = max(IMAGE_WIDTH, IMAGE_HEIGHT)
+    sizes = {
+        # 16:9 is the project's landscape default, so it maps to the configured
+        # size exactly rather than to a recomputed one — a default-sized request
+        # must render at the same pixels it always did.
+        "16:9": (IMAGE_WIDTH, IMAGE_HEIGHT),
+        "9:16": (IMAGE_HEIGHT, IMAGE_WIDTH),
+        "1:1": (long_edge, long_edge),
+        "4:3": (long_edge, int(long_edge * 3 / 4)),
+        "3:4": (int(long_edge * 3 / 4), long_edge),
+    }
+    dimensions = sizes.get(aspect_ratio)
+    if dimensions is None:
+        logger.warning(
+            "Unknown aspect ratio %r in a local batch request; using %dx%d",
+            aspect_ratio, IMAGE_WIDTH, IMAGE_HEIGHT,
+        )
+        return IMAGE_WIDTH, IMAGE_HEIGHT
+    # ComfyUI's latent nodes want multiples of 8.
+    return (dimensions[0] // 8) * 8, (dimensions[1] // 8) * 8
+
+
 def generate_images_batch(
     *,
     requests: list[GoogleBatchImageRequest],
@@ -158,10 +188,11 @@ def generate_images_batch(
     results: list[GoogleBatchImageResult] = []
     for request in requests:
         try:
+            width, height = _dimensions_for_aspect_ratio(request.aspect_ratio)
             path = _gen(
                 request.prompt,
-                width=IMAGE_WIDTH,
-                height=IMAGE_HEIGHT,
+                width=width,
+                height=height,
                 reference_image_path=request.reference_image_path,
                 style_reference_path=request.style_reference_path,
                 original_prompt=None,

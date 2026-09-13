@@ -1,17 +1,17 @@
 {
   "name": "headless-hero",
   "version": "0.1.0",
-  "description": "AI-powered video production pipeline for faceless YouTube channels — Headless Hero",
+  "description": "AI-powered video production pipeline for faceless YouTube channels \u2014 Headless Hero",
   "main": "electron/main.js",
   "scripts": {
     "dev": "concurrently --names backend,frontend,electron \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:electron\"",
     "dev:app": "concurrently --kill-others --names backend,frontend,electron \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:electron\"",
     "dev:frontend": "cd frontend && npm run dev",
-    "dev:backend": "cd backend && uv run uvicorn api.main:app --host 127.0.0.1 --port 8420 --reload",
+    "dev:backend": "cd backend && uv run --frozen uvicorn api.main:app --host 127.0.0.1 --port 8420 --reload",
     "dev:electron": "sleep 5 && electron .",
     "build:frontend": "cd frontend && npm run build",
     "test": "npm run test:backend --",
-    "test:backend": "uv run --project backend pytest",
+    "test:backend": "uv run --frozen --project backend pytest",
     "test:frontend": "cd frontend && npm run test",
     "start": "electron ."
   },

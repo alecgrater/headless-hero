@@ -238,8 +238,13 @@ DEV_PID=$!
 echo "Dev stack running (pid $DEV_PID)."
 
 # Ollama is optional and nothing blocks on it, so it starts after the dev stack
-# rather than delaying the window. Same OLLAMA_URL the backend reads.
+# rather than delaying the window. OLLAMA_URL is what the backend reads;
+# `ollama serve` binds OLLAMA_HOST, so derive one from the other or the launcher
+# would probe an address it never told the daemon to listen on.
 OLLAMA_URL="${OLLAMA_URL:-http://127.0.0.1:11434}"
+_ollama_hostport="${OLLAMA_URL#*://}"
+OLLAMA_HOST="${OLLAMA_HOST:-${_ollama_hostport%%/*}}"
+export OLLAMA_HOST
 if command -v ollama > /dev/null 2>&1 && ! curl -s --connect-timeout 2 --max-time 3 "$OLLAMA_URL/api/tags" > /dev/null 2>&1; then
     ollama serve > /tmp/ollama.log 2>&1 &
     OLLAMA_PID=$!
@@ -266,9 +271,10 @@ fi
 LOCAL_ROOT="${HEADLESS_HERO_LOCAL_ROOT:-$HOME/.headless-hero-local}"
 COMFY_DIR="$LOCAL_ROOT/ComfyUI"
 
-# Same URLs and defaults pipeline/local_runtime.py probes, so overriding a daemon's
-# address moves the launcher with the app instead of starting a daemon on one port
-# while the backend looks at another.
+# Same URLs and defaults pipeline/local_runtime.py probes. These read the *shell*
+# environment only: the matching Settings values live in SQLite and are loaded
+# into the backend's env at its own startup, which the launcher never sees. So
+# an override has to be exported here (or in the bundle) to move both.
 COMFY_URL="${LOCAL_COMFYUI_URL:-http://127.0.0.1:8188}"
 TTS_URL="${LOCAL_TTS_URL:-http://127.0.0.1:8770}"
 

@@ -116,6 +116,32 @@ time rather than overlapping:
 Local Mode is therefore viable end to end, with images dominating the cost — as
 expected, and now with a real number attached rather than an assumption.
 
+## One-time cost to projects that already exist
+
+The image cache marker (`<scene>.prompt`) now carries the engine that produced
+the file, as `<prompt>\n#engine:<provider>`. That is what makes a mode switch
+regenerate instead of quietly reusing a Gemini PNG inside a "local" video — but
+it also means **every project generated before this change misses its image
+cache once**. The first export or regeneration of an old project re-renders its
+scene images against whichever provider is active, which on the cloud path is a
+real Gemini bill.
+
+Nothing is lost: the existing PNGs stay on disk until they are overwritten, and
+a project regenerated once is cached normally from then on. Called out here
+rather than papered over with a migration, per the forward-only design bias.
+
+## Open question: Qwen-Image-Edit's negative encoder
+
+`_attach_references` wires reference images onto the positive
+`TextEncodeQwenImageEditPlus` only; the negative encoder (node 7) gets none,
+while the graph samples at `cfg: 2.5`, so the negative branch is live. The
+upstream ComfyUI Qwen-Image-Edit template feeds the same images to both.
+
+Unverified either way — the benchmarks above exercised references on klein
+only, and a Qwen reference run costs ~800 s. Check it the next time
+Qwen-Image-Edit is run with a character reference before changing the graph;
+klein is the default and does not use this code path.
+
 ## Corrections this benchmarking forced
 
 Three registry entries were wrong as originally specified, and were only caught

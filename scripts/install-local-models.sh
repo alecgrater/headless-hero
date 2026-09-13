@@ -16,15 +16,20 @@ set -euo pipefail
 
 LOCAL_ROOT="${HEADLESS_HERO_LOCAL_ROOT:-$HOME/.headless-hero-local}"
 COMFY_DIR="$LOCAL_ROOT/ComfyUI"
-ALLOWLIST="$HOME/.claude/apple/dangerous_allowed_domains.csv"
+# Only consulted when the file exists. Some corporate setups gate outbound hosts
+# behind a proxy allowlist; point this at yours, or ignore it entirely.
+ALLOWLIST="${HEADLESS_HERO_PROXY_ALLOWLIST:-$HOME/.claude/apple/dangerous_allowed_domains.csv}"
 
 CHECK_ONLY=0
 WITH_QWEN_IMAGE=0
+ALLOW_NETWORK_SETUP=0
 for arg in "$@"; do
   case "$arg" in
     --check) CHECK_ONLY=1 ;;
     --with-qwen-image) WITH_QWEN_IMAGE=1 ;;
-    *) echo "Unknown option: $arg"; echo "Usage: $0 [--check] [--with-qwen-image]"; exit 2 ;;
+    --allow-network-setup) ALLOW_NETWORK_SETUP=1 ;;
+    *) echo "Unknown option: $arg"
+       echo "Usage: $0 [--check] [--with-qwen-image] [--allow-network-setup]"; exit 2 ;;
   esac
 done
 
@@ -80,19 +85,30 @@ say "Checking the proxy domain allowlist"
 if [ ! -f "$ALLOWLIST" ]; then
   warn "no allowlist at $ALLOWLIST — assuming unrestricted network"
 else
+  UNLISTED=()
   for domain in "${REQUIRED_DOMAINS[@]}"; do
-    if grep -qE "^${domain}( |$|#)" "$ALLOWLIST"; then
-      continue
-    fi
-    if [ "$CHECK_ONLY" = "1" ]; then
-      fail "$domain is not allowlisted"
-      MISSING=1
-    else
+    grep -qE "^${domain}( |$|#)" "$ALLOWLIST" || UNLISTED+=("$domain")
+  done
+
+  if [ "${#UNLISTED[@]}" -eq 0 ]; then
+    ok "all required domains already allowlisted"
+  elif [ "$ALLOW_NETWORK_SETUP" = "1" ] && [ "$CHECK_ONLY" != "1" ]; then
+    for domain in "${UNLISTED[@]}"; do
       echo "${domain} # Added $(date +%Y-%m-%d) - Headless Hero local models" >> "$ALLOWLIST"
       ok "allowlisted $domain"
-    fi
-  done
-  ok "allowlist checked"
+    done
+  else
+    # Widening a security allowlist is the user's decision, not an install step.
+    # Print exactly what would be added and stop; --allow-network-setup opts in.
+    for domain in "${UNLISTED[@]}"; do fail "$domain is not allowlisted"; done
+    echo
+    echo "    These hosts are needed to download the models. Add them yourself:"
+    for domain in "${UNLISTED[@]}"; do
+      echo "      echo '${domain} # Headless Hero local models' >> \"$ALLOWLIST\""
+    done
+    echo "    ...or re-run with --allow-network-setup to let this script append them."
+    exit 1
+  fi
 fi
 
 # ------------------------------------------------------------------- ollama

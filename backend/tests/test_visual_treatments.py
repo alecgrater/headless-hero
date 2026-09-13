@@ -332,9 +332,11 @@ def test_generate_visual_layer_panels_uses_composed_prompt_and_references(tmp_pa
     assert captured[0]["original_prompt"] == "Raw panel"
     assert layers[0]["image_url"] == "/static/projects/script-1/images/scene_001_layer_panel_1.png"
     prompt_marker = tmp_path / "projects" / "script-1" / "images" / "scene_001_layer_panel_1.png.prompt"
-    # The marker carries the active image engine as well as the prompt, so a
-    # mode switch invalidates the cache. Compare through the same helper.
-    assert image_gen._marker_matches(prompt_marker, prompt)
+    # Pin the on-disk format rather than comparing through _marker_matches: the
+    # marker carries the active image engine so a mode switch invalidates the
+    # cache, and reading it back through its own writer's helper would pass
+    # whatever the two happened to agree on.
+    assert prompt_marker.read_text(encoding="utf-8") == f"{prompt}\n#engine:google"
 
 
 def test_generate_visual_layer_panels_uses_scene_person_fallback(tmp_path, monkeypatch):
