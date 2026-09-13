@@ -918,7 +918,12 @@ _PROGRESS_VERSION = 1
 _PROGRESS_MAX_AGE_SECONDS = 24 * 60 * 60
 
 
-def _progress_key(system_prompt: str, user_message: str, model: str | None = None) -> str:
+def _progress_key(
+    system_prompt: str,
+    user_message: str,
+    model: str | None = None,
+    *extra: str,
+) -> str:
     """Identity of one script generation, for the resume cache.
 
     The resolved text engine is part of it, for the reason
@@ -930,7 +935,9 @@ def _progress_key(system_prompt: str, user_message: str, model: str | None = Non
         engine = text_fingerprint("script", model)
     except Exception:  # noqa: BLE001 — a key is never worth failing generation for
         engine = "unknown"
-    material = f"{_PROGRESS_VERSION}\n{engine}\n{system_prompt}\n\n{user_message}"
+    material = "\n".join(
+        [str(_PROGRESS_VERSION), engine, system_prompt, user_message, *extra]
+    )
     return hashlib.sha256(material.encode("utf-8")).hexdigest()[:16]
 
 
@@ -996,7 +1003,7 @@ def _save_progress(key: str, outline: dict, completed: list[list[dict]]) -> None
         # Atomic: a run killed mid-write (likely, on an hour-long generation)
         # must not leave a half-file where the resume used to be.
         path = _progress_path(key)
-        tmp = path.with_suffix(".json.tmp")
+        tmp = path.with_suffix(f".{os.getpid()}.json.tmp")
         tmp.write_text(payload, encoding="utf-8")
         os.replace(tmp, path)
         _prune_progress()
@@ -1144,6 +1151,36 @@ def _generate_outline(
     return outline
 
 
+def _flatten_segment_wrappers(
+    scenes_data: list, *, segment_index: int, total: int, seg_name: str
+) -> list:
+    """Unwrap segment-shaped responses into a flat scene list.
+
+    Some models return `[{"name": …, "scenes": [...]}]` instead of a flat scene
+    array, despite explicit prompting. Called inside the retry loop so that a
+    wrapper holding no scenes is seen as the zero-scene non-answer it is, rather
+    than emptying the list after the retry has already been passed.
+    """
+    if not scenes_data or not all(
+        isinstance(item, dict)
+        and isinstance(item.get("scenes"), list)
+        and "narration" not in item
+        and "visual_prompt" not in item
+        for item in scenes_data
+    ):
+        return scenes_data
+
+    flat: list = []
+    for wrapper in scenes_data:
+        flat.extend(wrapper["scenes"])
+    logger.warning(
+        "SEGMENTED: Segment %d/%d (%r) returned segment-shaped wrapper — "
+        "flattened %d nested scenes from %d wrapper(s)",
+        segment_index + 1, total, seg_name, len(flat), len(scenes_data),
+    )
+    return flat
+
+
 def _generate_segment_scenes(
     system_prompt: str,
     outline: dict,
@@ -1183,7 +1220,7 @@ def _generate_segment_scenes(
     # Deliberately only covers a bad *response*: a raising chat() (timeout,
     # connection error) propagates, because the progress cache already makes the
     # next run resume from here and a second 30-minute local call would not.
-    scenes_data = None
+    scenes: list[Scene] | None = None
     last_error: Exception | None = None
     for attempt in range(1, _SEGMENT_PARSE_ATTEMPTS + 1):
         raw = chat(
@@ -1212,18 +1249,25 @@ def _generate_segment_scenes(
             continue
 
         try:
-            parsed = parse_json_array_response(text, key="scenes")
+            parsed = _flatten_segment_wrappers(
+                parse_json_array_response(text, key="scenes"),
+                segment_index=segment_index, total=total, seg_name=seg_name,
+            )
             if not parsed:
                 # A well-formed `{"scenes": []}` is the same non-answer as an
                 # empty string, just harder to see: it parses, so without this
-                # it would be parked in the cache as a zero-scene segment.
+                # it would be parked in the cache as a zero-scene segment. The
+                # check sits *after* flattening, because a wrapper containing an
+                # empty scene list re-empties it.
                 last_error = RuntimeError("model returned zero scenes")
                 logger.warning(
                     "SEGMENTED: Segment %d/%d (%r) returned zero scenes (attempt %d/%d)",
                     segment_index + 1, total, seg_name, attempt, _SEGMENT_PARSE_ATTEMPTS,
                 )
                 continue
-            scenes_data = parsed
+            # Validation is inside the retry too: a scene-shaped response with a
+            # bad field is as resamplable as an unparseable one.
+            scenes = [Scene.model_validate(sc) for sc in parsed]
             break
         except (json.JSONDecodeError, ValueError) as e:
             last_error = e
@@ -1245,33 +1289,12 @@ def _generate_segment_scenes(
                 len(text), shape_hint, text,
             )
 
-    if scenes_data is None:
+    if scenes is None:
         raise RuntimeError(
             f"SEGMENTED: Segment {segment_index + 1}/{total} (\"{seg_name}\") "
-            f"response could not be parsed after {_SEGMENT_PARSE_ATTEMPTS} attempts "
-            f"(likely truncated or malformed): {last_error}"
+            f"response could not be used after {_SEGMENT_PARSE_ATTEMPTS} attempts "
+            f"(empty, truncated or malformed): {last_error}"
         ) from last_error
-
-    # Some models return segment-shaped wrappers ({"name": "...", "scenes": [...]})
-    # instead of a flat scene array, despite explicit prompting. Flatten by extracting
-    # the inner `scenes` lists when items lack scene-required fields.
-    if scenes_data and all(
-        isinstance(s, dict)
-        and isinstance(s.get("scenes"), list)
-        and "narration" not in s
-        and "visual_prompt" not in s
-        for s in scenes_data
-    ):
-        flat: list = []
-        for seg in scenes_data:
-            flat.extend(seg["scenes"])
-        logger.warning(
-            "SEGMENTED: Segment %d/%d (%r) returned segment-shaped wrapper — flattened %d nested scenes from %d wrapper(s)",
-            segment_index + 1, total, seg_name, len(flat), len(scenes_data),
-        )
-        scenes_data = flat
-
-    scenes = [Scene.model_validate(s) for s in scenes_data]
 
     elapsed = time.monotonic() - t0
     logger.info(
@@ -1311,7 +1334,13 @@ def _generate_segmented(
     # failure part-way through phase 2 costs the remaining segments rather than
     # the whole run. On a local model that is the difference between losing ~11
     # minutes and losing over an hour.
-    progress_key = _progress_key(system_prompt, user_message, model)
+    # The two instruction templates are folded in as well: they derive from the
+    # format today, whose system prompt is already here, but that makes the key
+    # complete by accident rather than by construction.
+    progress_key = _progress_key(
+        system_prompt, user_message, model,
+        outline_instructions, segment_scenes_instructions,
+    )
     progress = _load_progress(progress_key)
     resumed_segments: list[list[dict]] = []
     if progress:
@@ -1331,6 +1360,11 @@ def _generate_segmented(
             outline_instructions=outline_instructions,
         )
         _save_progress(progress_key, outline, [])
+    if not _is_usable_outline(outline):
+        raise RuntimeError(
+            "SEGMENTED: Outline generation returned no segments — nothing to write scenes for."
+        )
+
     planned_opportunities = _visual_opportunity_summary(outline)
     if planned_opportunities:
         logger.info("SEGMENTED: Planned visual opportunities by mode: %s", planned_opportunities)

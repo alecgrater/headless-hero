@@ -38,6 +38,19 @@ def isolated_progress(tmp_path, monkeypatch):
     return tmp_path
 
 
+def _cache_key() -> str:
+    """The key `_generate_segmented("sys", "user", ...)` computes for itself.
+
+    Built through the real function so a test that seeds the cache by hand
+    cannot pass vacuously on a key that simply misses.
+    """
+    return scriptwriter._progress_key(
+        "sys", "user", None,
+        scriptwriter._OUTLINE_INSTRUCTIONS,
+        scriptwriter._SEGMENT_SCENES_INSTRUCTIONS,
+    )
+
+
 def _patch_outline(monkeypatch, outline: dict) -> None:
     monkeypatch.setattr(
         scriptwriter, "_generate_outline",
@@ -139,7 +152,7 @@ def test_a_completed_script_leaves_no_progress_cache(isolated_progress, monkeypa
 
 def test_an_unreadable_progress_cache_does_not_block_generation(isolated_progress, monkeypatch):
     _patch_outline(monkeypatch, _outline(1))
-    key = scriptwriter._progress_key("sys", "user")
+    key = _cache_key()
     scriptwriter._PROGRESS_DIR.mkdir(parents=True, exist_ok=True)
     (scriptwriter._PROGRESS_DIR / f"{key}.json").write_text("{not json", encoding="utf-8")
 
@@ -210,7 +223,7 @@ def test_a_resumed_segment_still_gets_cross_segment_continuity(isolated_progress
 def test_a_cached_segment_that_no_longer_validates_is_regenerated(isolated_progress, monkeypatch):
     outline = _outline(2)
     _patch_outline(monkeypatch, outline)
-    key = scriptwriter._progress_key("sys", "user", None)
+    key = _cache_key()
     scriptwriter._PROGRESS_DIR.mkdir(parents=True, exist_ok=True)
     (scriptwriter._PROGRESS_DIR / f"{key}.json").write_text(json.dumps({
         "version": scriptwriter._PROGRESS_VERSION,
@@ -243,7 +256,7 @@ def test_an_unusable_outline_is_never_parked(isolated_progress, monkeypatch):
     monkeypatch.setattr(scriptwriter, "chat", lambda system, user, **kw: _scene_json("x"))
 
     for _ in range(2):
-        with pytest.raises(KeyError):
+        with pytest.raises(RuntimeError, match="no segments"):
             scriptwriter._generate_segmented("sys", "user", "topic", "", "", None)
 
     assert outline_calls == [1, 1], "the bad outline must not be replayed from cache"
@@ -285,7 +298,7 @@ def test_a_stale_cache_is_ignored(isolated_progress, monkeypatch):
         return outline
 
     monkeypatch.setattr(scriptwriter, "_generate_outline", fake_outline)
-    key = scriptwriter._progress_key("sys", "user", None)
+    key = _cache_key()
     scriptwriter._PROGRESS_DIR.mkdir(parents=True, exist_ok=True)
     (scriptwriter._PROGRESS_DIR / f"{key}.json").write_text(json.dumps({
         "version": scriptwriter._PROGRESS_VERSION,
@@ -299,3 +312,71 @@ def test_a_stale_cache_is_ignored(isolated_progress, monkeypatch):
 
     assert outline_calls == [1], "a stale cache must not short-circuit the outline"
     assert content.segments[0].scenes[0].narration == "fresh"
+
+
+def test_a_corrupt_cache_entry_truncates_rather_than_shifting_segments(
+    isolated_progress, monkeypatch
+):
+    """Filtering a bad entry out would serve segment 3's scenes as segment 2."""
+    import time as _time
+
+    outline = _outline(3)
+    _patch_outline(monkeypatch, outline)
+    key = _cache_key()
+    scriptwriter._PROGRESS_DIR.mkdir(parents=True, exist_ok=True)
+    (scriptwriter._PROGRESS_DIR / f"{key}.json").write_text(json.dumps({
+        "version": scriptwriter._PROGRESS_VERSION,
+        "saved_at": _time.time(),
+        "outline": outline,
+        "segments": [
+            [{"id": "a", "narration": "one", "visual_prompt": "p"}],
+            "CORRUPT",
+            [{"id": "c", "narration": "three", "visual_prompt": "p"}],
+        ],
+    }), encoding="utf-8")
+
+    monkeypatch.setattr(scriptwriter, "chat", lambda system, user, **kw: _scene_json("FRESH"))
+    content = scriptwriter._generate_segmented("sys", "user", "topic", "", "", None)
+
+    narrations = [sc.narration for sc in content.all_scenes()]
+    assert narrations == ["one", "FRESH", "FRESH"], narrations
+
+
+def test_a_wrapper_holding_no_scenes_is_retried_not_shipped(isolated_progress, monkeypatch):
+    """A segment-shaped wrapper flattens to nothing; that is still a non-answer."""
+    _patch_outline(monkeypatch, _outline(1))
+    responses = [
+        json.dumps({"scenes": [{"name": "Segment 1", "scenes": []}]}),
+        _scene_json("recovered"),
+    ]
+    calls: list[str] = []
+
+    def fake_chat(system, user, **kwargs):
+        calls.append(user)
+        return responses[len(calls) - 1]
+
+    monkeypatch.setattr(scriptwriter, "chat", fake_chat)
+    content = scriptwriter._generate_segmented("sys", "user", "topic", "", "", None)
+
+    assert len(calls) == 2, "an empty wrapper must be retried, not shipped"
+    assert [len(seg.scenes) for seg in content.segments] == [1]
+
+
+def test_an_invalid_scene_shape_is_retried(isolated_progress, monkeypatch):
+    """Validation failures are as resamplable as parse failures."""
+    _patch_outline(monkeypatch, _outline(1))
+    responses = [
+        json.dumps({"scenes": [{"id": "x", "narration": [], "visual_prompt": "p"}]}),
+        _scene_json("recovered"),
+    ]
+    calls: list[str] = []
+
+    def fake_chat(system, user, **kwargs):
+        calls.append(user)
+        return responses[len(calls) - 1]
+
+    monkeypatch.setattr(scriptwriter, "chat", fake_chat)
+    content = scriptwriter._generate_segmented("sys", "user", "topic", "", "", None)
+
+    assert len(calls) == 2
+    assert content.segments[0].scenes[0].narration == "recovered"

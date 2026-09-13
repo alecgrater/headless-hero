@@ -96,3 +96,29 @@ def test_subtitle_settings_are_exposed_as_plaintext_defaults():
         assert key in ALLOWED_KEYS
         assert key in _PLAINTEXT_KEYS
         assert _DEFAULTS[key] == default
+
+
+def test_text_fingerprint_matches_the_routing_chat_would_use(monkeypatch):
+    """The resume cache keys on this, so it must not drift from chat()'s routing.
+
+    If it did, a half-finished run on one engine would resume on another and
+    splice two models into one script — the bug the key exists to prevent.
+    """
+    from integrations import llm_client
+
+    monkeypatch.setenv("LOCAL_MODELS_ENABLED", "false")
+    monkeypatch.setenv("SCRIPT_LLM_PROVIDER", "anthropic")
+    monkeypatch.setenv("SCRIPT_MODEL", "claude-opus-4-7")
+    assert llm_client.text_fingerprint("script") == "anthropic:claude-opus-4-7"
+
+    # Local Mode overrides both halves, exactly as _resolve_provider/_resolve_model do.
+    monkeypatch.setenv("LOCAL_MODELS_ENABLED", "true")
+    monkeypatch.delenv("LOCAL_TEXT_MODE", raising=False)
+    monkeypatch.setenv("LOCAL_TEXT_MODEL", "qwen3.8-27b")
+    local = llm_client.text_fingerprint("script")
+    assert local.startswith("ollama:")
+    assert local != "anthropic:claude-opus-4-7"
+
+    # It is derived, not guessed: it equals the two resolvers chat() calls.
+    provider = llm_client._resolve_provider("script")
+    assert local == f"{provider}:{llm_client._resolve_model(provider, 'script', None)}"
