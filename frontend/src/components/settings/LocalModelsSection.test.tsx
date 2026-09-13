@@ -132,7 +132,20 @@ describe("LocalModelsSection settings mapping", () => {
     })).toEqual({
       enabled: false,
       modes: { text: "auto", image: "auto", voice: "auto" },
-      models: { text: "qwen3.8-27b", image: "qwen-image-edit-2511", voice: "higgs-tts-3-4b" },
+      // No fallbacks supplied, so no model is assumed — the registry, not this
+      // component, decides what the defaults are.
+      models: { text: "", image: "", voice: "" },
+    });
+  });
+
+  it("takes unsaved model defaults from the backend registry", () => {
+    expect(localModeFromResponse(
+      { LOCAL_MODELS_ENABLED: { masked: "true" } },
+      { text: "qwen3.8-27b", image: "flux2-klein-4b", voice: "higgs-tts-3-4b" },
+    ).models).toEqual({
+      text: "qwen3.8-27b",
+      image: "flux2-klein-4b",
+      voice: "higgs-tts-3-4b",
     });
   });
 

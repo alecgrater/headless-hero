@@ -11,6 +11,8 @@ def stub_backend(monkeypatch):
     monkeypatch.setattr(local_tts_client, "ensure_daemon", lambda backend: None)
     monkeypatch.setattr(local_tts_client, "_post_speech", lambda **kwargs: b"RIFFFAKEWAVDATA")
     monkeypatch.setattr(local_tts_client, "_wav_to_mp3", lambda data: b"ID3FAKEMP3")
+    # Without this every run inserts api_usage rows into the real data/db.sqlite.
+    monkeypatch.setattr(local_tts_client, "record_usage", lambda **kwargs: None)
     monkeypatch.setattr(
         local_tts_client,
         "align_audio",
@@ -44,8 +46,35 @@ def test_request_carries_the_active_voice_model(stub_backend, monkeypatch):
     )
     local_tts_client.generate_speech(text="hi", voice_id="af_heart")
     assert captured["model"] == REGISTRY["kokoro-82m"].weights
-    assert captured["voice"] == "af_heart"
+    assert captured["voice"] == REGISTRY["kokoro-82m"].default_voice
     assert captured["text"] == "hi"
+
+
+def test_cloud_voice_id_is_not_forwarded_to_the_local_engine(stub_backend, monkeypatch):
+    """ElevenLabs voice ids belong to a different namespace and must not leak."""
+    monkeypatch.setenv("LOCAL_VOICE_MODEL", "higgs-tts-3-4b")
+    monkeypatch.delenv("LOCAL_VOICE_ID", raising=False)
+    captured: dict = {}
+    monkeypatch.setattr(
+        local_tts_client,
+        "_post_speech",
+        lambda **kwargs: captured.update(kwargs) or b"RIFFFAKEWAVDATA",
+    )
+    local_tts_client.generate_speech(text="hi", voice_id="21m00Tcm4TlvDq8ikWAM")
+    assert captured["voice"] == REGISTRY["higgs-tts-3-4b"].default_voice
+
+
+def test_local_voice_id_override_is_used(stub_backend, monkeypatch):
+    monkeypatch.setenv("LOCAL_VOICE_MODEL", "kokoro-82m")
+    monkeypatch.setenv("LOCAL_VOICE_ID", "af_bella")
+    captured: dict = {}
+    monkeypatch.setattr(
+        local_tts_client,
+        "_post_speech",
+        lambda **kwargs: captured.update(kwargs) or b"RIFFFAKEWAVDATA",
+    )
+    local_tts_client.generate_speech(text="hi", voice_id="ignored")
+    assert captured["voice"] == "af_bella"
 
 
 def test_speed_from_voice_settings_is_forwarded(stub_backend, monkeypatch):

@@ -372,7 +372,7 @@ def export_bundle(body: ExportBundleRequest, session: Session = Depends(get_sess
     # SEO — auto-generate if missing
     if not content.seo_metadata:
         try:
-            from pipeline.seo import generate_seo, format_timestamp
+            from pipeline.seo import format_timestamp, generate_seo, voice_engine_for_content
 
             segments: list[tuple[str, str]] = []
             elapsed = 0.0
@@ -390,6 +390,7 @@ def export_bundle(body: ExportBundleRequest, session: Session = Depends(get_sess
                 video_description=record.topic_description,
                 brand_context=brand_context,
                 script_id=body.script_id,
+                voice_engine=voice_engine_for_content(content),
             )
             content.seo_metadata = metadata.model_dump()
             record.script_json = content.model_dump_json()
@@ -409,7 +410,11 @@ def export_bundle(body: ExportBundleRequest, session: Session = Depends(get_sess
     # Short-form SEO — auto-generate all shorts in one additional call if missing
     if not content.short_form_seo_metadata:
         try:
-            from pipeline.seo import build_short_form_seo_contexts, generate_short_form_seo
+            from pipeline.seo import (
+                build_short_form_seo_contexts,
+                generate_short_form_seo,
+                voice_engine_for_content,
+            )
 
             brand = session.get(BrandProfile, record.brand_id)
             brand_context = brand.name if brand else ""
@@ -420,6 +425,7 @@ def export_bundle(body: ExportBundleRequest, session: Session = Depends(get_sess
                 video_description=record.topic_description,
                 brand_context=brand_context,
                 script_id=body.script_id,
+                voice_engine=voice_engine_for_content(content),
             )
             content.short_form_seo_metadata = short_metadata.model_dump()
             record.script_json = content.model_dump_json()

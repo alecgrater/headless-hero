@@ -12,8 +12,12 @@ from statistics import median
 from PIL import Image, ImageDraw, ImageFont
 
 from config import DATA_DIR, IMAGE_HEIGHT, IMAGE_WIDTH, VIDEO_HEIGHT, VIDEO_WIDTH
-from integrations.google_image_client import GoogleBatchImageRequest
-from integrations.image_client import generate_image, generate_images_batch, provider_fingerprint
+from integrations.image_client import (
+    GoogleBatchImageRequest,
+    generate_image,
+    generate_images_batch,
+    provider_fingerprint,
+)
 from models.script import MainCharacter
 from pipeline.asset_vault import VaultKind, save_vault_image
 from pipeline.character_assets import process_character_asset_bundle
@@ -285,6 +289,27 @@ def _source_metadata_path(image_path: Path) -> Path:
     return image_path.with_suffix(".source.json")
 
 
+def _marker_payload(prompt: str) -> str:
+    """Contents of a `.prompt` cache marker.
+
+    The active image engine is part of the marker, not just the sidecar
+    metadata, because the marker is what cache-hit checks actually compare.
+    Without it, switching to Local Mode would silently reuse Gemini-generated
+    PNGs (and switching local models would reuse the other model's output).
+    """
+    return f"{prompt}\n#engine:{provider_fingerprint()}"
+
+
+def _marker_matches(marker_path: Path, prompt: str) -> bool:
+    """True when a cache marker matches this prompt *and* the active engine."""
+    if not marker_path.exists():
+        return False
+    try:
+        return marker_path.read_text(encoding="utf-8").strip() == _marker_payload(prompt).strip()
+    except OSError:
+        return False
+
+
 def _write_source_metadata(image_path: Path, metadata: dict[str, object]) -> None:
     _source_metadata_path(image_path).write_text(json.dumps(metadata, indent=2), encoding="utf-8")
 
@@ -481,8 +506,7 @@ def generate_visual_layer_panels(
         next_layer = dict(layer)
         next_layer["id"] = layer_id
         if not force and local_path.exists() and prompt_marker.exists():
-            cached_prompt = prompt_marker.read_text(encoding="utf-8")
-            if cached_prompt == composed_prompt:
+            if _marker_matches(prompt_marker, composed_prompt):
                 logger.info("[PANEL_GEN] cache hit scene=%s layer=%s", scene_id, layer_id)
                 next_layer["image_url"] = web_path
                 source_metadata = _read_source_metadata(local_path)
@@ -511,7 +535,7 @@ def generate_visual_layer_panels(
                 "fallback": False,
             },
         )
-        prompt_marker.write_text(composed_prompt, encoding="utf-8")
+        prompt_marker.write_text(_marker_payload(composed_prompt), encoding="utf-8")
         next_layer["image_url"] = web_path
         next_layer["visual_source_metadata"] = metadata
         processed_layers.append(next_layer)
@@ -623,7 +647,7 @@ def generate_popup_sequence_cutouts(
     cache_valid = (
         not force
         and prompt_marker.exists()
-        and prompt_marker.read_text(encoding="utf-8") == prompt_fingerprint
+        and _marker_matches(prompt_marker, prompt_fingerprint)
         and anchor_cutout_path.exists()
         and all(path.exists() for path in item_paths)
     )
@@ -683,7 +707,7 @@ def generate_popup_sequence_cutouts(
             height=height,
             script_id=script_id,
         )
-        prompt_marker.write_text(prompt_fingerprint, encoding="utf-8")
+        prompt_marker.write_text(_marker_payload(prompt_fingerprint), encoding="utf-8")
     else:
         logger.info("[POPUP_CROP] cache hit scene=%s", scene_id)
 
@@ -802,7 +826,7 @@ def generate_comparison_board_cutouts(
     cache_valid = (
         not force
         and prompt_marker.exists()
-        and prompt_marker.read_text(encoding="utf-8") == prompt_fingerprint
+        and _marker_matches(prompt_marker, prompt_fingerprint)
         and all(path.exists() for path in item_paths)
     )
 
@@ -816,7 +840,7 @@ def generate_comparison_board_cutouts(
             height=height,
             script_id=script_id,
         )
-        prompt_marker.write_text(prompt_fingerprint, encoding="utf-8")
+        prompt_marker.write_text(_marker_payload(prompt_fingerprint), encoding="utf-8")
     else:
         logger.info("[COMPARISON_BOARD] cache hit scene=%s", scene_id)
 
@@ -1072,7 +1096,7 @@ def generate_stat_card_cutout(
     cache_valid = (
         not force
         and prompt_marker.exists()
-        and prompt_marker.read_text(encoding="utf-8") == prompt_fingerprint
+        and _marker_matches(prompt_marker, prompt_fingerprint)
         and cutout_path.exists()
     )
 
@@ -1086,7 +1110,7 @@ def generate_stat_card_cutout(
             source = image.convert("RGBA")
             _save_keyed_trimmed_cutout(source, cutout_path)
         save_vault_image(kind="item", label="Stat card icon", source_path=cutout_path)
-        prompt_marker.write_text(prompt_fingerprint, encoding="utf-8")
+        prompt_marker.write_text(_marker_payload(prompt_fingerprint), encoding="utf-8")
     else:
         logger.info("[STAT_CARD] cache hit scene=%s", scene_id)
 
@@ -1501,8 +1525,7 @@ def generate_scene_image(
     web_path = f"/static/projects/{script_id}/images/{filename}"
 
     if not force and local_path.exists() and prompt_marker.exists():
-        cached_prompt = prompt_marker.read_text(encoding="utf-8").strip()
-        if cached_prompt == prompt:
+        if _marker_matches(prompt_marker, prompt):
             logger.info("Image cache hit for scene %s", scene_id)
             return web_path, prompt, _read_source_metadata(local_path)
 
@@ -1552,7 +1575,7 @@ def generate_scene_image(
                     "fallback": True,
                 }
                 _write_source_metadata(local_path, metadata)
-                prompt_marker.write_text(prompt, encoding="utf-8")
+                prompt_marker.write_text(_marker_payload(prompt), encoding="utf-8")
                 return web_path, prompt, metadata
 
             logger.error("Opt-in scraper fallback also failed for scene %s, creating placeholder", scene_id)
@@ -1579,7 +1602,7 @@ def generate_scene_image(
             "fallback": True,
         }
         _write_source_metadata(local_path, metadata)
-        prompt_marker.write_text(prompt, encoding="utf-8")
+        prompt_marker.write_text(_marker_payload(prompt), encoding="utf-8")
         return web_path, prompt, metadata
 
     metadata = _move_generated_image(tmp_path, local_path, {
@@ -1589,7 +1612,7 @@ def generate_scene_image(
     })
 
     # Write prompt marker for cache validation
-    prompt_marker.write_text(prompt, encoding="utf-8")
+    prompt_marker.write_text(_marker_payload(prompt), encoding="utf-8")
 
     return web_path, prompt, metadata
 
@@ -1736,8 +1759,7 @@ def generate_scene_frames(
 
         # Cache check
         if not force and local_path.exists() and prompt_marker.exists():
-            cached_prompt = prompt_marker.read_text(encoding="utf-8").strip()
-            if cached_prompt == prompt:
+            if _marker_matches(prompt_marker, prompt):
                 results.append((web_path, prompt, _read_source_metadata(local_path)))
                 prev_frame_path = local_path
                 continue
@@ -1762,7 +1784,7 @@ def generate_scene_frames(
             "provider": provider_fingerprint(),
             "fallback": False,
         })
-        prompt_marker.write_text(prompt, encoding="utf-8")
+        prompt_marker.write_text(_marker_payload(prompt), encoding="utf-8")
         results.append((web_path, prompt, metadata))
         prev_frame_path = local_path
 
@@ -1936,8 +1958,7 @@ def generate_scene_frames_v2(
 
         # Cache check
         if not force and local_path.exists() and prompt_marker.exists():
-            cached_prompt = prompt_marker.read_text(encoding="utf-8").strip()
-            if cached_prompt == prompt:
+            if _marker_matches(prompt_marker, prompt):
                 results.append((web_path, prompt, _read_source_metadata(local_path)))
                 prev_frame_path = local_path
                 continue
@@ -1965,7 +1986,7 @@ def generate_scene_frames_v2(
             "provider": provider_fingerprint(),
             "fallback": False,
         })
-        prompt_marker.write_text(prompt, encoding="utf-8")
+        prompt_marker.write_text(_marker_payload(prompt), encoding="utf-8")
         results.append((web_path, prompt, metadata))
         prev_frame_path = local_path
 
@@ -2238,8 +2259,7 @@ def _prepare_google_batch_scene(
     web_path = f"/static/projects/{script_id}/images/{scene_id}.png"
 
     if local_path.exists() and prompt_marker.exists():
-        cached_prompt = prompt_marker.read_text(encoding="utf-8").strip()
-        if cached_prompt == prompt:
+        if _marker_matches(prompt_marker, prompt):
             logger.info("Image cache hit for Google batch scene %s", scene_id)
             return None, {
                 "scene_id": scene_id,
@@ -2326,7 +2346,7 @@ def generate_batch_with_google_batch(
                 "batch": True,
                 "fallback": False,
             })
-            prompt_marker.write_text(prompt, encoding="utf-8")
+            prompt_marker.write_text(_marker_payload(prompt), encoding="utf-8")
             results_by_scene[batch_result.key] = {
                 "scene_id": batch_result.key,
                 "image_url": web_path,

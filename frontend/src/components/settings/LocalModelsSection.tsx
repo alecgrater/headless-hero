@@ -11,12 +11,6 @@ export type ModalityMode = "auto" | "local" | "cloud";
 const MODALITIES: Modality[] = ["text", "image", "voice"];
 const MODES: ModalityMode[] = ["auto", "local", "cloud"];
 
-const DEFAULT_MODELS: Record<Modality, string> = {
-  text: "qwen3.8-27b",
-  image: "qwen-image-edit-2511",
-  voice: "higgs-tts-3-4b",
-};
-
 const MODE_KEYS: Record<Modality, string> = {
   text: "LOCAL_TEXT_MODE",
   image: "LOCAL_IMAGE_MODE",
@@ -73,14 +67,22 @@ export interface LocalModeState {
 
 type KeyRow = { masked?: string };
 
-/** Map a /api/settings/keys response into Local Mode state, with safe fallbacks. */
-export function localModeFromResponse(data: Record<string, KeyRow>): LocalModeState {
+/** Map a /api/settings/keys response into Local Mode state.
+ *
+ * `fallbacks` come from /api/local-models, i.e. the backend registry — the
+ * defaults are never duplicated here, because a stale copy would silently
+ * select (and then autosave) a model the benchmarks rejected.
+ */
+export function localModeFromResponse(
+  data: Record<string, KeyRow>,
+  fallbacks: Partial<Record<Modality, string>> = {},
+): LocalModeState {
   const readMode = (modality: Modality): ModalityMode => {
     const raw = data[MODE_KEYS[modality]]?.masked ?? "";
     return (MODES as string[]).includes(raw) ? (raw as ModalityMode) : "auto";
   };
   const readModel = (modality: Modality): string =>
-    data[MODEL_KEYS[modality]]?.masked || DEFAULT_MODELS[modality];
+    data[MODEL_KEYS[modality]]?.masked || fallbacks[modality] || "";
 
   return {
     enabled: data.LOCAL_MODELS_ENABLED?.masked === "true",
@@ -114,20 +116,32 @@ export default function LocalModelsSection() {
   const [state, setState] = useState<LocalModeState>({
     enabled: false,
     modes: { text: "auto", image: "auto", voice: "auto" },
-    models: { ...DEFAULT_MODELS },
+    models: { text: "", image: "", voice: "" },
   });
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    void api.get("/api/local-models").then((res) => {
-      if (res.ok) setStatus(res.data as LocalModelsStatus);
-    });
-    void api.get("/api/settings/keys").then((res) => {
-      if (res.ok) setState(localModeFromResponse(res.data as Record<string, KeyRow>));
+    // Sequential, not parallel: the registry response supplies the per-modality
+    // fallbacks used when a key has never been saved.
+    void (async () => {
+      const statusRes = await api.get("/api/local-models");
+      const nextStatus = statusRes.ok ? (statusRes.data as LocalModelsStatus) : null;
+      if (nextStatus) setStatus(nextStatus);
+
+      const fallbacks: Partial<Record<Modality, string>> = {};
+      for (const modality of MODALITIES) {
+        const active = nextStatus?.modalities?.[modality]?.active_model;
+        if (active) fallbacks[modality] = active;
+      }
+
+      const keysRes = await api.get("/api/settings/keys");
+      if (keysRes.ok) {
+        setState(localModeFromResponse(keysRes.data as Record<string, KeyRow>, fallbacks));
+      }
       setLoaded(true);
-    });
+    })();
   }, []);
 
   useDebouncedAutosave(

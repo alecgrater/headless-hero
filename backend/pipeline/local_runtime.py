@@ -120,8 +120,9 @@ def current_occupant() -> str | None:
 def hold(modality: str) -> Iterator[None]:
     """Claim the memory arena for one modality.
 
-    Re-entrant for the same modality. Claiming for a different modality
-    unloads the previous occupant first.
+    Re-entrant within a single thread for the same modality (RLock); another
+    thread asking for the same modality still blocks until this one releases.
+    Claiming for a different modality unloads the previous occupant first.
     """
     global _OCCUPANT
     if modality not in MODALITY_BACKEND:

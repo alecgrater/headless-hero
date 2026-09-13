@@ -194,21 +194,52 @@ def build_short_form_seo_contexts(content: ScriptContent) -> list[dict]:
         })
     return shorts
 
-def required_voice_attribution() -> str:
-    """The licence credit the active voice model requires, or "".
+def required_voice_attribution(voice_engine: str = "") -> str:
+    """The licence credit required by the engine that voiced this project.
 
     Higgs TTS 3 permits monetized video under a Creator Use Grant only when the
     work credits Boson AI, so the credit is a property of the model rather than
     a user preference. There is deliberately no setting to disable this.
+
+    `voice_engine` is the value persisted on a scene when its audio was
+    generated (e.g. "local:higgs-tts-3-4b"). It is authoritative, because the
+    credit has to follow the engine that actually produced the audio — flipping
+    Voice back to Cloud afterwards must not drop the credit from Higgs audio,
+    and flipping it to Local must not add one to ElevenLabs audio. Falls back to
+    the active mode only when a project has no recorded engine.
     """
+    if voice_engine:
+        local_prefix = "local:"
+        if not voice_engine.startswith(local_prefix):
+            return ""
+        return attribution_for(voice_engine[len(local_prefix):])
     if modality_source("voice") != "local":
         return ""
     return attribution_for(active_model("voice").id)
 
 
-def apply_voice_attribution(description: str) -> str:
+def voice_engine_for_content(content: "ScriptContent | None") -> str:
+    """The TTS engine recorded on a project's scenes, or "" when unknown.
+
+    A project voiced across an engine switch is treated as needing every credit
+    its scenes earned, so the first attribution-requiring engine wins.
+    """
+    if content is None:
+        return ""
+    engines = [
+        (scene.voice_engine or "")
+        for scene in content.all_scenes()
+        if getattr(scene, "voice_engine", "")
+    ]
+    for engine in engines:
+        if required_voice_attribution(engine):
+            return engine
+    return engines[0] if engines else ""
+
+
+def apply_voice_attribution(description: str, voice_engine: str = "") -> str:
     """Append the required voice credit to a description, idempotently."""
-    credit = required_voice_attribution()
+    credit = required_voice_attribution(voice_engine)
     if not credit or credit in description:
         return description
     if not description:
@@ -222,6 +253,7 @@ def generate_seo(
     video_description: str = "",
     brand_context: str = "",
     script_id: str | None = None,
+    voice_engine: str = "",
 ) -> SEOMetadata:
     """Generate SEO metadata for YouTube via the routed LLM provider.
 
@@ -250,7 +282,7 @@ def generate_seo(
     yt = result.youtube
 
     yt.tags = _trim_tags(yt.tags)
-    yt.description = apply_voice_attribution(yt.description)
+    yt.description = apply_voice_attribution(yt.description, voice_engine)
     total_len = len(", ".join(yt.tags))
 
     logger.info("[%s] SEO metadata generated for %r (title=%d chars, %d tags, %d tag chars)", script_id or "no-id", video_title, len(yt.title), len(yt.tags), total_len)
@@ -262,6 +294,7 @@ def generate_short_form_seo(
     video_description: str = "",
     brand_context: str = "",
     script_id: str | None = None,
+    voice_engine: str = "",
 ) -> ShortFormSEOMetadata:
     """Generate one short-form SEO metadata set per rendered short."""
     user_msg = (
@@ -307,6 +340,9 @@ def generate_short_form_seo(
         )
         short.tags = _trim_tags(short.tags)
         short.hashtags = _normalize_hashtags(short.hashtags)
+        # Shorts are published independently, so each one has to carry the
+        # voice model's required credit on its own.
+        short.description = apply_voice_attribution(short.description, voice_engine)
     result.shorts.sort(key=lambda short: short.index)
 
     logger.info(

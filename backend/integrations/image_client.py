@@ -10,8 +10,19 @@ import logging
 import os
 
 from config import IMAGE_HEIGHT, IMAGE_WIDTH
+# Re-exported so pipeline code never has to import google_image_client directly.
 from integrations.google_image_client import GoogleBatchImageRequest, GoogleBatchImageResult
 from integrations.local_models import active_model, modality_source
+
+__all__ = [
+    "GoogleBatchImageRequest",
+    "GoogleBatchImageResult",
+    "generate_image",
+    "generate_images_batch",
+    "provider_fingerprint",
+    "resolved_provider",
+    "transform_with_references",
+]
 
 logger = logging.getLogger(__name__)
 

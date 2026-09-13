@@ -43,6 +43,8 @@ CLEANED=0
 CLEANING=0
 DEV_PID=""
 OLLAMA_PID=""
+COMFY_PID=""
+MLX_AUDIO_PID=""
 WATCHDOG_PID=""
 QUIT_REQUESTED=0
 MARKER_UNAVAILABLE=0
@@ -264,13 +266,20 @@ LOCAL_ROOT="${HEADLESS_HERO_LOCAL_ROOT:-$HOME/.headless-hero-local}"
 COMFY_DIR="$LOCAL_ROOT/ComfyUI"
 
 if [ -d "$COMFY_DIR/.venv" ] && ! curl -sf --connect-timeout 2 --max-time 3 http://127.0.0.1:8188/system_stats > /dev/null 2>&1; then
-    ( cd "$COMFY_DIR" && ./.venv/bin/python main.py --port 8188 > /tmp/headless-hero-comfyui.log 2>&1 ) &
-    echo "Started ComfyUI (local image models)."
+    # Not `( cd … && python ) &`: that backgrounds a *subshell*, so jobs -p holds
+    # the wrapper pid and cleanup's kill would orphan the real ComfyUI process —
+    # leaving :8188 bound and ~7 GB resident after the app quits. Launch python
+    # directly so the recorded pid is the process we actually need to kill.
+    cd "$COMFY_DIR" && ./.venv/bin/python main.py --port 8188 > /tmp/headless-hero-comfyui.log 2>&1 &
+    COMFY_PID=$!
+    cd "$PROJECT_DIR" || exit 1
+    echo "Started ComfyUI (local image models, pid $COMFY_PID)."
 fi
 
 if command -v mlx_audio.server > /dev/null 2>&1 && ! curl -sf --connect-timeout 2 --max-time 3 http://127.0.0.1:8770/v1/models > /dev/null 2>&1; then
     mlx_audio.server --host 127.0.0.1 --port 8770 > /tmp/headless-hero-mlx-audio.log 2>&1 &
-    echo "Started mlx-audio (local voice models)."
+    MLX_AUDIO_PID=$!
+    echo "Started mlx-audio (local voice models, pid $MLX_AUDIO_PID)."
 fi
 
 # Records that the backend came up. A start that hangs (bound but unresponsive,

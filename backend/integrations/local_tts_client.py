@@ -15,7 +15,7 @@ from pathlib import Path
 
 import httpx
 
-from integrations.local_models import active_model
+from integrations.local_models import active_model, local_voice_id
 from integrations.usage_tracker import record_usage
 from pipeline.audio_alignment import align_audio
 from pipeline.local_runtime import daemon_url, ensure_daemon, hold
@@ -82,19 +82,29 @@ def generate_speech(
         return b"", []
 
     model = active_model("voice")
+    # voice_id arrives from the ElevenLabs voice picker and belongs to a
+    # different namespace entirely, so it is deliberately not forwarded. The
+    # local voice comes from LOCAL_VOICE_ID or the model's default.
+    local_voice = local_voice_id()
     speed = float((voice_settings or {}).get("speed", 1.0))
     timeout = float(os.environ.get("LOCAL_TTS_TIMEOUT_SECONDS", DEFAULT_TIMEOUT_SECONDS))
 
+    if voice_id and voice_id != local_voice:
+        logger.debug(
+            "Ignoring cloud voice id %r for local TTS; using %r on %s",
+            voice_id, local_voice, model.id,
+        )
+
     logger.info(
         "Calling local TTS model=%s voice=%s chars=%d",
-        model.id, voice_id, len(clean_text),
+        model.id, local_voice, len(clean_text),
     )
     started = time.monotonic()
 
     with hold("voice"):
         wav_bytes = _post_speech(
             model=model.weights,
-            voice=voice_id,
+            voice=local_voice,
             text=clean_text,
             speed=speed,
             timeout=timeout,

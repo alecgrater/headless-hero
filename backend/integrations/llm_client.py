@@ -18,7 +18,6 @@ from integrations.usage_tracker import record_usage, get_model_pricing
 
 logger = logging.getLogger(__name__)
 
-_OLLAMA_BASE_URL = "http://localhost:11434/v1"
 _DEFAULT_QWEN_MODEL = "qwen3:14b"
 _DEFAULT_TASK = "script"
 
@@ -74,6 +73,10 @@ def get_openai_client() -> Any:
 def get_ollama_client() -> Any:
     """Return the process-wide Ollama client (OpenAI-compatible, lazy).
 
+    The base URL comes from the same place the daemon supervisor probes, so
+    there is one source of truth for where ollama lives — pointing OLLAMA_URL
+    somewhere else moves both the health check and the generation calls.
+
     `api_key="ollama"` is a placeholder Ollama ignores — leaving it out
     would cause the OpenAI SDK to inherit OPENAI_API_KEY when set, which
     breaks local Ollama for users with both keys configured.
@@ -82,9 +85,13 @@ def get_ollama_client() -> Any:
     if _OLLAMA_CLIENT is not None:
         return _OLLAMA_CLIENT
     from openai import OpenAI
+
+    from pipeline.local_runtime import daemon_url
+
+    base_url = f"{daemon_url('ollama')}/v1"
     with _CLIENT_LOCK:
         if _OLLAMA_CLIENT is None:
-            _OLLAMA_CLIENT = OpenAI(api_key="ollama", base_url=_OLLAMA_BASE_URL)
+            _OLLAMA_CLIENT = OpenAI(api_key="ollama", base_url=base_url)
     return _OLLAMA_CLIENT
 
 
@@ -505,7 +512,13 @@ def _chat_ollama(
 
     # Local import: pipeline imports integrations, so a module-level import here
     # would close an import cycle.
-    from pipeline.local_runtime import ollama_keep_alive
+    from pipeline.local_runtime import ensure_daemon, hold, ollama_keep_alive
+
+    local_mode = _text_is_local()
+    if local_mode:
+        # Turn a connection error deep inside generation into the same
+        # actionable message the image and voice paths give.
+        ensure_daemon("ollama")
 
     keep_alive = ollama_keep_alive()
 
@@ -548,7 +561,13 @@ def _chat_ollama(
         kwargs["response_format"] = {"type": "json_object"}
 
     try:
-        response = client.chat.completions.create(**kwargs)
+        # Claim the memory arena in Local Mode so loading the 16 GB text model
+        # evicts a resident image or voice model first.
+        if local_mode:
+            with hold("text"):
+                response = client.chat.completions.create(**kwargs)
+        else:
+            response = client.chat.completions.create(**kwargs)
     except BadRequestError:
         if json_mode:
             logger.warning(
@@ -556,7 +575,11 @@ def _chat_ollama(
                 qwen_model,
             )
             kwargs.pop("response_format", None)
-            response = client.chat.completions.create(**kwargs)
+            if local_mode:
+                with hold("text"):
+                    response = client.chat.completions.create(**kwargs)
+            else:
+                response = client.chat.completions.create(**kwargs)
         else:
             elapsed = time.monotonic() - t0
             logger.error("Ollama call failed after %.1fs (model=%s)", elapsed, qwen_model, exc_info=True)
@@ -576,7 +599,7 @@ def _chat_ollama(
     output_tok = getattr(usage, "completion_tokens", 0) if usage else 0
 
     record_usage(
-        service="ollama",
+        service="local_text" if local_mode else "ollama",
         operation="chat",
         model=qwen_model,
         input_tokens=input_tok,

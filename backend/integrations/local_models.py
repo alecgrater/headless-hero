@@ -33,6 +33,9 @@ class LocalModel:
     license: str
     label: str
     description: str
+    # Local engines have their own voice namespace — an ElevenLabs voice id
+    # means nothing to them — so voice models carry the voice to use.
+    default_voice: str = ""
     requires_attribution: bool = False
     attribution_text: str = ""
 
@@ -53,7 +56,7 @@ REGISTRY: dict[str, LocalModel] = {
         modality="image",
         backend="comfyui",
         weights="unsloth/Qwen-Image-Edit-2511-GGUF:Q4_K_M",
-        approx_resident_gb=13.2,
+        approx_resident_gb=12.0,
         license="Apache-2.0",
         label="Qwen-Image-Edit 2511 (Q4_K_M)",
         description=(
@@ -66,7 +69,7 @@ REGISTRY: dict[str, LocalModel] = {
         modality="image",
         backend="comfyui",
         weights="black-forest-labs/FLUX.2-klein-4B",
-        approx_resident_gb=13.0,
+        approx_resident_gb=7.2,
         license="Apache-2.0",
         label="FLUX.2 klein 4B",
         description=(
@@ -79,9 +82,10 @@ REGISTRY: dict[str, LocalModel] = {
         modality="voice",
         backend="mlx-audio",
         weights="whitelabel/mlx-q6-higgs-tts-3-4b",
-        approx_resident_gb=4.0,
+        approx_resident_gb=3.7,
         license="Boson research/non-commercial + Creator Use Grant",
         label="Higgs TTS 3 (4B)",
+        default_voice="narrator",
         description=(
             "Expressive narration with zero-shot cloning. Its licence requires "
             "crediting Boson AI, which is appended to SEO descriptions automatically."
@@ -97,6 +101,7 @@ REGISTRY: dict[str, LocalModel] = {
         approx_resident_gb=0.5,
         license="Apache-2.0",
         label="Kokoro 82M",
+        default_voice="af_heart",
         description="Very fast, clean, neutral narration with fixed voices. No attribution required.",
     ),
     "chatterbox": LocalModel(
@@ -107,6 +112,7 @@ REGISTRY: dict[str, LocalModel] = {
         approx_resident_gb=2.0,
         license="MIT",
         label="Chatterbox",
+        default_voice="default",
         description="Mid-weight expressive model with voice cloning. No attribution required.",
     ),
 }
@@ -184,3 +190,17 @@ def attribution_for(model_id: str) -> str:
     if model is None or not model.requires_attribution:
         return ""
     return model.attribution_text
+
+
+def local_voice_id(modality: str = "voice") -> str:
+    """The voice name to send to the local TTS engine.
+
+    Local engines use their own voice namespace, so the ElevenLabs voice id the
+    rest of the app carries around is meaningless to them. LOCAL_VOICE_ID lets
+    a specific local voice be chosen (e.g. one of Kokoro's 54); otherwise the
+    active model's default is used.
+    """
+    configured = (os.environ.get("LOCAL_VOICE_ID", "") or "").strip()
+    if configured:
+        return configured
+    return active_model(modality).default_voice

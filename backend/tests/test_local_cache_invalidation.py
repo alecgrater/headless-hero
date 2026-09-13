@@ -81,5 +81,51 @@ def test_image_gen_no_longer_reads_image_provider_for_markers():
     """Guard against a regression reintroducing the raw env read in cache markers."""
     from pathlib import Path
 
-    source = Path("backend/pipeline/image_gen.py").read_text(encoding="utf-8")
+    source = (Path(__file__).resolve().parent.parent / "pipeline" / "image_gen.py").read_text(
+        encoding="utf-8"
+    )
     assert 'os.environ.get("IMAGE_PROVIDER"' not in source
+
+
+def test_cached_image_is_regenerated_after_switching_to_local_mode(monkeypatch, tmp_path):
+    """The real invalidation test: a cloud-generated image must not be reused.
+
+    Asserting only that the fingerprint string differs would pass even if the
+    fingerprint were never consulted during the cache-hit check.
+    """
+    from pipeline import image_gen
+
+    monkeypatch.setenv("LOCAL_MODELS_ENABLED", "false")
+    monkeypatch.delenv("LOCAL_IMAGE_MODE", raising=False)
+    monkeypatch.setattr(image_gen, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(image_gen, "record_usage", lambda **kwargs: None, raising=False)
+
+    calls: list[str] = []
+
+    def fake_generate(prompt, **kwargs):
+        calls.append(prompt)
+        out = tmp_path / f"gen_{len(calls)}.png"
+        out.write_bytes(b"\x89PNG\r\n\x1a\n")
+        return str(out)
+
+    monkeypatch.setattr(image_gen, "generate_image", fake_generate)
+
+    images_dir = tmp_path / "projects" / "p1" / "images"
+    images_dir.mkdir(parents=True)
+    marker = images_dir / "s1.prompt"
+    (images_dir / "s1.png").write_bytes(b"\x89PNG\r\n\x1a\n")
+
+    marker.write_text(image_gen._marker_payload("a prompt"), encoding="utf-8")
+    assert image_gen._marker_matches(marker, "a prompt")
+
+    monkeypatch.setenv("LOCAL_MODELS_ENABLED", "true")
+    assert not image_gen._marker_matches(marker, "a prompt"), (
+        "a cloud-generated image was still treated as a cache hit in Local Mode"
+    )
+
+    monkeypatch.setenv("LOCAL_IMAGE_MODEL", "flux2-klein-4b")
+    marker.write_text(image_gen._marker_payload("a prompt"), encoding="utf-8")
+    monkeypatch.setenv("LOCAL_IMAGE_MODEL", "qwen-image-edit-2511")
+    assert not image_gen._marker_matches(marker, "a prompt"), (
+        "an image from a different local model was treated as a cache hit"
+    )

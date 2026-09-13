@@ -25,6 +25,7 @@ from pipeline.seo import (
     format_timestamp,
     generate_seo,
     generate_short_form_seo,
+    voice_engine_for_content,
 )
 
 logger = logging.getLogger(__name__)
@@ -71,6 +72,7 @@ def generate_seo_metadata(body: GenerateSEORequest, session: Session = Depends(g
         video_description=record.topic_description,
         brand_context=brand_context,
         script_id=body.script_id,
+        voice_engine=voice_engine_for_content(content),
     )
 
     # Persist SEO metadata in the script JSON blob
@@ -112,6 +114,7 @@ def generate_short_form_seo_metadata(body: GenerateSEORequest, session: Session 
         video_description=record.topic_description,
         brand_context=brand_context,
         script_id=body.script_id,
+        voice_engine=voice_engine_for_content(content),
     )
 
     content.short_form_seo_metadata = metadata.model_dump()

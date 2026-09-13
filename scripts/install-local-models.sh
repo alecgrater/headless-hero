@@ -227,6 +227,20 @@ else
 fi
 
 # ------------------------------------------------------------------- verify
+# Start the image and voice daemons before verifying, otherwise a successful
+# fresh install reports "not running" and exits non-zero. ollama was already
+# started above.
+if [ "$CHECK_ONLY" != "1" ]; then
+  if [ -d "$COMFY_DIR/.venv" ] && ! probe http://127.0.0.1:8188/system_stats; then
+    ( cd "$COMFY_DIR" && ./.venv/bin/python main.py --port 8188 > /tmp/headless-hero-comfyui.log 2>&1 & )
+    for _ in $(seq 1 60); do probe http://127.0.0.1:8188/system_stats && break; sleep 1; done
+  fi
+  if [ -x "$HOME/.local/bin/mlx_audio.server" ] && ! probe http://127.0.0.1:8770/v1/models; then
+    ( "$HOME/.local/bin/mlx_audio.server" --host 127.0.0.1 --port 8770 > /tmp/headless-hero-mlx-audio.log 2>&1 & )
+    for _ in $(seq 1 45); do probe http://127.0.0.1:8770/v1/models && break; sleep 1; done
+  fi
+fi
+
 say "Verifying daemons"
 STATUS=0
 printf '    %-12s %-30s %s\n' DAEMON URL STATUS

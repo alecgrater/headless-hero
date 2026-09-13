@@ -5,8 +5,9 @@ dispatch to either backend without adapters. Reference images are uploaded to
 ComfyUI, then injected into a workflow graph loaded from backend/comfy_workflows.
 
 The workflow files carry placeholder tokens that are substituted per call:
-__PROMPT__, __WIDTH__, __HEIGHT__, __SEED__, plus __MODEL__ / __CLIP__ / __VAE__
-which the provisioning script fills with the installed weight filenames.
+__PROMPT__, __WIDTH__, __HEIGHT__ and __SEED__. Weight filenames are written
+into the committed graphs directly, because they have to match the node types
+the installed ComfyUI actually exposes.
 """
 
 import json
@@ -14,6 +15,7 @@ import logging
 import os
 import random
 import tempfile
+import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -62,8 +64,23 @@ SAMPLER_NODE_ID = "3"
 VAE_NODE_ID = "12"
 
 
+_HTTP_LOCK = threading.Lock()
+_HTTP_CLIENT: httpx.Client | None = None
+
+
 def _http() -> httpx.Client:
-    return httpx.Client(timeout=60.0)
+    """Process-wide HTTP client for ComfyUI.
+
+    One client, not one per call: httpx.Client owns a connection pool, and
+    constructing a fresh one per image left sockets alive until GC.
+    """
+    global _HTTP_CLIENT
+    if _HTTP_CLIENT is not None:
+        return _HTTP_CLIENT
+    with _HTTP_LOCK:
+        if _HTTP_CLIENT is None:
+            _HTTP_CLIENT = httpx.Client(timeout=60.0)
+    return _HTTP_CLIENT
 
 
 def _upload_image(path: str) -> str:
@@ -163,7 +180,13 @@ def _substitute(
 
 
 def _await_image(prompt_id: str, timeout_seconds: float) -> bytes:
-    """Poll ComfyUI history until the prompt completes, then fetch the PNG."""
+    """Poll ComfyUI history until the prompt completes, then fetch the PNG.
+
+    A failed prompt lands in history with an error status and no outputs, so
+    that case is detected explicitly — otherwise a bad node or an out-of-memory
+    kill would poll for the full timeout and then report a misleading "did not
+    return an image within 900s".
+    """
     deadline = time.monotonic() + timeout_seconds
     client = _http()
     while True:
@@ -172,6 +195,13 @@ def _await_image(prompt_id: str, timeout_seconds: float) -> bytes:
         history = response.json() or {}
         entry = history.get(prompt_id)
         if entry:
+            status = entry.get("status") or {}
+            if status.get("status_str") == "error":
+                messages = status.get("messages") or []
+                raise RuntimeError(
+                    f"ComfyUI failed to run the workflow (prompt_id={prompt_id}): "
+                    f"{json.dumps(messages)[:600]}"
+                )
             outputs = entry.get("outputs", {})
             for node_output in outputs.values():
                 images = node_output.get("images") or []
@@ -225,7 +255,12 @@ def transform_with_references(
         )
         started = time.monotonic()
         response = _http().post(f"{daemon_url('comfyui')}/prompt", json={"prompt": graph})
-        response.raise_for_status()
+        if response.status_code >= 400:
+            # ComfyUI puts the actual cause (unknown node, bad input) in the
+            # body; the bare status alone is not diagnosable.
+            raise RuntimeError(
+                f"ComfyUI rejected the workflow ({response.status_code}): {response.text[:600]}"
+            )
         prompt_id = response.json()["prompt_id"]
         png_bytes = _await_image(prompt_id, timeout_seconds)
         elapsed = time.monotonic() - started

@@ -18,6 +18,7 @@ from integrations.elevenlabs_client import (
 from models.generation_duration import GenerationDuration
 from models.script import Script, ScriptContent
 from pipeline.voiceover import (
+    active_voice_engine,
     generate_batch_audio,
     generate_scene_audio,
     prepare_tts_text,
@@ -145,6 +146,7 @@ def generate_audio(body: GenerateAudioRequest, session: Session = Depends(get_se
     fields: dict = {
         "audio_url": audio_url,
         "audio_duration_seconds": duration,
+        "voice_engine": active_voice_engine(),
     }
     if word_timestamps is not None:
         fields["word_timestamps"] = word_timestamps
@@ -195,6 +197,9 @@ def generate_audio_batch(
         )
         scenes.append({"scene_id": s.scene_id, "narration": narration})
 
+    # Captured before the batch so every scene records the engine that ran,
+    # even if a setting changes while the batch is in flight.
+    engine_used = active_voice_engine()
     results = generate_batch_audio(
         scenes=scenes,
         voice_id=body.voice_id,
@@ -214,6 +219,7 @@ def generate_audio_batch(
             continue
         sc.audio_url = r["audio_url"]
         sc.audio_duration_seconds = float(r["duration_seconds"])
+        sc.voice_engine = engine_used
         if r.get("word_timestamps") is not None:
             sc.word_timestamps = r["word_timestamps"]
         if r.get("phrase_timestamps") is not None:

@@ -10,6 +10,7 @@ from sqlmodel.pool import StaticPool
 from models.settings import AppSetting
 from models.script import Script
 from models.script import ScriptContent, Scene, Segment, VisualCanvas, VisualLayer
+from pipeline import image_gen
 from pipeline.image_gen import generate_visual_layer_panels, visual_layer_image_filename
 from pipeline.render_jobs import RenderJob
 from pipeline.render_jobs import UserFacingJobError
@@ -331,7 +332,9 @@ def test_generate_visual_layer_panels_uses_composed_prompt_and_references(tmp_pa
     assert captured[0]["original_prompt"] == "Raw panel"
     assert layers[0]["image_url"] == "/static/projects/script-1/images/scene_001_layer_panel_1.png"
     prompt_marker = tmp_path / "projects" / "script-1" / "images" / "scene_001_layer_panel_1.png.prompt"
-    assert prompt_marker.read_text(encoding="utf-8") == prompt
+    # The marker carries the active image engine as well as the prompt, so a
+    # mode switch invalidates the cache. Compare through the same helper.
+    assert image_gen._marker_matches(prompt_marker, prompt)
 
 
 def test_generate_visual_layer_panels_uses_scene_person_fallback(tmp_path, monkeypatch):

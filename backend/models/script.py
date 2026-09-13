@@ -168,6 +168,10 @@ class Scene(BaseModel):
     image_url: str = ""
     audio_url: str = ""
     audio_duration_seconds: float = 0.0
+    # Which TTS engine produced audio_url. Drives the licence credit in SEO
+    # descriptions, which must follow the engine that actually voiced the
+    # scene rather than whichever mode happens to be active later.
+    voice_engine: str = ""
     word_timestamps: list[WordTimestamp] | None = None
     phrase_timestamps: list[PhraseTimestamp] | None = None
     title_card_zoom_target: dict | None = None  # {"x": int, "y": int, "radius": int} for zoompan

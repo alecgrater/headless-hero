@@ -11,6 +11,7 @@ class _Response:
         self.status_code = status_code
         self._payload = payload
         self.content = content
+        self.text = "" if payload is None else str(payload)
 
     def json(self):
         return self._payload
@@ -52,6 +53,8 @@ def fake_comfy(monkeypatch, tmp_path):
     monkeypatch.setattr(local_image_client, "_http", lambda: fake)
     monkeypatch.setattr(local_image_client, "ensure_daemon", lambda backend: None)
     monkeypatch.setattr(local_image_client, "_upload_image", lambda path: Path(path).name)
+    # Without this every run inserts api_usage rows into the real data/db.sqlite.
+    monkeypatch.setattr(local_image_client, "record_usage", lambda **kwargs: None)
     monkeypatch.setattr(local_image_client, "POLL_INTERVAL_SECONDS", 0.0)
     return fake
 
@@ -135,6 +138,44 @@ def test_missing_daemon_raises_actionable_error(monkeypatch):
 
     monkeypatch.setattr(local_image_client, "ensure_daemon", boom)
     with pytest.raises(RuntimeError, match="not responding"):
+        local_image_client.generate_image("x", width=64, height=64)
+
+
+def test_comfyui_error_status_fails_fast(fake_comfy, monkeypatch):
+    """A failed prompt must not be polled until the timeout expires."""
+
+    class _Errored(_FakeComfy):
+        def get(self, url, timeout=None):
+            if "/history/" in url:
+                return _Response(200, {
+                    "p1": {
+                        "status": {
+                            "status_str": "error",
+                            "completed": False,
+                            "messages": [["execution_error", {"exception_message": "OOM"}]],
+                        },
+                        "outputs": {},
+                    }
+                })
+            return _Response(200, None, content=b"")
+
+    monkeypatch.setattr(local_image_client, "_http", lambda: _Errored(b""))
+    monkeypatch.setenv("LOCAL_IMAGE_MODEL", "flux2-klein-4b")
+    monkeypatch.setenv("LOCAL_IMAGE_TIMEOUT_SECONDS", "600")
+    with pytest.raises(RuntimeError, match="failed to run the workflow"):
+        local_image_client.generate_image("x", width=64, height=64)
+
+
+def test_rejected_workflow_surfaces_the_response_body(fake_comfy, monkeypatch):
+    class _Rejects(_FakeComfy):
+        def post(self, url, json=None, timeout=None, files=None, data=None):
+            return _Response(400, {"error": "boom"}, content=b"")
+
+    rejecting = _Rejects(b"")
+    rejecting.text = ""
+    monkeypatch.setattr(local_image_client, "_http", lambda: rejecting)
+    monkeypatch.setenv("LOCAL_IMAGE_MODEL", "flux2-klein-4b")
+    with pytest.raises(RuntimeError, match="rejected the workflow"):
         local_image_client.generate_image("x", width=64, height=64)
 
 

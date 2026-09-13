@@ -14,6 +14,19 @@ from integrations.local_models import modality_source as _modality_source
 logger = logging.getLogger(__name__)
 
 
+def active_voice_engine() -> str:
+    """Identifier for the TTS engine that will serve the next call.
+
+    Persisted alongside generated audio so the licence credit can follow the
+    engine that actually voiced a scene.
+    """
+    if _modality_source("voice") == "local":
+        from integrations.local_models import active_model
+
+        return f"local:{active_model('voice').id}"
+    return "elevenlabs"
+
+
 def active_speech_client():
     """The TTS function for the current mode.
 
@@ -283,7 +296,10 @@ def generate_scene_audio(
     if word_timestamps:
         last_end_ms = word_timestamps[-1].get("end_ms", 0)
         if last_end_ms > 0:
-            duration = round(last_end_ms / 1000, 3)
+            # Never shorter than the file itself. Local alignment labels words
+            # only, so trailing silence is unlabelled and a word-derived
+            # duration would clip the tail of the scene during render.
+            duration = round(max(last_end_ms / 1000, _mp3_duration_seconds(audio_bytes)), 3)
             logger.info(
                 "Audio generated for scene %s: %.3fs duration (from word timestamps)",
                 scene_id, duration,

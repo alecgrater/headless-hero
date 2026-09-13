@@ -983,6 +983,12 @@ def render_full_video(
         script_id, total, speed, title or content.title,
     )
 
+    # Remotion spawns Chromium, which is the largest memory consumer in the app.
+    # Any local model still resident would be competing with it for the same
+    # unified memory, so evict before the renderer starts. No-op in cloud mode.
+    from pipeline.local_runtime import unload_all as _unload_local_models
+    _unload_local_models()
+
     # Always prepare title card scenes (title cards are always active)
     from pipeline.formats import resolve_format
     fmt = resolve_format(content.format_id)
