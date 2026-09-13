@@ -46,6 +46,7 @@ describe("settings section layout", () => {
       "api-keys",
       "ai-models",
       "visuals",
+      "local-models",
       "subtitles",
       "voice",
       "brand-style",

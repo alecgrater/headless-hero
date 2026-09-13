@@ -3,6 +3,7 @@ import {
   Archive,
   Brain,
   Captions,
+  Cpu,
   Folder,
   Image,
   Key,
@@ -13,6 +14,7 @@ import {
 import ApiKeysSection from "./ApiKeysSection";
 import AssetVaultSection from "./AssetVaultSection";
 import GeneralSection from "./GeneralSection";
+import LocalModelsSection from "./LocalModelsSection";
 import { StylePresetsSection } from "./StylePresetsSection";
 import SubtitlesSection from "./SubtitlesSection";
 import VoiceSection from "./VoiceSection";
@@ -23,6 +25,7 @@ export const SECTIONS = [
   { id: "api-keys", label: "API Keys", description: "Manage local credentials for generation, voice, publishing, and discovery.", icon: Key, group: "Essentials" },
   { id: "ai-models", label: "AI Models", description: "Route scriptwriting, ideation, metadata, scoring, and animation tasks.", icon: Brain, group: "AI & Generation" },
   { id: "visuals", label: "Visuals", description: "Configure image generation, AI video, and scene structure defaults.", icon: Image, group: "AI & Generation" },
+  { id: "local-models", label: "Local Models", description: "Run generation on local models instead of cloud APIs.", icon: Cpu, group: "AI & Generation" },
   { id: "subtitles", label: "Subtitles", description: "Control subtitle coverage and which visual treatments can be routed.", icon: Captions, group: "AI & Generation" },
   { id: "voice", label: "Narration", description: "Choose the saved narration voice, delivery settings, and recording filters.", icon: Mic, group: "Production" },
   { id: "brand-style", label: "Visual Identity", description: "Set the visual style, recurring character, and defaults for new projects.", icon: Palette, group: "Production" },
@@ -127,6 +130,11 @@ export default function SettingsPage({ onBack, defaultSection, onConsumeDefaultS
           {activeSection === "general" && <GeneralSection panel="general" showHeader={false} />}
           {activeSection === "ai-models" && <GeneralSection panel="ai-models" showHeader={false} />}
           {activeSection === "visuals" && <GeneralSection panel="visuals" showHeader={false} />}
+          {activeSection === "local-models" && (
+            <div className="max-w-4xl px-6 py-6">
+              <LocalModelsSection />
+            </div>
+          )}
           {activeSection === "subtitles" && <SubtitlesSection showHeader={false} />}
           {activeSection === "voice" && <VoiceSection panel="voice" showHeader={false} />}
           {activeSection === "api-keys" && <ApiKeysSection showHeader={false} />}
