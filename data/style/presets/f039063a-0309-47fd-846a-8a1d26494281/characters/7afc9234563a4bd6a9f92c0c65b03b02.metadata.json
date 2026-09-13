@@ -1,0 +1,17 @@
+{
+  "background_removal_method": "chroma_corner_sample",
+  "cutout_path": "7afc9234563a4bd6a9f92c0c65b03b02.cutout.png",
+  "cutout_sha256": "62b66d87e72ea128a92b1d9597938213f4b09f7dd182fff818f1374d2148307e",
+  "padding": 24,
+  "prompt_fingerprint": "1298f386e648132b7c5707d17bdc819b53b858ea340693ef0abf30fc689df842",
+  "source_path": "7afc9234563a4bd6a9f92c0c65b03b02.png",
+  "source_sha256": "5c1fa6514a5bfb954f1467845aa14cc3e2e178b82a6ab92e6cad2dffdbb5ce98",
+  "trim_box": [
+    519,
+    30,
+    861,
+    747
+  ],
+  "version": 2,
+  "warnings": []
+}

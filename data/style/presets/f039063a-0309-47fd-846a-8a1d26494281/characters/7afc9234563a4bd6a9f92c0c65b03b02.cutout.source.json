@@ -1,0 +1,54 @@
+{
+  "source_type": "style_preset_character_cutout",
+  "registration_algorithm_version": "alpha-mask-registration-v29",
+  "blink_overlay_anchor": {
+    "version": 1,
+    "detected": true,
+    "coordinate_space": "normalized_layer_frame",
+    "skin_fill": "#e5dfce",
+    "eye_left": {
+      "x": 0.4531,
+      "y": 0.1998,
+      "width": 0.0135,
+      "height": 0.0126,
+      "erase_box": {
+        "left": 0.4279,
+        "top": 0.1372,
+        "right": 0.4788,
+        "bottom": 0.2268
+      },
+      "fill_top": "#a49e93",
+      "fill_bottom": "#a5a094",
+      "fill_left": "#9d9a8d",
+      "fill_right": "#a19c94"
+    },
+    "eye_right": {
+      "x": 0.5513,
+      "y": 0.1979,
+      "width": 0.0135,
+      "height": 0.0126,
+      "erase_box": {
+        "left": 0.5257,
+        "top": 0.1358,
+        "right": 0.5766,
+        "bottom": 0.2254
+      },
+      "fill_top": "#e5dfce",
+      "fill_bottom": "#a3a095",
+      "fill_left": "#9c9a8f",
+      "fill_right": "#a09f95"
+    },
+    "mouth": {
+      "x": 0.5022,
+      "y": 0.3553
+    },
+    "brow_left": {
+      "x": 0.4531,
+      "y": 0.1189
+    },
+    "brow_right": {
+      "x": 0.5513,
+      "y": 0.1189
+    }
+  }
+}
