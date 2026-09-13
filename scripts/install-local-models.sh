@@ -16,8 +16,12 @@ set -euo pipefail
 
 LOCAL_ROOT="${HEADLESS_HERO_LOCAL_ROOT:-$HOME/.headless-hero-local}"
 COMFY_DIR="$LOCAL_ROOT/ComfyUI"
-# Only consulted when the file exists. Some corporate setups gate outbound hosts
-# behind a proxy allowlist; point this at yours, or ignore it entirely.
+# Only consulted when the file exists, and it governs ONE caller: the Apple
+# Claude Code sandbox, which injects its own proxy into its own session and
+# filters against this CSV. A plain terminal on this machine has no system
+# proxy configured and ignores the file entirely — so a failed download in a
+# normal shell is a real network failure, not a missing allowlist entry. Point
+# HEADLESS_HERO_PROXY_ALLOWLIST at a different file if your setup has one.
 ALLOWLIST="${HEADLESS_HERO_PROXY_ALLOWLIST:-$HOME/.claude/apple/dangerous_allowed_domains.csv}"
 
 CHECK_ONLY=0
@@ -54,8 +58,12 @@ QWEN_COMPANION_REPO="Comfy-Org/Qwen-Image_ComfyUI"
 QWEN_CLIP="split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors"
 QWEN_VAE="split_files/vae/qwen_image_vae.safetensors"
 
-# Hosts this stack needs. Apple's proxy blocks everything not listed in the
-# allowlist CSV; huggingface.co and its CDN hosts are usually already present.
+# Hosts this stack needs, checked only against the allowlist above — i.e. only
+# when the installer runs inside a sandbox that enforces it. This list covers
+# the hosts the *installer itself* contacts; it deliberately does not try to
+# enumerate every CDN a package manager may redirect to. ollama's registry, for
+# one, serves its blobs from an opaque Cloudflare R2 bucket, so `ollama pull`
+# can still fail on a host that is not listed here.
 REQUIRED_DOMAINS=(
   registry.npmjs.org
   ollama.com
