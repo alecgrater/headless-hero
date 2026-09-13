@@ -73,13 +73,16 @@ def _http() -> httpx.Client:
 
     One client, not one per call: httpx.Client owns a connection pool, and
     constructing a fresh one per image left sockets alive until GC.
+
+    trust_env=False because ComfyUI listens on loopback — an ambient corporate
+    proxy setting must not be asked to relay 127.0.0.1 traffic.
     """
     global _HTTP_CLIENT
     if _HTTP_CLIENT is not None:
         return _HTTP_CLIENT
     with _HTTP_LOCK:
         if _HTTP_CLIENT is None:
-            _HTTP_CLIENT = httpx.Client(timeout=60.0)
+            _HTTP_CLIENT = httpx.Client(timeout=60.0, trust_env=False)
     return _HTTP_CLIENT
 
 

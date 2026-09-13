@@ -26,7 +26,11 @@ DEFAULT_TIMEOUT_SECONDS = 600.0
 
 
 def _post_speech(*, model: str, voice: str, text: str, speed: float, timeout: float) -> bytes:
-    """Call the mlx-audio OpenAI-compatible speech endpoint and return WAV bytes."""
+    """Call the mlx-audio OpenAI-compatible speech endpoint and return WAV bytes.
+
+    trust_env=False because mlx-audio listens on loopback — an ambient
+    corporate proxy setting must not be asked to relay 127.0.0.1 traffic.
+    """
     response = httpx.post(
         f"{daemon_url('mlx-audio')}/v1/audio/speech",
         json={
@@ -37,6 +41,7 @@ def _post_speech(*, model: str, voice: str, text: str, speed: float, timeout: fl
             "speed": speed,
         },
         timeout=timeout,
+        trust_env=False,
     )
     response.raise_for_status()
     return response.content

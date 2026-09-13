@@ -84,6 +84,7 @@ def get_ollama_client() -> Any:
     global _OLLAMA_CLIENT
     if _OLLAMA_CLIENT is not None:
         return _OLLAMA_CLIENT
+    import httpx
     from openai import OpenAI
 
     from pipeline.local_runtime import daemon_url
@@ -91,7 +92,15 @@ def get_ollama_client() -> Any:
     base_url = f"{daemon_url('ollama')}/v1"
     with _CLIENT_LOCK:
         if _OLLAMA_CLIENT is None:
-            _OLLAMA_CLIENT = OpenAI(api_key="ollama", base_url=base_url)
+            # trust_env=False: ollama listens on loopback, and an ambient
+            # corporate proxy setting in the environment would otherwise be
+            # asked to relay 127.0.0.1 traffic — which proxies typically
+            # refuse, failing every local generation.
+            _OLLAMA_CLIENT = OpenAI(
+                api_key="ollama",
+                base_url=base_url,
+                http_client=httpx.Client(trust_env=False, timeout=None),
+            )
     return _OLLAMA_CLIENT
 
 
@@ -522,6 +531,17 @@ def _chat_ollama(
 
     keep_alive = ollama_keep_alive()
 
+    if local_mode:
+        # A local 27B generates at a few tokens/second, so a long scriptwriting
+        # call can legitimately run far past the cloud-tuned default. Measured:
+        # ~50s just to load the model, then ~30s for a short paragraph. Raise
+        # the floor rather than failing a script that was going to succeed.
+        try:
+            local_floor = float(os.environ.get("LOCAL_TEXT_TIMEOUT_SECONDS", "1800"))
+        except ValueError:
+            local_floor = 1800.0
+        timeout = max(timeout, local_floor)
+
     qwen_model = model.strip() or _DEFAULT_QWEN_MODEL
 
     try:
@@ -554,7 +574,16 @@ def _chat_ollama(
         "model": qwen_model,
         "max_completion_tokens": max_tokens,
         "messages": messages,
-        "extra_body": {"keep_alive": keep_alive, "options": {"num_ctx": num_ctx}},
+        "extra_body": {
+            "keep_alive": keep_alive,
+            "options": {"num_ctx": num_ctx},
+            # Qwen3-class models think by default, and _strip_think_blocks
+            # discards that output — so reasoning tokens are pure latency here.
+            # On a local 27B that difference is minutes per call, enough to time
+            # out a full script generation. Models that don't understand the
+            # flag ignore it.
+            "chat_template_kwargs": {"enable_thinking": False},
+        },
         "timeout": timeout,
     }
     if json_mode:

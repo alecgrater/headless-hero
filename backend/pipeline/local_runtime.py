@@ -58,8 +58,11 @@ def daemon_url(backend: str) -> str:
 
 
 def _probe(url: str) -> bool:
+    # trust_env=False throughout this module: these daemons live on loopback,
+    # and an ambient corporate proxy setting would be asked to relay 127.0.0.1
+    # traffic, reporting a healthy daemon as unreachable.
     try:
-        response = httpx.get(url, timeout=3.0)
+        response = httpx.get(url, timeout=3.0, trust_env=False)
         return response.status_code < 500
     except Exception:
         return False
@@ -97,15 +100,17 @@ def _unload(modality: str) -> None:
                 f"{daemon_url('ollama')}/api/generate",
                 json={"model": active_model("text").weights, "keep_alive": 0},
                 timeout=10.0,
+                trust_env=False,
             )
         elif backend == "comfyui":
             httpx.post(
                 f"{daemon_url('comfyui')}/free",
                 json={"unload_models": True, "free_memory": True},
                 timeout=10.0,
+                trust_env=False,
             )
         elif backend == "mlx-audio":
-            httpx.post(f"{daemon_url('mlx-audio')}/unload", timeout=10.0)
+            httpx.post(f"{daemon_url('mlx-audio')}/unload", timeout=10.0, trust_env=False)
         logger.info("Unloaded local %s model to free memory for the next stage", modality)
     except Exception as exc:
         logger.warning("Could not unload local %s model (%s); continuing", modality, exc)

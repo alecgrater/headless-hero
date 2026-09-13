@@ -59,10 +59,29 @@ or **33 minutes** with a character reference on every scene.
 | Call | Time |
 |---|---|
 | Short completion, cold (includes model load) | 16 s |
+| 60-word paragraph, first call in a process | 80 s |
+| 60-word paragraph, warm | 27 s, 40 s |
+| 120-word paragraph, warm | 99 s |
+
+Two findings that shaped the implementation:
+
+**Thinking was pure waste.** Qwen3-class models reason by default, and
+`_strip_think_blocks` throws that output away — so the pipeline was paying
+minutes per call for tokens it discarded. The ollama path now sends
+`chat_template_kwargs={"enable_thinking": false}`.
+
+**Model reload dominates spaced-out calls.** Local Mode sets a 60 s ollama
+`keep_alive` so the memory arena can evict the 16 GB model, which costs roughly
+50 s of reload on the next call if nothing ran in between. Back-to-back calls —
+the normal case during script generation — do not pay it.
+
+Effective throughput is a few tokens per second, which is slow enough that the
+cloud-tuned 600 s per-call timeout was failing long scriptwriting calls. Local
+Mode now floors the text timeout at 1800 s (`LOCAL_TEXT_TIMEOUT_SECONDS`).
 
 The registry originally recorded this model as `Q4_K_M`; Unsloth publishes it
-as `UD-Q4_K_M` (Unsloth Dynamic). The pull fails silently against the wrong tag,
-which is why the installer validates it.
+as `UD-Q4_K_M` (Unsloth Dynamic). The pull fails against the wrong tag, which
+is why the installer validates it.
 
 ## Voice
 
@@ -107,5 +126,16 @@ by installing them:
   ships `.pth` weights that mlx-audio cannot load.
 - Chatterbox likewise needs `mlx-community/Chatterbox-TTS-8bit`.
 
-Separately, `ffmpeg` was not installed on this machine at all, which would have
-broken the existing audio-export and render paths independently of Local Mode.
+Four further problems only a real run exposed:
+
+- `ffmpeg` was not installed on this machine at all, which would have broken the
+  existing audio-export and render paths independently of Local Mode.
+- `llm_client` hardcoded `http://localhost:11434/v1` while the daemon supervisor
+  probed `127.0.0.1` — two sources of truth for one daemon. Unified on
+  `daemon_url("ollama")`.
+- All loopback daemon traffic now sets `trust_env=False`. An ambient corporate
+  proxy setting would otherwise be asked to relay 127.0.0.1, which it refuses,
+  failing every local call on an otherwise healthy machine.
+- mlx-audio's server extras do not install cleanly here: `webrtcvad`'s C
+  extension fails to build against this SDK, so the installer uses
+  `webrtcvad-wheels`, and Kokoro additionally needs `misaki`.
