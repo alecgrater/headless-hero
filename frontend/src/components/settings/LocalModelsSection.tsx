@@ -48,6 +48,7 @@ export interface LocalModelInfo {
   backend: string;
   license: string;
   approx_resident_gb: number;
+  default_voice: string;
   requires_attribution: boolean;
   attribution_text: string;
 }
@@ -63,6 +64,8 @@ export interface LocalModeState {
   enabled: boolean;
   modes: Record<Modality, ModalityMode>;
   models: Record<Modality, string>;
+  /** Empty means "the selected voice model's own default voice". */
+  voiceId: string;
 }
 
 type KeyRow = { masked?: string };
@@ -88,6 +91,7 @@ export function localModeFromResponse(
     enabled: data.LOCAL_MODELS_ENABLED?.masked === "true",
     modes: { text: readMode("text"), image: readMode("image"), voice: readMode("voice") },
     models: { text: readModel("text"), image: readModel("image"), voice: readModel("voice") },
+    voiceId: data.LOCAL_VOICE_ID?.masked ?? "",
   };
 }
 
@@ -101,6 +105,7 @@ export function localModePayload(state: LocalModeState): Record<string, string> 
     LOCAL_TEXT_MODEL: state.models.text,
     LOCAL_IMAGE_MODEL: state.models.image,
     LOCAL_VOICE_MODEL: state.models.voice,
+    LOCAL_VOICE_ID: state.voiceId.trim(),
   };
 }
 
@@ -117,6 +122,7 @@ export default function LocalModelsSection() {
     enabled: false,
     modes: { text: "auto", image: "auto", voice: "auto" },
     models: { text: "", image: "", voice: "" },
+    voiceId: "",
   });
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -154,7 +160,7 @@ export default function LocalModelsSection() {
       return res.ok;
     },
     [state.enabled, state.modes.text, state.modes.image, state.modes.voice,
-      state.models.text, state.models.image, state.models.voice],
+      state.models.text, state.models.image, state.models.voice, state.voiceId],
   );
 
   const setMode = (modality: Modality, mode: ModalityMode) =>
@@ -262,6 +268,28 @@ export default function LocalModelsSection() {
               Currently using{" "}
               <span className="text-neutral-300">{effectiveSource(state, modality)}</span>.
             </p>
+
+            {modality === "voice" && (
+              <label className="block space-y-1">
+                <span className="text-sm text-neutral-300">Voice name</span>
+                <input
+                  type="text"
+                  value={state.voiceId}
+                  placeholder={selectedVoice?.default_voice || "model default"}
+                  onChange={(e) => setState((prev) => ({ ...prev, voiceId: e.target.value }))}
+                  className="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 transition-colors hover:border-neutral-600"
+                />
+                <span className="block text-xs leading-relaxed text-neutral-500">
+                  Local engines have their own voice names, so the ElevenLabs voice picked in Voices
+                  does not apply here. Leave blank to use{" "}
+                  <span className="text-neutral-400">
+                    {selectedVoice?.default_voice || "the model default"}
+                  </span>
+                  , or name one of the selected model&apos;s voices (Kokoro ships 54, e.g.{" "}
+                  <code className="text-neutral-400">af_heart</code>).
+                </span>
+              </label>
+            )}
           </div>
         ))}
       </div>

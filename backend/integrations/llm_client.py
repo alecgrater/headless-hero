@@ -96,9 +96,16 @@ def get_ollama_client() -> Any:
             # corporate proxy setting in the environment would otherwise be
             # asked to relay 127.0.0.1 traffic — which proxies typically
             # refuse, failing every local generation.
+            #
+            # max_retries=0: the SDK default of 2 retries timeouts, and Local
+            # Mode floors the per-call timeout at 1800s — so a wedged daemon
+            # would cost 90 minutes on one chat() call, all of it holding the
+            # single-model memory arena. A local daemon that has already run
+            # 30 minutes without answering will not answer on attempt two.
             _OLLAMA_CLIENT = OpenAI(
                 api_key="ollama",
                 base_url=base_url,
+                max_retries=0,
                 http_client=httpx.Client(trust_env=False, timeout=None),
             )
     return _OLLAMA_CLIENT

@@ -237,10 +237,20 @@ def _phase_images(ctx: ExportContext) -> None:
 
 def _phase_audio(ctx: ExportContext) -> None:
     """Generate audio for all scenes."""
-    from pipeline.voiceover import generate_scene_audio, prepare_tts_text, resolve_tts_model_and_settings
+    from pipeline.voiceover import (
+        active_voice_engine,
+        generate_scene_audio,
+        prepare_tts_text,
+        resolve_tts_model_and_settings,
+    )
 
     scene_count = len(ctx.scenes)
     model_id, voice_settings = resolve_tts_model_and_settings(None, None)
+    # Captured once, before the loop, so every scene records the engine that
+    # actually spoke it. Without this a re-voice here leaves the previous
+    # engine's value in place, and seo.apply_voice_attribution would credit
+    # (or fail to credit) the wrong model's licence.
+    voice_engine = active_voice_engine()
     logger.info("[%s] Phase: audio — generating %d scene audio clips (voice %s)", ctx.script_id, scene_count, ctx.voice_id)
     for i, sc_info in enumerate(ctx.scenes):
         _check_cancelled(ctx.job.id)
@@ -265,6 +275,7 @@ def _phase_audio(ctx: ExportContext) -> None:
         sc_info["_audio_duration"] = audio_duration
         sc_info["_word_timestamps"] = word_timestamps
         sc_info["_phrase_timestamps"] = phrase_timestamps
+        sc_info["_voice_engine"] = voice_engine
     logger.info("[%s] Phase: audio — complete (%d scenes)", ctx.script_id, scene_count)
 
 
@@ -305,6 +316,7 @@ def _phase_persist(ctx: ExportContext) -> None:
             sc.audio_duration_seconds = sc_info.get("_audio_duration", sc.audio_duration_seconds)
             sc.word_timestamps = sc_info.get("_word_timestamps", sc.word_timestamps)
             sc.phrase_timestamps = sc_info.get("_phrase_timestamps", sc.phrase_timestamps)
+            sc.voice_engine = sc_info.get("_voice_engine", sc.voice_engine)
             if "_visual_layers" in sc_info:
                 sc.visual_layers = [VisualLayer.model_validate(layer) for layer in sc_info["_visual_layers"]]
             if "_full_frame_blink" in sc_info:

@@ -20,7 +20,7 @@ const MODALITIES = [
     title: "Voice",
     cloud: "ElevenLabs, using the saved narration voice from Settings → Narration.",
     local: "Higgs TTS 3 through mlx-audio, about 3 seconds per scene once warm.",
-    note: "Word timings come from local Whisper alignment rather than the TTS engine, so subtitles, highlighting, and scene durations behave exactly as before.",
+    note: "Word timings come from local Whisper alignment rather than the TTS engine, so subtitles, highlighting, and scene durations behave exactly as before. Local engines have their own voice names, so the ElevenLabs voice does not carry over — Voice name in Settings → Local Models picks one (Kokoro ships 54), and blank means the model's own default.",
   },
   {
     icon: Video,

@@ -117,7 +117,11 @@ if command -v ollama > /dev/null 2>&1; then
     ok "ollama serving"
   fi
 
-  if ollama list 2>/dev/null | grep -q "$(echo "$TEXT_MODEL" | cut -d: -f1 | sed 's#hf.co/##')"; then
+  # Keep the tag. `cut -d: -f1` would drop it, so a machine holding the wrong
+  # quant — the Q4_K_M vs UD-Q4_K_M trap this script exists to catch — would
+  # report "present" and never get the right pull. -F so the version's dot is a
+  # literal rather than a wildcard.
+  if ollama list 2>/dev/null | grep -qF "$(printf '%s' "$TEXT_MODEL" | sed 's#^hf\.co/##')"; then
     ok "text model present"
   elif [ "$CHECK_ONLY" = "1" ]; then
     fail "text model $TEXT_MODEL is not pulled"; MISSING=1
@@ -138,6 +142,51 @@ if [ ! -d "$COMFY_DIR" ]; then
   fi
 else
   ok "ComfyUI present"
+fi
+
+# The weight files the image stack needs on disk, derived from the same pull
+# specs the install uses — so --check verifies exactly what an install writes
+# instead of trusting that a ComfyUI checkout implies its models.
+flux_weight_files() {
+  printf '%s\n' \
+    "$COMFY_DIR/models/diffusion_models/$(basename "$FLUX_UNET")" \
+    "$COMFY_DIR/models/text_encoders/$(basename "$FLUX_CLIP")" \
+    "$COMFY_DIR/models/vae/$(basename "$FLUX_VAE")"
+}
+
+qwen_weight_files() {
+  printf '%s\n' \
+    "$COMFY_DIR/models/unet/$QWEN_IMAGE_FILE" \
+    "$COMFY_DIR/models/text_encoders/$(basename "$QWEN_CLIP")" \
+    "$COMFY_DIR/models/vae/$(basename "$QWEN_VAE")"
+}
+
+check_weight_files() {
+  local file
+  while IFS= read -r file; do
+    if [ -f "$file" ]; then
+      ok "$(basename "$file") present"
+    else
+      fail "$(basename "$file") is missing"
+      MISSING=1
+    fi
+  done
+}
+
+if [ -d "$COMFY_DIR" ] && [ "$CHECK_ONLY" = "1" ]; then
+  # A ComfyUI clone that is running but has no venv, no GGUF nodes and no
+  # weights used to pass --check, then failed on the first image with a node
+  # error. Verify the whole image stack, not just the checkout.
+  if [ -d "$COMFY_DIR/.venv" ]; then ok "ComfyUI venv present"; else fail "ComfyUI venv is missing"; MISSING=1; fi
+  if [ -d "$COMFY_DIR/custom_nodes/ComfyUI-GGUF" ]; then
+    ok "ComfyUI-GGUF present"
+  else
+    fail "ComfyUI-GGUF is not installed"; MISSING=1
+  fi
+  check_weight_files < <(flux_weight_files)
+  if [ "$WITH_QWEN_IMAGE" = "1" ]; then
+    check_weight_files < <(qwen_weight_files)
+  fi
 fi
 
 if [ -d "$COMFY_DIR" ] && [ "$CHECK_ONLY" != "1" ]; then

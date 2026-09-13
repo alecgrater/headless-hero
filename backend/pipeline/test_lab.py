@@ -896,7 +896,12 @@ def _voice_id_for_run(session: Session, _ctx: TestLabRunContext) -> str:
 
 
 def _stage_audio(ctx: TestLabRunContext) -> None:
-    from pipeline.voiceover import generate_scene_audio, prepare_tts_text, resolve_tts_model_and_settings
+    from pipeline.voiceover import (
+        active_voice_engine,
+        generate_scene_audio,
+        prepare_tts_text,
+        resolve_tts_model_and_settings,
+    )
 
     _check_cancelled(ctx)
     with Session(ctx.engine) as session:
@@ -910,6 +915,7 @@ def _stage_audio(ctx: TestLabRunContext) -> None:
             is_title_card=scene.is_title_card,
             level_number=1 if scene.is_title_card else None,
         )
+        voice_engine = active_voice_engine()
         audio_url, duration, word_timestamps, phrase_timestamps = generate_scene_audio(
             scene.id,
             narration,
@@ -922,6 +928,7 @@ def _stage_audio(ctx: TestLabRunContext) -> None:
         scene.audio_duration_seconds = duration
         scene.word_timestamps = word_timestamps
         scene.phrase_timestamps = phrase_timestamps
+        scene.voice_engine = voice_engine
         _save_content(session, record, content)
         ctx.manifest.assets.append(TestLabAsset(kind="audio", label="Voiceover", url=audio_url))
 

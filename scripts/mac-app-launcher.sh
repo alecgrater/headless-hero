@@ -238,15 +238,16 @@ DEV_PID=$!
 echo "Dev stack running (pid $DEV_PID)."
 
 # Ollama is optional and nothing blocks on it, so it starts after the dev stack
-# rather than delaying the window.
-if command -v ollama > /dev/null 2>&1 && ! curl -s --connect-timeout 2 --max-time 3 http://localhost:11434/api/tags > /dev/null 2>&1; then
+# rather than delaying the window. Same OLLAMA_URL the backend reads.
+OLLAMA_URL="${OLLAMA_URL:-http://127.0.0.1:11434}"
+if command -v ollama > /dev/null 2>&1 && ! curl -s --connect-timeout 2 --max-time 3 "$OLLAMA_URL/api/tags" > /dev/null 2>&1; then
     ollama serve > /tmp/ollama.log 2>&1 &
     OLLAMA_PID=$!
     # Wall clock, not iterations: with a bounded curl each pass can cost 4s, so a
     # counted loop would block the launcher (and delay the watchdog) far longer
     # than the cap reads.
     ollama_started=$(date +%s)
-    while ! curl -s --connect-timeout 2 --max-time 3 http://localhost:11434/api/tags > /dev/null 2>&1; do
+    while ! curl -s --connect-timeout 2 --max-time 3 "$OLLAMA_URL/api/tags" > /dev/null 2>&1; do
         if ! kill -0 "$OLLAMA_PID" 2>/dev/null; then
             echo "ollama serve exited early — continuing without it"
             OLLAMA_PID=""
@@ -265,21 +266,40 @@ fi
 LOCAL_ROOT="${HEADLESS_HERO_LOCAL_ROOT:-$HOME/.headless-hero-local}"
 COMFY_DIR="$LOCAL_ROOT/ComfyUI"
 
-if [ -d "$COMFY_DIR/.venv" ] && ! curl -sf --connect-timeout 2 --max-time 3 http://127.0.0.1:8188/system_stats > /dev/null 2>&1; then
-    # Not `( cd … && python ) &`: that backgrounds a *subshell*, so jobs -p holds
-    # the wrapper pid and cleanup's kill would orphan the real ComfyUI process —
-    # leaving :8188 bound and ~7 GB resident after the app quits. Launch python
-    # directly so the recorded pid is the process we actually need to kill.
-    cd "$COMFY_DIR" && ./.venv/bin/python main.py --port 8188 > /tmp/headless-hero-comfyui.log 2>&1 &
+# Same URLs and defaults pipeline/local_runtime.py probes, so overriding a daemon's
+# address moves the launcher with the app instead of starting a daemon on one port
+# while the backend looks at another.
+COMFY_URL="${LOCAL_COMFYUI_URL:-http://127.0.0.1:8188}"
+TTS_URL="${LOCAL_TTS_URL:-http://127.0.0.1:8770}"
+
+# Port out of a URL: strip scheme, then path, then everything up to the last colon.
+url_port() {
+    local rest="${1#*://}"
+    rest="${rest%%/*}"
+    case "$rest" in
+        *:*) printf '%s' "${rest##*:}" ;;
+        *)   printf '%s' "$2" ;;
+    esac
+}
+COMFY_PORT="$(url_port "$COMFY_URL" 8188)"
+TTS_PORT="$(url_port "$TTS_URL" 8770)"
+
+if [ -d "$COMFY_DIR/.venv" ] && ! curl -sf --connect-timeout 2 --max-time 3 "$COMFY_URL/system_stats" > /dev/null 2>&1; then
+    # `cd … && python … &` would NOT record python's pid: `&` binds looser than
+    # `&&`, so bash forks a subshell for the whole list and $! is the wrapper.
+    # cleanup's `kill` would then hit the wrapper and orphan ComfyUI, leaving the
+    # port bound and ~7 GB resident after the app quits. `exec` inside an explicit
+    # subshell makes that forked shell *become* python, so $! is the real process.
+    ( cd "$COMFY_DIR" && exec ./.venv/bin/python main.py --port "$COMFY_PORT" ) \
+        > /tmp/headless-hero-comfyui.log 2>&1 &
     COMFY_PID=$!
-    cd "$PROJECT_DIR" || exit 1
-    echo "Started ComfyUI (local image models, pid $COMFY_PID)."
+    echo "Started ComfyUI (local image models, port $COMFY_PORT, pid $COMFY_PID)."
 fi
 
-if command -v mlx_audio.server > /dev/null 2>&1 && ! curl -sf --connect-timeout 2 --max-time 3 http://127.0.0.1:8770/v1/models > /dev/null 2>&1; then
-    mlx_audio.server --host 127.0.0.1 --port 8770 > /tmp/headless-hero-mlx-audio.log 2>&1 &
+if command -v mlx_audio.server > /dev/null 2>&1 && ! curl -sf --connect-timeout 2 --max-time 3 "$TTS_URL/v1/models" > /dev/null 2>&1; then
+    mlx_audio.server --host 127.0.0.1 --port "$TTS_PORT" > /tmp/headless-hero-mlx-audio.log 2>&1 &
     MLX_AUDIO_PID=$!
-    echo "Started mlx-audio (local voice models, pid $MLX_AUDIO_PID)."
+    echo "Started mlx-audio (local voice models, port $TTS_PORT, pid $MLX_AUDIO_PID)."
 fi
 
 # Records that the backend came up. A start that hangs (bound but unresponsive,

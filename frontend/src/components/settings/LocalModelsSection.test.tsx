@@ -122,6 +122,7 @@ describe("LocalModelsSection settings mapping", () => {
       enabled: true,
       modes: { text: "cloud", image: "auto", voice: "local" },
       models: { text: "qwen3.8-27b", image: "flux2-klein-4b", voice: "kokoro-82m" },
+      voiceId: "",
     });
   });
 
@@ -135,6 +136,7 @@ describe("LocalModelsSection settings mapping", () => {
       // No fallbacks supplied, so no model is assumed — the registry, not this
       // component, decides what the defaults are.
       models: { text: "", image: "", voice: "" },
+      voiceId: "",
     });
   });
 
@@ -154,6 +156,7 @@ describe("LocalModelsSection settings mapping", () => {
       enabled: true,
       modes: { text: "auto", image: "cloud", voice: "local" },
       models: { text: "qwen3.8-27b", image: "flux2-klein-4b", voice: "kokoro-82m" },
+      voiceId: " af_heart ",
     })).toEqual({
       LOCAL_MODELS_ENABLED: "true",
       LOCAL_TEXT_MODE: "auto",
@@ -162,6 +165,7 @@ describe("LocalModelsSection settings mapping", () => {
       LOCAL_TEXT_MODEL: "qwen3.8-27b",
       LOCAL_IMAGE_MODEL: "flux2-klein-4b",
       LOCAL_VOICE_MODEL: "kokoro-82m",
+      LOCAL_VOICE_ID: "af_heart",
     });
   });
 });

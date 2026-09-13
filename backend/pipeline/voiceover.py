@@ -296,10 +296,16 @@ def generate_scene_audio(
     if word_timestamps:
         last_end_ms = word_timestamps[-1].get("end_ms", 0)
         if last_end_ms > 0:
-            # Never shorter than the file itself. Local alignment labels words
-            # only, so trailing silence is unlabelled and a word-derived
-            # duration would clip the tail of the scene during render.
-            duration = round(max(last_end_ms / 1000, _mp3_duration_seconds(audio_bytes)), 3)
+            duration = last_end_ms / 1000
+            if _modality_source("voice") == "local":
+                # Local alignment labels words only, so trailing silence is
+                # unlabelled and a word-derived duration would clip the tail of
+                # the scene during render. Gated to the local engine on purpose:
+                # ElevenLabs' own timings already span the utterance, and
+                # applying this there would lengthen every existing cloud scene
+                # by whatever trailing silence its MP3 carries.
+                duration = max(duration, _mp3_duration_seconds(audio_bytes))
+            duration = round(duration, 3)
             logger.info(
                 "Audio generated for scene %s: %.3fs duration (from word timestamps)",
                 scene_id, duration,

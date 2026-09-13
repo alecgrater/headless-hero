@@ -31,6 +31,7 @@ async def get_local_models() -> dict:
                     "backend": model.backend,
                     "license": model.license,
                     "approx_resident_gb": model.approx_resident_gb,
+                    "default_voice": model.default_voice,
                     "requires_attribution": model.requires_attribution,
                     "attribution_text": model.attribution_text,
                 }

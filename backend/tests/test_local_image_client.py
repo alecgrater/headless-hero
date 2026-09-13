@@ -172,7 +172,6 @@ def test_rejected_workflow_surfaces_the_response_body(fake_comfy, monkeypatch):
             return _Response(400, {"error": "boom"}, content=b"")
 
     rejecting = _Rejects(b"")
-    rejecting.text = ""
     monkeypatch.setattr(local_image_client, "_http", lambda: rejecting)
     monkeypatch.setenv("LOCAL_IMAGE_MODEL", "flux2-klein-4b")
     with pytest.raises(RuntimeError, match="rejected the workflow"):

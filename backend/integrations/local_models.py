@@ -22,7 +22,15 @@ class LocalModel:
 
     weights is the pull spec for the model's backend: an Ollama model
     reference for `ollama`, a Hugging Face repo (optionally `:QUANT`) for
-    `comfyui` and `mlx-audio`. The provisioning script consumes it verbatim.
+    `mlx-audio`. Both of those are read at runtime — `local_runtime._unload`
+    and `local_tts_client` send them to their daemon.
+
+    For `comfyui` it is documentation only. A ComfyUI model is three separate
+    files (diffusion model, text encoder, VAE) named inside a workflow graph,
+    so adding one also means a `backend/comfy_workflows/*.json` graph, a
+    `local_image_client` WorkflowSpec, and the matching constants in
+    `scripts/install-local-models.sh`. Keep this field equal to the repo that
+    script pulls from.
     """
 
     id: str
@@ -68,7 +76,7 @@ REGISTRY: dict[str, LocalModel] = {
         id="flux2-klein-4b",
         modality="image",
         backend="comfyui",
-        weights="black-forest-labs/FLUX.2-klein-4B",
+        weights="Comfy-Org/vae-text-encorder-for-flux-klein-4b",
         approx_resident_gb=7.2,
         license="Apache-2.0",
         label="FLUX.2 klein 4B",
