@@ -105,6 +105,20 @@ docs/              → PRD, setup guide, superpowers skills
 - Add concise hints/tooltips next to non-obvious controls.
 - Add dev-dashboard logs (success/warn/error/status/info) when new behavior affects generation, rendering, export, integrations, caching, or background jobs.
 
+## Local Models Mode
+
+Settings → AI & Generation → **Local Models** swaps cloud models for models running on this machine. It is an override layer: nothing about the cloud path is removed.
+
+- **Master switch plus per-modality overrides.** `LOCAL_MODELS_ENABLED` flips text, images, and voice together; `LOCAL_{TEXT|IMAGE|VOICE}_MODE` (`auto|local|cloud`) pins one modality either way. `auto` follows the master switch.
+- **`integrations/local_models.py` is the single source of truth.** One `LocalModel` registry entry per model carries its id, backend, weight pull spec, resident size, licence, and attribution. Settings pickers, the installer, and the attribution logic all read it — adding a model means adding one entry, not touching four files.
+- **AI video is deliberately cloud-only.** Local i2v is impractically slow on this hardware. Video scenes keep using Runway/fal; only their anchor images are generated locally.
+- **One model resident at a time.** Text (16 GB) + images (7 GB) + voice (4 GB) + Electron + Remotion's Chromium exceeds 48 GB, so `pipeline/local_runtime.py` holds an arena lock: claiming it for a different modality unloads the previous occupant, and `unload_all()` runs before a render. Stages queue rather than overlap — that is the accepted trade, not a bug.
+- **Attribution is enforced in code, never a user toggle.** Higgs TTS 3 permits monetized video only with a Boson AI credit, so `LocalModel.requires_attribution` drives `seo.apply_voice_attribution`, which appends the credit to generated descriptions. Kokoro and Chatterbox carry no such requirement. Do not add a setting to disable this.
+- **`image_client` is the only module allowed to name an image provider.** `thumbnail.py`, `main_character.py`, and `image_gen.py` all route through it; importing `google_image_client` directly in pipeline code reintroduces a path that silently stays on the cloud in Local Mode.
+- **Local model identity is part of the cache fingerprints.** `image_client.provider_fingerprint()` goes into image cache markers and `remotion_render.voice_engine_fingerprint()` into `subtitle_render_fingerprint`, so switching modes or models re-generates instead of reusing cloud assets inside a "local" video.
+- **Provisioning:** `scripts/install-local-models.sh` (idempotent, `--check` to verify, `--with-qwen-image` for the optional slow image model). Daemons: ollama `:11434`, ComfyUI `:8188`, mlx-audio `:8770`. The mac launcher starts the latter two fire-and-forget.
+- **Measured performance and the reasoning behind the defaults live in `docs/local-models-benchmarks.md`.** Read it before changing a default model — the image default was chosen from a 24× measured difference, not preference.
+
 ## Brand Profile
 
 Single auto-created default brand (no picker). All endpoints auto-resolve `brand_id` — never put it in request bodies.

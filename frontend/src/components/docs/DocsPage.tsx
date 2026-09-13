@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { DatabaseZap, FileText, GitCompare, LayoutGrid, Layers3, Radar, type LucideIcon } from "lucide-react";
+import { Cpu, DatabaseZap, FileText, GitCompare, LayoutGrid, Layers3, Radar, type LucideIcon } from "lucide-react";
 import ScriptTypesSection from "../settings/script-types/ScriptTypesSection";
 import VisualModesSection from "../settings/visual-modes/VisualModesSection";
+import LocalModelsDocSection from "./LocalModelsDocSection";
 import RenderCacheDocSection from "./RenderCacheDocSection";
 import VisualAssetOwnershipDocSection from "./VisualAssetOwnershipDocSection";
 import WhitespaceDiscoveryDocSection from "./WhitespaceDiscoveryDocSection";
@@ -37,6 +38,12 @@ const DOC_SECTIONS = [
     label: "Visual Ownership",
     description: "See which system owns script intent, generated assets, renderer text, timing, and exports.",
     icon: Layers3,
+  },
+  {
+    id: "local-models",
+    label: "Local Models",
+    description: "Run generation on local models instead of cloud APIs, and understand the trade-offs.",
+    icon: Cpu,
   },
   {
     id: "visual-modes",
@@ -99,6 +106,7 @@ export default function DocsPage() {
           )}
           {activeSection === "render-cache" && <RenderCacheDocSection />}
           {activeSection === "whitespace" && <WhitespaceDiscoveryDocSection />}
+          {activeSection === "local-models" && <LocalModelsDocSection />}
           {activeSection === "visual-ownership" && <VisualAssetOwnershipDocSection />}
           {activeSection === "visual-modes" && <VisualModesSection />}
         </div>
