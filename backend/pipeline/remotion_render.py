@@ -546,37 +546,51 @@ def _spoken_span_seconds(scene: Scene) -> float:
     return max(0.0, (timestamps[-1].end_ms - timestamps[0].start_ms) / 1000)
 
 
+def _resolve_disabled_fallback(desired: str, enabled_styles: list[str]) -> str:
+    """Mirror of ``resolveDisabledFallback`` in subtitleRouting.ts.
+
+    "clean" is the floor of the catalogue, but that is an invariant of the *producer*
+    (``subtitle_settings_from_env`` always prepends it), not of this function — so the
+    ladder is reproduced exactly rather than assuming clean is present.
+    """
+    if not enabled_styles:
+        return "none"
+    if desired in enabled_styles:
+        return desired
+    if "clean" in enabled_styles:
+        return "clean"
+    return enabled_styles[0]
+
+
 def resolve_subtitle_style(scene: Scene, settings: dict[str, Any] | None = None) -> str:
     """Mirror of the Remotion router in subtitleRouting.ts.
 
     Kept in sync by construction: both read the same thresholds out of ``settings``.
     Used for the per-render dev-dashboard split so style drift is observable.
+    ``test_resolve_subtitle_style_matches_the_ts_router_table`` pins the two against
+    the same case table as ``SubtitleRouting.test.ts``.
     """
     if not _subtitle_scene_eligible(scene):
         return "none"
     resolved = settings or subtitle_settings_from_env()
     enabled = resolved.get("enabled_styles")
     if enabled is None:
-        enabled = ["clean"]
-    # An explicitly empty style set suppresses subtitles, matching the TS router.
-    if not enabled:
-        return "none"
+        # Matches the TS default when no settings are supplied at all.
+        enabled = ["clean", "kinetic"]
 
     style = scene.subtitle_style or "auto"
     if style != "auto":
         if style == "none":
             return "none"
-        return style if style in enabled else "clean"
+        return _resolve_disabled_fallback(style, enabled)
 
     timestamps = scene.word_timestamps or []
     if not timestamps:
-        return "clean"
+        return _resolve_disabled_fallback("clean", enabled)
     max_words = resolved.get("kinetic_max_words", KINETIC_MAX_WORDS)
     max_span = resolved.get("kinetic_max_span_seconds", KINETIC_MAX_SPAN_SECONDS)
     is_punch_beat = len(timestamps) <= max_words and _spoken_span_seconds(scene) <= max_span
-    if is_punch_beat and "kinetic" in enabled:
-        return "kinetic"
-    return "clean"
+    return _resolve_disabled_fallback("kinetic" if is_punch_beat else "clean", enabled)
 
 
 def _subtitle_scene_eligible(scene: Scene) -> bool:
@@ -623,17 +637,38 @@ def _subtitle_styles_for_render(content: ScriptContent) -> dict[str, str]:
     if settings["coverage"] == "all":
         return {scene.id: scene.subtitle_style or "auto" for scene in eligible}
 
-    selected_count = max(1, math.ceil(len(eligible) * 0.2)) if eligible else 0
-    indexed = list(enumerate(eligible))
-    selected_ids = {
-        scene.id
-        for _index, scene in sorted(
-            indexed,
-            key=lambda item: (_subtitle_punch_score(item[1]), -item[0]),
-            reverse=True,
-        )[:selected_count]
-    }
+    selected_ids = _select_punchy_scene_ids(eligible)
     return {scene.id: ((scene.subtitle_style or "auto") if scene.id in selected_ids else "none") for scene in eligible}
+
+
+def _select_punchy_scene_ids(eligible: list[Scene]) -> set[str]:
+    """Pick the ``punchy`` coverage budget, spread across the whole script.
+
+    Ranking the whole script by score and taking the top N collapses the distribution:
+    the scorer's terms are sparse (on the measured corpus, 38 of 59 scenes score 0 and
+    only one contains a digit), so most slots are ties broken by array position, and
+    every subtitle lands in the first half. On the real script that left the back 45%
+    of the video with no subtitles at all.
+
+    Instead the script is divided into as many contiguous windows as there are slots
+    and the best-scoring scene in each window is taken. Score still decides *which*
+    scene within a window; position decides nothing beyond which window a scene is in.
+    """
+    if not eligible:
+        return set()
+
+    slots = max(1, math.ceil(len(eligible) * 0.2))
+    selected: set[str] = set()
+    for slot in range(slots):
+        start = (slot * len(eligible)) // slots
+        end = ((slot + 1) * len(eligible)) // slots
+        window = list(enumerate(eligible))[start:end]
+        if not window:
+            continue
+        # Highest score wins the window; ties fall to the earliest scene in it.
+        _index, scene = max(window, key=lambda item: (_subtitle_punch_score(item[1]), -item[0]))
+        selected.add(scene.id)
+    return selected
 
 
 def _log_subtitle_style_split(
@@ -647,15 +682,26 @@ def _log_subtitle_style_split(
     The kinetic rate was tuned against a single video; this makes drift visible on the
     dev dashboard rather than only in a finished render.
     """
-    counts = {"clean": 0, "kinetic": 0, "coverage_suppressed": 0, "ineligible": 0}
+    counts = {
+        "clean": 0,
+        "kinetic": 0,
+        "coverage_suppressed": 0,
+        "author_suppressed": 0,
+        "ineligible": 0,
+    }
+    coverage = settings.get("coverage")
     for scene in scenes:
         # Structurally ineligible (title cards, captions, stat_card) is a different
-        # fact from "punchy coverage dropped it" — bucketing them together hides the
-        # drift this line exists to surface.
+        # fact from "punchy coverage dropped it", which is different again from the
+        # author pinning the scene to "none" — bucketing them together hides the drift
+        # this line exists to surface.
         if not _subtitle_scene_eligible(scene):
             counts["ineligible"] += 1
             continue
-        if subtitle_styles.get(scene.id) == "none":
+        if scene.subtitle_style == "none":
+            counts["author_suppressed"] += 1
+            continue
+        if coverage == "punchy" and subtitle_styles.get(scene.id) == "none":
             counts["coverage_suppressed"] += 1
             continue
         resolved = resolve_subtitle_style(scene, settings)
@@ -667,7 +713,7 @@ def _log_subtitle_style_split(
     kinetic_pct = (100 * counts["kinetic"] / subtitled) if subtitled else 0.0
     logger.info(
         "[%s] Subtitle styles: %d clean, %d kinetic (%.0f%% of %d subtitled); "
-        "%d coverage-suppressed, %d ineligible "
+        "%d coverage-suppressed, %d author-suppressed, %d ineligible "
         "(coverage=%s, enabled=%s, kinetic<=%sw/<=%ss)",
         label,
         counts["clean"],
@@ -675,8 +721,9 @@ def _log_subtitle_style_split(
         kinetic_pct,
         subtitled,
         counts["coverage_suppressed"],
+        counts["author_suppressed"],
         counts["ineligible"],
-        settings.get("coverage"),
+        coverage,
         ",".join(settings.get("enabled_styles") or []),
         settings.get("kinetic_max_words"),
         settings.get("kinetic_max_span_seconds"),

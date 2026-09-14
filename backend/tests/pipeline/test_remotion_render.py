@@ -896,24 +896,86 @@ def test_punchy_coverage_scorer_stays_orthogonal_to_the_style_router():
     assert remotion_render._subtitle_punch_score(figure_scene) > remotion_render._subtitle_punch_score(punch_beat)
 
 
-def test_punchy_coverage_does_not_concentrate_kinetic(monkeypatch):
-    """The kinetic share must stay comparable across coverage modes."""
-    monkeypatch.setenv("SUBTITLE_COVERAGE_MODE", "punchy")
+def test_punchy_coverage_kinetic_share_tracks_the_all_coverage_share(monkeypatch):
+    """Punchy must not concentrate kinetic — the share has to stay in the same band.
+
+    Asserting only `kinetic < selected` passes in both failure modes: coverage that
+    sweeps up every punch beat (the 83% bug) and coverage that excludes them all.
+    """
     monkeypatch.setenv("SUBTITLE_STYLE_KINETIC_ENABLED", "true")
-    scenes = [_timed_scene(3, 1200, id=f"punch-{i}", narration="Her finding.") for i in range(6)]
-    scenes += [
-        _timed_scene(20, 8000, id=f"long-{i}", narration=f"In 19{70 + i} researchers tracked the whole cohort.")
-        for i in range(6)
+    scenes = []
+    for i in range(30):
+        # A repeating 5-scene shape, uniform across the script, so a positional bias
+        # in coverage selection shows up as a share change.
+        if i % 5 == 0:
+            scenes.append(_timed_scene(3, 1200, id=f"punch-{i}", narration="Her finding."))
+        elif i % 5 == 1:
+            scenes.append(
+                _timed_scene(20, 8000, id=f"figure-{i}", narration=f"In 19{70 + i} they tracked the cohort.")
+            )
+        else:
+            scenes.append(
+                _timed_scene(20, 8000, id=f"plain-{i}", narration="A calm explanatory line follows.")
+            )
+    content = ScriptContent(title="T", segments=[Segment(name="One", scenes=scenes)])
+
+    def kinetic_share(mode: str) -> float:
+        monkeypatch.setenv("SUBTITLE_COVERAGE_MODE", mode)
+        styles = remotion_render._subtitle_styles_for_render(content)
+        chosen = [sc for sc in scenes if styles.get(sc.id) != "none"]
+        assert chosen, f"{mode} coverage selected nothing"
+        kinetic = [
+            sc for sc in chosen
+            if remotion_render.resolve_subtitle_style(sc, _TWO_STYLE_SETTINGS) == "kinetic"
+        ]
+        return len(kinetic) / len(chosen)
+
+    all_share = kinetic_share("all")
+    punchy_share = kinetic_share("punchy")
+
+    assert all_share == pytest.approx(0.2, abs=0.01)
+    # Two-sided: punchy may neither sweep up the punch beats nor exclude them all.
+    assert punchy_share <= all_share * 2
+
+
+def test_punchy_coverage_spreads_across_the_script(monkeypatch):
+    """The budget must reach the end of the video.
+
+    Ranking the whole script and taking the top N put every selection in the first
+    half, because the scorer's terms are sparse and most slots were ties broken by
+    array position. On a real 59-scene script the back 45% got nothing.
+    """
+    monkeypatch.setenv("SUBTITLE_COVERAGE_MODE", "punchy")
+    # Deliberately flat: every scene scores 0, so only the windowing can spread these.
+    scenes = [
+        _timed_scene(20, 8000, id=f"s{i:02d}", narration="A calm explanatory line follows.")
+        for i in range(60)
     ]
     content = ScriptContent(title="T", segments=[Segment(name="One", scenes=scenes)])
 
     styles = remotion_render._subtitle_styles_for_render(content)
-    selected = [sc for sc in scenes if styles.get(sc.id) != "none"]
-    kinetic = [
-        sc for sc in selected
-        if remotion_render.resolve_subtitle_style(sc, _TWO_STYLE_SETTINGS) == "kinetic"
+    picked = [i for i, sc in enumerate(scenes) if styles.get(sc.id) != "none"]
+
+    assert len(picked) == 12
+    # Every window contributes, so the selection reaches the final tenth of the script.
+    assert max(picked) >= len(scenes) * 0.9
+    assert min(picked) <= len(scenes) * 0.1
+    # And neither half is starved.
+    first_half = [i for i in picked if i < len(scenes) / 2]
+    assert 4 <= len(first_half) <= 8
+
+
+def test_punchy_coverage_prefers_the_best_scene_inside_each_window(monkeypatch):
+    """Score decides which scene wins a window; position only decides the window."""
+    monkeypatch.setenv("SUBTITLE_COVERAGE_MODE", "punchy")
+    scenes = [
+        _timed_scene(20, 8000, id=f"s{i:02d}", narration="A calm explanatory line follows.")
+        for i in range(10)
     ]
-    # The figure-bearing long scenes outrank the punch beats, so punchy coverage does
-    # not fill up with kinetic.
-    assert selected, "punchy coverage selected nothing"
-    assert len(kinetic) < len(selected)
+    # The figure-bearing scene is last in the script, where the old global ranking's
+    # position tie-break would have put it dead last. It must still win its window.
+    scenes[-1] = _timed_scene(20, 8000, id="s09", narration="Exactly 40 percent never recover.")
+    content = ScriptContent(title="T", segments=[Segment(name="One", scenes=scenes)])
+
+    styles = remotion_render._subtitle_styles_for_render(content)
+    assert styles["s09"] == "auto"
