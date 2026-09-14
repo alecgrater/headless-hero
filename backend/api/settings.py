@@ -25,10 +25,10 @@ router = APIRouter(prefix="/api/settings", tags=["settings"])
 
 VISUAL_CANVAS_COLOR_PALETTE_KEY = "VISUAL_CANVAS_COLOR_PALETTE"
 SUBTITLE_COVERAGE_MODE_KEY = "SUBTITLE_COVERAGE_MODE"
+# "clean" is the floor of the two-style catalogue and has no toggle — only the kinetic
+# exception can be turned off.
 SUBTITLE_STYLE_KEYS = {
-    "clean": "SUBTITLE_STYLE_CLEAN_ENABLED",
     "kinetic": "SUBTITLE_STYLE_KINETIC_ENABLED",
-    "burst": "SUBTITLE_STYLE_BURST_ENABLED",
 }
 
 RANGED_INTEGER_SETTINGS = {
@@ -201,9 +201,7 @@ _DEFAULTS: dict[str, str] = {
     "STYLE_PRESET_ENABLED_DEFAULT": "true",
     "ACTIVE_STYLE_PRESET_ID": "",
     SUBTITLE_COVERAGE_MODE_KEY: "all",
-    "SUBTITLE_STYLE_CLEAN_ENABLED": "true",
     "SUBTITLE_STYLE_KINETIC_ENABLED": "true",
-    "SUBTITLE_STYLE_BURST_ENABLED": "true",
     VISUAL_CANVAS_COLOR_PALETTE_KEY: '["#F6C54A"]',
 }
 

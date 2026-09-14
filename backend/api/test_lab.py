@@ -77,14 +77,11 @@ _DELIVERY_PRESETS = {
 
 _SUBTITLE_STYLE_LABELS = {
     "clean": "Clean",
-    "kinetic": "Kinetic Cards",
-    "burst": "Burst",
+    "kinetic": "Kinetic accents",
 }
 
 _SUBTITLE_STYLE_KEYS = {
-    "clean": "SUBTITLE_STYLE_CLEAN_ENABLED",
     "kinetic": "SUBTITLE_STYLE_KINETIC_ENABLED",
-    "burst": "SUBTITLE_STYLE_BURST_ENABLED",
 }
 
 
@@ -226,11 +223,13 @@ def _visible_voice_summary_settings(
 def _subtitle_summary(session: Session) -> dict[str, Any]:
     coverage = session.get(AppSetting, "SUBTITLE_COVERAGE_MODE")
     coverage_value = (coverage.value if coverage and coverage.value else "all").strip().lower()
-    enabled_style_labels = [
-        _SUBTITLE_STYLE_LABELS[style]
-        for style, key in _SUBTITLE_STYLE_KEYS.items()
-        if _setting_enabled(session.get(AppSetting, key).value if session.get(AppSetting, key) else None, True)
-    ]
+    # "clean" is the floor of the catalogue and is always listed; only the kinetic
+    # exception is gated.
+    enabled_style_labels = [_SUBTITLE_STYLE_LABELS["clean"]]
+    for style, key in _SUBTITLE_STYLE_KEYS.items():
+        row = session.get(AppSetting, key)
+        if _setting_enabled(row.value if row else None, True):
+            enabled_style_labels.append(_SUBTITLE_STYLE_LABELS[style])
     return {
         "coverage_label": "Punchy scenes" if coverage_value == "punchy" else "All scenes",
         "enabled_style_labels": enabled_style_labels,

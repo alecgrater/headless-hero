@@ -1,10 +1,15 @@
 import type { Orientation, RoutedSubtitleStyle, SceneInput, SubtitleSettingsConfig, SubtitleStyle, WordTimestamp } from "../../types";
 
-export const SUBTITLE_ROUTER_VERSION = "standard-subtitle-router-v1";
+export const SUBTITLE_ROUTER_VERSION = "standard-subtitle-router-v2";
 
 export type ResolvedSubtitleStyle = Exclude<SubtitleStyle, "auto">;
-export type SubtitleRoutingSettings = Pick<SubtitleSettingsConfig, "enabled_styles"> | {
+export type SubtitleRoutingSettings = Pick<SubtitleSettingsConfig, "enabled_styles"> & {
+  kinetic_max_words?: number;
+  kinetic_max_span_seconds?: number;
+} | {
   enabledStyles?: RoutedSubtitleStyle[];
+  kineticMaxWords?: number;
+  kineticMaxSpanSeconds?: number;
 };
 
 export interface SubtitlePhrase {
@@ -15,20 +20,18 @@ export interface SubtitlePhrase {
 
 const MAX_WORDS_PER_LINE = 8;
 const PAUSE_THRESHOLD_MS = 300;
-const FAST_WORD_MS = 190;
-const DENSE_WORD_COUNT = 6;
 
-const BURST_CUES = [
-  "but",
-  "then",
-  "suddenly",
-  "the catch",
-  "the real reason",
-  "finally",
-  "snaps",
-  "reveals",
-  "turns out",
-];
+/**
+ * Kinetic routing defaults. The backend owns these and ships them in `subtitle_settings`
+ * (see remotion_render.KINETIC_MAX_WORDS / KINETIC_MAX_SPAN_SECONDS); these are the
+ * fallback for props written before the thresholds were transported.
+ *
+ * Pace is deliberately NOT a term. Measured narration runs 318ms/word at p10 and short
+ * scenes are systematically *slower* per word, so any per-word pace gate either never
+ * fires or fires on everything.
+ */
+export const DEFAULT_KINETIC_MAX_WORDS = 6;
+export const DEFAULT_KINETIC_MAX_SPAN_SECONDS = 3.0;
 
 export function groupIntoSubtitlePhrases(timestamps: WordTimestamp[], fps: number): SubtitlePhrase[] {
   if (timestamps.length === 0) return [];
@@ -73,35 +76,43 @@ export function wordProgress(word: WordTimestamp, frame: number, fps: number): n
 }
 
 function enabledStylesFromSettings(settings?: SubtitleRoutingSettings | null): RoutedSubtitleStyle[] {
-  if (!settings) return ["clean", "kinetic", "burst"];
+  if (!settings) return ["clean", "kinetic"];
   if ("enabled_styles" in settings) return settings.enabled_styles;
-  return settings.enabledStyles ?? ["clean", "kinetic", "burst"];
+  return settings.enabledStyles ?? ["clean", "kinetic"];
 }
 
+function kineticThresholds(settings?: SubtitleRoutingSettings | null): { maxWords: number; maxSpanSeconds: number } {
+  const maxWords = settings && "enabled_styles" in settings
+    ? settings.kinetic_max_words
+    : settings?.kineticMaxWords;
+  const maxSpanSeconds = settings && "enabled_styles" in settings
+    ? settings.kinetic_max_span_seconds
+    : settings?.kineticMaxSpanSeconds;
+  return {
+    maxWords: typeof maxWords === "number" ? maxWords : DEFAULT_KINETIC_MAX_WORDS,
+    maxSpanSeconds: typeof maxSpanSeconds === "number" ? maxSpanSeconds : DEFAULT_KINETIC_MAX_SPAN_SECONDS,
+  };
+}
+
+/** "clean" is the floor of the catalogue — anything unavailable falls back to it. */
 function resolveDisabledFallback(
   desired: RoutedSubtitleStyle,
   enabledStyles: RoutedSubtitleStyle[],
 ): ResolvedSubtitleStyle {
   if (enabledStyles.length === 0) return "none";
-  if (enabledStyles.length === 1) return enabledStyles[0];
   if (enabledStyles.includes(desired)) return desired;
-
-  if (desired === "burst") {
-    if (enabledStyles.includes("kinetic")) return "kinetic";
-    if (enabledStyles.includes("clean")) return "clean";
-  }
-
-  if (desired === "kinetic") {
-    if (enabledStyles.includes("clean")) return "clean";
-    if (enabledStyles.includes("burst")) return "burst";
-  }
-
+  if (enabledStyles.includes("clean")) return "clean";
   return enabledStyles[0];
+}
+
+export function spokenSpanSeconds(timestamps: WordTimestamp[]): number {
+  if (timestamps.length === 0) return 0;
+  return Math.max(0, (timestamps[timestamps.length - 1].end_ms - timestamps[0].start_ms) / 1000);
 }
 
 export function resolveSubtitleStyle(
   scene: SceneInput,
-  orientation: Orientation,
+  _orientation: Orientation,
   settings?: SubtitleRoutingSettings | null,
 ): ResolvedSubtitleStyle {
   if (scene.is_title_card || scene.visual_mode === "captions" || scene.visual_mode === "stat_card" || scene.visual_beat === "aha_subtitle") {
@@ -114,30 +125,12 @@ export function resolveSubtitleStyle(
   }
 
   const timestamps = scene.word_timestamps ?? [];
-  const narration = scene.narration.toLowerCase();
-  const wordCount = timestamps.length || narration.split(/\s+/).filter(Boolean).length;
-  const durationMs = Math.max(1, scene.duration_seconds * 1000);
-  const averageWordMs = timestamps.length >= 2
-    ? (timestamps[timestamps.length - 1].end_ms - timestamps[0].start_ms) / timestamps.length
-    : durationMs / Math.max(1, wordCount);
-  const hasBurstCue = BURST_CUES.some((cue) => narration.includes(cue));
-  let desired: RoutedSubtitleStyle = "clean";
-  if (wordCount >= DENSE_WORD_COUNT && averageWordMs <= FAST_WORD_MS) {
-    desired = "kinetic";
-    return resolveDisabledFallback(desired, enabledStyles);
-  }
+  if (timestamps.length === 0) return resolveDisabledFallback("clean", enabledStyles);
 
-  const isShortPayoff = wordCount <= 4 && /[!?]$/.test(scene.narration.trim());
-
-  if (hasBurstCue || isShortPayoff) {
-    desired = "burst";
-    return resolveDisabledFallback(desired, enabledStyles);
-  }
-
-  if (orientation === "vertical" && wordCount <= 5 && averageWordMs <= 230) {
-    desired = "kinetic";
-    return resolveDisabledFallback(desired, enabledStyles);
-  }
-
-  return resolveDisabledFallback(desired, enabledStyles);
+  // Kinetic is the short-punch-beat exception: few words, delivered in a short span.
+  // Everything else is clean. Orientation is not a term — a punch beat is a punch beat
+  // in either aspect ratio.
+  const { maxWords, maxSpanSeconds } = kineticThresholds(settings);
+  const isPunchBeat = timestamps.length <= maxWords && spokenSpanSeconds(timestamps) <= maxSpanSeconds;
+  return resolveDisabledFallback(isPunchBeat ? "kinetic" : "clean", enabledStyles);
 }

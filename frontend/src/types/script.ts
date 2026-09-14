@@ -36,7 +36,7 @@ export interface VideoFX {
 }
 
 export type VisualMode = "video" | "full_frame" | "multi_frame" | "continuous" | "popup_sequence" | "blink" | "comparison_board" | "captions" | "stat_card";
-export type SubtitleStyle = "auto" | "clean" | "kinetic" | "burst" | "none";
+export type SubtitleStyle = "auto" | "clean" | "kinetic" | "none";
 export type RendererContext = "outdoor" | "indoor";
 export type BlinkAction = "blink";
 

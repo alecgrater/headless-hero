@@ -128,15 +128,19 @@ def test_ai_video_scenes_per_segment_is_exposed_as_plaintext_setting():
 def test_subtitle_settings_are_exposed_as_plaintext_defaults():
     expected = {
         "SUBTITLE_COVERAGE_MODE": "all",
-        "SUBTITLE_STYLE_CLEAN_ENABLED": "true",
         "SUBTITLE_STYLE_KINETIC_ENABLED": "true",
-        "SUBTITLE_STYLE_BURST_ENABLED": "true",
     }
 
     for key, default in expected.items():
         assert key in ALLOWED_KEYS
         assert key in _PLAINTEXT_KEYS
         assert _DEFAULTS[key] == default
+
+    # Clean is the floor of the two-style catalogue and burst is deleted; neither
+    # carries a setting any more.
+    for retired in ("SUBTITLE_STYLE_CLEAN_ENABLED", "SUBTITLE_STYLE_BURST_ENABLED"):
+        assert retired not in ALLOWED_KEYS
+        assert retired not in _DEFAULTS
 
 
 def test_text_fingerprint_matches_the_routing_chat_would_use(monkeypatch):

@@ -321,9 +321,8 @@ def _check_subtitle_settings(engine) -> SmokeTestCheck:
         group="Settings",
         status="pass",
         detail="Subtitle settings are readable for Test Lab diagnostics.",
-        evidence=f"{label}; clean={_setting(engine, 'SUBTITLE_STYLE_CLEAN_ENABLED', 'true')}; "
-        f"kinetic={_setting(engine, 'SUBTITLE_STYLE_KINETIC_ENABLED', 'true')}; "
-        f"burst={_setting(engine, 'SUBTITLE_STYLE_BURST_ENABLED', 'true')}",
+        evidence=f"{label}; clean=always on; "
+        f"kinetic={_setting(engine, 'SUBTITLE_STYLE_KINETIC_ENABLED', 'true')}",
     )
 
 

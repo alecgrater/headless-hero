@@ -374,10 +374,10 @@ def test_test_lab_captions_rederive_stale_caption_after_narration_change():
 def test_test_lab_settings_preserve_subtitle_style():
     from pipeline.test_lab import build_content_from_preset
 
-    content = build_content_from_preset("coffee-brain", {"subtitle_style": "burst"})
+    content = build_content_from_preset("coffee-brain", {"subtitle_style": "kinetic"})
 
     scene = content.segments[0].scenes[0]
-    assert scene.subtitle_style == "burst"
+    assert scene.subtitle_style == "kinetic"
 
 
 def test_test_lab_blink_settings_preserve_action():
@@ -659,8 +659,10 @@ def test_test_lab_scenes_endpoint_returns_subtitle_summary(monkeypatch, tmp_path
 
     with Session(engine) as session:
         session.add(AppSetting(key="SUBTITLE_COVERAGE_MODE", value="punchy"))
-        session.add(AppSetting(key="SUBTITLE_STYLE_CLEAN_ENABLED", value="true"))
         session.add(AppSetting(key="SUBTITLE_STYLE_KINETIC_ENABLED", value="false"))
+        # Retired keys left behind by an older install must stay inert — no migration
+        # drops them, so the summary has to ignore rather than honour them.
+        session.add(AppSetting(key="SUBTITLE_STYLE_CLEAN_ENABLED", value="false"))
         session.add(AppSetting(key="SUBTITLE_STYLE_BURST_ENABLED", value="true"))
         session.add(AppSetting(key="SUBTITLE_HIGHLIGHT_ENABLED", value="false"))
         session.commit()
@@ -673,7 +675,7 @@ def test_test_lab_scenes_endpoint_returns_subtitle_summary(monkeypatch, tmp_path
         assert response.status_code == 200
         summary = response.json()["subtitle_summary"]
         assert summary["coverage_label"] == "Punchy scenes"
-        assert summary["enabled_style_labels"] == ["Clean", "Burst"]
+        assert summary["enabled_style_labels"] == ["Clean"]
         assert "highlight_label" not in summary
     finally:
         from database import get_session

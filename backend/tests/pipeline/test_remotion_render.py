@@ -133,7 +133,7 @@ def test_subtitle_render_fingerprint_tracks_style_and_router_version():
                 name="One",
                 scenes=[
                     Scene(id="scene-1", narration="Clean.", visual_prompt="", subtitle_style="clean"),
-                    Scene(id="scene-2", narration="Burst.", visual_prompt="", subtitle_style="burst"),
+                    Scene(id="scene-2", narration="Punch.", visual_prompt="", subtitle_style="kinetic"),
                 ],
             )
         ],
@@ -156,7 +156,7 @@ def test_subtitle_render_fingerprint_tracks_style_and_router_version():
         },
         {
             "id": "scene-2",
-            "subtitle_style": "burst",
+            "subtitle_style": "kinetic",
             "visual_mode": "full_frame",
             "renderer_context": "",
             "stat_value": "",
@@ -399,23 +399,32 @@ def test_subtitle_render_fingerprint_includes_renderer_context_for_canvas_modes(
 
 def test_subtitle_settings_from_env_normalize_values(monkeypatch):
     monkeypatch.setenv("SUBTITLE_COVERAGE_MODE", "punchy")
-    monkeypatch.setenv("SUBTITLE_STYLE_CLEAN_ENABLED", "false")
     monkeypatch.setenv("SUBTITLE_STYLE_KINETIC_ENABLED", "true")
-    monkeypatch.setenv("SUBTITLE_STYLE_BURST_ENABLED", "false")
 
     settings = remotion_render.subtitle_settings_from_env()
 
     assert settings == {
         "coverage": "punchy",
-        "enabled_styles": ["kinetic"],
+        "enabled_styles": ["clean", "kinetic"],
+        "kinetic_max_words": remotion_render.KINETIC_MAX_WORDS,
+        "kinetic_max_span_seconds": remotion_render.KINETIC_MAX_SPAN_SECONDS,
     }
+
+
+def test_subtitle_settings_keep_clean_when_kinetic_is_disabled(monkeypatch):
+    """Clean is the floor of the catalogue — it has no toggle and can never drop out."""
+    monkeypatch.delenv("SUBTITLE_COVERAGE_MODE", raising=False)
+    monkeypatch.setenv("SUBTITLE_STYLE_KINETIC_ENABLED", "false")
+
+    settings = remotion_render.subtitle_settings_from_env()
+
+    assert settings["coverage"] == "all"
+    assert settings["enabled_styles"] == ["clean"]
 
 
 def test_apply_subtitle_coverage_limits_punchy_scenes(monkeypatch):
     monkeypatch.setenv("SUBTITLE_COVERAGE_MODE", "punchy")
-    monkeypatch.setenv("SUBTITLE_STYLE_CLEAN_ENABLED", "true")
     monkeypatch.setenv("SUBTITLE_STYLE_KINETIC_ENABLED", "true")
-    monkeypatch.setenv("SUBTITLE_STYLE_BURST_ENABLED", "true")
     content = ScriptContent(
         title="Test",
         segments=[

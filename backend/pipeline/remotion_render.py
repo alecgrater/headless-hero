@@ -28,14 +28,22 @@ REMOTION_ENTRY = REMOTION_DIR / "src" / "index.ts"
 BACKEND_STATIC_BASE = f"http://localhost:{BACKEND_PORT}/static/projects"
 BACKEND_STYLE_STATIC_BASE = f"http://localhost:{BACKEND_PORT}/static/style"
 MAX_AI_VIDEO_SLOWDOWN_RATIO = 1.25
-SUBTITLE_ROUTER_VERSION = "standard-subtitle-router-v1"
+SUBTITLE_ROUTER_VERSION = "standard-subtitle-router-v2"
 RENDERER_CONTEXT_STAGE_VERSION = "renderer-context-stage-v4"
 # Bump to invalidate every prior blink render (overlay geometry / detection changes).
 BLINK_RENDERER_VERSION = "full-frame-blink-v1"
 # Bump to invalidate every prior camera-drift render (CameraDrift transform math changes).
 CAMERA_DRIFT_RENDERER_VERSION = "camera-drift-cover-v1"
 SUBTITLE_COVERAGE_MODES = {"all", "punchy"}
-SUBTITLE_STYLES = ("clean", "kinetic", "burst")
+# Two-style catalogue: "clean" is the floor and cannot be disabled; "kinetic" is the
+# short-punch-beat exception. See docs/superpowers/specs/2026-09-14-two-style-subtitles-design.md.
+SUBTITLE_STYLES = ("clean", "kinetic")
+# Kinetic routing thresholds. Owned here and shipped to Remotion inside subtitle_settings
+# so the renderer and the dev-dashboard split logger can never disagree. Derived from
+# measured narration: pace is flat (p10 318ms/word) so word count and total spoken span
+# are the only usable signals.
+KINETIC_MAX_WORDS = 6
+KINETIC_MAX_SPAN_SECONDS = 3.0
 
 
 def _to_remotion_path(abs_path: str) -> str:
@@ -518,15 +526,52 @@ def subtitle_settings_from_env() -> dict[str, Any]:
     coverage = os.getenv("SUBTITLE_COVERAGE_MODE", "all").strip().lower()
     if coverage not in SUBTITLE_COVERAGE_MODES:
         coverage = "all"
-    enabled_styles = [
-        style
-        for style in SUBTITLE_STYLES
-        if _setting_enabled(os.getenv(f"SUBTITLE_STYLE_{style.upper()}_ENABLED"), True)
-    ]
+    # "clean" is the floor and has no toggle — only the kinetic exception can be turned off.
+    enabled_styles = ["clean"]
+    if _setting_enabled(os.getenv("SUBTITLE_STYLE_KINETIC_ENABLED"), True):
+        enabled_styles.append("kinetic")
     return {
         "coverage": coverage,
         "enabled_styles": enabled_styles,
+        "kinetic_max_words": KINETIC_MAX_WORDS,
+        "kinetic_max_span_seconds": KINETIC_MAX_SPAN_SECONDS,
     }
+
+
+def _spoken_span_seconds(scene: Scene) -> float:
+    """Seconds from the first word's start to the last word's end, 0.0 without timings."""
+    timestamps = scene.word_timestamps or []
+    if len(timestamps) < 1:
+        return 0.0
+    return max(0.0, (timestamps[-1].end_ms - timestamps[0].start_ms) / 1000)
+
+
+def resolve_subtitle_style(scene: Scene, settings: dict[str, Any] | None = None) -> str:
+    """Mirror of the Remotion router in subtitleRouting.ts.
+
+    Kept in sync by construction: both read the same thresholds out of ``settings``.
+    Used for the per-render dev-dashboard split so style drift is observable.
+    """
+    if not _subtitle_scene_eligible(scene):
+        return "none"
+    resolved = settings or subtitle_settings_from_env()
+    enabled = resolved.get("enabled_styles") or ["clean"]
+
+    style = scene.subtitle_style or "auto"
+    if style != "auto":
+        if style == "none":
+            return "none"
+        return style if style in enabled else "clean"
+
+    timestamps = scene.word_timestamps or []
+    if not timestamps:
+        return "clean"
+    max_words = resolved.get("kinetic_max_words", KINETIC_MAX_WORDS)
+    max_span = resolved.get("kinetic_max_span_seconds", KINETIC_MAX_SPAN_SECONDS)
+    is_punch_beat = len(timestamps) <= max_words and _spoken_span_seconds(scene) <= max_span
+    if is_punch_beat and "kinetic" in enabled:
+        return "kinetic"
+    return "clean"
 
 
 def _subtitle_scene_eligible(scene: Scene) -> bool:
@@ -539,24 +584,22 @@ def _subtitle_scene_eligible(scene: Scene) -> bool:
 
 
 def _subtitle_punch_score(scene: Scene) -> float:
+    """Rank scenes for ``coverage="punchy"`` — which scenes get subtitles at all.
+
+    Separate concern from which *style* they get. The old per-word pace terms
+    (<=190ms, <=240ms) could never fire on human-paced narration, and the old
+    cue-substring term was a burst artifact that rewarded the presence of common
+    function words. Both are gone; the surviving signals are the ones the measured
+    corpus actually discriminates on.
+    """
     timestamps = scene.word_timestamps or []
-    narration = scene.narration.lower()
-    words = timestamps or re.findall(r"\b[\w']+\b", scene.narration)
-    word_count = len(words)
-    if timestamps:
-        spoken_ms = max(1, timestamps[-1].end_ms - timestamps[0].start_ms)
-        average_word_ms = spoken_ms / max(1, len(timestamps))
-    else:
-        average_word_ms = max(1.0, _base_scene_duration(scene) * 1000 / max(1, word_count))
+    word_count = len(timestamps) or len(re.findall(r"\b[\w']+\b", scene.narration))
+    span_seconds = _spoken_span_seconds(scene) if timestamps else _base_scene_duration(scene)
 
     score = 0.0
-    if average_word_ms <= 190:
+    if word_count <= KINETIC_MAX_WORDS and span_seconds <= KINETIC_MAX_SPAN_SECONDS:
         score += 4.0
-    elif average_word_ms <= 240:
-        score += 2.0
-    if any(cue in narration for cue in ("but", "then", "suddenly", "the catch", "the real reason", "finally", "turns out")):
-        score += 4.0
-    if word_count <= 6 and re.search(r"[!?]$", scene.narration.strip()):
+    if re.search(r"[!?]$", scene.narration.strip()):
         score += 2.0
     if scene.visual_mode in {"multi_frame", "popup_sequence", "comparison_board", "video"}:
         score += 1.0
@@ -580,6 +623,43 @@ def _subtitle_styles_for_render(content: ScriptContent) -> dict[str, str]:
         )[:selected_count]
     }
     return {scene.id: ((scene.subtitle_style or "auto") if scene.id in selected_ids else "none") for scene in eligible}
+
+
+def _log_subtitle_style_split(
+    script_id: str,
+    content: ScriptContent,
+    subtitle_styles: dict[str, str],
+    settings: dict[str, Any],
+) -> None:
+    """Emit the resolved clean/kinetic/suppressed split for one render.
+
+    The kinetic rate was tuned against a single video; this makes drift visible on the
+    dev dashboard rather than only in a finished render.
+    """
+    counts = {"clean": 0, "kinetic": 0, "none": 0}
+    for scene in content.all_scenes():
+        override = subtitle_styles.get(scene.id)
+        if override == "none":
+            counts["none"] += 1
+            continue
+        resolved = resolve_subtitle_style(scene, settings)
+        counts[resolved if resolved in counts else "clean"] += 1
+    subtitled = counts["clean"] + counts["kinetic"]
+    kinetic_pct = (100 * counts["kinetic"] / subtitled) if subtitled else 0.0
+    logger.info(
+        "[%s] Subtitle styles: %d clean, %d kinetic (%.0f%% of %d subtitled), %d suppressed "
+        "(coverage=%s, enabled=%s, kinetic<=%sw/<=%ss)",
+        script_id,
+        counts["clean"],
+        counts["kinetic"],
+        kinetic_pct,
+        subtitled,
+        counts["none"],
+        settings.get("coverage"),
+        ",".join(settings.get("enabled_styles") or []),
+        settings.get("kinetic_max_words"),
+        settings.get("kinetic_max_span_seconds"),
+    )
 
 
 def _render_metadata_path(render_path: Path) -> Path:
@@ -1036,6 +1116,7 @@ def render_full_video(
     # Build input props for the full video
     subtitle_settings = subtitle_settings_from_env()
     subtitle_styles = _subtitle_styles_for_render(content)
+    _log_subtitle_style_split(script_id, content, subtitle_styles, subtitle_settings)
     segments_props = []
     for seg in content.segments:
         seg_scenes = []

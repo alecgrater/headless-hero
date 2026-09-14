@@ -140,12 +140,15 @@ export interface ChapterOverlay {
 // --- Scene / Composition types ---
 
 export type Orientation = "horizontal" | "vertical";
-export type SubtitleStyle = "auto" | "clean" | "kinetic" | "burst" | "none";
+export type SubtitleStyle = "auto" | "clean" | "kinetic" | "none";
 export type RoutedSubtitleStyle = Exclude<SubtitleStyle, "auto" | "none">;
 
 export interface SubtitleSettingsConfig {
   coverage: "all" | "punchy";
   enabled_styles: RoutedSubtitleStyle[];
+  /** Kinetic routing thresholds, owned by the backend (remotion_render.py). */
+  kinetic_max_words?: number;
+  kinetic_max_span_seconds?: number;
 }
 
 export interface SceneInput {

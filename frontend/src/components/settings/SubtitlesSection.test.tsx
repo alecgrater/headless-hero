@@ -15,9 +15,7 @@ vi.mock("../../api", () => ({
       status: 200,
       data: {
         SUBTITLE_COVERAGE_MODE: { masked: "punchy" },
-        SUBTITLE_STYLE_CLEAN_ENABLED: { masked: "false" },
         SUBTITLE_STYLE_KINETIC_ENABLED: { masked: "true" },
-        SUBTITLE_STYLE_BURST_ENABLED: { masked: "false" },
       },
     })),
     put: vi.fn(async () => ({ ok: true, status: 200, data: {} })),
@@ -28,38 +26,63 @@ describe("SubtitlesSection settings", () => {
   it("maps settings rows into coverage and enabled styles", () => {
     expect(subtitleSettingsFromResponse({
       SUBTITLE_COVERAGE_MODE: { masked: "punchy" },
-      SUBTITLE_STYLE_CLEAN_ENABLED: { masked: "false" },
       SUBTITLE_STYLE_KINETIC_ENABLED: { masked: "true" },
-      SUBTITLE_STYLE_BURST_ENABLED: { masked: "0" },
     })).toEqual({
       coverage: "punchy",
-      enabledStyles: ["kinetic"],
+      enabledStyles: ["clean", "kinetic"],
     });
   });
 
-  it("builds a save payload for coverage and style gates", () => {
+  it("always keeps clean enabled, even with kinetic off", () => {
+    expect(subtitleSettingsFromResponse({
+      SUBTITLE_COVERAGE_MODE: { masked: "all" },
+      SUBTITLE_STYLE_KINETIC_ENABLED: { masked: "0" },
+    })).toEqual({
+      coverage: "all",
+      enabledStyles: ["clean"],
+    });
+  });
+
+  it("ignores retired per-style keys", () => {
+    expect(subtitleSettingsFromResponse({
+      SUBTITLE_COVERAGE_MODE: { masked: "all" },
+      SUBTITLE_STYLE_CLEAN_ENABLED: { masked: "false" },
+      SUBTITLE_STYLE_BURST_ENABLED: { masked: "true" },
+    })).toEqual({
+      coverage: "all",
+      enabledStyles: ["clean", "kinetic"],
+    });
+  });
+
+  it("builds a save payload for coverage and the kinetic gate only", () => {
     expect(subtitleSettingsPayload({
       coverage: "all",
-      enabledStyles: ["clean", "burst"],
+      enabledStyles: ["clean"],
     })).toEqual({
       SUBTITLE_COVERAGE_MODE: "all",
-      SUBTITLE_STYLE_CLEAN_ENABLED: "true",
       SUBTITLE_STYLE_KINETIC_ENABLED: "false",
-      SUBTITLE_STYLE_BURST_ENABLED: "true",
+    });
+
+    expect(subtitleSettingsPayload({
+      coverage: "punchy",
+      enabledStyles: ["clean", "kinetic"],
+    })).toEqual({
+      SUBTITLE_COVERAGE_MODE: "punchy",
+      SUBTITLE_STYLE_KINETIC_ENABLED: "true",
     });
   });
 
-  it("renders visual style toggles and saves the selected behavior", async () => {
+  it("renders the two-style list and saves the selected behavior", async () => {
     render(createElement(SubtitlesSection));
 
     expect(await screen.findByText("Subtitle Coverage")).toBeTruthy();
     expect(screen.getByText("Punchiest 20% only")).toBeTruthy();
-    expect(screen.getByText("Enabled Subtitle Styles")).toBeTruthy();
+    expect(screen.getByText("Subtitle Styles")).toBeTruthy();
     expect(screen.getByText("Clean")).toBeTruthy();
-    expect(screen.getByText("Kinetic Cards")).toBeTruthy();
-    expect(screen.getByText("Burst")).toBeTruthy();
-    expect(screen.getByText("changes")).toBeTruthy();
-    expect(screen.getByText("why")).toBeTruthy();
+    expect(screen.getByText("Kinetic accents")).toBeTruthy();
+    expect(screen.getByText("Always on")).toBeTruthy();
+    // Burst is gone from the catalogue entirely.
+    expect(screen.queryByText("Burst")).toBeNull();
 
     const coverageSection = screen.getByTestId("subtitle-coverage-section");
     expect(coverageSection).toHaveClass("xl:grid-cols-[220px_minmax(0,1fr)]", "border-t", "border-neutral-800");
@@ -71,28 +94,25 @@ describe("SubtitlesSection settings", () => {
     const styleSection = screen.getByTestId("subtitle-styles-section");
     expect(styleSection).toHaveClass("xl:grid-cols-[220px_minmax(0,1fr)]", "border-t", "border-neutral-800");
 
-    const cleanStyle = screen.getByRole("button", { name: /Clean/i });
-    expect(cleanStyle).toHaveClass("grid", "border-t");
-    expect(cleanStyle).not.toHaveClass("rounded-xl", "border-l-2");
+    // Clean is not a toggle — it has no button role.
+    expect(screen.queryByRole("button", { name: /^Clean/i })).toBeNull();
 
-    const kineticStyle = screen.getByRole("button", { name: /Kinetic Cards/i });
+    const kineticStyle = screen.getByRole("button", { name: /Kinetic accents/i });
     expect(kineticStyle).toHaveClass("bg-violet-500/10", "shadow-[0_18px_42px_rgba(139,92,246,0.18)]");
+    expect(kineticStyle).toHaveClass("grid", "border-t");
+    expect(kineticStyle).not.toHaveClass("rounded-xl", "border-l-2");
 
-    const kineticPreview = screen.getByTestId("kinetic-style-preview");
-    expect(kineticPreview).toHaveClass("flex-col");
+    expect(screen.getByTestId("kinetic-style-preview")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: /All non-caption scenes/i }));
-    fireEvent.click(screen.getByRole("button", { name: /Clean/i }));
-    fireEvent.click(screen.getByRole("button", { name: /Kinetic Cards/i }));
+    fireEvent.click(kineticStyle);
 
     expect(screen.queryByRole("button", { name: /Save Changes/i })).toBeNull();
 
     await waitFor(() => {
       expect(api.put).toHaveBeenCalledWith("/api/settings/keys", {
         SUBTITLE_COVERAGE_MODE: "all",
-        SUBTITLE_STYLE_CLEAN_ENABLED: "true",
         SUBTITLE_STYLE_KINETIC_ENABLED: "false",
-        SUBTITLE_STYLE_BURST_ENABLED: "false",
       });
     });
   });

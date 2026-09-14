@@ -4,7 +4,7 @@ import api from "../../api";
 import { useDebouncedAutosave } from "./useDebouncedAutosave";
 
 export type SubtitleCoverageMode = "all" | "punchy";
-export type EnabledSubtitleStyle = "clean" | "kinetic" | "burst";
+export type EnabledSubtitleStyle = "clean" | "kinetic";
 
 type SettingRows = Record<string, { masked?: string }>;
 
@@ -13,33 +13,12 @@ interface SubtitleSettingsState {
   enabledStyles: EnabledSubtitleStyle[];
 }
 
-const STYLE_KEYS: Record<EnabledSubtitleStyle, string> = {
-  clean: "SUBTITLE_STYLE_CLEAN_ENABLED",
-  kinetic: "SUBTITLE_STYLE_KINETIC_ENABLED",
-  burst: "SUBTITLE_STYLE_BURST_ENABLED",
-};
+/** Kinetic is the only toggleable style — "clean" is the floor of the catalogue. */
+const KINETIC_ENABLED_KEY = "SUBTITLE_STYLE_KINETIC_ENABLED";
 
-const STYLE_OPTIONS: Array<{
-  id: EnabledSubtitleStyle;
-  title: string;
-  description: string;
-}> = [
-  {
-    id: "clean",
-    title: "Clean",
-    description: "Readable phrase captions with a subtle active-word glow.",
-  },
-  {
-    id: "kinetic",
-    title: "Kinetic Cards",
-    description: "Words pop in as punchy cards for faster, denser scenes.",
-  },
-  {
-    id: "burst",
-    title: "Burst",
-    description: "One payoff word gets oversized impact for reveals and turns.",
-  },
-];
+/** Mirrors remotion_render.KINETIC_MAX_WORDS / KINETIC_MAX_SPAN_SECONDS, for copy only. */
+const KINETIC_MAX_WORDS = 6;
+const KINETIC_MAX_SPAN_SECONDS = 3;
 
 function settingEnabled(value: string | undefined, fallback = true): boolean {
   if (value === undefined) return fallback;
@@ -50,9 +29,8 @@ function settingEnabled(value: string | undefined, fallback = true): boolean {
 export function subtitleSettingsFromResponse(rows: SettingRows): SubtitleSettingsState {
   const rawCoverage = rows.SUBTITLE_COVERAGE_MODE?.masked?.trim().toLowerCase();
   const coverage: SubtitleCoverageMode = rawCoverage === "punchy" ? "punchy" : "all";
-  const enabledStyles = STYLE_OPTIONS
-    .map((style) => style.id)
-    .filter((style) => settingEnabled(rows[STYLE_KEYS[style]]?.masked, true));
+  const enabledStyles: EnabledSubtitleStyle[] = ["clean"];
+  if (settingEnabled(rows[KINETIC_ENABLED_KEY]?.masked, true)) enabledStyles.push("kinetic");
   return { coverage, enabledStyles };
 }
 
@@ -60,9 +38,7 @@ export function subtitleSettingsFromResponse(rows: SettingRows): SubtitleSetting
 export function subtitleSettingsPayload(settings: SubtitleSettingsState): Record<string, string> {
   return {
     SUBTITLE_COVERAGE_MODE: settings.coverage,
-    SUBTITLE_STYLE_CLEAN_ENABLED: settings.enabledStyles.includes("clean") ? "true" : "false",
-    SUBTITLE_STYLE_KINETIC_ENABLED: settings.enabledStyles.includes("kinetic") ? "true" : "false",
-    SUBTITLE_STYLE_BURST_ENABLED: settings.enabledStyles.includes("burst") ? "true" : "false",
+    [KINETIC_ENABLED_KEY]: settings.enabledStyles.includes("kinetic") ? "true" : "false",
   };
 }
 
@@ -75,28 +51,12 @@ function StylePreview({ style }: { style: EnabledSubtitleStyle }) {
     return (
       <div
         data-testid="kinetic-style-preview"
-        className="flex h-20 flex-col items-center justify-center gap-1.5 rounded-lg bg-neutral-950/80 px-4"
+        className="flex h-20 items-center justify-center rounded-lg bg-neutral-950/80 px-4"
       >
-        <span className="-rotate-1 rounded-md bg-neutral-100 px-3 py-1 text-sm font-black leading-none text-neutral-950 shadow-[4px_5px_0_rgba(0,0,0,0.75)]">
-          This
-        </span>
-        <span className="rotate-1 rounded-md bg-red-500 px-3 py-1 text-sm font-black leading-none text-white shadow-[4px_5px_0_rgba(0,0,0,0.75)]">
-          changes
-        </span>
-        <span className="-rotate-1 rounded-md bg-neutral-100 px-3 py-1 text-sm font-black leading-none text-neutral-950 shadow-[4px_5px_0_rgba(0,0,0,0.75)]">
-          everything
-        </span>
-      </div>
-    );
-  }
-
-  if (style === "burst") {
-    return (
-      <div className="flex h-20 items-center justify-center rounded-lg bg-neutral-950/80 px-4">
-        <div className="text-center leading-none">
-          <span className="mr-2 text-lg font-extrabold text-white/80">but</span>
-          <span className="inline-block text-4xl font-black uppercase text-yellow-200 [text-shadow:0_4px_0_#111,0_14px_24px_rgba(0,0,0,0.8)] [-webkit-text-stroke:1.5px_#111]">
-            why
+        <div className="flex flex-wrap justify-center gap-x-2 leading-none">
+          <span className="text-xl font-black tracking-tight text-white/45">Her</span>
+          <span className="text-xl font-black tracking-tight text-yellow-300 [text-shadow:0_2px_4px_rgba(0,0,0,0.55)]">
+            finding?
           </span>
         </div>
       </div>
@@ -106,9 +66,9 @@ function StylePreview({ style }: { style: EnabledSubtitleStyle }) {
   return (
     <div className="flex h-20 items-center justify-center rounded-lg bg-neutral-950/80 px-4">
       <div className="flex flex-wrap justify-center gap-x-2 rounded-md bg-black/55 px-4 py-2">
-        <span className="text-lg font-bold text-white">The</span>
-        <span className="text-lg font-extrabold text-yellow-300 [text-shadow:0_0_14px_rgba(250,204,21,0.5)]">real</span>
-        <span className="text-lg font-bold text-white">answer</span>
+        <span className="text-lg font-extrabold text-white">The</span>
+        <span className="text-lg font-extrabold text-yellow-300">real</span>
+        <span className="text-lg font-extrabold text-white">answer</span>
       </div>
     </div>
   );
@@ -141,7 +101,7 @@ interface SubtitlesSectionProps {
 export default function SubtitlesSection({ showHeader = true }: SubtitlesSectionProps) {
   const [settings, setSettings] = useState<SubtitleSettingsState>({
     coverage: "all",
-    enabledStyles: ["clean", "kinetic", "burst"],
+    enabledStyles: ["clean", "kinetic"],
   });
   const [original, setOriginal] = useState<SubtitleSettingsState>(settings);
   const [loading, setLoading] = useState(true);
@@ -163,14 +123,11 @@ export default function SubtitlesSection({ showHeader = true }: SubtitlesSection
     [settings, original],
   );
 
-  const toggleStyle = (style: EnabledSubtitleStyle) => {
-    setSettings((current) => {
-      const enabled = current.enabledStyles.includes(style);
-      const enabledStyles = enabled
-        ? current.enabledStyles.filter((item) => item !== style)
-        : STYLE_OPTIONS.map((option) => option.id).filter((item) => item === style || current.enabledStyles.includes(item));
-      return { ...current, enabledStyles };
-    });
+  const toggleKinetic = () => {
+    setSettings((current) => ({
+      ...current,
+      enabledStyles: current.enabledStyles.includes("kinetic") ? ["clean"] : ["clean", "kinetic"],
+    }));
   };
 
   const handleSave = useCallback(async () => {
@@ -262,37 +219,48 @@ export default function SubtitlesSection({ showHeader = true }: SubtitlesSection
       >
         <SubtitlesSectionIntro
           number="02 Styles"
-          title="Enabled Subtitle Styles"
-          description="Only selected styles are eligible when subtitles are assigned. Turning every style off suppresses standard subtitles."
+          title="Subtitle Styles"
+          description={`Clean carries every subtitled scene. Kinetic is the exception, routed automatically to short punch beats — ${KINETIC_MAX_WORDS} words or fewer, delivered in under ${KINETIC_MAX_SPAN_SECONDS} seconds.`}
         />
         <div className="border-b border-neutral-800">
-          {STYLE_OPTIONS.map((option) => {
-            const selected = settings.enabledStyles.includes(option.id);
-            return (
-              <button
-                key={option.id}
-                type="button"
-                aria-pressed={selected}
-                onClick={() => toggleStyle(option.id)}
-                className={`grid w-full gap-4 border-t border-neutral-800 px-4 py-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 md:grid-cols-[180px_minmax(0,1fr)_auto] md:items-center ${
-                  selected
-                    ? "bg-violet-500/10 text-neutral-100 shadow-[0_18px_42px_rgba(139,92,246,0.18)]"
-                    : "text-neutral-400 hover:text-neutral-100"
-                }`}
-              >
-                <StylePreview style={option.id} />
-                <div>
-                  <h4 className="text-sm font-semibold text-neutral-100">{option.title}</h4>
-                  <p className="mt-1 max-w-xl text-xs leading-relaxed text-neutral-500">{option.description}</p>
-                </div>
-                <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full justify-self-start md:justify-self-end ${
-                  selected ? "bg-violet-500 text-white" : "bg-neutral-800 text-neutral-600"
-                }`}>
-                  {selected && <Check className="h-3.5 w-3.5" />}
-                </span>
-              </button>
-            );
-          })}
+          <div className="grid gap-4 border-t border-neutral-800 px-4 py-4 md:grid-cols-[180px_minmax(0,1fr)_auto] md:items-center">
+            <StylePreview style="clean" />
+            <div>
+              <h4 className="text-sm font-semibold text-neutral-100">Clean</h4>
+              <p className="mt-1 max-w-xl text-xs leading-relaxed text-neutral-500">
+                The default for every subtitled scene. Readable phrase captions on a translucent plate, with the
+                spoken word picked out in the accent colour at the same size, so the line never shifts.
+              </p>
+            </div>
+            <span className="justify-self-start rounded-full bg-neutral-800 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-neutral-400 md:justify-self-end">
+              Always on
+            </span>
+          </div>
+
+          <button
+            type="button"
+            aria-pressed={settings.enabledStyles.includes("kinetic")}
+            onClick={toggleKinetic}
+            className={`grid w-full gap-4 border-t border-neutral-800 px-4 py-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 md:grid-cols-[180px_minmax(0,1fr)_auto] md:items-center ${
+              settings.enabledStyles.includes("kinetic")
+                ? "bg-violet-500/10 text-neutral-100 shadow-[0_18px_42px_rgba(139,92,246,0.18)]"
+                : "text-neutral-400 hover:text-neutral-100"
+            }`}
+          >
+            <StylePreview style="kinetic" />
+            <div>
+              <h4 className="text-sm font-semibold text-neutral-100">Kinetic accents</h4>
+              <p className="mt-1 max-w-xl text-xs leading-relaxed text-neutral-500">
+                Same typeface and accent colour as Clean, set larger with no plate. Words arrive as they are spoken
+                and the active word pops harder. Turn this off to render every scene as Clean.
+              </p>
+            </div>
+            <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full justify-self-start md:justify-self-end ${
+              settings.enabledStyles.includes("kinetic") ? "bg-violet-500 text-white" : "bg-neutral-800 text-neutral-600"
+            }`}>
+              {settings.enabledStyles.includes("kinetic") && <Check className="h-3.5 w-3.5" />}
+            </span>
+          </button>
         </div>
       </section>
 

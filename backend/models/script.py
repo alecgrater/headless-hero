@@ -18,7 +18,7 @@ VISUAL_TREATMENTS = {"full_frame", "popup_sequence", "comparison_board", "stat_c
 VISUAL_LAYER_TYPES = {"image"}
 VISUAL_ASSET_KINDS = {"full_frame", "panel", "cutout"}
 VISUAL_LAYER_ANIMATIONS = {"none", "pop_in"}
-SUBTITLE_STYLES = {"auto", "clean", "kinetic", "burst", "none"}
+SUBTITLE_STYLES = {"auto", "clean", "kinetic", "none"}
 VisualMode = Literal["video", "full_frame", "multi_frame", "continuous", "captions", "popup_sequence", "comparison_board", "stat_card"]
 VisualTreatment = Literal["full_frame", "popup_sequence", "comparison_board", "stat_card"]
 BlinkActionValue = BlinkAction
@@ -26,7 +26,7 @@ RendererContextValue = RendererContext
 VisualLayerType = Literal["image"]
 VisualAssetKind = Literal["full_frame", "panel", "cutout"]
 VisualLayerAnimation = Literal["none", "pop_in"]
-SubtitleStyle = Literal["auto", "clean", "kinetic", "burst", "none"]
+SubtitleStyle = Literal["auto", "clean", "kinetic", "none"]
 
 # --- FX models (used by Remotion renderer) ---
 

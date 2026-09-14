@@ -62,7 +62,7 @@ const voiceSummary = {
 
 const subtitleSummary = {
   coverage_label: "All scenes",
-  enabled_style_labels: ["Clean", "Kinetic Cards"],
+  enabled_style_labels: ["Clean", "Kinetic accents"],
 };
 
 const blankPreset: TestLabPreset = {
@@ -192,13 +192,13 @@ describe("settingsWithVisualTreatmentDefaults", () => {
       style_preset_enabled: true,
       visual_mode: "full_frame",
       visual_layers: [],
-      subtitle_style: "burst",
+      subtitle_style: "kinetic",
       segment_timer_enabled: true,
     };
 
     const next = settingsWithVisualTreatmentDefaults(settings, preset, "multi_frame", defaults);
 
-    expect(next.subtitle_style).toBe("burst");
+    expect(next.subtitle_style).toBe("kinetic");
   });
 
   it("treats comparison board as a layered visual mode without replacing scene text", () => {

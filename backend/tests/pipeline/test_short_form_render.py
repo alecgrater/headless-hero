@@ -121,7 +121,7 @@ class TestShortRenderCurrent:
         short_form_render._write_short_render_metadata("script-1", 0, content)
 
         assert is_short_render_current("script-1", 0, content) is True
-        content.segments[0].scenes[1].subtitle_style = "burst"
+        content.segments[0].scenes[1].subtitle_style = "kinetic"
         assert is_short_render_current("script-1", 0, content) is False
 
     def test_life_as_a_requires_matching_part_indicator_metadata(self, tmp_path, monkeypatch):

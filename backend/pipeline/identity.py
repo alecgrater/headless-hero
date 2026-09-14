@@ -65,8 +65,6 @@ _EXPORTED_KEYS: frozenset[str] = frozenset(
         "LLM_PROVIDER",
         # Subtitles
         "SUBTITLE_COVERAGE_MODE",
-        "SUBTITLE_STYLE_BURST_ENABLED",
-        "SUBTITLE_STYLE_CLEAN_ENABLED",
         "SUBTITLE_STYLE_KINETIC_ENABLED",
         # Voice
         "ELEVENLABS_STABILITY",

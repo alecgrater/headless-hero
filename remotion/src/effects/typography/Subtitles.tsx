@@ -1,8 +1,17 @@
 /**
  * SubtitleOverlay — routed subtitle renderer timed to word_timestamps.
+ *
+ * Two styles only. `clean` is the default and carries a translucent plate; `kinetic` is
+ * the short-punch-beat exception and shares clean's type spine exactly, differing only in
+ * behaviour (larger, no plate, staggered entrance, harder pop).
+ *
+ * INVARIANT: per-word emphasis is expressed through `transform` and `color` only — never
+ * through `fontSize` or `fontWeight`. A size or weight change reflows the line as the
+ * active word moves, which is the defect that made the deleted `burst` style unusable.
  */
 import React, { useMemo } from "react";
 import { interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { loadFont } from "@remotion/google-fonts/Inter";
 import type { CSSProperties } from "react";
 import type { Orientation, SceneInput, SubtitleSettingsConfig, WordTimestamp } from "../../types";
 import { VERTICAL_LAYOUT } from "../../scenes/VerticalSceneLayout";
@@ -15,6 +24,11 @@ import {
   type SubtitlePhrase,
   wordProgress,
 } from "./subtitleRouting";
+
+const { fontFamily: SUBTITLE_FONT_FAMILY } = loadFont("normal", {
+  weights: ["800", "900"],
+  subsets: ["latin"],
+});
 
 interface Props {
   scene: SceneInput;
@@ -32,7 +46,19 @@ interface TreatmentProps {
 }
 
 const FADE_OUT_FRAMES = 5;
-const SUBTITLE_FONT_FAMILY = "Inter, Arial, sans-serif";
+
+/** Base type size. 52px on a 1080p frame is 4.8% of frame height, inside the 4-5% norm
+ *  for burned-in captions. Vertical derives from the same base rather than a literal. */
+const BASE_FONT_SIZE = 52;
+const VERTICAL_FONT_SCALE = 1.35;
+/** Kinetic runs larger than clean — it is reserved for two-to-six word punch beats. */
+const KINETIC_FONT_SCALE = 1.25;
+const ACCENT_COLOR = "#FACC15";
+const TEXT_SHADOW = "0 2px 4px rgba(0, 0, 0, 0.55), 0 6px 22px rgba(0, 0, 0, 0.72)";
+
+function baseFontSize(orientation: Orientation): number {
+  return orientation === "vertical" ? Math.round(BASE_FONT_SIZE * VERTICAL_FONT_SCALE) : BASE_FONT_SIZE;
+}
 
 function overlayStyle(orientation: Orientation, phraseOpacity: number): CSSProperties {
   if (orientation === "vertical") {
@@ -70,37 +96,49 @@ function wordsForDisplay(words: WordTimestamp[]): Array<{ word: WordTimestamp; d
     .filter(({ displayWord }) => displayWord.length > 0);
 }
 
+/** Shared by both styles so they can never drift apart typographically. */
+function wordTypography(fontSize: number): CSSProperties {
+  return {
+    display: "inline-block",
+    fontFamily: SUBTITLE_FONT_FAMILY,
+    fontSize,
+    fontWeight: 800,
+    lineHeight: 1.2,
+    letterSpacing: "-0.012em",
+  };
+}
+
 function CleanSubtitleOverlay({ phrase, frame, fps, highlightEnabled, orientation }: TreatmentProps) {
+  const fontSize = baseFontSize(orientation);
+
   return (
     <div
       style={{
         display: "flex",
         flexWrap: "wrap",
         justifyContent: "center",
-        gap: orientation === "vertical" ? "0 14px" : "0 8px",
-        maxWidth: orientation === "vertical" ? "96%" : "80%",
-        padding: orientation === "vertical" ? "16px 28px" : "8px 16px",
-        borderRadius: orientation === "vertical" ? "10px" : "6px",
-        backgroundColor: "rgba(0, 0, 0, 0.48)",
+        alignItems: "baseline",
+        gap: `${Math.round(fontSize * 0.12)}px ${Math.round(fontSize * 0.28)}px`,
+        maxWidth: orientation === "vertical" ? "94%" : "80%",
+        padding: `${Math.round(fontSize * 0.3)}px ${Math.round(fontSize * 0.58)}px`,
+        borderRadius: Math.round(fontSize * 0.22),
+        backgroundColor: "rgba(0, 0, 0, 0.52)",
+        textAlign: "center",
       }}
     >
       {wordsForDisplay(phrase.words).map(({ word, displayWord }, i) => {
         const isActive = highlightEnabled && isWordActive(word, frame, fps);
-        const pop = isActive ? interpolate(wordProgress(word, frame, fps), [0, 0.35, 1], [1, 1.12, 1.06]) : 1;
+        // transform-only pop: scaling does not reflow siblings.
+        const pop = isActive ? interpolate(wordProgress(word, frame, fps), [0, 0.35, 1], [1, 1.07, 1.04]) : 1;
 
         return (
           <span
             key={`${word.start_ms}-${i}`}
             style={{
-              fontSize: orientation === "vertical" ? "70px" : "32px",
-              fontWeight: orientation === "vertical" ? 800 : 700,
-              lineHeight: 1.25,
-              color: isActive ? "#FACC15" : "#fff",
+              ...wordTypography(fontSize),
+              color: isActive ? ACCENT_COLOR : "#fff",
               transform: `scale(${pop})`,
               transformOrigin: "center bottom",
-              textShadow: isActive
-                ? "0 0 18px rgba(250, 204, 21, 0.52), 0 3px 12px rgba(0, 0, 0, 0.9)"
-                : "0 2px 10px rgba(0, 0, 0, 0.85)",
             }}
           >
             {displayWord}
@@ -112,54 +150,8 @@ function CleanSubtitleOverlay({ phrase, frame, fps, highlightEnabled, orientatio
 }
 
 function KineticSubtitleOverlay({ phrase, frame, fps, highlightEnabled, orientation }: TreatmentProps) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        flexWrap: "wrap",
-        justifyContent: "center",
-        gap: orientation === "vertical" ? "12px 14px" : "8px 10px",
-        maxWidth: orientation === "vertical" ? "96%" : "82%",
-      }}
-    >
-      {wordsForDisplay(phrase.words).map(({ word, displayWord }, i) => {
-        const isActive = highlightEnabled && isWordActive(word, frame, fps);
-        const entrance = interpolate(frame, [phrase.startFrame + i * 2, phrase.startFrame + i * 2 + 5], [0, 1], {
-          extrapolateLeft: "clamp",
-          extrapolateRight: "clamp",
-        });
-        const pop = isActive ? interpolate(wordProgress(word, frame, fps), [0, 0.25, 1], [1, 1.18, 1.08]) : 1;
-
-        return (
-          <span
-            key={`${word.start_ms}-${i}`}
-            style={{
-              display: "inline-block",
-              padding: orientation === "vertical" ? "6px 12px" : "4px 9px",
-              borderRadius: orientation === "vertical" ? "8px" : "5px",
-              backgroundColor: isActive ? "#EF4444" : "#F8FAFC",
-              color: isActive ? "#fff" : "#09090B",
-              fontSize: orientation === "vertical" ? "62px" : "30px",
-              fontWeight: 900,
-              lineHeight: 1.05,
-              opacity: entrance,
-              transform: `translateY(${(1 - entrance) * 14 - (isActive ? 8 : 0)}px) rotate(${isActive ? 1.5 : 0}deg) scale(${pop})`,
-              boxShadow: orientation === "vertical" ? "8px 9px 0 rgba(0,0,0,0.72)" : "5px 6px 0 rgba(0,0,0,0.78)",
-              textShadow: isActive ? "0 2px 8px rgba(0,0,0,0.45)" : "none",
-            }}
-          >
-            {displayWord}
-          </span>
-        );
-      })}
-    </div>
-  );
-}
-
-function BurstSubtitleOverlay({ phrase, frame, fps, highlightEnabled, orientation }: TreatmentProps) {
-  const displayWords = wordsForDisplay(phrase.words);
-  const activeIndex = displayWords.findIndex(({ word }) => highlightEnabled && isWordActive(word, frame, fps));
-  const burstIndex = activeIndex >= 0 ? activeIndex : Math.max(0, displayWords.length - 1);
+  const fontSize = Math.round(baseFontSize(orientation) * KINETIC_FONT_SCALE);
+  const fpms = fps / 1000;
 
   return (
     <div
@@ -168,37 +160,33 @@ function BurstSubtitleOverlay({ phrase, frame, fps, highlightEnabled, orientatio
         flexWrap: "wrap",
         justifyContent: "center",
         alignItems: "baseline",
-        gap: orientation === "vertical" ? "6px 16px" : "4px 10px",
-        maxWidth: orientation === "vertical" ? "96%" : "82%",
+        gap: `${Math.round(fontSize * 0.1)}px ${Math.round(fontSize * 0.26)}px`,
+        maxWidth: orientation === "vertical" ? "94%" : "84%",
+        textAlign: "center",
       }}
     >
-      {displayWords.map(({ word, displayWord }, i) => {
-        const isBurst = i === burstIndex;
+      {wordsForDisplay(phrase.words).map(({ word, displayWord }, i) => {
         const isActive = highlightEnabled && isWordActive(word, frame, fps);
-        const pop = isBurst ? interpolate(wordProgress(word, frame, fps), [0, 0.3, 1], [0.92, 1.22, 1.08], {
+        // Words stagger in on their own start time, so the line assembles as it is spoken.
+        const wordStartFrame = Math.round(word.start_ms * fpms);
+        const entrance = interpolate(frame, [wordStartFrame, wordStartFrame + Math.max(1, Math.round(fps * 0.12))], [0, 1], {
           extrapolateLeft: "clamp",
           extrapolateRight: "clamp",
-        }) : 1;
+        });
+        const pop = isActive ? interpolate(wordProgress(word, frame, fps), [0, 0.22, 1], [1, 1.14, 1.06]) : 1;
 
         return (
           <span
             key={`${word.start_ms}-${i}`}
             style={{
-              display: "inline-block",
-              color: isBurst ? "#FFD84D" : "#F4F4F5",
-              fontFamily: SUBTITLE_FONT_FAMILY,
-              fontSize: isBurst
-                ? (orientation === "vertical" ? "76px" : "40px")
-                : (orientation === "vertical" ? "62px" : "32px"),
-              fontWeight: isBurst ? 900 : 850,
-              lineHeight: 1.05,
-              textTransform: "none",
-              WebkitTextStroke: isBurst ? (orientation === "vertical" ? "2px #080808" : "1.5px #080808") : "0",
-              transform: `scale(${pop}) translateY(${isActive && isBurst ? -5 : 0}px)`,
+              ...wordTypography(fontSize),
+              // Tighter tracking than clean; size/weight stay uniform across the phrase.
+              letterSpacing: "-0.02em",
+              color: isActive ? ACCENT_COLOR : "#fff",
+              opacity: entrance,
+              transform: `translateY(${(1 - entrance) * 18}px) scale(${pop})`,
               transformOrigin: "center bottom",
-              textShadow: isBurst
-                ? "0 4px 0 #080808, 0 12px 24px rgba(0,0,0,0.72)"
-                : "0 4px 12px rgba(0,0,0,0.9)",
+              textShadow: TEXT_SHADOW,
             }}
           >
             {displayWord}
@@ -212,7 +200,6 @@ function BurstSubtitleOverlay({ phrase, frame, fps, highlightEnabled, orientatio
 function renderTreatment(style: ResolvedSubtitleStyle, props: TreatmentProps) {
   if (style === "none") return null;
   if (style === "kinetic") return <KineticSubtitleOverlay {...props} />;
-  if (style === "burst") return <BurstSubtitleOverlay {...props} />;
   return <CleanSubtitleOverlay {...props} />;
 }
 
