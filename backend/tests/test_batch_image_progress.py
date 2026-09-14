@@ -11,6 +11,7 @@ from unittest.mock import patch
 
 import os
 import threading
+import time
 
 from pipeline import image_gen
 
@@ -37,27 +38,48 @@ def test_generate_batch_reports_progress_for_every_scene():
 
 def test_generate_batch_stops_when_cancelled():
     """Cancelling must prevent queued scenes from ever starting."""
+    max_workers = 2
     started: list[str] = []
-    release = threading.Event()
+    start_lock = threading.Lock()
+    gate = threading.Event()
+    cancelled = threading.Event()
 
-    def _slow_one(scene, script_id, width, height, style_guide):
-        started.append(scene["scene_id"])
-        release.wait(timeout=5.0)
+    def _gated_one(scene, script_id, width, height, style_guide):
+        with start_lock:
+            started.append(scene["scene_id"])
+        gate.wait(timeout=5.0)
         return {"scene_id": scene["scene_id"], "image_url": "/i.png", "error": None}
 
-    # Cancel as soon as the first scene lands, then let everything drain.
-    def _cancel_now() -> bool:
-        release.set()
+    # Release the in-flight workers only *after* the cancel has been observed,
+    # so the main thread reaches pending.cancel() before any queued scene can
+    # be picked up. Releasing from should_cancel itself is a dead heat.
+    def _watchdog() -> None:
+        cancelled.wait(timeout=5.0)
+        time.sleep(0.2)
+        gate.set()
+
+    watcher = threading.Thread(target=_watchdog, daemon=True)
+    watcher.start()
+    gate.set()  # let the first wave through so a completion can occur
+
+    def _should_cancel() -> bool:
+        if not cancelled.is_set():
+            gate.clear()
+            cancelled.set()
         return True
 
-    with patch.object(image_gen, "_generate_one_scene", _slow_one):
-        with patch.dict(os.environ, {"HH_IMAGE_GEN_CONCURRENCY": "2"}):
-            results = image_gen.generate_batch(
-                scenes=_scenes(20), script_id="sid", should_cancel=_cancel_now
-            )
+    try:
+        with patch.object(image_gen, "_generate_one_scene", _gated_one):
+            with patch.dict(os.environ, {"HH_IMAGE_GEN_CONCURRENCY": str(max_workers)}):
+                results = image_gen.generate_batch(
+                    scenes=_scenes(20), script_id="sid", should_cancel=_should_cancel
+                )
+    finally:
+        gate.set()
+        watcher.join(timeout=5.0)
 
-    # Only the in-flight workers may have run; the queued tail must be dropped.
-    assert len(started) < 20
+    # Only the workers already in flight may have run; the queued tail is dropped.
+    assert len(started) <= max_workers + 1
     assert len(results) < 20
 
 

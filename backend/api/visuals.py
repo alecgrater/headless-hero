@@ -649,15 +649,24 @@ def start_visual_batch_job(body: GenerateBatchRequest, session: Session = Depend
 
         progress_lock = threading.Lock()
         progress_value = 0.02
+        progress_closed = False
 
         def _advance(value: float) -> None:
             """Raise `progress` only. A decrease reads as a stall to pollers."""
             nonlocal progress_value
             with progress_lock:
-                if value <= progress_value:
+                if progress_closed or value <= progress_value:
                     return
                 progress_value = value
-            update_job(job.id, progress=value)
+                # Written under the lock so two racing callers can't invert and
+                # publish the lower value last.
+                update_job(job.id, progress=value)
+
+        def _close_progress() -> None:
+            """Stop late heartbeat writes from reopening a finished job."""
+            nonlocal progress_closed
+            with progress_lock:
+                progress_closed = True
 
         def _on_scene_done(done: int, total: int) -> None:
             # Keep `progress` moving: pollers treat a frozen value as a stall
@@ -673,12 +682,16 @@ def start_visual_batch_job(body: GenerateBatchRequest, session: Session = Depend
         try:
             if batch_enabled:
                 # Google Batch spends most of its time inside one blocking poll
-                # (up to 24h) with no per-scene signal, so a heartbeat keeps the
-                # job off the poller's stall path until results land.
+                # (timeout 24h) with no per-scene signal, so a heartbeat keeps
+                # the job off the poller's stall path until results land. The
+                # cadence is sized against that timeout, not against a typical
+                # run: 166 nudges of 0.005 up to the 0.85 ceiling must outlast
+                # 24h, so 10 minutes apart (27.7h of cover) rather than 20s
+                # (which plateaus after 55min and gets the job abandoned).
                 stop_beat = threading.Event()
 
                 def _beat() -> None:
-                    while not stop_beat.wait(20.0):
+                    while not stop_beat.wait(600.0):
                         with progress_lock:
                             nudged = min(0.85, progress_value + 0.005)
                         _advance(nudged)
@@ -696,6 +709,8 @@ def start_visual_batch_job(body: GenerateBatchRequest, session: Session = Depend
                     )
                 finally:
                     stop_beat.set()
+                    beat.join(timeout=5.0)
+                    _close_progress()
             else:
                 results = generate_batch(
                     scenes=scenes,

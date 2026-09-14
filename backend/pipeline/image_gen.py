@@ -2291,7 +2291,12 @@ def generate_batch_with_google_batch(
     on_scene_done: Callable[[int, int], None] | None = None,
     should_cancel: Callable[[], bool] | None = None,
 ) -> list[dict[str, object]]:
-    """Generate full-project images using Google Batch for eligible independent images."""
+    """Generate full-project images using Google Batch for eligible independent images.
+
+    `should_cancel()` gates the two long phases; the Google Batch poll itself
+    is not interruptible once started, so a cancel during it takes effect only
+    when that call returns.
+    """
     results_by_scene: dict[str, dict[str, object]] = {}
 
     completed = 0
@@ -2326,9 +2331,11 @@ def generate_batch_with_google_batch(
                 "prompt_used": None,
                 "error": str(exc),
             }
+            _tick()
             continue
         if cached_result is not None:
             results_by_scene[scene_id] = cached_result
+            _tick()
             continue
         if request and local_path and prompt_marker:
             batch_requests.append(request)
@@ -2342,7 +2349,7 @@ def generate_batch_with_google_batch(
         "Google image batch plan for script %s: %d eligible, %d standard",
         script_id, len(batch_requests), len(standard_scenes),
     )
-    if batch_requests:
+    if batch_requests and not (should_cancel is not None and should_cancel()):
         batch_results = generate_images_batch(requests=batch_requests, script_id=script_id)
         for batch_result in batch_results:
             local_path, prompt_marker, web_path = output_paths[batch_result.key]
@@ -2382,7 +2389,7 @@ def generate_batch_with_google_batch(
         style_guide=style_guide,
         on_scene_done=lambda _done, _total: _tick(),
         should_cancel=should_cancel,
-    ) if standard_scenes else []:
+    ) if standard_scenes and not (should_cancel is not None and should_cancel()) else []:
         results_by_scene[str(result["scene_id"])] = result
 
     return [
