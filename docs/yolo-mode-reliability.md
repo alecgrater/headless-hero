@@ -36,6 +36,11 @@ disappeared by the time they looked. There was no record of which stage failed.
 `run` regenerates only what is missing, so a retry is cheap and idempotent, and
 its `verify` re-reads the backend rather than trusting a resolved promise.
 
+Status reads inside a stage go through the strict `requireShortForm*Status`
+helpers, not the swallowing `refreshShortForm*Status` ones: an unreachable
+status endpoint returning `{}` is indistinguishable from "nothing has been
+generated", which would re-render every short — once per retry.
+
 **Audio is the only required stage.** Scene audio durations are the render's
 timing source of truth, so producing a video without them wastes an hour on
 something broken — that one halts. Every other stage records the failure and
@@ -66,13 +71,20 @@ PUTs a full run snapshot to `/api/yolo/runs/{script_id}` at every transition and
 `pipeline.yolo_runs` keeps the last `MAX_RUNS` under
 `data/projects/{script_id}/yolo/runs.json`.
 
-Whole snapshots rather than per-stage deltas: writes then have no ordering
-requirement and a retried PUT cannot corrupt the record. Each PUT also emits one
-dev-dashboard line, so the run is greppable alongside backend logs.
+Whole snapshots rather than per-stage deltas: a retried PUT cannot corrupt the
+record. That only covers corruption, though, not staleness — the controller
+fires writes without awaiting, so `saveYoloRun` chains them per project and
+`save_run` holds a lock around its read-modify-write. Without both, the last
+stage's "running" snapshot could land after the terminal one and the run would
+stay recorded as in-progress forever. Each PUT also emits one dev-dashboard
+line, so the run is greppable alongside backend logs.
 
-`TimelinePage` loads the newest finished run on mount and renders
-`YoloRunSummary`, so the answer to "what happened while I was away" survives a
-reload and an app restart.
+`TimelinePage` loads the newest run on mount and renders `YoloRunSummary`, so
+the answer to "what happened while I was away" survives a reload and an app
+restart. A stored run still marked `running` was interrupted — Stop quits the
+app before the controller can close the run, and a crash leaves the same trace —
+so it is shown as "Interrupted" rather than filtered out. Those are the cases
+where "which stage was it on when it died" matters most.
 
 ## Timing display
 

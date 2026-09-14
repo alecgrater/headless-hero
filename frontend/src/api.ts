@@ -86,7 +86,7 @@ export function extractErrorMessage(status: number, data: unknown): string {
 }
 
 /** Paths that should not trigger toast notifications on error. */
-const SILENT_PATHS = ["/api/health", "/api/render/status/", "/api/publish/status/", "/api/publish/short-form/status/", "/api/visuals/title-cards-status/", "/api/visuals/generate-batch-status/", "/api/character/status/", "/api/scripts/generate-status/", "/api/scripts/cold-opens-status/", "/api/scripts/refine-hook-status/", "/api/trending/refresh-status/", "/api/trending/smart-ideas-status/", "/api/eli/generate-status/", "/api/fx/generate-status/", "/api/media/analyze/status/", "/api/visual-treatments/analyze/status/", "/api/idea-board/", "/api/recording/session/", "/api/recording/score-status/", "/api/short-form/jobs/", "/api/short-form/rendered", "/api/style/presets/jobs/", "/api/test-lab/runs/status/", "/api/local-models", "/api/generation/record-duration"];
+const SILENT_PATHS = ["/api/health", "/api/render/status/", "/api/publish/status/", "/api/publish/short-form/status/", "/api/visuals/title-cards-status/", "/api/visuals/generate-batch-status/", "/api/character/status/", "/api/scripts/generate-status/", "/api/scripts/cold-opens-status/", "/api/scripts/refine-hook-status/", "/api/trending/refresh-status/", "/api/trending/smart-ideas-status/", "/api/eli/generate-status/", "/api/fx/generate-status/", "/api/media/analyze/status/", "/api/visual-treatments/analyze/status/", "/api/idea-board/", "/api/recording/session/", "/api/recording/score-status/", "/api/short-form/jobs/", "/api/short-form/rendered", "/api/style/presets/jobs/", "/api/test-lab/runs/status/", "/api/local-models", "/api/generation/record-duration", "/api/yolo/runs"];
 
 function shouldSilence(path: string): boolean {
   return SILENT_PATHS.some((p) => path.startsWith(p));
@@ -155,6 +155,7 @@ const api: ApiClient = {
   openUploadShortsWindows: rawApi.openUploadShortsWindows,
   openYouTubeUploadWindow: rawApi.openYouTubeUploadWindow,
   stopYoloProcesses: rawApi.stopYoloProcesses,
+  setKeepAwake: rawApi.setKeepAwake,
   openPath: rawApi.openPath,
 };
 
@@ -436,20 +437,40 @@ export async function recordDuration(
 }
 
 /**
+ * One in-flight YOLO run write per project, chained.
+ *
+ * The controller fires a snapshot on every transition without awaiting, and the
+ * last stage's update and the run's terminal update land milliseconds apart. If
+ * the older "running" snapshot won that race, the stored run would stay
+ * `status: "running"` forever and the summary bar — the whole point of the log —
+ * would never show it.
+ */
+const yoloRunWriteQueues = new Map<string, Promise<void>>();
+
+/**
  * Persist a YOLO run snapshot. Deliberately swallows every failure — the run
  * log is an observability aid, and losing a write must never take down the
- * pipeline it is describing.
+ * pipeline it is describing. `/api/yolo/runs` is in SILENT_PATHS so a backend
+ * hiccup mid-run can't produce a toast per transition either.
  */
 export async function saveYoloRun(
   scriptId: string,
   run: YoloRunRecord,
   log: YoloRunLogLine | null,
 ): Promise<void> {
-  try {
-    await api.put(`/api/yolo/runs/${scriptId}`, { run, log });
-  } catch {
-    // Intentionally ignored — see above.
-  }
+  const previous = yoloRunWriteQueues.get(scriptId) ?? Promise.resolve();
+  const next = previous.then(async () => {
+    try {
+      await api.put(`/api/yolo/runs/${scriptId}`, { run, log });
+    } catch {
+      // Intentionally ignored — see above.
+    }
+  });
+  yoloRunWriteQueues.set(scriptId, next);
+  await next;
+  // Drop the entry once this write is the last one queued, so switching between
+  // projects doesn't accumulate resolved promises for the session's lifetime.
+  if (yoloRunWriteQueues.get(scriptId) === next) yoloRunWriteQueues.delete(scriptId);
 }
 
 /** Load a project's recent YOLO runs, newest first. */

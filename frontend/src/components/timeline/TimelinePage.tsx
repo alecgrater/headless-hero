@@ -1329,7 +1329,9 @@ function TimelineEditor({
 
   // Surface the last YOLO run on open. Whoever started it was almost certainly
   // away when it ended, so the persisted log is the only record of which stage
-  // failed and how long each one took.
+  // failed and how long each one took. A record still marked "running" was
+  // interrupted — Stop quits the app before the run can close itself, as does a
+  // crash — and those are exactly the cases worth showing.
   useEffect(() => {
     let cancelled = false;
     setYoloRun(null);
@@ -1338,8 +1340,7 @@ function TimelineEditor({
     void (async () => {
       const runs = await fetchYoloRuns(scriptId);
       if (cancelled) return;
-      const previous = runs.find((run) => run.status !== "running") ?? null;
-      setLastYoloRun(previous);
+      setLastYoloRun(runs[0] ?? null);
     })();
     return () => {
       cancelled = true;
@@ -1503,6 +1504,22 @@ function TimelineEditor({
     void refreshShortFormThumbnailStatus();
     void refreshShortFormRenderStatus();
   }, [refreshShortFormThumbnailStatus, refreshShortFormRenderStatus]);
+
+  // The YOLO stages read status through these instead of the swallowing
+  // variants above: an unreachable backend returning `{}` looks identical to
+  // "nothing has been generated", which would send the stage off to re-render
+  // every short — now up to three times, once per retry.
+  const requireShortFormThumbnailStatus = useCallback(async () => {
+    const status = await getShortFormThumbnailsStatus(scriptId);
+    setSfThumbnailPaths(status.paths);
+    return status.paths;
+  }, [scriptId]);
+
+  const requireShortFormRenderStatus = useCallback(async () => {
+    const status = await getRenderedShortsStatus(scriptId);
+    setSfRenderPaths(status.paths);
+    return status.paths;
+  }, [scriptId]);
 
   const refreshCost = useCallback(async () => {
     const data = await fetchScriptCost(scriptId);
@@ -2820,7 +2837,11 @@ function TimelineEditor({
       Array.from({ length: total }, (_, idx) => idx).filter((idx) => !available[idx]);
 
     try {
-      await runYoloCreationPipeline(voicePicker.selectedVoiceId, controller);
+      const creationComplete = await runYoloCreationPipeline(voicePicker.selectedVoiceId, controller);
+      // False also covers the pre-flight bail when no main-character reference
+      // exists — without this, the production half would spend an hour on SEO,
+      // thumbnails, renders and an export for a project with no assets at all.
+      if (!creationComplete) return;
 
       const latest = await refreshScriptContent();
       const segmentTotal = latest.segments.length;
@@ -2837,29 +2858,31 @@ function TimelineEditor({
         });
       }
 
-      // Retries regenerate only what is still missing — `pending` is recomputed
-      // from the backend in both skip and verify.
-      let pendingThumbnails: number[] = [];
+      // Each read hits the backend and throws if it can't, so a retry
+      // regenerates only what is genuinely still missing — and an unreachable
+      // status endpoint fails the attempt instead of reading as "regenerate
+      // everything".
+      const pendingThumbnails = async () =>
+        missingIndices(await requireShortFormThumbnailStatus(), segmentTotal);
+      const pendingRenders = async () =>
+        missingIndices(await requireShortFormRenderStatus(), segmentTotal);
+
       if (!controller.stopped) {
         await controller.stage("sf-thumbnails", {
-          skip: async () => {
-            pendingThumbnails = missingIndices(await refreshShortFormThumbnailStatus(), segmentTotal);
-            return pendingThumbnails.length === 0;
-          },
+          skip: async () => (await pendingThumbnails()).length === 0,
           run: async () => {
+            const pending = await pendingThumbnails();
+            if (pending.length === 0) return;
             setProductionBusyTask("sf-thumbnails");
             setProductionProgress(0);
-            const { job_id } = pendingThumbnails.length === segmentTotal
+            const { job_id } = pending.length === segmentTotal
               ? await generateShortFormThumbnailsAll(scriptId)
-              : await generateShortFormThumbnailsBatch(scriptId, pendingThumbnails);
+              : await generateShortFormThumbnailsBatch(scriptId, pending);
             await pollShortFormJob(job_id, (status) => {
               if (typeof status.progress === "number") setProductionProgress(status.progress);
             });
           },
-          verify: async () => {
-            pendingThumbnails = missingIndices(await refreshShortFormThumbnailStatus(), segmentTotal);
-            return pendingThumbnails.length === 0;
-          },
+          verify: async () => (await pendingThumbnails()).length === 0,
         });
       }
 
@@ -2879,27 +2902,22 @@ function TimelineEditor({
         });
       }
 
-      let pendingRenders: number[] = [];
       if (!controller.stopped) {
         await controller.stage("sf-renders", {
-          skip: async () => {
-            pendingRenders = missingIndices(await refreshShortFormRenderStatus(), segmentTotal);
-            return pendingRenders.length === 0;
-          },
+          skip: async () => (await pendingRenders()).length === 0,
           run: async () => {
+            const pending = await pendingRenders();
+            if (pending.length === 0) return;
             setProductionBusyTask("sf-renders");
             setProductionProgress(0);
-            const { job_id } = pendingRenders.length === segmentTotal
+            const { job_id } = pending.length === segmentTotal
               ? await renderShortAll(scriptId)
-              : await renderShortBatch(scriptId, pendingRenders);
+              : await renderShortBatch(scriptId, pending);
             await pollShortFormJob(job_id, (status) => {
               if (typeof status.progress === "number") setProductionProgress(status.progress);
             });
           },
-          verify: async () => {
-            pendingRenders = missingIndices(await refreshShortFormRenderStatus(), segmentTotal);
-            return pendingRenders.length === 0;
-          },
+          verify: async () => (await pendingRenders()).length === 0,
         });
       }
 
@@ -2947,6 +2965,8 @@ function TimelineEditor({
     refreshScriptContent,
     refreshShortFormRenderStatus,
     refreshShortFormThumbnailStatus,
+    requireShortFormRenderStatus,
+    requireShortFormThumbnailStatus,
     render,
     requestYoloStop,
     runYoloCreationPipeline,

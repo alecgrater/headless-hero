@@ -233,6 +233,21 @@ describe("YoloRunController", () => {
     expect(snapshots.length).toBeGreaterThan(1);
     expect(new Set(snapshots).size).toBe(snapshots.length);
   });
+
+  it("runs the stage when its skip check throws, rather than skipping it", async () => {
+    const { controller } = makeController();
+    const run = vi.fn(async () => {});
+
+    const outcome = await controller.stage("sf-renders", {
+      skip: async () => {
+        throw new Error("status endpoint unreachable");
+      },
+      run,
+    });
+
+    expect(outcome).toBe("done");
+    expect(run).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("stageElapsedSeconds", () => {
@@ -245,7 +260,6 @@ describe("stageElapsedSeconds", () => {
       ended_at: null,
       attempts: 1,
       error: null,
-      detail: null,
     };
     expect(stageElapsedSeconds(stage, 1_030_000)).toBe(30);
   });
@@ -259,7 +273,6 @@ describe("stageElapsedSeconds", () => {
       ended_at: null,
       attempts: 0,
       error: null,
-      detail: null,
     };
     expect(stageElapsedSeconds(stage, 1_030_000)).toBeNull();
   });

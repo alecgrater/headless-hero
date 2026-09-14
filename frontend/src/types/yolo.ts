@@ -15,7 +15,6 @@ export interface YoloStageRecord {
   ended_at: string | null;
   attempts: number;
   error: string | null;
-  detail: string | null;
 }
 
 export interface YoloRunRecord {

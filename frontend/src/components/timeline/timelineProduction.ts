@@ -27,8 +27,6 @@ export const YOLO_STAGES = [
 
 export type YoloStageKey = (typeof YOLO_STAGES)[number]["key"];
 
-export const YOLO_PROGRESS_STEPS = YOLO_STAGES.map((stage) => stage.label);
-
 export function clampProgress(value: number | null | undefined) {
   if (typeof value !== "number" || Number.isNaN(value)) return 0;
   return Math.min(1, Math.max(0, value));

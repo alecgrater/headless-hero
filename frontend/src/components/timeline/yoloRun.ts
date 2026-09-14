@@ -12,8 +12,12 @@ export type YoloStageOutcome = "done" | "skipped" | "failed" | "cancelled";
 
 /** Attempts per stage, including the first. */
 export const YOLO_STAGE_ATTEMPTS = 3;
-/** Backoff before attempt 2, 3, ... — a transient provider blip clears fast, a rate limit does not. */
-export const YOLO_RETRY_BACKOFF_MS = [5_000, 20_000, 60_000];
+/**
+ * Backoff before attempt 2, 3, ... — a transient provider blip clears fast, a
+ * rate limit does not. The last entry is reused if `attempts` is ever raised
+ * beyond this array's length.
+ */
+export const YOLO_RETRY_BACKOFF_MS = [5_000, 20_000];
 /** Cancellation is checked this often while backing off, so Stop stays responsive. */
 const CANCEL_CHECK_MS = 500;
 
@@ -94,7 +98,6 @@ export class YoloRunController {
         ended_at: null,
         attempts: 0,
         error: null,
-        detail: null,
       })),
     };
   }
@@ -156,19 +159,6 @@ export class YoloRunController {
       await sleep(slice);
       remaining -= slice;
     }
-  }
-
-  /** Mark a stage running without executing it — used for live detail before work starts. */
-  setStageDetail(key: YoloStageKey, detail: string | null) {
-    const stage = this.run.stages.find((item) => item.key === key);
-    if (!stage || stage.detail === detail) return;
-    // Detail changes are cosmetic and can fire on every poll; keep them out of
-    // the durable log to avoid a PUT per second.
-    this.run = {
-      ...this.run,
-      stages: this.run.stages.map((item) => (item.key === key ? { ...item, detail } : item)),
-    };
-    this.options.onChange(this.run);
   }
 
   async stage(key: YoloStageKey, spec: YoloStageSpec): Promise<YoloStageOutcome> {

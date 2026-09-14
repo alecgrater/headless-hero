@@ -19,6 +19,7 @@ import json
 import logging
 import os
 import re
+import threading
 from datetime import datetime
 from pathlib import Path
 from typing import ClassVar, Literal
@@ -33,6 +34,11 @@ logger = logging.getLogger(__name__)
 MAX_RUNS = 5
 
 SAFE_SCRIPT_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$")
+
+# `save_run` is a read-modify-write and FastAPI runs `def` endpoints on a
+# threadpool, so two transitions arriving together could otherwise lose the
+# later one — leaving a finished run recorded as still "running".
+_SAVE_LOCK = threading.Lock()
 
 YoloStageStatus = Literal["pending", "running", "done", "skipped", "failed", "cancelled"]
 YoloRunStatus = Literal["running", "completed", "completed_with_failures", "halted", "cancelled"]
@@ -52,7 +58,6 @@ class YoloStageRecord(BaseModel):
     """One stage of a YOLO run — what it was, how long it took, how it ended."""
 
     MAX_ERROR_CHARS: ClassVar[int] = 1000
-    MAX_DETAIL_CHARS: ClassVar[int] = 300
 
     key: str = Field(min_length=1, max_length=64)
     label: str = Field(min_length=1, max_length=120)
@@ -61,7 +66,6 @@ class YoloStageRecord(BaseModel):
     ended_at: str | None = Field(default=None, max_length=64)
     attempts: int = Field(default=0, ge=0, le=100)
     error: str | None = None
-    detail: str | None = None
 
     @field_validator("error")
     @classmethod
@@ -69,13 +73,6 @@ class YoloStageRecord(BaseModel):
         if value is None:
             return None
         return value[: cls.MAX_ERROR_CHARS]
-
-    @field_validator("detail")
-    @classmethod
-    def _truncate_detail(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
-        return value[: cls.MAX_DETAIL_CHARS]
 
     @property
     def duration_seconds(self) -> float | None:
@@ -172,14 +169,15 @@ def _sorted_newest_first(runs: list[YoloRunRecord]) -> list[YoloRunRecord]:
 def save_run(script_id: str, run: YoloRunRecord) -> list[YoloRunRecord]:
     """Upsert one run into the project's history and prune to MAX_RUNS."""
     path = runs_path(script_id)
-    existing = [item for item in load_runs(script_id) if item.run_id != run.run_id]
-    runs = _sorted_newest_first([run, *existing])[:MAX_RUNS]
+    with _SAVE_LOCK:
+        existing = [item for item in load_runs(script_id) if item.run_id != run.run_id]
+        runs = _sorted_newest_first([run, *existing])[:MAX_RUNS]
 
-    path.parent.mkdir(parents=True, exist_ok=True)
-    payload = {"runs": [item.model_dump(mode="json") for item in runs]}
-    # Write through a temp file so an interrupted write cannot leave the
-    # history truncated — this file is written dozens of times per run.
-    tmp_path = path.with_suffix(".json.tmp")
-    tmp_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-    os.replace(tmp_path, path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        payload = {"runs": [item.model_dump(mode="json") for item in runs]}
+        # Write through a temp file so an interrupted write cannot leave the
+        # history truncated — this file is written dozens of times per run.
+        tmp_path = path.with_suffix(".json.tmp")
+        tmp_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+        os.replace(tmp_path, path)
     return runs

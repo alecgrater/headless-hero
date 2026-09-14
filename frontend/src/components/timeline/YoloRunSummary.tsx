@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 
-import type { YoloRunRecord, YoloRunStatus } from "../../types/yolo";
+import type { YoloRunRecord, YoloRunStatus, YoloStageRecord } from "../../types/yolo";
 import { formatElapsed } from "./timelineProduction";
 import { runElapsedSeconds, stageElapsedSeconds, unresolvedStages } from "./yoloRun";
 
 const RUN_STATUS_COPY: Record<YoloRunStatus, { label: string; tone: string }> = {
-  running: { label: "In progress", tone: "border-sky-500/30 bg-sky-500/10 text-sky-200" },
+  // A stored run still marked "running" never got to close itself — Stop quits
+  // the app, and a crash or an OS kill leaves the same trace.
+  running: { label: "Interrupted", tone: "border-amber-500/30 bg-amber-500/10 text-amber-200" },
   completed: { label: "Completed", tone: "border-emerald-500/30 bg-emerald-500/10 text-emerald-200" },
   completed_with_failures: {
     label: "Finished with unresolved tasks",
@@ -13,6 +15,15 @@ const RUN_STATUS_COPY: Record<YoloRunStatus, { label: string; tone: string }> = 
   },
   halted: { label: "Halted", tone: "border-red-500/30 bg-red-500/10 text-red-200" },
   cancelled: { label: "Stopped", tone: "border-neutral-700 bg-neutral-900 text-neutral-300" },
+};
+
+const STAGE_STATUS_COPY: Record<YoloStageRecord["status"], string> = {
+  pending: "not reached",
+  running: "interrupted",
+  done: "done",
+  skipped: "already done",
+  failed: "failed",
+  cancelled: "stopped",
 };
 
 /**
@@ -87,7 +98,7 @@ export function YoloRunSummary({
                     )}
                   </span>
                   <span className="w-24 shrink-0 text-right text-[10px] uppercase tracking-wide opacity-60">
-                    {stage.status === "skipped" ? "already done" : stage.status}
+                    {STAGE_STATUS_COPY[stage.status]}
                   </span>
                   <span className="w-14 shrink-0 text-right tabular-nums opacity-80">
                     {stage.status === "pending" || stage.status === "skipped" ? "—" : formatElapsed(elapsed)}

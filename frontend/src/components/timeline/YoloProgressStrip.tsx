@@ -58,20 +58,22 @@ export function YoloProgressStrip({
   detail?: string | null;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const panelRef = useRef<HTMLDivElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const active = run?.status === "running";
   const now = useSecondTicker(active || expanded);
 
   useEffect(() => {
     if (!expanded) return;
     const onPointerDown = (event: MouseEvent) => {
-      if (panelRef.current && !panelRef.current.contains(event.target as Node)) setExpanded(false);
+      // The ref wraps the toggle button too — otherwise clicking it while open
+      // closes via this handler and immediately reopens via onClick.
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) setExpanded(false);
     };
     document.addEventListener("mousedown", onPointerDown);
     return () => document.removeEventListener("mousedown", onPointerDown);
   }, [expanded]);
 
-  const stages = run?.stages ?? [];
+  const stages = useMemo(() => run?.stages ?? [], [run]);
   const currentStage = stages.find((stage) => stage.status === "running") ?? null;
   const stepCount = stages.length || YOLO_STAGES.length;
   const currentIndex = currentStage ? stages.indexOf(currentStage) : -1;
@@ -91,7 +93,10 @@ export function YoloProgressStrip({
   const failedCount = stages.filter((stage) => stage.status === "failed").length;
 
   return (
-    <div className="relative shrink-0 border-t border-b border-sky-500/15 bg-sky-500/10 px-5 py-2">
+    <div
+      ref={containerRef}
+      className="relative shrink-0 border-t border-b border-sky-500/15 bg-sky-500/10 px-5 py-2"
+    >
       <div className="flex items-center gap-3 text-xs">
         <span className="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-sky-300 border-t-transparent" />
         <span className="shrink-0 font-semibold text-sky-200 tabular-nums">
@@ -131,10 +136,7 @@ export function YoloProgressStrip({
       </div>
 
       {expanded && (
-        <div
-          ref={panelRef}
-          className="absolute right-5 z-30 mt-2 w-[30rem] rounded-xl border border-neutral-800 bg-neutral-950/95 p-3 shadow-[0_18px_42px_rgba(0,0,0,0.5)] backdrop-blur"
-        >
+        <div className="absolute right-5 z-30 mt-2 w-[30rem] rounded-xl border border-neutral-800 bg-neutral-950/95 p-3 shadow-[0_18px_42px_rgba(0,0,0,0.5)] backdrop-blur">
           <div className="mb-2 flex items-baseline justify-between">
             <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
               Time per task
