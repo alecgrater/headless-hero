@@ -650,6 +650,7 @@ export function useTimelineState(
           const finalJob = await pollVisualBatchJob(data.job_id, (status) => {
             setBatchImageProgress((prev) => ({
               ...prev,
+              completed: status.completed_units ?? prev.completed,
               currentSceneId: null,
               currentSceneName: status.current_step || "Generating images",
               statuses: new Map(statuses),

@@ -23,7 +23,7 @@ class RenderJob:
 
     __slots__ = ("id", "status", "progress", "current_step", "output_urls", "output_data", "error",
                  "scene_count", "total_audio_duration", "duration_seconds", "estimated_seconds",
-                 "_start_time", "_cancel_event")
+                 "completed_units", "total_units", "_start_time", "_cancel_event")
 
     def __init__(self, job_id: str) -> None:
         self.id = job_id
@@ -37,6 +37,11 @@ class RenderJob:
         self.total_audio_duration: float = 0.0
         self.duration_seconds: float | None = None
         self.estimated_seconds: float | None = None
+        # Unit-level progress for jobs that process a countable list of items.
+        # Polling clients treat a frozen `progress` as a stalled job, so any
+        # long-running batch must advance these as work completes.
+        self.completed_units: int = 0
+        self.total_units: int = 0
         self._start_time: float | None = None
         self._cancel_event: threading.Event = threading.Event()
 
@@ -54,6 +59,8 @@ class RenderJob:
             "error": self.error,
             "estimated_seconds": self.estimated_seconds,
             "elapsed_seconds": elapsed,
+            "completed_units": self.completed_units,
+            "total_units": self.total_units,
         }
 
 _jobs: dict[str, RenderJob] = {}
@@ -87,6 +94,8 @@ def update_job(
     output_urls: list[str] | None = None,
     output_data: str | None = None,
     error: str | None = None,
+    completed_units: int | None = None,
+    total_units: int | None = None,
 ) -> None:
     """Thread-safe update of job fields."""
     with _lock:
@@ -105,6 +114,10 @@ def update_job(
             job.output_data = output_data
         if error is not None:
             job.error = error
+        if completed_units is not None:
+            job.completed_units = completed_units
+        if total_units is not None:
+            job.total_units = total_units
 
 def cancel_job(job_id: str) -> bool:
     """Signal a job to cancel. Returns True if found."""

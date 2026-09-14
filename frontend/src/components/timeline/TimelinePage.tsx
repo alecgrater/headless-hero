@@ -279,11 +279,16 @@ function BatchProgressBar({ progress, label }: BatchProgressProps) {
     }
   }
 
-  // For progress bar: use per-scene pct when available, else time-based from initial estimate
+  // For progress bar: use per-scene pct when available, else time-based from initial estimate.
+  // Linear, not eased — a quadratic curve reads as 25% at the halfway mark, which on a long
+  // local run is indistinguishable from a hang.
   let barPct = pct;
+  let pastEstimate = false;
   if (done === 0 && progress.initialEstimatedSeconds && progress.initialEstimatedSeconds > 0) {
-    barPct = Math.min(0.95, Math.pow(elapsed / progress.initialEstimatedSeconds, 2));
+    barPct = Math.min(0.95, elapsed / progress.initialEstimatedSeconds);
+    pastEstimate = elapsed > progress.initialEstimatedSeconds;
   }
+  if (pastEstimate && !etaStr) etaStr = "taking longer than estimated";
 
   const allDone = done >= progress.total;
 

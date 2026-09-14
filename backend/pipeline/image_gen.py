@@ -5,9 +5,10 @@ import logging
 import os
 import re
 import shutil
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from statistics import median
+from typing import Callable
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -2383,6 +2384,8 @@ def generate_batch(
     width: int = IMAGE_WIDTH,
     height: int = IMAGE_HEIGHT,
     style_guide: str = "",
+    on_scene_done: Callable[[int, int], None] | None = None,
+    should_cancel: Callable[[], bool] | None = None,
 ) -> list[dict[str, str | None]]:
     """Generate images for a list of scenes with bounded concurrency.
 
@@ -2390,6 +2393,11 @@ def generate_batch(
     Optionally 'frame_prompts' (list[str]) for multi-frame scenes.
     Returns list of {scene_id, image_url, prompt_used, frame_urls?, video_url?, error?}
     in the same order as the input scenes.
+
+    `on_scene_done(completed, total)` fires as each scene lands so callers can
+    advance job progress; a batch that never reports looks stalled to pollers.
+    `should_cancel()` is checked per completion so a cancelled job stops
+    submitting instead of burning the GPU to the end of the list.
 
     Concurrency is tunable via HH_IMAGE_GEN_CONCURRENCY (default 4).
     """
@@ -2406,16 +2414,35 @@ def generate_batch(
     )
 
     results: list[dict[str, str | None] | None] = [None] * len(scenes)
+    completed = 0
+    cancelled = False
     with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="img-gen") as pool:
         futures = {
             pool.submit(_generate_one_scene, scene, script_id, width, height, style_guide): idx
             for idx, scene in enumerate(scenes)
         }
-        for fut in futures:
+        for fut in as_completed(futures):
             idx = futures[fut]
             results[idx] = fut.result()
+            completed += 1
+            if on_scene_done is not None:
+                try:
+                    on_scene_done(completed, len(scenes))
+                except Exception:
+                    logger.exception("Batch image progress callback failed; continuing")
+            if should_cancel is not None and should_cancel():
+                cancelled = True
+                for pending in futures:
+                    pending.cancel()
+                logger.warning(
+                    "Batch image generation cancelled after %d/%d scenes (script %s)",
+                    completed, len(scenes), script_id,
+                )
+                break
 
     final_results: list[dict[str, str | None]] = [r for r in results if r is not None]
+    if cancelled:
+        return final_results
     logger.info("Batch image generation complete: %s/%s succeeded",
                 sum(1 for r in final_results if r.get("error") is None), len(scenes))
     return final_results

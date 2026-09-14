@@ -572,6 +572,8 @@ const POLL_INTERVAL_MS = 1500;
 type BackgroundJobProgress = {
   progress?: number;
   current_step?: string | null;
+  completed_units?: number;
+  total_units?: number;
 };
 
 export type BackgroundJobStatus = {
@@ -580,6 +582,8 @@ export type BackgroundJobStatus = {
   progress?: number;
   current_step?: string | null;
   output_data?: string | null;
+  completed_units?: number;
+  total_units?: number;
 };
 
 async function pollBackgroundJob(
@@ -613,7 +617,12 @@ async function pollBackgroundJob(
     }
     transientErrors = 0;
     const job = res.data as BackgroundJobStatus;
-    if (onProgress) onProgress({ progress: job.progress, current_step: job.current_step });
+    if (onProgress) onProgress({
+      progress: job.progress,
+      current_step: job.current_step,
+      completed_units: job.completed_units,
+      total_units: job.total_units,
+    });
     if (job.status === "completed") return job;
     if (job.status === "failed") throw new Error(job.error || failureMessage);
     if (job.status === "cancelled") throw new Error(`${failureMessage} (cancelled)`);

@@ -26,7 +26,7 @@ from pipeline.image_gen import (
     generate_visual_layer_panels,
 )
 from pipeline import full_frame_blink as full_frame_blink_mod
-from pipeline.render_jobs import UserFacingJobError, create_job, get_job, run_in_background, update_job
+from pipeline.render_jobs import UserFacingJobError, create_job, get_job, is_cancelled, run_in_background, update_job
 from pipeline.formats import resolve_format
 from pipeline.visual_treatments import analyze_visual_treatment_scene, require_visual_treatment_voiceover
 
@@ -638,7 +638,25 @@ def start_visual_batch_job(body: GenerateBatchRequest, session: Session = Depend
             "Starting visual batch job %s for script %s using %s mode (%d scenes)",
             job.id, body.script_id, mode_label, len(scenes),
         )
-        update_job(job.id, progress=0.02, current_step=f"Generating images with {mode_label} mode...")
+        update_job(
+            job.id,
+            progress=0.02,
+            current_step=f"Generating images with {mode_label} mode...",
+            completed_units=0,
+            total_units=len(scenes),
+        )
+
+        def _on_scene_done(done: int, total: int) -> None:
+            # Keep `progress` moving: pollers treat a frozen value as a stall
+            # and abandon the job, which on a long local run used to orphan
+            # this thread while the UI retried the whole batch.
+            update_job(
+                job.id,
+                progress=0.02 + 0.88 * (done / total if total else 1.0),
+                current_step=f"Generating images ({done} of {total})...",
+                completed_units=done,
+            )
+
         try:
             if batch_enabled:
                 results = generate_batch_with_google_batch(
@@ -653,7 +671,14 @@ def start_visual_batch_job(body: GenerateBatchRequest, session: Session = Depend
                     script_id=body.script_id,
                     width=body.width,
                     height=body.height,
+                    on_scene_done=_on_scene_done,
+                    should_cancel=lambda: is_cancelled(job.id),
                 )
+            if is_cancelled(job.id):
+                logger.info("Visual batch job %s cancelled; persisting %d partial result(s)", job.id, len(results))
+                with Session(bind) as job_session:
+                    _persist_visual_batch_results(job_session, body.script_id, scenes, results)
+                return
             update_job(job.id, progress=0.9, current_step="Saving generated images...")
             with Session(bind) as job_session:
                 persisted = _persist_visual_batch_results(job_session, body.script_id, scenes, results)
