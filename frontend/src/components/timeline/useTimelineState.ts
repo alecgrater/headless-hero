@@ -650,7 +650,10 @@ export function useTimelineState(
           const finalJob = await pollVisualBatchJob(data.job_id, (status) => {
             setBatchImageProgress((prev) => ({
               ...prev,
-              completed: status.completed_units ?? prev.completed,
+              // completed_units counts attempts, including failures. Hold it
+              // below total so the bar can't flash "all generated" before the
+              // success/failure split is reconciled below.
+              completed: Math.min(status.completed_units ?? prev.completed, Math.max(0, prev.total - 1)),
               currentSceneId: null,
               currentSceneName: status.current_step || "Generating images",
               statuses: new Map(statuses),

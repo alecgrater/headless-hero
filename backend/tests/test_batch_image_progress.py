@@ -9,6 +9,9 @@ retried the whole batch against an orphaned first run.
 
 from unittest.mock import patch
 
+import os
+import threading
+
 from pipeline import image_gen
 
 
@@ -33,15 +36,28 @@ def test_generate_batch_reports_progress_for_every_scene():
 
 
 def test_generate_batch_stops_when_cancelled():
-    with patch.object(image_gen, "_generate_one_scene", _fake_one):
-        results = image_gen.generate_batch(
-            scenes=_scenes(20),
-            script_id="sid",
-            should_cancel=lambda: True,
-            on_scene_done=lambda d, t: None,
-        )
+    """Cancelling must prevent queued scenes from ever starting."""
+    started: list[str] = []
+    release = threading.Event()
 
-    # Cancelling after the first completion must not run the whole list.
+    def _slow_one(scene, script_id, width, height, style_guide):
+        started.append(scene["scene_id"])
+        release.wait(timeout=5.0)
+        return {"scene_id": scene["scene_id"], "image_url": "/i.png", "error": None}
+
+    # Cancel as soon as the first scene lands, then let everything drain.
+    def _cancel_now() -> bool:
+        release.set()
+        return True
+
+    with patch.object(image_gen, "_generate_one_scene", _slow_one):
+        with patch.dict(os.environ, {"HH_IMAGE_GEN_CONCURRENCY": "2"}):
+            results = image_gen.generate_batch(
+                scenes=_scenes(20), script_id="sid", should_cancel=_cancel_now
+            )
+
+    # Only the in-flight workers may have run; the queued tail must be dropped.
+    assert len(started) < 20
     assert len(results) < 20
 
 
@@ -60,7 +76,9 @@ def test_job_exposes_unit_counts_to_pollers():
 
     job = create_job(scene_count=58)
     update_job(job.id, completed_units=12, total_units=58)
-    payload = get_job(job.id).to_dict()
+    stored = get_job(job.id)
+    assert stored is not None
 
+    payload = stored.to_dict()
     assert payload["completed_units"] == 12
     assert payload["total_units"] == 58

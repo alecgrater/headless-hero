@@ -240,6 +240,7 @@ interface BatchProgressProps {
 
 function BatchProgressBar({ progress, label }: BatchProgressProps) {
   const [now, setNow] = useState<number | null>(null);
+  const barFloorRef = useRef(0);
 
   useEffect(() => {
     if (!progress.startedAt || progress.completed + progress.failed >= progress.total) {
@@ -291,6 +292,11 @@ function BatchProgressBar({ progress, label }: BatchProgressProps) {
   if (pastEstimate && !etaStr) etaStr = "taking longer than estimated";
 
   const allDone = done >= progress.total;
+
+  // Never run backwards: the time-based estimate can sit well above the
+  // per-scene pct at the moment the first scene lands.
+  barPct = allDone ? barPct : Math.max(barPct, barFloorRef.current);
+  barFloorRef.current = allDone ? 0 : barPct;
 
   return (
     <div className={`px-4 py-2 border-b border-neutral-800 shrink-0 ${allDone ? "bg-emerald-500/10" : "bg-violet-500/10"}`}>

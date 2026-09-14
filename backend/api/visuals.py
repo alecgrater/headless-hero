@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+import threading
 import time
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -646,25 +647,55 @@ def start_visual_batch_job(body: GenerateBatchRequest, session: Session = Depend
             total_units=len(scenes),
         )
 
+        progress_lock = threading.Lock()
+        progress_value = 0.02
+
+        def _advance(value: float) -> None:
+            """Raise `progress` only. A decrease reads as a stall to pollers."""
+            nonlocal progress_value
+            with progress_lock:
+                if value <= progress_value:
+                    return
+                progress_value = value
+            update_job(job.id, progress=value)
+
         def _on_scene_done(done: int, total: int) -> None:
             # Keep `progress` moving: pollers treat a frozen value as a stall
             # and abandon the job, which on a long local run used to orphan
             # this thread while the UI retried the whole batch.
+            _advance(0.02 + 0.88 * (done / total if total else 1.0))
             update_job(
                 job.id,
-                progress=0.02 + 0.88 * (done / total if total else 1.0),
                 current_step=f"Generating images ({done} of {total})...",
                 completed_units=done,
             )
 
         try:
             if batch_enabled:
-                results = generate_batch_with_google_batch(
-                    scenes=scenes,
-                    script_id=body.script_id,
-                    width=body.width,
-                    height=body.height,
-                )
+                # Google Batch spends most of its time inside one blocking poll
+                # (up to 24h) with no per-scene signal, so a heartbeat keeps the
+                # job off the poller's stall path until results land.
+                stop_beat = threading.Event()
+
+                def _beat() -> None:
+                    while not stop_beat.wait(20.0):
+                        with progress_lock:
+                            nudged = min(0.85, progress_value + 0.005)
+                        _advance(nudged)
+
+                beat = threading.Thread(target=_beat, name=f"img-beat-{job.id}", daemon=True)
+                beat.start()
+                try:
+                    results = generate_batch_with_google_batch(
+                        scenes=scenes,
+                        script_id=body.script_id,
+                        width=body.width,
+                        height=body.height,
+                        on_scene_done=_on_scene_done,
+                        should_cancel=lambda: is_cancelled(job.id),
+                    )
+                finally:
+                    stop_beat.set()
             else:
                 results = generate_batch(
                     scenes=scenes,
@@ -676,8 +707,13 @@ def start_visual_batch_job(body: GenerateBatchRequest, session: Session = Depend
                 )
             if is_cancelled(job.id):
                 logger.info("Visual batch job %s cancelled; persisting %d partial result(s)", job.id, len(results))
-                with Session(bind) as job_session:
-                    _persist_visual_batch_results(job_session, body.script_id, scenes, results)
+                try:
+                    with Session(bind) as job_session:
+                        _persist_visual_batch_results(job_session, body.script_id, scenes, results)
+                except Exception:
+                    # Never let the partial-save overwrite the cancelled status
+                    # with a failure the user didn't cause.
+                    logger.exception("Could not persist partial results for cancelled job %s", job.id)
                 return
             update_job(job.id, progress=0.9, current_step="Saving generated images...")
             with Session(bind) as job_session:

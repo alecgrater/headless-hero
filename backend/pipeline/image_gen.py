@@ -2288,9 +2288,23 @@ def generate_batch_with_google_batch(
     width: int = IMAGE_WIDTH,
     height: int = IMAGE_HEIGHT,
     style_guide: str = "",
+    on_scene_done: Callable[[int, int], None] | None = None,
+    should_cancel: Callable[[], bool] | None = None,
 ) -> list[dict[str, object]]:
     """Generate full-project images using Google Batch for eligible independent images."""
     results_by_scene: dict[str, dict[str, object]] = {}
+
+    completed = 0
+
+    def _tick() -> None:
+        nonlocal completed
+        completed += 1
+        if on_scene_done is None:
+            return
+        try:
+            on_scene_done(completed, len(scenes))
+        except Exception:
+            logger.exception("Batch image progress callback failed; continuing")
     standard_scenes: list[dict[str, object]] = []
     batch_requests: list[GoogleBatchImageRequest] = []
     output_paths: dict[str, tuple[Path, Path, str]] = {}
@@ -2340,6 +2354,7 @@ def generate_batch_with_google_batch(
                     "prompt_used": prompt,
                     "error": batch_result.error or "Google Batch returned no image",
                 }
+                _tick()
                 continue
             metadata = _move_generated_image(batch_result.image_path, local_path, {
                 "source_type": "ai_generated",
@@ -2357,6 +2372,7 @@ def generate_batch_with_google_batch(
                 "visual_source_metadata": metadata,
                 "error": None,
             }
+            _tick()
 
     for result in generate_batch(
         standard_scenes,
@@ -2364,6 +2380,8 @@ def generate_batch_with_google_batch(
         width=width,
         height=height,
         style_guide=style_guide,
+        on_scene_done=lambda _done, _total: _tick(),
+        should_cancel=should_cancel,
     ) if standard_scenes else []:
         results_by_scene[str(result["scene_id"])] = result
 
@@ -2397,7 +2415,8 @@ def generate_batch(
     `on_scene_done(completed, total)` fires as each scene lands so callers can
     advance job progress; a batch that never reports looks stalled to pollers.
     `should_cancel()` is checked per completion so a cancelled job stops
-    submitting instead of burning the GPU to the end of the list.
+    picking up queued scenes; the up-to-`max_workers` generations already in
+    flight run to completion and their results are discarded.
 
     Concurrency is tunable via HH_IMAGE_GEN_CONCURRENCY (default 4).
     """
@@ -2432,11 +2451,11 @@ def generate_batch(
                     logger.exception("Batch image progress callback failed; continuing")
             if should_cancel is not None and should_cancel():
                 cancelled = True
-                for pending in futures:
-                    pending.cancel()
+                dropped = sum(1 for pending in futures if pending.cancel())
                 logger.warning(
-                    "Batch image generation cancelled after %d/%d scenes (script %s)",
-                    completed, len(scenes), script_id,
+                    "Batch image generation cancelled for script %s: %d/%d done, %d queued scene(s) dropped, "
+                    "in-flight generations will finish",
+                    script_id, completed, len(scenes), dropped,
                 )
                 break
 
