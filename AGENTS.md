@@ -58,7 +58,7 @@ npm run dev              # Start backend + frontend + electron (all three)
 npm run dev:frontend     # Frontend only (Vite on :5173)
 npm run dev:backend      # Backend only (uvicorn on :8420)
 npm run test             # Backend pytest suite (shells into uv run --project backend pytest)
-npm run test:backend     # Same as: uv run --project backend pytest
+npm run test:backend     # Same as: uv run --project backend pytest backend/tests
 npm run test:frontend    # Frontend Vitest suite
 cd frontend && npm run build  # Production frontend build
 ```
@@ -68,7 +68,7 @@ cd frontend && npm run build  # Production frontend build
 **Never use `python`, `python3`, `pip`, or `pip3` directly.** All Python operations go through `uv`:
 
 - `uv run python script.py` — run scripts
-- `npm run test:backend` — run backend tests (wraps `uv run --frozen --project backend pytest`)
+- `npm run test:backend` — run backend tests (wraps `uv run --frozen --project backend pytest backend/tests`)
 - `cd backend && uv run --frozen pytest` — run backend tests from inside `backend/`
 - `uv pip install pkg` — install packages
 - `uv add pkg` — add project dependency

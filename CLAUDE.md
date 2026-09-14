@@ -42,7 +42,7 @@ npm run dev:app          # same stack, --kill-others (used by the macOS .app lau
 npm run dev:frontend     # Vite on :5173
 npm run dev:backend      # uvicorn on :8420
 npm run test             # backend pytest (shells into uv run --project backend pytest)
-npm run test:backend     # uv run --project backend pytest
+npm run test:backend     # uv run --project backend pytest backend/tests
 npm run test:frontend    # frontend Vitest
 cd frontend && npm run build
 ```
@@ -53,7 +53,7 @@ cd frontend && npm run build
 
 Never use `python`, `python3`, `pip`, or `pip3` directly. Use `uv`:
 - `uv run python script.py` — run scripts
-- `npm run test:backend` — backend tests (wraps `uv run --frozen --project backend pytest`)
+- `npm run test:backend` — backend tests (wraps `uv run --frozen --project backend pytest backend/tests`)
 - `cd backend && uv run --frozen pytest` — backend tests from inside `backend/`
 - `uv pip install pkg` / `uv add pkg` / `uv sync` / `uv venv`
 
