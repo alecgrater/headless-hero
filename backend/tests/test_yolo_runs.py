@@ -230,8 +230,13 @@ def test_concurrent_saves_do_not_lose_runs():
     assert {run.run_id for run in loaded} == {f"run-{idx}" for idx in range(count)}
 
 
-def test_concurrent_saves_of_one_run_keep_the_file_parseable():
-    """Interleaved updates to a single run must never corrupt the history file."""
+def test_concurrent_saves_of_one_run_leave_a_complete_record():
+    """Interleaved updates to a single run must leave one whole, parseable record.
+
+    Unlike the multi-run case this cannot detect a missing lock on its own — the
+    last writer legitimately wins. What it pins is that a torn or partial write
+    never reaches disk.
+    """
     import threading
 
     from pipeline import yolo_runs
@@ -254,7 +259,14 @@ def test_concurrent_saves_of_one_run_keep_the_file_parseable():
 
     loaded = yolo_runs.load_runs("script-one-run")
     assert len(loaded) == 1
-    assert loaded[0].status in statuses
+    record = loaded[0]
+    assert record.run_id == "run-1"
+    assert record.script_id == "script-one-run"
+    assert record.started_at == "2026-09-14T00:00:00+00:00"
+    assert record.status in statuses
+    # The stage list survived intact rather than being half-written.
+    assert [item.key for item in record.stages] == ["audio"]
+    assert record.stages[0].duration_seconds == pytest.approx(120.0)
 
 
 # --------------------------------------------------------------------- api

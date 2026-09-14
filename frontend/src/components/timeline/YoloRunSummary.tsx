@@ -2,7 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 
 import type { YoloRunRecord, YoloRunStatus, YoloStageRecord } from "../../types/yolo";
 import { formatElapsed } from "./timelineProduction";
-import { runElapsedSeconds, stageElapsedSeconds, unresolvedStages } from "./yoloRun";
+import {
+  effectiveEndMs,
+  interruptedSummary,
+  runElapsedSeconds,
+  stageElapsedSeconds,
+  unresolvedStages,
+} from "./yoloRun";
 
 const RUN_STATUS_COPY: Record<YoloRunStatus, { label: string; tone: string }> = {
   // A stored run still marked "running" never got to close itself — Stop quits
@@ -27,29 +33,6 @@ const STAGE_STATUS_COPY: Record<YoloStageRecord["status"], string> = {
 };
 
 /**
- * Last timestamp the run actually recorded.
- *
- * An interrupted run has no `ended_at` — the app was killed before the
- * controller could close it. Counting to `Date.now()` would report a run that
- * died yesterday as nineteen hours long, and would do the same to the stage it
- * died on, so fall back to the newest timestamp on record instead.
- */
-function effectiveEndMs(run: YoloRunRecord): number {
-  if (run.ended_at) {
-    const ended = Date.parse(run.ended_at);
-    if (!Number.isNaN(ended)) return ended;
-  }
-  const recorded = [
-    run.started_at,
-    ...run.stages.flatMap((stage) => [stage.started_at, stage.ended_at]),
-  ]
-    .filter((value): value is string => Boolean(value))
-    .map((value) => Date.parse(value))
-    .filter((value) => !Number.isNaN(value));
-  return recorded.length > 0 ? Math.max(...recorded) : Date.now();
-}
-
-/**
  * What the last YOLO run did, shown once the run is over.
  *
  * A full generation runs for an hour or more, so the operator is nearly always
@@ -72,9 +55,7 @@ export function YoloRunSummary({
   // An interrupted run usually has no failed stage — one is still "running" and
   // the rest never started — so "Every task completed" would be a flat
   // contradiction of the banner it sits in.
-  const interruptedDuring = run.status === "running"
-    ? run.stages.find((stage) => stage.status === "running")?.label ?? "startup"
-    : null;
+  const interrupted = run.status === "running";
 
   useEffect(() => {
     setExpanded(false);
@@ -94,8 +75,8 @@ export function YoloRunSummary({
             </span>
           )}
           <span className="min-w-0 flex-1 truncate opacity-90">
-            {interruptedDuring
-              ? `Stopped during: ${interruptedDuring}`
+            {interrupted
+              ? interruptedSummary(run)
               : unresolved.length > 0
               ? `Unresolved: ${unresolved.map((stage) => stage.label).join(", ")}`
               : "Every task completed."}
@@ -119,6 +100,13 @@ export function YoloRunSummary({
           <ul className="mt-2 divide-y divide-white/5 border-t border-white/10 pt-1 text-[11px]">
             {run.stages.map((stage) => {
               const elapsed = stageElapsedSeconds(stage, endedMs);
+              // A stage the run died inside has no end of its own, and
+              // `endedMs` falls back to its own start — showing 0:00 for the
+              // stage that most likely ate the time would be a made-up number.
+              const unknownDuration =
+                stage.status === "pending"
+                  || stage.status === "skipped"
+                  || (!stage.ended_at && interrupted);
               return (
                 <li key={stage.key} className="flex items-start gap-2 py-1">
                   <span className="min-w-0 flex-1 truncate opacity-90">
@@ -132,7 +120,7 @@ export function YoloRunSummary({
                     {STAGE_STATUS_COPY[stage.status]}
                   </span>
                   <span className="w-14 shrink-0 text-right tabular-nums opacity-80">
-                    {stage.status === "pending" || stage.status === "skipped" ? "—" : formatElapsed(elapsed)}
+                    {unknownDuration ? "—" : formatElapsed(elapsed)}
                   </span>
                 </li>
               );

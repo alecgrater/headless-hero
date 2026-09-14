@@ -2839,9 +2839,8 @@ function TimelineEditor({
 
     try {
       const creationComplete = await runYoloCreationPipeline(voicePicker.selectedVoiceId, controller);
-      // False also covers the pre-flight bail when no main-character reference
-      // exists — without this, the production half would spend an hour on SEO,
-      // thumbnails, renders and an export for a project with no assets at all.
+      // False means the creation half stopped early — a required stage halted
+      // the run, or the user pressed Stop. Nothing downstream is worth running.
       if (!creationComplete) return;
 
       const latest = await refreshScriptContent();

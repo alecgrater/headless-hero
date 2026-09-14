@@ -291,6 +291,45 @@ export class YoloRunController {
   }
 }
 
+/**
+ * Last timestamp the run actually recorded.
+ *
+ * An interrupted run has no `ended_at` — the app was killed before the
+ * controller could close it. Counting to `Date.now()` would report a run that
+ * died yesterday as nineteen hours long, and would do the same to the stage it
+ * died on, so fall back to the newest timestamp on record instead.
+ */
+export function effectiveEndMs(run: YoloRunRecord): number {
+  if (run.ended_at) {
+    const ended = Date.parse(run.ended_at);
+    if (!Number.isNaN(ended)) return ended;
+  }
+  const recorded = [
+    run.started_at,
+    ...run.stages.flatMap((stage) => [stage.started_at, stage.ended_at]),
+  ]
+    .filter((value): value is string => Boolean(value))
+    .map((value) => Date.parse(value))
+    .filter((value) => !Number.isNaN(value));
+  return recorded.length > 0 ? Math.max(...recorded) : Date.now();
+}
+
+/**
+ * Where an interrupted run died.
+ *
+ * `YoloRunController.stage()` evaluates `skip()` before marking a stage
+ * running, and the short-form skips hit the backend — so a run killed in that
+ * window has no `running` stage at all. Reporting "startup" for a run that got
+ * eleven stages deep would be worse than saying nothing.
+ */
+export function interruptedSummary(run: YoloRunRecord): string {
+  const running = run.stages.find((stage) => stage.status === "running");
+  if (running) return `Stopped during: ${running.label}`;
+  const lastStarted = [...run.stages].reverse().find((stage) => stage.status !== "pending");
+  if (lastStarted) return `Stopped after: ${lastStarted.label}`;
+  return "Stopped during startup";
+}
+
 /** Stages that ended in a state the operator should know about. */
 export function unresolvedStages(run: YoloRunRecord | null): YoloStageRecord[] {
   if (!run) return [];
