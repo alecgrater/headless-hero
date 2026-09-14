@@ -181,7 +181,7 @@ VALID_OPENAI_REASONING_EFFORTS = {"none", "low", "medium", "high", "xhigh", "max
 
 # Retired reasoning_effort values mapped to their current equivalent, so a
 # saved OPENAI_REASONING_EFFORT_<TASK> override survives the GPT-5.6 rename.
-_REASONING_EFFORT_ALIASES = {"minimal": "none"}
+REASONING_EFFORT_ALIASES = {"minimal": "none"}
 
 # Tasks tagged "fast" are the cheap structured-JSON calls: lowest reasoning
 # effort on OpenAI, the luna tier by default, and LOCAL_TEXT_FAST_MODEL under
@@ -409,7 +409,7 @@ def _resolve_openai_reasoning_effort(task: str | None) -> str | None:
         env_key = f"OPENAI_REASONING_EFFORT_{task.upper()}"
         env_value = os.environ.get(env_key, "").strip().lower()
         if env_value:
-            env_value = _REASONING_EFFORT_ALIASES.get(env_value, env_value)
+            env_value = REASONING_EFFORT_ALIASES.get(env_value, env_value)
             if env_value in VALID_OPENAI_REASONING_EFFORTS:
                 return env_value
             logger.warning(

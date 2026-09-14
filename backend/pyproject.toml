@@ -32,3 +32,12 @@ dev = [
     "httpx>=0.28.1",
     "pytest>=9.0.3",
 ]
+
+[tool.pytest.ini_options]
+# Collect only the suite. `api/test_lab.py` and `pipeline/test_lab*.py` are
+# production modules whose names match pytest's default `test_*.py` pattern, so
+# an unscoped run imports them — and therefore `config` and `database` — before
+# tests/conftest.py can point HH_DATA_DIR at a temp directory. That binds the
+# developer's real data/db.sqlite (which stores plaintext API keys) for the
+# whole session and runs create_all + the settings migrations against it.
+testpaths = ["tests"]

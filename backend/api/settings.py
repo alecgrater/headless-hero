@@ -8,7 +8,12 @@ from sqlmodel import Session, select
 
 from database import get_session
 from config import DEFAULT_CLAUDE_MODEL, DEFAULT_EXPORTS_DIR
-from integrations.llm_client import ALLOWED_PROVIDERS, LLM_TASKS, VALID_OPENAI_REASONING_EFFORTS
+from integrations.llm_client import (
+    ALLOWED_PROVIDERS,
+    LLM_TASKS,
+    REASONING_EFFORT_ALIASES,
+    VALID_OPENAI_REASONING_EFFORTS,
+)
 from integrations import llm_client as _llm_client_module
 from integrations import local_models as _local_models_registry
 from integrations import elevenlabs_client as _elevenlabs_client_module
@@ -404,6 +409,11 @@ async def save_keys(
         keys[provider_key] = provider
     for reasoning_key in reasoning_keys.intersection(keys):
         effort = (keys[reasoning_key] or "").strip().lower()
+        # Heal a retired value (GPT-5.6 replaced "minimal" with "none") rather
+        # than 400. The UI resends every OPENAI_REASONING_EFFORT_* key on each
+        # save, so one stale row would fail the whole Settings → AI Models save,
+        # including unrelated fields.
+        effort = REASONING_EFFORT_ALIASES.get(effort, effort)
         if effort and effort not in VALID_OPENAI_REASONING_EFFORTS:
             raise HTTPException(
                 status_code=400,
