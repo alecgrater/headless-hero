@@ -1,10 +1,11 @@
-const { app, BrowserWindow, ipcMain, shell, dialog, screen } = require("electron");
+const { app, BrowserWindow, ipcMain, shell, dialog, screen, powerSaveBlocker } = require("electron");
 const fs = require("fs");
 const path = require("path");
 const { execFile, spawn } = require("child_process");
 
 let mainWindow;
 let backendProcess;
+let keepAwakeBlockerId = null;
 
 const isDev = !app.isPackaged;
 const DEBUG = !!process.env.HH_DEBUG;
@@ -299,6 +300,7 @@ function terminatePids(pids) {
 }
 
 async function stopYoloProcesses() {
+  setKeepAwake(false);
   try {
     await fetch(`${BACKEND_URL}/dev/api/kill-all`, {
       method: "POST",
@@ -321,6 +323,24 @@ async function stopYoloProcesses() {
 
   setTimeout(() => app.quit(), 100).unref();
   return { stopped: true, processes: pids.length };
+}
+
+/**
+ * Hold off App Nap / system suspension while a long YOLO run is in flight.
+ *
+ * The pipeline is driven from the renderer and can run for hours unattended;
+ * a suspended app stops polling its own background jobs and the run appears to
+ * die halfway through. Idempotent — repeated starts reuse the one blocker.
+ */
+function setKeepAwake(enabled) {
+  const active = keepAwakeBlockerId !== null && powerSaveBlocker.isStarted(keepAwakeBlockerId);
+  if (enabled) {
+    if (!active) keepAwakeBlockerId = powerSaveBlocker.start("prevent-app-suspension");
+    return { keepingAwake: true };
+  }
+  if (active) powerSaveBlocker.stop(keepAwakeBlockerId);
+  keepAwakeBlockerId = null;
+  return { keepingAwake: false };
 }
 
 async function waitForBackend(retries = 30, delay = 500) {
@@ -426,6 +446,12 @@ function createWindow() {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
+      // The YOLO pipeline is driven from the renderer with setTimeout polling
+      // loops and runs for well over an hour, so it is nearly always occluded
+      // or behind another window while it works. Chromium's background
+      // throttling would slow those timers to a crawl (and eventually one tick
+      // a minute), stalling a run that is otherwise healthy.
+      backgroundThrottling: false,
     },
   });
 
@@ -453,6 +479,9 @@ ipcMain.handle("open-youtube-upload-window", () => openUploadWindow(YOUTUBE_LONG
 
 // IPC: emergency stop for YOLO mode. Cancels backend jobs, kills dev servers, and quits Electron.
 ipcMain.handle("stop-yolo-processes", () => stopYoloProcesses());
+
+// IPC: keep the machine and app awake for the duration of a long YOLO run.
+ipcMain.handle("set-keep-awake", (_event, enabled) => setKeepAwake(Boolean(enabled)));
 
 // IPC: reveal a file or folder in Finder / Explorer
 ipcMain.handle("show-item-in-folder", (_event, fullPath) => shell.showItemInFolder(fullPath));
@@ -582,6 +611,7 @@ app.whenReady().then(async () => {
 // --kill-others tears down the dev stack and the launcher process can exit.
 // Without that, macOS sees the bundle as still running and ignores the next click.
 app.on("window-all-closed", () => {
+  setKeepAwake(false);
   if (backendProcess) {
     backendProcess.kill();
   }

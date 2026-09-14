@@ -16,6 +16,7 @@ import type {
   TestLabScenes,
   TestLabSettings,
 } from "./types/testLab";
+import type { YoloRunLogLine, YoloRunRecord } from "./types/yolo";
 
 export interface ApiResponse<T = unknown> {
   ok: boolean;
@@ -33,6 +34,7 @@ interface ApiClient {
   openUploadShortsWindows?: () => Promise<void>;
   openYouTubeUploadWindow?: () => Promise<void>;
   stopYoloProcesses?: () => Promise<{ stopped: boolean; processes: number }>;
+  setKeepAwake?: (enabled: boolean) => Promise<{ keepingAwake: boolean }>;
   downloadFile?: (url: string, defaultFilename: string) => Promise<{ canceled: boolean; filePath?: string }>;
   saveToDownloads?: (url: string, folderName: string, filename: string) => Promise<{ filePath: string }>;
   selectFolder?: (title?: string, defaultPath?: string) => Promise<{ canceled: boolean; path?: string }>;
@@ -431,6 +433,30 @@ export async function recordDuration(
     duration_seconds: durationSeconds,
     scene_count: sceneCount ?? null,
   });
+}
+
+/**
+ * Persist a YOLO run snapshot. Deliberately swallows every failure — the run
+ * log is an observability aid, and losing a write must never take down the
+ * pipeline it is describing.
+ */
+export async function saveYoloRun(
+  scriptId: string,
+  run: YoloRunRecord,
+  log: YoloRunLogLine | null,
+): Promise<void> {
+  try {
+    await api.put(`/api/yolo/runs/${scriptId}`, { run, log });
+  } catch {
+    // Intentionally ignored — see above.
+  }
+}
+
+/** Load a project's recent YOLO runs, newest first. */
+export async function fetchYoloRuns(scriptId: string): Promise<YoloRunRecord[]> {
+  const res = await api.get(`/api/yolo/runs/${scriptId}`);
+  if (!res.ok) return [];
+  return (res.data as { runs?: YoloRunRecord[] }).runs ?? [];
 }
 
 export interface ScriptCostBreakdownItem {

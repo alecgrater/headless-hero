@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld("api", {
   openUploadShortsWindows: () => ipcRenderer.invoke("open-upload-shorts-windows"),
   openYouTubeUploadWindow: () => ipcRenderer.invoke("open-youtube-upload-window"),
   stopYoloProcesses: () => ipcRenderer.invoke("stop-yolo-processes"),
+  setKeepAwake: (enabled) => ipcRenderer.invoke("set-keep-awake", enabled),
 
   // Reveal a file/folder in Finder/Explorer
   showItemInFolder: (fullPath) => ipcRenderer.invoke("show-item-in-folder", fullPath),

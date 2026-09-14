@@ -33,6 +33,7 @@ import api, {
   exportShortFormSEO,
   exportTest,
   fetchScriptCost,
+  fetchYoloRuns,
   generateEli,
   generateFX,
   getExportFileStatus,
@@ -50,6 +51,7 @@ import api, {
   pollShortFormJob,
   renderShortAll,
   renderShortBatch,
+  saveYoloRun,
   setUploadTracking as apiSetUploadTracking,
   updateVisualCanvas,
 } from "../../api";
@@ -96,7 +98,9 @@ import { FinalizationRow } from "./FinalizationRow";
 import { LongFormSeoPanel, ShortFormSeoPanel } from "./SEOPanel";
 import { LongFormThumbnailsPanel } from "./ThumbnailsPanel";
 import { YoloProgressStrip } from "./YoloProgressStrip";
-import type { ProductionTask } from "./timelineProduction";
+import { YoloRunSummary } from "./YoloRunSummary";
+import type { ProductionTask, YoloStageKey } from "./timelineProduction";
+import { YoloRunController, unresolvedStages, type YoloRunRecord } from "./yoloRun";
 import type { ThumbnailPhaseItem, ThumbnailPhaseStatus } from "./ThumbnailPhaseProgress";
 import { LAYERED_PREP_MODES, sceneVisualAssetsComplete } from "./assetCompletion";
 
@@ -1280,7 +1284,9 @@ function TimelineEditor({
   const [trackingUpdating, setTrackingUpdating] = useState<Partial<Record<keyof UploadTracking, boolean>>>({});
   const [lastAudioGenTimestamp, setLastAudioGenTimestamp] = useState(0);
   const [lastFXGenTimestamp, setLastFXGenTimestamp] = useState(0);
-  const [yoloStep, setYoloStep] = useState<string | null>(null);
+  const [yoloRun, setYoloRun] = useState<YoloRunRecord | null>(null);
+  const [lastYoloRun, setLastYoloRun] = useState<YoloRunRecord | null>(null);
+  const [yoloSummaryDismissed, setYoloSummaryDismissed] = useState(false);
   const [yoloRenderRunning, setYoloRenderRunning] = useState(false);
   const [yoloStopping, setYoloStopping] = useState(false);
   const [titleCardProgressPct, setTitleCardProgressPct] = useState<number | null>(null);
@@ -1319,6 +1325,25 @@ function TimelineEditor({
     setVisualTreatmentJobId(null);
     setVisualTreatmentAssignments(null);
     setVisualTreatmentAnalyzing(false);
+  }, [scriptId]);
+
+  // Surface the last YOLO run on open. Whoever started it was almost certainly
+  // away when it ended, so the persisted log is the only record of which stage
+  // failed and how long each one took.
+  useEffect(() => {
+    let cancelled = false;
+    setYoloRun(null);
+    setLastYoloRun(null);
+    setYoloSummaryDismissed(false);
+    void (async () => {
+      const runs = await fetchYoloRuns(scriptId);
+      if (cancelled) return;
+      const previous = runs.find((run) => run.status !== "running") ?? null;
+      setLastYoloRun(previous);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [scriptId]);
 
   useEffect(() => {
@@ -2526,116 +2551,122 @@ function TimelineEditor({
     return true;
   }, [scriptId, state]);
 
-  const runYoloCreationPipeline = useCallback(async (voiceId: string) => {
+  const runYoloCreationPipeline = useCallback(async (voiceId: string, controller: YoloRunController) => {
     let latest = await refreshScriptContent();
     let status = getCreationStatus(latest, projectConfig);
 
     if (!requireMainCharacterReference()) return false;
 
-    if (!status.titleCardsDone && status.hasTitleCards) {
-      setYoloStep("Title Cards");
-      titleCardCancelledRef.current = false;
-      setTitleCardGenerating(true);
-      setTitleCardProgressPct(0);
-      titleCardProgress.start(latest.segments.length);
-      try {
-        await state.generateTitleCardsStandalone(false, (status) => {
-          if (typeof status.progress === "number") setTitleCardProgressPct(status.progress);
-        });
-        if (yoloCancelledRef.current) return false;
-        setTitleCardProgressPct(1);
-        thumbnailsCancelledRef.current = false;
-        setThumbnailsInlineGenerating(true);
+    // Every stage's verify step re-reads the script from the backend: batch
+    // generation reports per-item failures instead of throwing, so a resolved
+    // promise is not evidence the stage actually finished.
+    const resync = async () => {
+      latest = await refreshScriptContent();
+      status = getCreationStatus(latest, projectConfig);
+    };
+
+    await controller.stage("title-cards", {
+      skip: () => !status.hasTitleCards || status.titleCardsDone,
+      run: async () => {
+        titleCardCancelledRef.current = false;
+        setTitleCardGenerating(true);
+        setTitleCardProgressPct(0);
+        titleCardProgress.start(latest.segments.length);
         try {
-          const existing = await refreshLongFormThumbnailsInline();
-          if (!existing.some((concept) => concept.image_url) && !(latest.format_id && latest.format_id !== "youtube-listicle")) {
-            const res = await api.post("/api/thumbnail/recomposite", {
-              script_id: scriptId,
-            });
-            if (res.ok && !thumbnailsCancelledRef.current) {
-              const data = res.data as { concepts: ThumbnailConcept[] };
-              setThumbnailsInline(data.concepts);
-            }
-          }
+          await state.generateTitleCardsStandalone(false, (progress) => {
+            if (typeof progress.progress === "number") setTitleCardProgressPct(progress.progress);
+          });
+          setTitleCardProgressPct(1);
         } finally {
-          setThumbnailsInlineGenerating(false);
+          setTitleCardGenerating(false);
+          setTitleCardProgressPct(null);
+          titleCardProgress.end(latest.segments.length);
         }
-      } finally {
-        setTitleCardGenerating(false);
-        setTitleCardProgressPct(null);
-        titleCardProgress.end(latest.segments.length);
-      }
-      latest = await refreshScriptContent();
-      status = getCreationStatus(latest, projectConfig);
-      if (yoloCancelledRef.current) return false;
-    }
+      },
+      verify: async () => {
+        await resync();
+        return status.titleCardsDone;
+      },
+    });
+    if (controller.stopped) return false;
 
-    if (!status.audioDone) {
-      setYoloStep("Generate Audio");
-      await state.generateAllAudio(voiceId, true);
-      latest = await refreshScriptContent();
-      status = getCreationStatus(latest, projectConfig);
-      if (!status.audioDone) {
-        throw new Error("Audio generation did not complete for every narrated scene");
-      }
-      if (yoloCancelledRef.current) return false;
-    }
+    await controller.stage("audio", {
+      skip: () => status.audioDone,
+      run: async () => {
+        await state.generateAllAudio(voiceId, true);
+      },
+      verify: async () => {
+        await resync();
+        return status.audioDone;
+      },
+    });
+    if (controller.stopped) return false;
 
-    if (scenesNeedingVisualModePrep(latest) > 0) {
-      setYoloStep("Prepare Visual Modes");
-      const prepared = await runVisualModePrepForYolo();
-      if (yoloCancelledRef.current) return false;
-      if (!prepared) return false;
-      latest = await refreshScriptContent();
-      status = getCreationStatus(latest, projectConfig);
-    }
+    await controller.stage("visual-modes", {
+      skip: () => scenesNeedingVisualModePrep(latest) === 0,
+      // No verify: the analyzer fills per-scene layer specs, but the assets
+      // those specs describe are generated by the images stage — so the
+      // "needs prep" predicate is still true at this point by design.
+      run: async () => {
+        const prepared = await runVisualModePrepForYolo();
+        if (!prepared && !yoloCancelledRef.current) {
+          throw new Error("Visual mode preparation did not complete");
+        }
+        await resync();
+      },
+    });
+    if (controller.stopped) return false;
 
-    if (!status.imagesDone) {
-      setYoloStep("Generate Images");
-      await state.generateAllImages(true);
-      latest = await refreshScriptContent();
-      status = getCreationStatus(latest, projectConfig);
-      if (!status.imagesDone) {
-        throw new Error("Image generation did not complete for every visual scene");
-      }
-      if (yoloCancelledRef.current) return false;
-    }
+    await controller.stage("images", {
+      skip: () => status.imagesDone,
+      run: async () => {
+        await state.generateAllImages(true);
+      },
+      verify: async () => {
+        await resync();
+        return status.imagesDone;
+      },
+    });
+    if (controller.stopped) return false;
 
-    if (!status.fxDone) {
-      setYoloStep("Generate FX");
-      await runMissingFXForYolo(status.missingFXCount);
-      latest = await refreshScriptContent();
-      status = getCreationStatus(latest, projectConfig);
-      if (!status.fxDone) {
-        throw new Error("FX generation did not complete for every scene");
-      }
-      if (yoloCancelledRef.current) return false;
-    }
+    await controller.stage("fx", {
+      skip: () => status.fxDone,
+      run: async () => {
+        await runMissingFXForYolo(status.missingFXCount);
+      },
+      verify: async () => {
+        await resync();
+        return status.fxDone;
+      },
+    });
+    if (controller.stopped) return false;
 
-    if (!status.eliDone) {
-      setYoloStep("Add Eli");
-      await runMissingEliForYolo(status.missingEliCount || status.eliSceneCount);
-      latest = await refreshScriptContent();
-      status = getCreationStatus(latest, projectConfig);
-      if (!status.eliDone) {
-        throw new Error("Eli generation did not complete for every eligible scene");
-      }
-      if (yoloCancelledRef.current) return false;
-    }
+    await controller.stage("eli", {
+      skip: () => status.eliDone,
+      run: async () => {
+        await runMissingEliForYolo(status.missingEliCount || status.eliSceneCount);
+      },
+      verify: async () => {
+        await resync();
+        return status.eliDone;
+      },
+    });
+    if (controller.stopped) return false;
 
-    await ensureLongFormThumbnailForYolo();
-    if (yoloCancelledRef.current) return false;
+    await controller.stage("lf-thumbnail", {
+      run: async () => {
+        await ensureLongFormThumbnailForYolo();
+      },
+    });
 
-    return true;
+    return !controller.stopped;
   }, [
     ensureLongFormThumbnailForYolo,
     refreshScriptContent,
-    refreshLongFormThumbnailsInline,
     requireMainCharacterReference,
     runMissingEliForYolo,
     runMissingFXForYolo,
     runVisualModePrepForYolo,
-    scriptId,
     state,
     titleCardProgress,
     projectConfig,
@@ -2761,92 +2792,161 @@ function TimelineEditor({
       return;
     }
 
+    const controller = new YoloRunController({
+      scriptId,
+      onChange: setYoloRun,
+      // Persisted on every transition: a full generation runs for an hour or
+      // more, so nobody is watching when a stage fails and the toast is long
+      // gone by the time they look.
+      persist: (run, log) => {
+        void saveYoloRun(scriptId, run, log);
+      },
+      isCancelled: () => yoloCancelledRef.current,
+    });
+
+    setYoloRun(controller.snapshot);
+    setLastYoloRun(null);
+    setYoloSummaryDismissed(false);
     setYoloRenderRunning(true);
     setYoloStopping(false);
     yoloStoppingRef.current = false;
-    setYoloStep(null);
     yoloCancelledRef.current = false;
     productionBusyRef.current = true;
     setProductionError(null);
+    // Long unattended runs otherwise get suspended by the OS partway through.
+    void api.setKeepAwake?.(true).catch(() => {});
+
+    const missingIndices = (available: Record<number, string | undefined>, total: number) =>
+      Array.from({ length: total }, (_, idx) => idx).filter((idx) => !available[idx]);
+
     try {
-      const creationComplete = await runYoloCreationPipeline(voicePicker.selectedVoiceId);
-      if (!creationComplete || yoloCancelledRef.current) return;
+      await runYoloCreationPipeline(voicePicker.selectedVoiceId, controller);
 
       const latest = await refreshScriptContent();
       const segmentTotal = latest.segments.length;
 
-      if (!render.seoMetadata) {
-        setYoloStep("Generate LF SEO");
-        setProductionBusyTask("lf-seo");
-        setProductionProgress(null);
-        await render.generateSEO();
+      if (!controller.stopped) {
+        await controller.stage("lf-seo", {
+          skip: () => Boolean(render.seoMetadata),
+          run: async () => {
+            setProductionBusyTask("lf-seo");
+            setProductionProgress(null);
+            await render.generateSEO();
+          },
+          verify: async () => Boolean((await refreshScriptContent()).seo_metadata),
+        });
       }
 
-      const thumbnailPaths = await refreshShortFormThumbnailStatus();
-      const missingThumbnailIndices = latest.segments
-        .map((_, idx) => idx)
-        .filter((idx) => !thumbnailPaths[idx]);
-      if (missingThumbnailIndices.length > 0) {
-        setYoloStep("Generate SF Thumbnails");
-        setProductionBusyTask("sf-thumbnails");
-        setProductionProgress(0);
-        const { job_id } = missingThumbnailIndices.length === segmentTotal
-          ? await generateShortFormThumbnailsAll(scriptId)
-          : await generateShortFormThumbnailsBatch(scriptId, missingThumbnailIndices);
-        await pollShortFormJob(job_id, (status) => {
-          if (typeof status.progress === "number") setProductionProgress(status.progress);
+      // Retries regenerate only what is still missing — `pending` is recomputed
+      // from the backend in both skip and verify.
+      let pendingThumbnails: number[] = [];
+      if (!controller.stopped) {
+        await controller.stage("sf-thumbnails", {
+          skip: async () => {
+            pendingThumbnails = missingIndices(await refreshShortFormThumbnailStatus(), segmentTotal);
+            return pendingThumbnails.length === 0;
+          },
+          run: async () => {
+            setProductionBusyTask("sf-thumbnails");
+            setProductionProgress(0);
+            const { job_id } = pendingThumbnails.length === segmentTotal
+              ? await generateShortFormThumbnailsAll(scriptId)
+              : await generateShortFormThumbnailsBatch(scriptId, pendingThumbnails);
+            await pollShortFormJob(job_id, (status) => {
+              if (typeof status.progress === "number") setProductionProgress(status.progress);
+            });
+          },
+          verify: async () => {
+            pendingThumbnails = missingIndices(await refreshShortFormThumbnailStatus(), segmentTotal);
+            return pendingThumbnails.length === 0;
+          },
         });
+      }
+
+      if (!controller.stopped) {
+        await controller.stage("sf-seo", {
+          skip: () =>
+            segmentTotal === 0 || (render.shortFormSeoMetadata?.shorts.length ?? 0) >= segmentTotal,
+          run: async () => {
+            setProductionBusyTask("sf-seo");
+            setProductionProgress(null);
+            await render.generateShortFormSEO();
+          },
+          verify: async () => {
+            const fresh = await refreshScriptContent();
+            return (fresh.short_form_seo_metadata?.shorts.length ?? 0) >= segmentTotal;
+          },
+        });
+      }
+
+      let pendingRenders: number[] = [];
+      if (!controller.stopped) {
+        await controller.stage("sf-renders", {
+          skip: async () => {
+            pendingRenders = missingIndices(await refreshShortFormRenderStatus(), segmentTotal);
+            return pendingRenders.length === 0;
+          },
+          run: async () => {
+            setProductionBusyTask("sf-renders");
+            setProductionProgress(0);
+            const { job_id } = pendingRenders.length === segmentTotal
+              ? await renderShortAll(scriptId)
+              : await renderShortBatch(scriptId, pendingRenders);
+            await pollShortFormJob(job_id, (status) => {
+              if (typeof status.progress === "number") setProductionProgress(status.progress);
+            });
+          },
+          verify: async () => {
+            pendingRenders = missingIndices(await refreshShortFormRenderStatus(), segmentTotal);
+            return pendingRenders.length === 0;
+          },
+        });
+      }
+
+      if (!controller.stopped) {
+        await controller.stage("export", {
+          run: async () => {
+            setProductionBusyTask(null);
+            setProductionProgress(null);
+            // Re-running this is cheap: it checks for an existing long-form
+            // render before starting another one.
+            await render.yoloRender(() => {
+              void openUploadPanel();
+            });
+          },
+        });
+        await refreshScriptContent();
         await refreshShortFormThumbnailStatus();
-      }
-
-      const shortSeoCount = render.shortFormSeoMetadata?.shorts.length ?? 0;
-      if (segmentTotal > 0 && shortSeoCount < segmentTotal) {
-        setYoloStep("Generate SF SEO");
-        setProductionBusyTask("sf-seo");
-        setProductionProgress(null);
-        await render.generateShortFormSEO();
-      }
-
-      const rendered = await refreshShortFormRenderStatus();
-      const missingRenderIndices = latest.segments
-        .map((_, idx) => idx)
-        .filter((idx) => !rendered[idx]);
-      if (missingRenderIndices.length > 0) {
-        setYoloStep("Render SF Videos");
-        setProductionBusyTask("sf-renders");
-        setProductionProgress(0);
-        const { job_id } = missingRenderIndices.length === segmentTotal
-          ? await renderShortAll(scriptId)
-          : await renderShortBatch(scriptId, missingRenderIndices);
-        await pollShortFormJob(job_id, (status) => {
-          if (typeof status.progress === "number") setProductionProgress(status.progress);
-        });
         await refreshShortFormRenderStatus();
       }
-
-      setProductionBusyTask(null);
-      setProductionProgress(null);
-      setYoloStep("Export Bundle");
-      await render.yoloRender(() => {
-        void openUploadPanel();
-      });
-      await refreshScriptContent();
-      await refreshShortFormThumbnailStatus();
-      await refreshShortFormRenderStatus();
     } catch (err) {
-      showToast(err instanceof Error ? err.message : "YOLO render failed");
+      const message = err instanceof Error ? err.message : "YOLO render failed";
+      setProductionError(message);
+      showToast(message);
     } finally {
+      const finished = controller.finish();
+      void api.setKeepAwake?.(false).catch(() => {});
+      setYoloRun(null);
+      setLastYoloRun(finished);
+      const unresolved = unresolvedStages(finished);
+      if (unresolved.length > 0) {
+        showToast(
+          `YOLO finished with ${unresolved.length} unresolved task${unresolved.length === 1 ? "" : "s"}: ${unresolved
+            .map((stage) => stage.label)
+            .join(", ")}`,
+          "info",
+        );
+      }
       productionBusyRef.current = false;
       setProductionBusyTask(null);
       setProductionProgress(null);
       setYoloRenderRunning(false);
-      setYoloStep(null);
     }
   }, [
+    openUploadPanel,
     refreshScriptContent,
     refreshShortFormRenderStatus,
     refreshShortFormThumbnailStatus,
-    openUploadPanel,
     render,
     requestYoloStop,
     runYoloCreationPipeline,
@@ -2931,25 +3031,29 @@ function TimelineEditor({
     }
   }, [scriptId, state]);
 
+  const yoloStageKey = (yoloRun?.stages.find((stage) => stage.status === "running")?.key ?? null) as
+    | YoloStageKey
+    | null;
+
   const yoloSubProgress = (() => {
-    if (!yoloRenderRunning || !yoloStep) return null;
-    if (yoloStep === "Title Cards") return titleCardProgressPct;
-    if (yoloStep === "Generate Audio") return batchProgressValue(state.batchAudioProgress);
-    if (yoloStep === "Generate Images") return batchProgressValue(state.batchImageProgress);
-    if (yoloStep === "Generate FX") return fxProgressPct;
-    if (yoloStep === "Add Eli") return eliProgressPct;
-    if (yoloStep === "Generate SF Thumbnails" || yoloStep === "Render SF Videos") return productionProgress;
-    if (yoloStep === "Export Bundle") return render.exportStatus?.progress ?? null;
+    if (!yoloRenderRunning || !yoloStageKey) return null;
+    if (yoloStageKey === "title-cards") return titleCardProgressPct;
+    if (yoloStageKey === "audio") return batchProgressValue(state.batchAudioProgress);
+    if (yoloStageKey === "images") return batchProgressValue(state.batchImageProgress);
+    if (yoloStageKey === "fx") return fxProgressPct;
+    if (yoloStageKey === "eli") return eliProgressPct;
+    if (yoloStageKey === "sf-thumbnails" || yoloStageKey === "sf-renders") return productionProgress;
+    if (yoloStageKey === "export") return render.exportStatus?.progress ?? null;
     return null;
   })();
 
   const yoloProgressDetail = (() => {
-    if (!yoloRenderRunning || !yoloStep) return null;
-    if (yoloStep === "Generate Audio") return state.batchAudioProgress.currentSceneName;
-    if (yoloStep === "Generate Images") return state.batchImageProgress.currentSceneName;
-    if (yoloStep === "Generate FX") return fxStep || null;
-    if (yoloStep === "Add Eli") return sceneProgressCounter(eliStep, eliProgressPct, eliProgressTotal) || null;
-    if (yoloStep === "Export Bundle") return render.exportStatus?.label ?? null;
+    if (!yoloRenderRunning || !yoloStageKey) return null;
+    if (yoloStageKey === "audio") return state.batchAudioProgress.currentSceneName;
+    if (yoloStageKey === "images") return state.batchImageProgress.currentSceneName;
+    if (yoloStageKey === "fx") return fxStep || null;
+    if (yoloStageKey === "eli") return sceneProgressCounter(eliStep, eliProgressPct, eliProgressTotal) || null;
+    if (yoloStageKey === "export") return render.exportStatus?.label ?? null;
     return null;
   })();
 
@@ -3250,12 +3354,15 @@ function TimelineEditor({
             onRefreshUpload={() => void refreshUploadTracking()}
           />
 
-          {yoloRenderRunning && (
+          {yoloRenderRunning && yoloRun && (
             <YoloProgressStrip
-              step={yoloStep}
+              run={yoloRun}
               subProgress={yoloSubProgress}
               detail={yoloProgressDetail}
             />
+          )}
+          {!yoloRenderRunning && lastYoloRun && !yoloSummaryDismissed && (
+            <YoloRunSummary run={lastYoloRun} onDismiss={() => setYoloSummaryDismissed(true)} />
           )}
           {productionError && (
             <div className="px-5 pb-2 text-[11px] text-red-400">{productionError}</div>

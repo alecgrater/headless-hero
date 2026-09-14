@@ -41,6 +41,7 @@ from api.visuals import router as visuals_router
 from api.short_form import router as short_form_router
 from api.style import router as style_router
 from api.voiceover import router as voiceover_router
+from api.yolo_runs import router as yolo_runs_router
 from dev.log_handler import DevLog as _DevLog  # noqa: F401 — register table
 from dev.log_handler import SQLiteLogHandler, prune_old_logs
 from models.brand import BrandProfile as _BrandProfile  # noqa: F401 — register table
@@ -142,6 +143,7 @@ app.include_router(test_lab_router)
 app.include_router(thumbnail_references_router)
 app.include_router(trending_router)
 app.include_router(upload_suite_router)
+app.include_router(yolo_runs_router)
 
 # Import modifiers package (no dynamic routers remaining)
 import pipeline.modifiers  # noqa: F401
