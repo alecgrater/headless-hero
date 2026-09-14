@@ -13,7 +13,7 @@ vi.mock("../../api", () => ({
   default: {
     get: vi.fn().mockResolvedValue({
       ok: true,
-      data: { SCRIPT_MODEL: { masked: "gpt-5-mini" } },
+      data: { SCRIPT_MODEL: { masked: "gpt-5.6-terra" } },
     }),
     post: vi.fn(),
   },

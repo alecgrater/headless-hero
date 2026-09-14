@@ -185,17 +185,17 @@ def test_text_operations_are_scoped_to_their_own_llm_task(monkeypatch):
     history whenever SCRIPT_MODEL changed, and pool it when SEO_MODEL did."""
     monkeypatch.setenv("LOCAL_MODELS_ENABLED", "false")
     monkeypatch.setenv("SCRIPT_LLM_PROVIDER", "anthropic")
-    monkeypatch.setenv("SCRIPT_MODEL", "claude-opus-4-7")
+    monkeypatch.setenv("SCRIPT_MODEL", "claude-opus-5")
     monkeypatch.setenv("SEO_LLM_PROVIDER", "openai")
-    monkeypatch.setenv("SEO_MODEL", "gpt-5-mini")
+    monkeypatch.setenv("SEO_MODEL", "gpt-5.6-terra")
 
     script_engine = engine_for_operation("script_generation_youtube")
     seo_engine = engine_for_operation("seo_generation")
-    assert script_engine == "anthropic:claude-opus-4-7"
-    assert seo_engine == "openai:gpt-5-mini"
+    assert script_engine == "anthropic:claude-opus-5"
+    assert seo_engine == "openai:gpt-5.6-terra"
 
     # Changing the script model must not move the SEO scope.
-    monkeypatch.setenv("SCRIPT_MODEL", "claude-sonnet-4-6")
+    monkeypatch.setenv("SCRIPT_MODEL", "claude-sonnet-5")
     assert engine_for_operation("seo_generation") == seo_engine
     assert engine_for_operation("script_generation_youtube") != script_engine
 

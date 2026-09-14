@@ -9,6 +9,7 @@ import time
 
 from sqlmodel import Session
 
+from config import BALANCED_OPENAI_MODEL
 from database import engine
 from models.api_usage import ApiUsage
 
@@ -173,6 +174,23 @@ def record_usage(
 
 # --- Pricing constants (USD per token) ---
 _MODEL_PRICING: dict[str, dict[str, float]] = {
+    "claude-opus-5": {
+        "input": 5.0 / 1_000_000,
+        "output": 25.0 / 1_000_000,
+        "cache_read": 0.5 / 1_000_000,
+    },
+    "claude-sonnet-5": {
+        "input": 2.0 / 1_000_000,
+        "output": 10.0 / 1_000_000,
+        "cache_read": 0.2 / 1_000_000,
+    },
+    "claude-haiku-4-5": {
+        "input": 1.0 / 1_000_000,
+        "output": 5.0 / 1_000_000,
+        "cache_read": 0.1 / 1_000_000,
+    },
+    # Previous-generation Claude models. Still served, and still selectable by
+    # typing the id into the Settings model field, so they keep real rates.
     "claude-opus-4-7": {
         "input": 5.0 / 1_000_000,
         "output": 25.0 / 1_000_000,
@@ -183,32 +201,27 @@ _MODEL_PRICING: dict[str, dict[str, float]] = {
         "output": 15.0 / 1_000_000,
         "cache_read": 0.3 / 1_000_000,
     },
-    "claude-haiku-4-5-20251001": {
-        "input": 1.0 / 1_000_000,
-        "output": 5.0 / 1_000_000,
-        "cache_read": 0.1 / 1_000_000,
+    # GPT-5.6 family. "gpt-5.6" is the alias for the Sol tier and bills at the
+    # same rate, so both ids are listed rather than aliased at lookup time.
+    "gpt-5.6": {
+        "input": 4.0 / 1_000_000,
+        "output": 20.0 / 1_000_000,
+        "cache_read": 0.4 / 1_000_000,
     },
-    "gpt-5.5": {
-        # NOTE: Provisional pricing — mirrors gpt-5.2 until OpenAI's published
-        # gpt-5.5 rate card is confirmed. Update with real per-token rates.
-        "input": 1.75 / 1_000_000,
-        "output": 14.0 / 1_000_000,
-        "cache_read": 0.175 / 1_000_000,
+    "gpt-5.6-sol": {
+        "input": 4.0 / 1_000_000,
+        "output": 20.0 / 1_000_000,
+        "cache_read": 0.4 / 1_000_000,
     },
-    "gpt-5.2": {
-        "input": 1.75 / 1_000_000,
-        "output": 14.0 / 1_000_000,
-        "cache_read": 0.175 / 1_000_000,
+    "gpt-5.6-terra": {
+        "input": 2.0 / 1_000_000,
+        "output": 12.0 / 1_000_000,
+        "cache_read": 0.2 / 1_000_000,
     },
-    "gpt-5-mini": {
-        "input": 0.25 / 1_000_000,
-        "output": 2.0 / 1_000_000,
-        "cache_read": 0.025 / 1_000_000,
-    },
-    "gpt-5-nano": {
-        "input": 0.05 / 1_000_000,
-        "output": 0.4 / 1_000_000,
-        "cache_read": 0.005 / 1_000_000,
+    "gpt-5.6-luna": {
+        "input": 0.2 / 1_000_000,
+        "output": 1.2 / 1_000_000,
+        "cache_read": 0.02 / 1_000_000,
     },
 }
 
@@ -218,7 +231,7 @@ _DEFAULT_ANTHROPIC_PRICING = {
     "cache_read": 0.3 / 1_000_000,
 }
 
-_DEFAULT_OPENAI_PRICING = _MODEL_PRICING["gpt-5.2"]
+_DEFAULT_OPENAI_PRICING = _MODEL_PRICING[BALANCED_OPENAI_MODEL]
 
 _ZERO_PRICING = {
     "input": 0.0,
@@ -246,11 +259,11 @@ def get_model_pricing(model: str) -> dict[str, float]:
 ANTHROPIC_INPUT_PER_TOKEN = _DEFAULT_ANTHROPIC_PRICING["input"]
 ANTHROPIC_OUTPUT_PER_TOKEN = _DEFAULT_ANTHROPIC_PRICING["output"]
 
-LOCAL_LLM_SAVINGS_PRICING = _MODEL_PRICING["gpt-5-mini"]
+LOCAL_LLM_SAVINGS_PRICING = _MODEL_PRICING[BALANCED_OPENAI_MODEL]
 
 
 def estimate_local_llm_savings(input_tokens: int, output_tokens: int) -> float:
-    """Estimate avoided hosted LLM cost using GPT-5 mini as the comparison model."""
+    """Estimate avoided hosted LLM cost using the balanced OpenAI tier as the comparison model."""
     return (
         max(input_tokens, 0) * LOCAL_LLM_SAVINGS_PRICING["input"]
         + max(output_tokens, 0) * LOCAL_LLM_SAVINGS_PRICING["output"]

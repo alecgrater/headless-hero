@@ -5,6 +5,7 @@ snapshot, and a fresh clone's database ends up matching it.
 """
 
 from datetime import datetime, timezone
+from pathlib import Path
 
 import pytest
 from sqlalchemy.pool import StaticPool
@@ -106,7 +107,7 @@ def _seed_rows(session: Session) -> None:
     for key in CREDENTIAL_KEYS + MACHINE_SPECIFIC_KEYS:
         session.add(AppSetting(key=key, value="super-secret-value"))
     session.add(AppSetting(key="ACTIVE_STYLE_PRESET_ID", value="preset-1"))
-    session.add(AppSetting(key="SCRIPT_MODEL", value="claude-sonnet-4-6"))
+    session.add(AppSetting(key="SCRIPT_MODEL", value="claude-sonnet-5"))
     session.add(AppSetting(key="_yt_channel_id:Vsauce", value="UC6nSF"))
     session.commit()
 
@@ -154,7 +155,7 @@ def test_snapshot_excludes_secrets(identity_engine) -> None:
         assert key not in exported
     assert "super-secret-value" not in str(snapshot)
     assert exported["ACTIVE_STYLE_PRESET_ID"] == "preset-1"
-    assert exported["SCRIPT_MODEL"] == "claude-sonnet-4-6"
+    assert exported["SCRIPT_MODEL"] == "claude-sonnet-5"
 
 
 def test_snapshot_round_trips_into_an_empty_database(identity_engine, tmp_path) -> None:
@@ -217,7 +218,7 @@ def test_snapshot_wins_over_local_values(identity_engine) -> None:
         identity.seed_from_snapshot(session)
 
         assert session.get(StylePreset, "preset-1").name == "House Style"
-        assert session.get(AppSetting, "SCRIPT_MODEL").value == "claude-sonnet-4-6"
+        assert session.get(AppSetting, "SCRIPT_MODEL").value == "claude-sonnet-5"
 
 
 def test_seeding_does_not_delete_local_rows(identity_engine) -> None:
@@ -371,3 +372,22 @@ def test_unsupported_version_is_ignored(identity_engine, tmp_path) -> None:
     with Session(identity_engine) as session:
         identity.seed_from_snapshot(session)
         assert session.get(StylePreset, "x") is None
+
+
+def test_identity_path_follows_hh_data_dir_set_after_import(monkeypatch, tmp_path) -> None:
+    """The snapshot path must be resolved per call, not bound at import.
+
+    identity.json is the only tracked file under data/. When this resolved from
+    a module-level `from config import DATA_DIR`, a test session that imported
+    config before pointing HH_DATA_DIR at a temp directory would rewrite the
+    committed snapshot — wiping real style presets, characters, and the brand
+    profile out of the working tree on an ordinary `npm run test:backend`.
+    """
+    monkeypatch.setenv("HH_DATA_DIR", str(tmp_path))
+    assert identity.identity_path() == tmp_path / "identity.json"
+
+
+def test_identity_path_never_resolves_into_the_repo_during_tests() -> None:
+    """Belt and braces: whatever the import order was, we are not writing to the repo."""
+    repo_data = Path(__file__).resolve().parents[2] / "data"
+    assert identity.identity_path().resolve().parent != repo_data

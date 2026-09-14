@@ -2,7 +2,7 @@ import logging
 
 from sqlmodel import Session, SQLModel, create_engine, select
 
-from config import BALANCED_CLAUDE_MODEL, DATA_DIR, DEFAULT_CLAUDE_MODEL, FAST_CLAUDE_MODEL
+from config import DATA_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -178,13 +178,14 @@ def _migrate_add_script_id_to_api_usage() -> None:
 
 
 def _migrate_script_model_default() -> None:
-    """Clear stale script LLM defaults so the current Claude route takes effect."""
+    """Upgrade a retired script model in place so the current route takes effect.
+
+    Every retired id now has a same-provider successor, so a user who
+    deliberately chose OpenAI for scripts keeps OpenAI.
+    """
     from models.settings import AppSetting
 
-    stale_script_models = {
-        *_stale_anthropic_model_upgrades().keys(),
-        "gpt-5.5",
-    }
+    stale_script_models = _stale_model_upgrades()
 
     with Session(engine) as session:
         changed: list[str] = []
@@ -193,19 +194,14 @@ def _migrate_script_model_default() -> None:
         model_setting = session.get(AppSetting, "SCRIPT_MODEL")
 
         model_value = model_setting.value if model_setting else ""
-        has_stale_script_model = model_value in stale_script_models
 
         if provider_setting and provider_setting.value == "":
             provider_setting.value = "anthropic"
             session.add(provider_setting)
             changed.append("SCRIPT_LLM_PROVIDER")
-        elif provider_setting and provider_setting.value == "openai" and has_stale_script_model:
-            provider_setting.value = "anthropic"
-            session.add(provider_setting)
-            changed.append("SCRIPT_LLM_PROVIDER")
 
-        if model_setting and has_stale_script_model:
-            model_setting.value = DEFAULT_CLAUDE_MODEL
+        if model_setting and model_value in stale_script_models:
+            model_setting.value = stale_script_models[model_value]
             session.add(model_setting)
             changed.append("SCRIPT_MODEL")
 
@@ -219,7 +215,7 @@ def _migrate_llm_task_route_defaults() -> None:
     from integrations.llm_client import LLM_TASKS
     from models.settings import AppSetting
 
-    stale_anthropic_models = _stale_anthropic_model_upgrades()
+    stale_models = _stale_model_upgrades()
 
     with Session(engine) as session:
         seeded: list[str] = []
@@ -249,8 +245,8 @@ def _migrate_llm_task_route_defaults() -> None:
                 model_setting.value = default_model
                 session.add(model_setting)
                 seeded.append(model_key)
-            elif model_setting.value in stale_anthropic_models:
-                model_setting.value = stale_anthropic_models[model_setting.value]
+            elif model_setting.value in stale_models:
+                model_setting.value = stale_models[model_setting.value]
                 session.add(model_setting)
                 refreshed.append(model_key)
 
@@ -260,29 +256,19 @@ def _migrate_llm_task_route_defaults() -> None:
             if seeded:
                 details.append(f"seeded: {', '.join(seeded)}")
             if refreshed:
-                details.append(f"refreshed stale Claude models: {', '.join(refreshed)}")
+                details.append(f"refreshed stale models: {', '.join(refreshed)}")
             logger.info("Migrated: LLM task route defaults: %s", "; ".join(details))
 
 
-def _stale_anthropic_model_upgrades() -> dict[str, str]:
-    """Map retired Claude IDs to the current tier-equivalent API model IDs."""
-    return {
-        "claude-opus-4-1-20250805": DEFAULT_CLAUDE_MODEL,
-        "claude-opus-4-20250514": DEFAULT_CLAUDE_MODEL,
-        "claude-sonnet-4-20250514": BALANCED_CLAUDE_MODEL,
-        "claude-3-7-sonnet-20250219": BALANCED_CLAUDE_MODEL,
-        "claude-3-5-haiku-20241022": FAST_CLAUDE_MODEL,
-        "claude-haiku-4-5": FAST_CLAUDE_MODEL,
-        "anthropic.claude-opus-4-6-v1": DEFAULT_CLAUDE_MODEL,
-        "anthropic.claude-opus-4-1-20250805-v1:0": DEFAULT_CLAUDE_MODEL,
-        "anthropic.claude-opus-4-20250514-v1:0": DEFAULT_CLAUDE_MODEL,
-        "anthropic.claude-sonnet-4-6": BALANCED_CLAUDE_MODEL,
-        "anthropic.claude-sonnet-4-5-20250929-v1:0": BALANCED_CLAUDE_MODEL,
-        "anthropic.claude-sonnet-4-20250514-v1:0": BALANCED_CLAUDE_MODEL,
-        "anthropic.claude-3-7-sonnet-20250219-v1:0": BALANCED_CLAUDE_MODEL,
-        "anthropic.claude-haiku-4-5-20251001-v1:0": FAST_CLAUDE_MODEL,
-        "anthropic.claude-3-5-haiku-20241022-v1:0": FAST_CLAUDE_MODEL,
-    }
+def _stale_model_upgrades() -> dict[str, str]:
+    """Map retired model IDs to the current tier-equivalent, across providers.
+
+    Defined in llm_client so request-time normalization and this settings
+    migration can never drift apart.
+    """
+    from integrations.llm_client import STALE_MODEL_UPGRADES
+
+    return STALE_MODEL_UPGRADES
 
 
 def _migrate_add_scene_count_to_generation_durations() -> None:

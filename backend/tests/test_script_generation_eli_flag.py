@@ -277,7 +277,7 @@ def test_script_generation_persists_script_rating(monkeypatch, isolated_engine):
             ),
             seo_alignment=category({"title_hook_match": 7, "search_intent_match": 6, "rewatch_value": 7}, 6.7),
             overall=7.4,
-            model="gpt-5-mini",
+            model="gpt-5.6-terra",
         )
 
     monkeypatch.setattr(scripts_module, "rate_script", fake_rate_script)

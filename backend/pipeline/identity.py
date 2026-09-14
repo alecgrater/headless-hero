@@ -40,7 +40,18 @@ _WRITE_LOCK = threading.Lock()
 
 
 def identity_path() -> Path:
-    return DATA_DIR / "identity.json"
+    """Resolve the snapshot path at call time, not at import time.
+
+    `from config import DATA_DIR` binds whatever the value was the first time
+    config was imported, and that can precede the test suite pointing
+    HH_DATA_DIR at a temp directory — collection order decides. Every other
+    consumer of a stale binding writes into a gitignored subtree and nobody
+    notices; identity.json is the one *tracked* file under data/, so a stale
+    binding here silently overwrites committed style presets, characters, and
+    the brand profile on a plain test run. Re-read the environment instead.
+    """
+    root = os.environ.get("HH_DATA_DIR")
+    return (Path(root) if root else DATA_DIR) / "identity.json"
 
 
 # --- Settings allowlist ---

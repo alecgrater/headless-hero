@@ -11,7 +11,7 @@ const ratedScript: ScriptContent = {
   format_id: "life-as-a",
   script_rating: {
     overall: 8.2,
-    model: "gpt-5-mini",
+    model: "gpt-5.6-terra",
     version: "2026-05-25",
     viewer_retention: {
       average: 8.0,
@@ -80,7 +80,7 @@ vi.mock("../../api", () => ({
   default: {
     get: vi.fn().mockResolvedValue({
       ok: true,
-      data: { SCRIPT_LLM_PROVIDER: { masked: "openai" }, SCRIPT_MODEL: { masked: "gpt-5-mini" } },
+      data: { SCRIPT_LLM_PROVIDER: { masked: "openai" }, SCRIPT_MODEL: { masked: "gpt-5.6-terra" } },
     }),
   },
   assetUrl: (path: string) => path,
@@ -99,7 +99,7 @@ vi.mock("./useScriptGeneration", () => ({
     scriptId: "script-1",
     loading: false,
     error: null,
-    selectedModel: "gpt-5-mini",
+    selectedModel: "gpt-5.6-terra",
     segmented: true,
     generationStarted: true,
     settingsLoaded: true,

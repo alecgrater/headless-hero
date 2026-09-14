@@ -19,7 +19,7 @@ const generationState = {
   scriptId: null,
   loading: false,
   error: null,
-  selectedModel: "gpt-5-mini",
+  selectedModel: "gpt-5.6-terra",
   segmented: true,
   generationStarted: false,
   settingsLoaded: true,

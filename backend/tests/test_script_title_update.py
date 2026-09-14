@@ -42,7 +42,7 @@ def _script_rating(overall: float = 7.4) -> ScriptRating:
         ),
         seo_alignment=category({"title_hook_match": 7, "search_intent_match": 6, "rewatch_value": 7}, 6.7),
         overall=overall,
-        model="gpt-5-mini",
+        model="gpt-5.6-terra",
     )
 
 

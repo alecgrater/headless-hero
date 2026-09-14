@@ -44,17 +44,20 @@ DEFAULT_SEGMENT_COLORS = [
 DEFAULT_ACCENT_COLOR = "#e91e63"
 
 # Default Claude model for script generation and LLM tasks.
-# Anthropic API model ids are used here, not AWS Bedrock ids.
-DEFAULT_CLAUDE_MODEL = "claude-opus-4-7"
+# Anthropic API model ids are used here, not AWS Bedrock ids, and the ids are
+# complete as written — never append a date suffix.
+DEFAULT_CLAUDE_MODEL = "claude-opus-5"
 
 # Faster models for structured/classification tasks
-BALANCED_CLAUDE_MODEL = "claude-sonnet-4-6"
-FAST_CLAUDE_MODEL = "claude-haiku-4-5-20251001"
+BALANCED_CLAUDE_MODEL = "claude-sonnet-5"
+FAST_CLAUDE_MODEL = "claude-haiku-4-5"
 
-# Default OpenAI models for routed LLM tasks
-DEFAULT_OPENAI_MODEL = "gpt-5.5"
-BALANCED_OPENAI_MODEL = "gpt-5-mini"
-FAST_OPENAI_MODEL = "gpt-5-nano"
+# Default OpenAI models for routed LLM tasks. The GPT-5.6 family replaced the
+# gpt-5.x / mini / nano naming outright — terra and luna are the tiers, not
+# separate small models.
+DEFAULT_OPENAI_MODEL = "gpt-5.6"
+BALANCED_OPENAI_MODEL = "gpt-5.6-terra"
+FAST_OPENAI_MODEL = "gpt-5.6-luna"
 
 # Default Gemini model for image generation
 DEFAULT_IMAGE_MODEL = "gemini-2.5-flash-image"

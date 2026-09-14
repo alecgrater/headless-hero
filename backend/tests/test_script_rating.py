@@ -79,7 +79,7 @@ def _rating_payload() -> dict:
 def test_script_rating_round_trips_on_script_content():
     from pipeline.script_rating import parse_script_rating_response
 
-    rating = parse_script_rating_response(json.dumps(_rating_payload()), model="gpt-5-mini")
+    rating = parse_script_rating_response(json.dumps(_rating_payload()), model="gpt-5.6-terra")
     content = _content().model_copy(update={"script_rating": rating})
 
     restored = ScriptContent.model_validate_json(content.model_dump_json())
@@ -97,7 +97,7 @@ def test_script_rating_recomputes_model_math():
     payload["overall"] = 10
     payload["viewer_retention"]["average"] = 1
 
-    rating = parse_script_rating_response(json.dumps(payload), model="gpt-5-mini")
+    rating = parse_script_rating_response(json.dumps(payload), model="gpt-5.6-terra")
 
     assert rating.viewer_retention.average == 7.3
     assert rating.narrative_quality.average == 6.5
@@ -112,7 +112,7 @@ def test_script_rating_rejects_missing_criteria():
     del payload["viewer_retention"]["criteria"]["hook_strength"]
 
     with pytest.raises(ValueError, match="hook_strength"):
-        parse_script_rating_response(json.dumps(payload), model="gpt-5-mini")
+        parse_script_rating_response(json.dumps(payload), model="gpt-5.6-terra")
 
 
 def test_script_rating_rejects_out_of_range_scores():
@@ -122,7 +122,7 @@ def test_script_rating_rejects_out_of_range_scores():
     payload["seo_alignment"]["criteria"]["search_intent_match"]["score"] = 11
 
     with pytest.raises(ValueError, match="less than or equal to 10"):
-        parse_script_rating_response(json.dumps(payload), model="gpt-5-mini")
+        parse_script_rating_response(json.dumps(payload), model="gpt-5.6-terra")
 
 
 def test_script_rating_task_defaults_to_gpt_5_mini(monkeypatch):
@@ -132,8 +132,8 @@ def test_script_rating_task_defaults_to_gpt_5_mini(monkeypatch):
     monkeypatch.setenv("LLM_PROVIDER", "ollama")
 
     assert _resolve_provider("script_rating") == "openai"
-    assert _resolve_model("openai", "script_rating", None) == "gpt-5-mini"
-    assert _resolve_openai_reasoning_effort("script_rating") == "minimal"
+    assert _resolve_model("openai", "script_rating", None) == "gpt-5.6-terra"
+    assert _resolve_openai_reasoning_effort("script_rating") == "none"
 
 
 def test_life_as_a_rating_prompt_uses_format_specific_rubric(monkeypatch):

@@ -59,7 +59,7 @@ def _rating(overall: float = 7.4) -> ScriptRating:
             },
         ),
         overall=overall,
-        model="gpt-5-mini",
+        model="gpt-5.6-terra",
     )
 
 

@@ -10,7 +10,14 @@ from typing import Any
 
 import anthropic
 
-from config import BALANCED_CLAUDE_MODEL, DEFAULT_CLAUDE_MODEL, DEFAULT_OPENAI_MODEL, FAST_CLAUDE_MODEL
+from config import (
+    BALANCED_CLAUDE_MODEL,
+    BALANCED_OPENAI_MODEL,
+    DEFAULT_CLAUDE_MODEL,
+    DEFAULT_OPENAI_MODEL,
+    FAST_CLAUDE_MODEL,
+    FAST_OPENAI_MODEL,
+)
 from integrations.local_models import REGISTRY as _LOCAL_REGISTRY
 from integrations.local_models import active_model as _active_local_model
 from integrations.local_models import modality_source as _modality_source
@@ -128,7 +135,12 @@ def reset_clients() -> None:
 # Back-compat alias for any existing test imports.
 _reset_clients_for_testing = reset_clients
 
-_ANTHROPIC_MODEL_ALIASES = {
+ANTHROPIC_MODEL_ALIASES = {
+    # Previous-generation Headless Hero defaults, mapped to the current tier
+    # equivalent. Claude ids carry no date suffix.
+    "claude-opus-4-7": DEFAULT_CLAUDE_MODEL,
+    "claude-sonnet-4-6": BALANCED_CLAUDE_MODEL,
+    "claude-haiku-4-5-20251001": FAST_CLAUDE_MODEL,
     # Legacy Headless Hero defaults that used Bedrock-style or provisional ids.
     "anthropic.claude-opus-4-6-v1": DEFAULT_CLAUDE_MODEL,
     "anthropic.claude-sonnet-4-6": BALANCED_CLAUDE_MODEL,
@@ -139,8 +151,7 @@ _ANTHROPIC_MODEL_ALIASES = {
     "claude-sonnet-4-20250514": BALANCED_CLAUDE_MODEL,
     "claude-3-7-sonnet-20250219": BALANCED_CLAUDE_MODEL,
     "claude-3-5-haiku-20241022": FAST_CLAUDE_MODEL,
-    "claude-haiku-4-5": FAST_CLAUDE_MODEL,
-    # Common AWS Bedrock ids for currently supported Claude snapshots.
+    # Common AWS Bedrock ids for previously supported Claude snapshots.
     "anthropic.claude-opus-4-1-20250805-v1:0": DEFAULT_CLAUDE_MODEL,
     "anthropic.claude-opus-4-20250514-v1:0": DEFAULT_CLAUDE_MODEL,
     "anthropic.claude-sonnet-4-20250514-v1:0": BALANCED_CLAUDE_MODEL,
@@ -148,11 +159,34 @@ _ANTHROPIC_MODEL_ALIASES = {
     "anthropic.claude-3-5-haiku-20241022-v1:0": FAST_CLAUDE_MODEL,
 }
 
-# Valid OpenAI reasoning_effort values for GPT-5 / o-series reasoning models.
-# Used in LLM_TASKS["<task>"]["openai_reasoning_effort"] and the
-# OPENAI_REASONING_EFFORT_<TASK> env-var override.
-VALID_OPENAI_REASONING_EFFORTS = {"minimal", "low", "medium", "high"}
+OPENAI_MODEL_ALIASES = {
+    # The GPT-5.6 family replaced the gpt-5.x / mini / nano lineup; the old
+    # mini and nano tiers are now terra and luna.
+    "gpt-5.5": DEFAULT_OPENAI_MODEL,
+    "gpt-5.4": DEFAULT_OPENAI_MODEL,
+    "gpt-5.2": BALANCED_OPENAI_MODEL,
+    "gpt-5-mini": BALANCED_OPENAI_MODEL,
+    "gpt-5-nano": FAST_OPENAI_MODEL,
+}
 
+# Every retired id the settings migrations should rewrite in place, across
+# providers. database.py reads this so there is one list, not two.
+STALE_MODEL_UPGRADES = {**ANTHROPIC_MODEL_ALIASES, **OPENAI_MODEL_ALIASES}
+
+# Valid OpenAI reasoning_effort values for the GPT-5.6 family.
+# Used in LLM_TASKS["<task>"]["openai_reasoning_effort"] and the
+# OPENAI_REASONING_EFFORT_<TASK> env-var override. GPT-5.6 dropped "minimal"
+# and added "none", "xhigh", and "max".
+VALID_OPENAI_REASONING_EFFORTS = {"none", "low", "medium", "high", "xhigh", "max"}
+
+# Retired reasoning_effort values mapped to their current equivalent, so a
+# saved OPENAI_REASONING_EFFORT_<TASK> override survives the GPT-5.6 rename.
+_REASONING_EFFORT_ALIASES = {"minimal": "none"}
+
+# Tasks tagged "fast" are the cheap structured-JSON calls: lowest reasoning
+# effort on OpenAI, the luna tier by default, and LOCAL_TEXT_FAST_MODEL under
+# Local Mode. This used to be inferred from openai_reasoning_effort ==
+# "minimal", which silently broke the moment that value was renamed.
 LLM_TASKS: dict[str, dict[str, str]] = {
     "script": {
         "label": "Script & cold opens",
@@ -162,6 +196,7 @@ LLM_TASKS: dict[str, dict[str, str]] = {
         "default_anthropic_model": DEFAULT_CLAUDE_MODEL,
         "default_openai_model": DEFAULT_OPENAI_MODEL,
         "openai_reasoning_effort": "low",
+        "tier": "standard",
     },
     "idea": {
         "label": "Ideas & brainstorming",
@@ -169,8 +204,9 @@ LLM_TASKS: dict[str, dict[str, str]] = {
         "model_key": "IDEA_MODEL",
         "default_provider": "openai",
         "default_anthropic_model": BALANCED_CLAUDE_MODEL,
-        "default_openai_model": "gpt-5-mini",
+        "default_openai_model": BALANCED_OPENAI_MODEL,
         "openai_reasoning_effort": "low",
+        "tier": "standard",
     },
     "fx": {
         "label": "FX assignment",
@@ -178,8 +214,9 @@ LLM_TASKS: dict[str, dict[str, str]] = {
         "model_key": "FX_MODEL",
         "default_provider": "ollama",
         "default_anthropic_model": BALANCED_CLAUDE_MODEL,
-        "default_openai_model": "gpt-5-mini",
-        "openai_reasoning_effort": "minimal",
+        "default_openai_model": BALANCED_OPENAI_MODEL,
+        "openai_reasoning_effort": "none",
+        "tier": "fast",
     },
     "seo": {
         "label": "SEO metadata",
@@ -187,8 +224,9 @@ LLM_TASKS: dict[str, dict[str, str]] = {
         "model_key": "SEO_MODEL",
         "default_provider": "ollama",
         "default_anthropic_model": BALANCED_CLAUDE_MODEL,
-        "default_openai_model": "gpt-5-mini",
-        "openai_reasoning_effort": "minimal",
+        "default_openai_model": BALANCED_OPENAI_MODEL,
+        "openai_reasoning_effort": "none",
+        "tier": "fast",
     },
     "short_form_seo": {
         "label": "Short-form SEO metadata",
@@ -196,8 +234,9 @@ LLM_TASKS: dict[str, dict[str, str]] = {
         "model_key": "SHORT_FORM_SEO_MODEL",
         "default_provider": "openai",
         "default_anthropic_model": BALANCED_CLAUDE_MODEL,
-        "default_openai_model": "gpt-5-mini",
-        "openai_reasoning_effort": "minimal",
+        "default_openai_model": BALANCED_OPENAI_MODEL,
+        "openai_reasoning_effort": "none",
+        "tier": "fast",
     },
     "hook": {
         "label": "Hook scoring/refining",
@@ -205,8 +244,9 @@ LLM_TASKS: dict[str, dict[str, str]] = {
         "model_key": "HOOK_MODEL",
         "default_provider": "openai",
         "default_anthropic_model": FAST_CLAUDE_MODEL,
-        "default_openai_model": "gpt-5.5",
+        "default_openai_model": DEFAULT_OPENAI_MODEL,
         "openai_reasoning_effort": "low",
+        "tier": "standard",
     },
     "media": {
         "label": "Media routing",
@@ -214,8 +254,9 @@ LLM_TASKS: dict[str, dict[str, str]] = {
         "model_key": "MEDIA_MODEL",
         "default_provider": "ollama",
         "default_anthropic_model": BALANCED_CLAUDE_MODEL,
-        "default_openai_model": "gpt-5-mini",
-        "openai_reasoning_effort": "minimal",
+        "default_openai_model": BALANCED_OPENAI_MODEL,
+        "openai_reasoning_effort": "none",
+        "tier": "fast",
     },
     "eli": {
         "label": "Eli animation",
@@ -223,8 +264,9 @@ LLM_TASKS: dict[str, dict[str, str]] = {
         "model_key": "ELI_MODEL",
         "default_provider": "ollama",
         "default_anthropic_model": FAST_CLAUDE_MODEL,
-        "default_openai_model": "gpt-5-nano",
-        "openai_reasoning_effort": "minimal",
+        "default_openai_model": FAST_OPENAI_MODEL,
+        "openai_reasoning_effort": "none",
+        "tier": "fast",
     },
     "analysis": {
         "label": "Analysis & scoring",
@@ -232,8 +274,9 @@ LLM_TASKS: dict[str, dict[str, str]] = {
         "model_key": "ANALYSIS_MODEL",
         "default_provider": "ollama",
         "default_anthropic_model": FAST_CLAUDE_MODEL,
-        "default_openai_model": "gpt-5-nano",
-        "openai_reasoning_effort": "minimal",
+        "default_openai_model": FAST_OPENAI_MODEL,
+        "openai_reasoning_effort": "none",
+        "tier": "fast",
     },
     "script_rating": {
         "label": "Script rating",
@@ -241,8 +284,9 @@ LLM_TASKS: dict[str, dict[str, str]] = {
         "model_key": "SCRIPT_RATING_MODEL",
         "default_provider": "openai",
         "default_anthropic_model": BALANCED_CLAUDE_MODEL,
-        "default_openai_model": "gpt-5-mini",
-        "openai_reasoning_effort": "minimal",
+        "default_openai_model": BALANCED_OPENAI_MODEL,
+        "openai_reasoning_effort": "none",
+        "tier": "fast",
     },
     "hook_detect": {
         "label": "Hook detection (short-form)",
@@ -250,8 +294,9 @@ LLM_TASKS: dict[str, dict[str, str]] = {
         "model_key": "HOOK_DETECT_MODEL",
         "default_provider": "ollama",
         "default_anthropic_model": FAST_CLAUDE_MODEL,
-        "default_openai_model": "gpt-5-nano",
-        "openai_reasoning_effort": "minimal",
+        "default_openai_model": FAST_OPENAI_MODEL,
+        "openai_reasoning_effort": "none",
+        "tier": "fast",
     },
 }
 
@@ -273,13 +318,13 @@ def _text_is_local() -> bool:
 def _local_text_model(task: str | None) -> str:
     """The Ollama model reference Local Mode should use for one task.
 
-    Tasks declared with openai_reasoning_effort="minimal" are the cheap
-    structured-JSON calls, so they read LOCAL_TEXT_FAST_MODEL. That key
-    defaults to the narrative model, because under the single-resident memory
-    arena a second text model costs an unload/reload cycle per alternation.
+    Tasks tagged tier="fast" are the cheap structured-JSON calls, so they read
+    LOCAL_TEXT_FAST_MODEL. That key defaults to the narrative model, because
+    under the single-resident memory arena a second text model costs an
+    unload/reload cycle per alternation.
     """
     task_config = LLM_TASKS.get(task or "")
-    is_fast_tier = bool(task_config) and task_config.get("openai_reasoning_effort") == "minimal"
+    is_fast_tier = bool(task_config) and task_config.get("tier") == "fast"
     if is_fast_tier:
         configured = (os.environ.get("LOCAL_TEXT_FAST_MODEL", "") or "").strip()
         if configured:
@@ -322,7 +367,12 @@ def _default_model_for_provider(provider: str, task: str | None) -> str:
 
 
 def _normalize_model_for_provider(provider: str, task: str | None, model: str) -> str:
-    configured = _ANTHROPIC_MODEL_ALIASES.get(model, model) if provider == "anthropic" else model
+    if provider == "anthropic":
+        configured = ANTHROPIC_MODEL_ALIASES.get(model, model)
+    elif provider == "openai":
+        configured = OPENAI_MODEL_ALIASES.get(model, model)
+    else:
+        configured = model
     configured_lower = configured.lower()
     if provider == "ollama" and configured_lower.startswith(("anthropic.", "claude-", "gpt-", "o1", "o3", "o4")):
         return _default_model_for_provider(provider, task)
@@ -359,6 +409,7 @@ def _resolve_openai_reasoning_effort(task: str | None) -> str | None:
         env_key = f"OPENAI_REASONING_EFFORT_{task.upper()}"
         env_value = os.environ.get(env_key, "").strip().lower()
         if env_value:
+            env_value = _REASONING_EFFORT_ALIASES.get(env_value, env_value)
             if env_value in VALID_OPENAI_REASONING_EFFORTS:
                 return env_value
             logger.warning(
@@ -382,7 +433,7 @@ def text_fingerprint(task: str | None = None, model: str | None = None) -> str:
     """Identity of the engine a `chat()` with these arguments would use.
 
     "<provider>:<model>", e.g. `ollama:hf.co/unsloth/Qwen3.8-27B-GGUF:UD-Q4_K_M`
-    or `anthropic:claude-opus-4-7`. Callers that cache generated text key on
+    or `anthropic:claude-opus-5`. Callers that cache generated text key on
     this for the same reason image_client.provider_fingerprint() exists: a
     cached artefact produced by one engine must not be reused as another's.
     """

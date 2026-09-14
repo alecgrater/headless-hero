@@ -29,7 +29,7 @@ const LLM_PROVIDERS = [
 ] as const;
 
 type LlmProvider = (typeof LLM_PROVIDERS)[number]["value"];
-type OpenAIReasoningEffort = "minimal" | "low" | "medium" | "high";
+type OpenAIReasoningEffort = "none" | "low" | "medium" | "high" | "xhigh" | "max";
 
 const OPENAI_REASONING_OPTIONS: {
   value: OpenAIReasoningEffort;
@@ -37,14 +37,14 @@ const OPENAI_REASONING_OPTIONS: {
   description: string;
 }[] = [
   {
-    value: "minimal",
-    label: "Minimal",
-    description: "Uses the smallest reasoning budget. Fastest and cheapest; best for JSON, classification, routing, and short structured outputs because it preserves output tokens. Tradeoff: weaker planning on ambiguous creative tasks.",
+    value: "none",
+    label: "None",
+    description: "Skips the reasoning pass entirely. Fastest and cheapest; best for JSON, classification, routing, and short structured outputs because it preserves output tokens. Tradeoff: weaker planning on ambiguous creative tasks.",
   },
   {
     value: "low",
     label: "Low",
-    description: "Allows a little planning before answering. Good default for scripts, ideas, and hook work where quality benefits from light structure. Tradeoff: slower and more expensive than minimal, with less visible output room on small token budgets.",
+    description: "Allows a little planning before answering. Good default for scripts, ideas, and hook work where quality benefits from light structure. Tradeoff: slower and more expensive than none, with less visible output room on small token budgets.",
   },
   {
     value: "medium",
@@ -54,14 +54,24 @@ const OPENAI_REASONING_OPTIONS: {
   {
     value: "high",
     label: "High",
-    description: "Maximizes reasoning effort for difficult, high-stakes planning. Tradeoff: slowest and most expensive, and risky for strict JSON or tiny output budgets because reasoning tokens can leave little room for message content.",
+    description: "Deep reasoning for difficult, high-stakes planning. Tradeoff: slow and expensive, and risky for strict JSON or tiny output budgets because reasoning tokens can leave little room for message content.",
+  },
+  {
+    value: "xhigh",
+    label: "Extra high",
+    description: "Above High, for long-horizon planning where correctness beats cost. Tradeoff: substantially slower and pricier; rarely pays off on structured or high-volume tasks.",
+  },
+  {
+    value: "max",
+    label: "Max",
+    description: "The largest reasoning budget available. Reach for it only when measurement shows Extra high is still leaving quality on the table. Tradeoff: slowest and most expensive setting by a wide margin.",
   },
 ];
 
 const OPENAI_MODEL_RECOMMENDATIONS: Record<string, string> = {
-  "gpt-5.5": "Recommended model: GPT-5.5. Best fit when script quality, story structure, or hook judgment matters most. Tradeoff: higher latency and cost than smaller GPT-5 models.",
-  "gpt-5-mini": "Recommended model: GPT-5 Mini. Strong balance for ideation, metadata, routing, and scene decisions where you want reliable judgment without premium-model cost. Tradeoff: less nuanced than GPT-5.5 on long creative planning.",
-  "gpt-5-nano": "Recommended model: GPT-5 Nano. Fast and inexpensive for short structured tasks such as scoring, detection, and simple animation choices. Tradeoff: least capable on ambiguous creative calls, so upgrade if outputs feel brittle.",
+  "gpt-5.6": "Recommended model: GPT-5.6. Best fit when script quality, story structure, or hook judgment matters most. Tradeoff: higher latency and cost than the Terra and Luna tiers.",
+  "gpt-5.6-terra": "Recommended model: GPT-5.6 Terra. Strong balance for ideation, metadata, routing, and scene decisions where you want reliable judgment without flagship cost. Tradeoff: less nuanced than GPT-5.6 on long creative planning.",
+  "gpt-5.6-luna": "Recommended model: GPT-5.6 Luna. Fast and inexpensive for short structured tasks such as scoring, detection, and simple animation choices. Tradeoff: least capable on ambiguous creative calls, so upgrade if outputs feel brittle.",
 };
 
 const openaiModelRecommendation = (model: string) =>
@@ -99,7 +109,7 @@ const LLM_TASKS: LlmTaskConfig[] = [
     reasoningKey: "OPENAI_REASONING_EFFORT_SCRIPT",
     defaultProvider: "anthropic",
     defaultModel: DEFAULT_MODEL,
-    openaiDefaultModel: "gpt-5.5",
+    openaiDefaultModel: "gpt-5.6",
     ollamaDefaultModel: "qwen3:14b",
     defaultReasoning: "low",
   },
@@ -111,8 +121,8 @@ const LLM_TASKS: LlmTaskConfig[] = [
     modelKey: "IDEA_MODEL",
     reasoningKey: "OPENAI_REASONING_EFFORT_IDEA",
     defaultProvider: "openai",
-    defaultModel: "claude-sonnet-4-6",
-    openaiDefaultModel: "gpt-5-mini",
+    defaultModel: "claude-sonnet-5",
+    openaiDefaultModel: "gpt-5.6-terra",
     ollamaDefaultModel: "qwen3:14b",
     defaultReasoning: "low",
   },
@@ -124,10 +134,10 @@ const LLM_TASKS: LlmTaskConfig[] = [
     modelKey: "FX_MODEL",
     reasoningKey: "OPENAI_REASONING_EFFORT_FX",
     defaultProvider: "ollama",
-    defaultModel: "claude-sonnet-4-6",
-    openaiDefaultModel: "gpt-5-mini",
+    defaultModel: "claude-sonnet-5",
+    openaiDefaultModel: "gpt-5.6-terra",
     ollamaDefaultModel: "qwen3:14b",
-    defaultReasoning: "minimal",
+    defaultReasoning: "none",
   },
   {
     id: "seo",
@@ -137,10 +147,10 @@ const LLM_TASKS: LlmTaskConfig[] = [
     modelKey: "SEO_MODEL",
     reasoningKey: "OPENAI_REASONING_EFFORT_SEO",
     defaultProvider: "ollama",
-    defaultModel: "claude-sonnet-4-6",
-    openaiDefaultModel: "gpt-5-mini",
+    defaultModel: "claude-sonnet-5",
+    openaiDefaultModel: "gpt-5.6-terra",
     ollamaDefaultModel: "qwen3:14b",
-    defaultReasoning: "minimal",
+    defaultReasoning: "none",
   },
   {
     id: "short_form_seo",
@@ -150,10 +160,10 @@ const LLM_TASKS: LlmTaskConfig[] = [
     modelKey: "SHORT_FORM_SEO_MODEL",
     reasoningKey: "OPENAI_REASONING_EFFORT_SHORT_FORM_SEO",
     defaultProvider: "openai",
-    defaultModel: "claude-sonnet-4-6",
-    openaiDefaultModel: "gpt-5-mini",
+    defaultModel: "claude-sonnet-5",
+    openaiDefaultModel: "gpt-5.6-terra",
     ollamaDefaultModel: "qwen3:14b",
-    defaultReasoning: "minimal",
+    defaultReasoning: "none",
   },
   {
     id: "hook",
@@ -163,8 +173,8 @@ const LLM_TASKS: LlmTaskConfig[] = [
     modelKey: "HOOK_MODEL",
     reasoningKey: "OPENAI_REASONING_EFFORT_HOOK",
     defaultProvider: "openai",
-    defaultModel: "claude-haiku-4-5-20251001",
-    openaiDefaultModel: "gpt-5.5",
+    defaultModel: "claude-haiku-4-5",
+    openaiDefaultModel: "gpt-5.6",
     ollamaDefaultModel: "qwen3:14b",
     defaultReasoning: "low",
     note: "Shared task — this single model drives both hook scoring (rates how well the opening will retain viewers) and hook refinement (rewrites weak hooks). Set it once here.",
@@ -177,10 +187,10 @@ const LLM_TASKS: LlmTaskConfig[] = [
     modelKey: "MEDIA_MODEL",
     reasoningKey: "OPENAI_REASONING_EFFORT_MEDIA",
     defaultProvider: "ollama",
-    defaultModel: "claude-sonnet-4-6",
-    openaiDefaultModel: "gpt-5-mini",
+    defaultModel: "claude-sonnet-5",
+    openaiDefaultModel: "gpt-5.6-terra",
     ollamaDefaultModel: "qwen3:14b",
-    defaultReasoning: "minimal",
+    defaultReasoning: "none",
   },
   {
     id: "eli",
@@ -190,10 +200,10 @@ const LLM_TASKS: LlmTaskConfig[] = [
     modelKey: "ELI_MODEL",
     reasoningKey: "OPENAI_REASONING_EFFORT_ELI",
     defaultProvider: "ollama",
-    defaultModel: "claude-haiku-4-5-20251001",
-    openaiDefaultModel: "gpt-5-nano",
+    defaultModel: "claude-haiku-4-5",
+    openaiDefaultModel: "gpt-5.6-luna",
     ollamaDefaultModel: "qwen3:14b",
-    defaultReasoning: "minimal",
+    defaultReasoning: "none",
   },
   {
     id: "analysis",
@@ -203,10 +213,10 @@ const LLM_TASKS: LlmTaskConfig[] = [
     modelKey: "ANALYSIS_MODEL",
     reasoningKey: "OPENAI_REASONING_EFFORT_ANALYSIS",
     defaultProvider: "ollama",
-    defaultModel: "claude-haiku-4-5-20251001",
-    openaiDefaultModel: "gpt-5-nano",
+    defaultModel: "claude-haiku-4-5",
+    openaiDefaultModel: "gpt-5.6-luna",
     ollamaDefaultModel: "qwen3:14b",
-    defaultReasoning: "minimal",
+    defaultReasoning: "none",
   },
   {
     id: "hook_detect",
@@ -216,10 +226,10 @@ const LLM_TASKS: LlmTaskConfig[] = [
     modelKey: "HOOK_DETECT_MODEL",
     reasoningKey: "OPENAI_REASONING_EFFORT_HOOK_DETECT",
     defaultProvider: "ollama",
-    defaultModel: "claude-haiku-4-5-20251001",
-    openaiDefaultModel: "gpt-5-nano",
+    defaultModel: "claude-haiku-4-5",
+    openaiDefaultModel: "gpt-5.6-luna",
     ollamaDefaultModel: "qwen3:14b",
-    defaultReasoning: "minimal",
+    defaultReasoning: "none",
   },
 ];
 
@@ -251,14 +261,12 @@ const ADVANCED_ROUTING_GROUPS = [
 
 // eslint-disable-next-line react-refresh/only-export-components -- co-located with the GeneralSection component that consumes these
 export const SCRIPT_MODELS = [
-  { value: DEFAULT_MODEL, label: "Claude Opus 4.7" },
-  { value: "claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
-  { value: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5" },
-  { value: "gpt-5.5", label: "OpenAI GPT-5.5" },
-  { value: "gpt-5.4", label: "OpenAI GPT-5.4" },
-  { value: "gpt-5.2", label: "OpenAI GPT-5.2" },
-  { value: "gpt-5-mini", label: "OpenAI GPT-5 Mini" },
-  { value: "gpt-5-nano", label: "OpenAI GPT-5 Nano" },
+  { value: DEFAULT_MODEL, label: "Claude Opus 5" },
+  { value: "claude-sonnet-5", label: "Claude Sonnet 5" },
+  { value: "claude-haiku-4-5", label: "Claude Haiku 4.5" },
+  { value: "gpt-5.6", label: "OpenAI GPT-5.6" },
+  { value: "gpt-5.6-terra", label: "OpenAI GPT-5.6 Terra" },
+  { value: "gpt-5.6-luna", label: "OpenAI GPT-5.6 Luna" },
 ] as const;
 
 const MODEL_SUGGESTIONS = [
