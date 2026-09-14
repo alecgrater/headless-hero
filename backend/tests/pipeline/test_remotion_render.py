@@ -1,6 +1,7 @@
 """Tests for Remotion render input helpers."""
 
 import json
+import subprocess
 
 import pytest
 
@@ -697,25 +698,6 @@ def test_subtitle_render_fingerprint_has_no_removed_dossier_field():
     assert "dossier" not in fingerprint["scenes"][0]
 
 
-def test_run_remotion_raises_when_process_exits_zero_without_output(tmp_path, monkeypatch):
-    """Remotion can exit 0 having written nothing; that must fail loudly here."""
-    output_path = tmp_path / "0_raw.mkv"
-    monkeypatch.setattr(
-        remotion_render.subprocess,
-        "Popen",
-        lambda *_args, **_kwargs: _FakeProc(["Bundling...", "gave up"]),
-    )
-    monkeypatch.setattr(remotion_render, "register_process", lambda *_a, **_k: None)
-    monkeypatch.setattr(remotion_render, "unregister_process", lambda *_a, **_k: None)
-
-    with pytest.raises(RuntimeError, match="without writing 0_raw.mkv"):
-        remotion_render._run_remotion(
-            composition_id="ShortFormVideo",
-            props_path=tmp_path / "props.json",
-            output_path=output_path,
-        )
-
-
 class _FakeProc:
     """Minimal Popen stand-in that exits 0 after emitting merged output lines."""
 
@@ -725,3 +707,71 @@ class _FakeProc:
 
     def wait(self, timeout: float | None = None) -> int:  # noqa: ARG002
         return self.returncode
+
+
+def _patch_remotion_subprocess(monkeypatch, lines: list[str], on_run=None) -> dict:
+    """Replace Popen with a fake, returning the kwargs it was called with."""
+    captured: dict = {}
+
+    def fake_popen(*_args, **kwargs):
+        captured.update(kwargs)
+        if on_run is not None:
+            on_run()
+        return _FakeProc(lines)
+
+    monkeypatch.setattr(remotion_render.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(remotion_render, "register_process", lambda *_a, **_k: None)
+    monkeypatch.setattr(remotion_render, "unregister_process", lambda *_a, **_k: None)
+    return captured
+
+
+def test_run_remotion_raises_when_process_exits_zero_without_output(tmp_path, monkeypatch):
+    """Remotion can exit 0 having written nothing; that must fail loudly here."""
+    captured = _patch_remotion_subprocess(monkeypatch, ["Bundling...", "gave up"])
+
+    with pytest.raises(RuntimeError, match="without writing 0_raw.mkv"):
+        remotion_render._run_remotion(
+            composition_id="ShortFormVideo",
+            props_path=tmp_path / "props.json",
+            output_path=tmp_path / "0_raw.mkv",
+        )
+
+    # Both streams must land in the one reader: an unread pipe deadlocks the render.
+    assert captured["stdout"] is subprocess.PIPE
+    assert captured["stderr"] is subprocess.STDOUT
+
+
+def test_run_remotion_discards_stale_output_from_a_previous_run(tmp_path, monkeypatch):
+    """A leftover file from a killed render must not pass as this run's output."""
+    output_path = tmp_path / "0_raw.mkv"
+    output_path.write_bytes(b"stale render")
+    seen: dict[str, bool] = {}
+    _patch_remotion_subprocess(
+        monkeypatch,
+        ["gave up"],
+        on_run=lambda: seen.__setitem__("existed_at_launch", output_path.exists()),
+    )
+
+    with pytest.raises(RuntimeError, match="without writing 0_raw.mkv"):
+        remotion_render._run_remotion(
+            composition_id="ShortFormVideo",
+            props_path=tmp_path / "props.json",
+            output_path=output_path,
+        )
+
+    assert seen["existed_at_launch"] is False
+
+
+def test_run_remotion_succeeds_when_output_is_written(tmp_path, monkeypatch):
+    output_path = tmp_path / "0_raw.mkv"
+    _patch_remotion_subprocess(
+        monkeypatch,
+        ["Rendered 100%"],
+        on_run=lambda: output_path.write_bytes(b"rendered video"),
+    )
+
+    remotion_render._run_remotion(
+        composition_id="ShortFormVideo",
+        props_path=tmp_path / "props.json",
+        output_path=output_path,
+    )

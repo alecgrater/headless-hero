@@ -719,7 +719,12 @@ def _run_remotion(
 
     t0 = time.monotonic()
     last_progress_log = t0
-    stderr_tail: list[str] = []
+    output_tail: list[str] = []
+
+    # A killed render leaves its half-written output behind, and both the
+    # exit-0 check below and the callers' `_verify_video` would accept that
+    # stale file as this run's result.
+    output_path.unlink(missing_ok=True)
 
     # stdout is merged into stderr: Remotion writes most of its output (including
     # the reason it gives up) to stdout, and an unread stdout pipe can also fill
@@ -741,9 +746,9 @@ def _run_remotion(
             line = line.rstrip()
             if not line:
                 continue
-            stderr_tail.append(line)
-            if len(stderr_tail) > 50:
-                stderr_tail.pop(0)
+            output_tail.append(line)
+            if len(output_tail) > 50:
+                output_tail.pop(0)
 
             # Log Remotion progress lines (contain %) at most every 10s
             now = time.monotonic()
@@ -763,7 +768,7 @@ def _run_remotion(
     elapsed = time.monotonic() - t0
 
     if proc.returncode != 0:
-        tail = "\n".join(stderr_tail[-20:])
+        tail = "\n".join(output_tail[-20:])
         logger.error("Remotion output tail:\n%s", tail)
         raise RuntimeError(
             f"Remotion render failed (exit {proc.returncode}): {tail[-500:]}"
@@ -772,8 +777,10 @@ def _run_remotion(
     # Remotion can exit 0 without producing anything (e.g. it bailed before the
     # encode started). Treat a missing/empty output as a failure here, where the
     # process output is still available, instead of downstream as "corrupt video".
+    # This is deliberately fail-fast: the callers only retry output that decoded
+    # badly, so a no-output render surfaces immediately with its reason attached.
     if not output_path.exists() or output_path.stat().st_size == 0:
-        tail = "\n".join(stderr_tail[-20:])
+        tail = "\n".join(output_tail[-20:])
         logger.error("Remotion exited 0 but wrote no output. Output tail:\n%s", tail)
         raise RuntimeError(
             f"Remotion exited 0 without writing {output_path.name}: {tail[-500:]}"
