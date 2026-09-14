@@ -11,6 +11,7 @@ from models.script import Scene, ScriptContent
 from pipeline.export_paths import copy_to_project_downloads, shortform_video_filename
 from pipeline.remotion_render import (
     SUBTITLE_ROUTER_VERSION,
+    _log_subtitle_style_split,
     _reencode_h264,
     _run_remotion,
     _scene_to_input_props,
@@ -174,6 +175,9 @@ def render_short_segment(
     backdrop_url = _title_card_backdrop_url(script_id, segment_idx, content)
     subtitle_settings = subtitle_settings_from_env()
     subtitle_styles = _subtitle_styles_for_render(content)
+    _log_subtitle_style_split(
+        f"{script_id} short #{segment_idx + 1}", scenes_to_render, subtitle_styles, subtitle_settings,
+    )
     scene_props = _build_segment_scene_props(scenes_to_render, script_id, backdrop_url, subtitle_styles)
 
     props = {

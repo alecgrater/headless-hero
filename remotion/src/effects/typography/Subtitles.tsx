@@ -26,7 +26,7 @@ import {
 } from "./subtitleRouting";
 
 const { fontFamily: SUBTITLE_FONT_FAMILY } = loadFont("normal", {
-  weights: ["800", "900"],
+  weights: ["800"],
   subsets: ["latin"],
 });
 

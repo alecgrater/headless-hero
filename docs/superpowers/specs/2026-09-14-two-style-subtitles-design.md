@@ -98,6 +98,16 @@ The cue-substring matching and the ≤190 ms/word pace gate are both deleted, fr
 router *and* from `_subtitle_punch_score` (which governs `coverage="punchy"` — which scenes
 get subtitles at all — and is a separate concern from which style they get).
 
+**The coverage scorer must stay orthogonal to the style router.** The first implementation
+replaced the deleted cue term with the kinetic rule itself at the same weight. Because no
+other term could outrank it, every punch beat was selected before any other scene, and
+punchy mode — the shipped configuration in `data/identity.json` — rendered **83%** kinetic
+against the 17% this design targets. The exception became the rule. `_subtitle_punch_score`
+therefore carries **no word-count or span term at all**; it ranks on figures in the
+narration (+3), a terminal `?`/`!` (+2), and motion-heavy visual modes (+1). Measured on
+the corpus, kinetic is then 17% under both `all` and `punchy`. A test pins that two scenes
+differing only in length score identically.
+
 **The thresholds live in Python and ship to the renderer in props.** `subtitle_settings`
 already flows from `remotion_render.subtitle_settings_from_env()` into `FullVideo` and
 `ShortFormVideo`, so it gains `kinetic_max_words` and `kinetic_max_span_seconds`. The TS
@@ -181,8 +191,9 @@ changes shape, which would invalidate independently.
   the evaluation of the style change.
 - `CaptionScene`, `StatCard`, title cards, and the legacy `SubtitleScene` (`aha_subtitle`)
   are separate text systems and are not touched.
-- Coverage scoring keeps its `punchy` mode and its 20% ceiling; only the burst-cue term is
-  removed.
+- Coverage scoring keeps its `punchy` mode and its 20% ceiling; the burst-cue and dead
+  pace terms are removed, and it gains the hard constraint above that it may not encode
+  the routing rule.
 
 ## Testing
 

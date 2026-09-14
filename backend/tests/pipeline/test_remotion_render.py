@@ -5,7 +5,7 @@ import subprocess
 
 import pytest
 
-from models.script import Scene, ScriptContent, Segment, VisualLayer
+from models.script import Scene, ScriptContent, Segment, VisualLayer, WordTimestamp
 from pipeline import remotion_render
 
 
@@ -434,14 +434,14 @@ def test_apply_subtitle_coverage_limits_punchy_scenes(monkeypatch):
                     Scene(id="title", narration="Title.", visual_prompt="", is_title_card=True),
                     Scene(id="plain-1", narration="A calm explanatory line.", visual_prompt=""),
                     Scene(id="plain-2", narration="Another calm explanatory line.", visual_prompt=""),
-                    Scene(id="fast", narration="One two three four five six.", visual_prompt="", word_timestamps=[
-                        {"word": "One", "start_ms": 0, "end_ms": 120},
-                        {"word": "two", "start_ms": 130, "end_ms": 250},
-                        {"word": "three", "start_ms": 260, "end_ms": 380},
-                        {"word": "four", "start_ms": 390, "end_ms": 510},
-                        {"word": "five", "start_ms": 520, "end_ms": 640},
-                        {"word": "six", "start_ms": 650, "end_ms": 770},
-                    ]),
+                    # Carries a figure — the strongest coverage signal. Deliberately a
+                    # long scene, so this also pins that coverage does not rank on
+                    # brevity (which is the style router's job, not coverage's).
+                    Scene(
+                        id="figure",
+                        narration="In 1978 researchers tracked 22 lottery winners for a year.",
+                        visual_prompt="",
+                    ),
                     Scene(id="caption", narration="The real cost.", visual_prompt="", visual_mode="captions"),
                 ],
             )
@@ -450,7 +450,7 @@ def test_apply_subtitle_coverage_limits_punchy_scenes(monkeypatch):
 
     styles = remotion_render._subtitle_styles_for_render(content)
 
-    assert styles["fast"] == "auto"
+    assert styles["figure"] == "auto"
     assert styles["plain-1"] == "none"
     assert styles["plain-2"] == "none"
     assert "caption" not in styles
@@ -784,3 +784,136 @@ def test_run_remotion_succeeds_when_output_is_written(tmp_path, monkeypatch):
         props_path=tmp_path / "props.json",
         output_path=output_path,
     )
+
+
+# --- Two-router invariant -----------------------------------------------------
+#
+# resolve_subtitle_style (Python, drives the dev-dashboard split log) and
+# resolveSubtitleStyle (TS, drives the actual render) must agree. This table is the
+# literal mirror of the cases in frontend/src/remotion/SubtitleRouting.test.ts — when
+# one side changes, the other fails here rather than in a rendered MP4.
+
+def _timed_scene(word_count: int, span_ms: int, **kwargs) -> Scene:
+    step = span_ms / word_count
+    return Scene(
+        id=kwargs.pop("id", "scene"),
+        narration=kwargs.pop("narration", " ".join(f"w{i}" for i in range(word_count))),
+        visual_prompt="",
+        word_timestamps=[
+            WordTimestamp(word=f"w{i}", start_ms=round(i * step), end_ms=round((i + 1) * step))
+            for i in range(word_count)
+        ],
+        **kwargs,
+    )
+
+
+_TWO_STYLE_SETTINGS = {
+    "coverage": "all",
+    "enabled_styles": ["clean", "kinetic"],
+    "kinetic_max_words": remotion_render.KINETIC_MAX_WORDS,
+    "kinetic_max_span_seconds": remotion_render.KINETIC_MAX_SPAN_SECONDS,
+}
+
+
+@pytest.mark.parametrize(
+    "scene,expected",
+    [
+        (_timed_scene(2, 1000), "kinetic"),
+        (_timed_scene(6, 3000), "kinetic"),          # both boundaries inclusive
+        (_timed_scene(7, 1500), "clean"),            # one word over the cap
+        (_timed_scene(6, 3100), "clean"),            # just over the span cap
+        (_timed_scene(4, 7200), "clean"),            # short but drawn out
+        (_timed_scene(20, 2400), "clean"),           # fast delivery is not a term
+        (_timed_scene(12, 5000), "clean"),
+        (_timed_scene(2, 1000, subtitle_style="clean"), "clean"),
+        (_timed_scene(12, 5000, subtitle_style="kinetic"), "kinetic"),
+        (_timed_scene(2, 1000, subtitle_style="none"), "none"),
+        (_timed_scene(2, 1000, is_title_card=True), "none"),
+        (_timed_scene(2, 1000, visual_mode="stat_card"), "none"),
+        (_timed_scene(2, 1000, visual_mode="captions"), "none"),
+    ],
+)
+def test_resolve_subtitle_style_matches_the_ts_router_table(scene, expected):
+    assert remotion_render.resolve_subtitle_style(scene, _TWO_STYLE_SETTINGS) == expected
+
+
+def test_resolve_subtitle_style_without_timings_is_clean():
+    scene = Scene(id="scene", narration="No timings here.", visual_prompt="")
+    assert remotion_render.resolve_subtitle_style(scene, _TWO_STYLE_SETTINGS) == "clean"
+
+
+def test_resolve_subtitle_style_falls_back_to_clean_when_kinetic_disabled():
+    settings = {**_TWO_STYLE_SETTINGS, "enabled_styles": ["clean"]}
+    assert remotion_render.resolve_subtitle_style(_timed_scene(2, 1000), settings) == "clean"
+    # An explicit kinetic override is clamped too.
+    assert remotion_render.resolve_subtitle_style(
+        _timed_scene(12, 5000, subtitle_style="kinetic"), settings,
+    ) == "clean"
+
+
+def test_resolve_subtitle_style_suppresses_when_no_styles_enabled():
+    settings = {**_TWO_STYLE_SETTINGS, "enabled_styles": []}
+    assert remotion_render.resolve_subtitle_style(_timed_scene(2, 1000), settings) == "none"
+
+
+def test_resolve_subtitle_style_honors_backend_supplied_thresholds():
+    loosened = {**_TWO_STYLE_SETTINGS, "kinetic_max_words": 8, "kinetic_max_span_seconds": 3.0}
+    assert remotion_render.resolve_subtitle_style(_timed_scene(8, 2000), _TWO_STYLE_SETTINGS) == "clean"
+    assert remotion_render.resolve_subtitle_style(_timed_scene(8, 2000), loosened) == "kinetic"
+
+
+def test_legacy_burst_scenes_load_as_auto_and_reroute():
+    """Stored burst JSON must re-route, not pin to a style.
+
+    Re-adding "burst" to models.script.SUBTITLE_STYLES, or changing the validator
+    fallback to "clean", would silently pin every legacy punch beat.
+    """
+    scene = Scene.model_validate(
+        {"id": "s", "narration": "Trophy.", "visual_prompt": "", "subtitle_style": "burst"}
+    )
+    assert scene.subtitle_style == "auto"
+
+    punchy = _timed_scene(2, 1000)
+    punchy.subtitle_style = "burst"
+    assert punchy.subtitle_style == "auto"
+    assert remotion_render.resolve_subtitle_style(punchy, _TWO_STYLE_SETTINGS) == "kinetic"
+
+
+def test_punchy_coverage_scorer_stays_orthogonal_to_the_style_router():
+    """Coverage must not rank on the kinetic rule.
+
+    When it did, every punch beat outranked every other scene, so punchy mode filled
+    almost entirely with kinetic and "the exception" became 83% of subtitled scenes
+    (against 17% under coverage="all"). The scorer therefore carries no word-count or
+    span term: two scenes that differ only in length must score identically.
+    """
+    short = _timed_scene(3, 1200, narration="Her finding.")
+    long_ = _timed_scene(24, 9000, narration="Her finding.")
+    assert remotion_render._subtitle_punch_score(short) == remotion_render._subtitle_punch_score(long_)
+
+    punch_beat = _timed_scene(3, 1200, narration="Her finding.")
+    figure_scene = _timed_scene(20, 7000, narration="Roughly 40 percent of them never recover.")
+    assert remotion_render._subtitle_punch_score(figure_scene) > remotion_render._subtitle_punch_score(punch_beat)
+
+
+def test_punchy_coverage_does_not_concentrate_kinetic(monkeypatch):
+    """The kinetic share must stay comparable across coverage modes."""
+    monkeypatch.setenv("SUBTITLE_COVERAGE_MODE", "punchy")
+    monkeypatch.setenv("SUBTITLE_STYLE_KINETIC_ENABLED", "true")
+    scenes = [_timed_scene(3, 1200, id=f"punch-{i}", narration="Her finding.") for i in range(6)]
+    scenes += [
+        _timed_scene(20, 8000, id=f"long-{i}", narration=f"In 19{70 + i} researchers tracked the whole cohort.")
+        for i in range(6)
+    ]
+    content = ScriptContent(title="T", segments=[Segment(name="One", scenes=scenes)])
+
+    styles = remotion_render._subtitle_styles_for_render(content)
+    selected = [sc for sc in scenes if styles.get(sc.id) != "none"]
+    kinetic = [
+        sc for sc in selected
+        if remotion_render.resolve_subtitle_style(sc, _TWO_STYLE_SETTINGS) == "kinetic"
+    ]
+    # The figure-bearing long scenes outrank the punch beats, so punchy coverage does
+    # not fill up with kinetic.
+    assert selected, "punchy coverage selected nothing"
+    assert len(kinetic) < len(selected)

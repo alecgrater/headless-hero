@@ -112,6 +112,8 @@ export function spokenSpanSeconds(timestamps: WordTimestamp[]): number {
 
 export function resolveSubtitleStyle(
   scene: SceneInput,
+  // Kept for signature stability across call sites and tests. Routing is deliberately
+  // orientation-independent: a punch beat is a punch beat in either aspect ratio.
   _orientation: Orientation,
   settings?: SubtitleRoutingSettings | null,
 ): ResolvedSubtitleStyle {

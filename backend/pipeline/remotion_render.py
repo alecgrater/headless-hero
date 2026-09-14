@@ -555,7 +555,12 @@ def resolve_subtitle_style(scene: Scene, settings: dict[str, Any] | None = None)
     if not _subtitle_scene_eligible(scene):
         return "none"
     resolved = settings or subtitle_settings_from_env()
-    enabled = resolved.get("enabled_styles") or ["clean"]
+    enabled = resolved.get("enabled_styles")
+    if enabled is None:
+        enabled = ["clean"]
+    # An explicitly empty style set suppresses subtitles, matching the TS router.
+    if not enabled:
+        return "none"
 
     style = scene.subtitle_style or "auto"
     if style != "auto":
@@ -586,20 +591,26 @@ def _subtitle_scene_eligible(scene: Scene) -> bool:
 def _subtitle_punch_score(scene: Scene) -> float:
     """Rank scenes for ``coverage="punchy"`` — which scenes get subtitles at all.
 
-    Separate concern from which *style* they get. The old per-word pace terms
-    (<=190ms, <=240ms) could never fire on human-paced narration, and the old
-    cue-substring term was a burst artifact that rewarded the presence of common
-    function words. Both are gone; the surviving signals are the ones the measured
-    corpus actually discriminates on.
+    This must stay **orthogonal to the style router**, and therefore contains no
+    word-count or span term at all. Scoring coverage on the kinetic rule made punchy
+    mode select punch beats almost exclusively (83% of subtitled scenes kinetic on the
+    measured corpus, against 17% under ``coverage="all"``), turning "the exception"
+    into the rule. With these terms the kinetic rate is 17% under both coverage modes.
+
+    The surviving signals reward scenes where burned-in text earns its place: figures
+    the viewer wants to read, rhetorical hooks, and motion-heavy visuals that benefit
+    from a text anchor.
+
+    The old per-word pace terms (<=190ms, <=240ms) could never fire on human-paced
+    narration, and the old cue-substring term was a burst artifact that rewarded the
+    presence of common function words. Both are gone.
     """
-    timestamps = scene.word_timestamps or []
-    word_count = len(timestamps) or len(re.findall(r"\b[\w']+\b", scene.narration))
-    span_seconds = _spoken_span_seconds(scene) if timestamps else _base_scene_duration(scene)
+    narration = scene.narration.strip()
 
     score = 0.0
-    if word_count <= KINETIC_MAX_WORDS and span_seconds <= KINETIC_MAX_SPAN_SECONDS:
-        score += 4.0
-    if re.search(r"[!?]$", scene.narration.strip()):
+    if re.search(r"\d", narration):
+        score += 3.0
+    if re.search(r"[!?]$", narration):
         score += 2.0
     if scene.visual_mode in {"multi_frame", "popup_sequence", "comparison_board", "video"}:
         score += 1.0
@@ -626,35 +637,45 @@ def _subtitle_styles_for_render(content: ScriptContent) -> dict[str, str]:
 
 
 def _log_subtitle_style_split(
-    script_id: str,
-    content: ScriptContent,
+    label: str,
+    scenes: list[Scene],
     subtitle_styles: dict[str, str],
     settings: dict[str, Any],
 ) -> None:
-    """Emit the resolved clean/kinetic/suppressed split for one render.
+    """Emit the resolved clean/kinetic split for one render.
 
     The kinetic rate was tuned against a single video; this makes drift visible on the
     dev dashboard rather than only in a finished render.
     """
-    counts = {"clean": 0, "kinetic": 0, "none": 0}
-    for scene in content.all_scenes():
-        override = subtitle_styles.get(scene.id)
-        if override == "none":
-            counts["none"] += 1
+    counts = {"clean": 0, "kinetic": 0, "coverage_suppressed": 0, "ineligible": 0}
+    for scene in scenes:
+        # Structurally ineligible (title cards, captions, stat_card) is a different
+        # fact from "punchy coverage dropped it" — bucketing them together hides the
+        # drift this line exists to surface.
+        if not _subtitle_scene_eligible(scene):
+            counts["ineligible"] += 1
+            continue
+        if subtitle_styles.get(scene.id) == "none":
+            counts["coverage_suppressed"] += 1
             continue
         resolved = resolve_subtitle_style(scene, settings)
-        counts[resolved if resolved in counts else "clean"] += 1
+        if resolved not in counts:
+            counts["clean"] += 1
+        else:
+            counts[resolved] += 1
     subtitled = counts["clean"] + counts["kinetic"]
     kinetic_pct = (100 * counts["kinetic"] / subtitled) if subtitled else 0.0
     logger.info(
-        "[%s] Subtitle styles: %d clean, %d kinetic (%.0f%% of %d subtitled), %d suppressed "
+        "[%s] Subtitle styles: %d clean, %d kinetic (%.0f%% of %d subtitled); "
+        "%d coverage-suppressed, %d ineligible "
         "(coverage=%s, enabled=%s, kinetic<=%sw/<=%ss)",
-        script_id,
+        label,
         counts["clean"],
         counts["kinetic"],
         kinetic_pct,
         subtitled,
-        counts["none"],
+        counts["coverage_suppressed"],
+        counts["ineligible"],
         settings.get("coverage"),
         ",".join(settings.get("enabled_styles") or []),
         settings.get("kinetic_max_words"),
@@ -1116,7 +1137,7 @@ def render_full_video(
     # Build input props for the full video
     subtitle_settings = subtitle_settings_from_env()
     subtitle_styles = _subtitle_styles_for_render(content)
-    _log_subtitle_style_split(script_id, content, subtitle_styles, subtitle_settings)
+    _log_subtitle_style_split(script_id, list(content.all_scenes()), subtitle_styles, subtitle_settings)
     segments_props = []
     for seg in content.segments:
         seg_scenes = []

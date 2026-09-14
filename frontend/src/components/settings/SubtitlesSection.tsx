@@ -156,7 +156,7 @@ export default function SubtitlesSection({ showHeader = true }: SubtitlesSection
         <div>
           <h2 className="text-lg font-semibold tracking-tight">Subtitles</h2>
           <p className="mt-1 text-sm text-neutral-400">
-            Choose where standard subtitles appear, then limit which visual treatments can be routed.
+            Choose where standard subtitles appear, and whether short punch beats get the kinetic treatment.
           </p>
         </div>
       )}
@@ -220,7 +220,7 @@ export default function SubtitlesSection({ showHeader = true }: SubtitlesSection
         <SubtitlesSectionIntro
           number="02 Styles"
           title="Subtitle Styles"
-          description={`Clean carries every subtitled scene. Kinetic is the exception, routed automatically to short punch beats — ${KINETIC_MAX_WORDS} words or fewer, delivered in under ${KINETIC_MAX_SPAN_SECONDS} seconds.`}
+          description={`Clean carries every subtitled scene. Kinetic is the exception, routed automatically to short punch beats — ${KINETIC_MAX_WORDS} words or fewer, spoken in ${KINETIC_MAX_SPAN_SECONDS} seconds or less.`}
         />
         <div className="border-b border-neutral-800">
           <div className="grid gap-4 border-t border-neutral-800 px-4 py-4 md:grid-cols-[180px_minmax(0,1fr)_auto] md:items-center">
