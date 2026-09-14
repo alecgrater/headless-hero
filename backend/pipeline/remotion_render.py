@@ -721,10 +721,13 @@ def _run_remotion(
     last_progress_log = t0
     stderr_tail: list[str] = []
 
+    # stdout is merged into stderr: Remotion writes most of its output (including
+    # the reason it gives up) to stdout, and an unread stdout pipe can also fill
+    # and block the render.
     proc = subprocess.Popen(
         cmd,
         stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
         text=True,
         cwd=str(REMOTION_DIR),
         env={**os.environ, "NODE_OPTIONS": "--max-old-space-size=4096"},
@@ -733,8 +736,8 @@ def _run_remotion(
     register_process(proc, f"Remotion render: {output_path.name}")
 
     try:
-        assert proc.stderr is not None
-        for line in proc.stderr:
+        assert proc.stdout is not None
+        for line in proc.stdout:
             line = line.rstrip()
             if not line:
                 continue
@@ -761,9 +764,19 @@ def _run_remotion(
 
     if proc.returncode != 0:
         tail = "\n".join(stderr_tail[-20:])
-        logger.error("Remotion stderr tail:\n%s", tail)
+        logger.error("Remotion output tail:\n%s", tail)
         raise RuntimeError(
             f"Remotion render failed (exit {proc.returncode}): {tail[-500:]}"
+        )
+
+    # Remotion can exit 0 without producing anything (e.g. it bailed before the
+    # encode started). Treat a missing/empty output as a failure here, where the
+    # process output is still available, instead of downstream as "corrupt video".
+    if not output_path.exists() or output_path.stat().st_size == 0:
+        tail = "\n".join(stderr_tail[-20:])
+        logger.error("Remotion exited 0 but wrote no output. Output tail:\n%s", tail)
+        raise RuntimeError(
+            f"Remotion exited 0 without writing {output_path.name}: {tail[-500:]}"
         )
 
     logger.info("Remotion render complete in %.1fs: %s", elapsed, output_path)

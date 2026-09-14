@@ -2,6 +2,8 @@
 
 import json
 
+import pytest
+
 from models.script import Scene, ScriptContent, Segment, VisualLayer
 from pipeline import remotion_render
 
@@ -693,3 +695,33 @@ def test_subtitle_render_fingerprint_has_no_removed_dossier_field():
 
     fingerprint = remotion_render.subtitle_render_fingerprint(content)
     assert "dossier" not in fingerprint["scenes"][0]
+
+
+def test_run_remotion_raises_when_process_exits_zero_without_output(tmp_path, monkeypatch):
+    """Remotion can exit 0 having written nothing; that must fail loudly here."""
+    output_path = tmp_path / "0_raw.mkv"
+    monkeypatch.setattr(
+        remotion_render.subprocess,
+        "Popen",
+        lambda *_args, **_kwargs: _FakeProc(["Bundling...", "gave up"]),
+    )
+    monkeypatch.setattr(remotion_render, "register_process", lambda *_a, **_k: None)
+    monkeypatch.setattr(remotion_render, "unregister_process", lambda *_a, **_k: None)
+
+    with pytest.raises(RuntimeError, match="without writing 0_raw.mkv"):
+        remotion_render._run_remotion(
+            composition_id="ShortFormVideo",
+            props_path=tmp_path / "props.json",
+            output_path=output_path,
+        )
+
+
+class _FakeProc:
+    """Minimal Popen stand-in that exits 0 after emitting merged output lines."""
+
+    def __init__(self, lines: list[str]) -> None:
+        self.stdout = iter(f"{line}\n" for line in lines)
+        self.returncode = 0
+
+    def wait(self, timeout: float | None = None) -> int:  # noqa: ARG002
+        return self.returncode
