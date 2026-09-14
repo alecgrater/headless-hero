@@ -41,33 +41,31 @@ def test_generate_batch_stops_when_cancelled():
     max_workers = 2
     started: list[str] = []
     start_lock = threading.Lock()
-    gate = threading.Event()
+    gate = threading.Event()  # starts CLOSED
     cancelled = threading.Event()
 
     def _gated_one(scene, script_id, width, height, style_guide):
         with start_lock:
             started.append(scene["scene_id"])
-        gate.wait(timeout=5.0)
+        # s0 must complete so should_cancel can fire; every other scene blocks
+        # until the watchdog opens the gate. A worker therefore physically
+        # cannot reach scene N+1 before the cancel has been processed, which
+        # bounds `started` structurally rather than by winning a race.
+        if scene["scene_id"] != "s0":
+            gate.wait(timeout=5.0)
         return {"scene_id": scene["scene_id"], "image_url": "/i.png", "error": None}
 
-    # Release the in-flight workers only *after* the cancel has been observed,
-    # so the main thread reaches pending.cancel() before any queued scene can
-    # be picked up. Releasing from should_cancel itself is a dead heat.
     def _watchdog() -> None:
         cancelled.wait(timeout=5.0)
         time.sleep(0.2)
         gate.set()
 
-    watcher = threading.Thread(target=_watchdog, daemon=True)
-    watcher.start()
-    gate.set()  # let the first wave through so a completion can occur
-
     def _should_cancel() -> bool:
-        if not cancelled.is_set():
-            gate.clear()
-            cancelled.set()
+        cancelled.set()
         return True
 
+    watcher = threading.Thread(target=_watchdog, daemon=True)
+    watcher.start()
     try:
         with patch.object(image_gen, "_generate_one_scene", _gated_one):
             with patch.dict(os.environ, {"HH_IMAGE_GEN_CONCURRENCY": str(max_workers)}):
@@ -78,7 +76,7 @@ def test_generate_batch_stops_when_cancelled():
         gate.set()
         watcher.join(timeout=5.0)
 
-    # Only the workers already in flight may have run; the queued tail is dropped.
+    # At most s0 plus one in-flight scene per worker; the queued tail is dropped.
     assert len(started) <= max_workers + 1
     assert len(results) < 20
 

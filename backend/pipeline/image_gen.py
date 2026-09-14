@@ -2295,11 +2295,14 @@ def generate_batch_with_google_batch(
 
     `should_cancel()` gates the two long phases; the Google Batch poll itself
     is not interruptible once started, so a cancel during it takes effect only
-    when that call returns.
+    when that call returns. It must be side-effect-free and idempotent.
     """
     results_by_scene: dict[str, dict[str, object]] = {}
 
     completed = 0
+
+    def _cancelled() -> bool:
+        return should_cancel is not None and should_cancel()
 
     def _tick() -> None:
         nonlocal completed
@@ -2349,7 +2352,7 @@ def generate_batch_with_google_batch(
         "Google image batch plan for script %s: %d eligible, %d standard",
         script_id, len(batch_requests), len(standard_scenes),
     )
-    if batch_requests and not (should_cancel is not None and should_cancel()):
+    if batch_requests and not _cancelled():
         batch_results = generate_images_batch(requests=batch_requests, script_id=script_id)
         for batch_result in batch_results:
             local_path, prompt_marker, web_path = output_paths[batch_result.key]
@@ -2389,7 +2392,7 @@ def generate_batch_with_google_batch(
         style_guide=style_guide,
         on_scene_done=lambda _done, _total: _tick(),
         should_cancel=should_cancel,
-    ) if standard_scenes and not (should_cancel is not None and should_cancel()) else []:
+    ) if standard_scenes and not _cancelled() else []:
         results_by_scene[str(result["scene_id"])] = result
 
     return [
@@ -2423,7 +2426,8 @@ def generate_batch(
     advance job progress; a batch that never reports looks stalled to pollers.
     `should_cancel()` is checked per completion so a cancelled job stops
     picking up queued scenes; the up-to-`max_workers` generations already in
-    flight run to completion and their results are discarded.
+    flight run to completion and their results are discarded. It must be
+    side-effect-free and idempotent — it is polled, not delivered once.
 
     Concurrency is tunable via HH_IMAGE_GEN_CONCURRENCY (default 4).
     """

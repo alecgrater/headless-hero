@@ -730,6 +730,10 @@ def start_visual_batch_job(body: GenerateBatchRequest, session: Session = Depend
                     # with a failure the user didn't cause.
                     logger.exception("Could not persist partial results for cancelled job %s", job.id)
                 return
+            # Close before the direct 0.9/1.0 writes below: `progress_value`
+            # never tracks those, so any future `_advance` caller on this path
+            # could otherwise publish a lower value after completion.
+            _close_progress()
             update_job(job.id, progress=0.9, current_step="Saving generated images...")
             with Session(bind) as job_session:
                 persisted = _persist_visual_batch_results(job_session, body.script_id, scenes, results)
