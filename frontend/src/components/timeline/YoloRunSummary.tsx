@@ -27,6 +27,29 @@ const STAGE_STATUS_COPY: Record<YoloStageRecord["status"], string> = {
 };
 
 /**
+ * Last timestamp the run actually recorded.
+ *
+ * An interrupted run has no `ended_at` — the app was killed before the
+ * controller could close it. Counting to `Date.now()` would report a run that
+ * died yesterday as nineteen hours long, and would do the same to the stage it
+ * died on, so fall back to the newest timestamp on record instead.
+ */
+function effectiveEndMs(run: YoloRunRecord): number {
+  if (run.ended_at) {
+    const ended = Date.parse(run.ended_at);
+    if (!Number.isNaN(ended)) return ended;
+  }
+  const recorded = [
+    run.started_at,
+    ...run.stages.flatMap((stage) => [stage.started_at, stage.ended_at]),
+  ]
+    .filter((value): value is string => Boolean(value))
+    .map((value) => Date.parse(value))
+    .filter((value) => !Number.isNaN(value));
+  return recorded.length > 0 ? Math.max(...recorded) : Date.now();
+}
+
+/**
  * What the last YOLO run did, shown once the run is over.
  *
  * A full generation runs for an hour or more, so the operator is nearly always
@@ -44,8 +67,14 @@ export function YoloRunSummary({
   const [expanded, setExpanded] = useState(false);
   const unresolved = useMemo(() => unresolvedStages(run), [run]);
   const status = RUN_STATUS_COPY[run.status] ?? RUN_STATUS_COPY.completed;
-  const endedMs = run.ended_at ? Date.parse(run.ended_at) : Date.now();
+  const endedMs = effectiveEndMs(run);
   const total = runElapsedSeconds(run, endedMs);
+  // An interrupted run usually has no failed stage — one is still "running" and
+  // the rest never started — so "Every task completed" would be a flat
+  // contradiction of the banner it sits in.
+  const interruptedDuring = run.status === "running"
+    ? run.stages.find((stage) => stage.status === "running")?.label ?? "startup"
+    : null;
 
   useEffect(() => {
     setExpanded(false);
@@ -65,7 +94,9 @@ export function YoloRunSummary({
             </span>
           )}
           <span className="min-w-0 flex-1 truncate opacity-90">
-            {unresolved.length > 0
+            {interruptedDuring
+              ? `Stopped during: ${interruptedDuring}`
+              : unresolved.length > 0
               ? `Unresolved: ${unresolved.map((stage) => stage.label).join(", ")}`
               : "Every task completed."}
           </span>

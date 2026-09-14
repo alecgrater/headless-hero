@@ -199,6 +199,64 @@ def test_duration_seconds_none_when_unfinished():
     assert stage.duration_seconds is None
 
 
+def test_concurrent_saves_do_not_lose_runs():
+    """save_run is a read-modify-write on a threadpool; nothing may be dropped."""
+    import threading
+
+    from pipeline import yolo_runs
+
+    # One fewer than MAX_RUNS so nothing is legitimately pruned.
+    count = yolo_runs.MAX_RUNS - 1
+    barrier = threading.Barrier(count)
+
+    def write(idx: int) -> None:
+        barrier.wait()
+        yolo_runs.save_run(
+            "script-threads",
+            _run(
+                run_id=f"run-{idx}",
+                script_id="script-threads",
+                started_at=f"2026-09-14T00:{idx:02d}:00+00:00",
+            ),
+        )
+
+    threads = [threading.Thread(target=write, args=(idx,)) for idx in range(count)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    loaded = yolo_runs.load_runs("script-threads")
+    assert {run.run_id for run in loaded} == {f"run-{idx}" for idx in range(count)}
+
+
+def test_concurrent_saves_of_one_run_keep_the_file_parseable():
+    """Interleaved updates to a single run must never corrupt the history file."""
+    import threading
+
+    from pipeline import yolo_runs
+
+    statuses = ["running", "completed", "halted", "cancelled", "completed_with_failures"]
+    barrier = threading.Barrier(len(statuses))
+
+    def write(status: str) -> None:
+        barrier.wait()
+        yolo_runs.save_run(
+            "script-one-run",
+            _run(run_id="run-1", script_id="script-one-run", status=status),
+        )
+
+    threads = [threading.Thread(target=write, args=(status,)) for status in statuses]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    loaded = yolo_runs.load_runs("script-one-run")
+    assert len(loaded) == 1
+    assert loaded[0].status in statuses
+
+
 # --------------------------------------------------------------------- api
 
 

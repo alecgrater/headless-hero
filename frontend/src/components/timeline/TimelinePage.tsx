@@ -2572,8 +2572,6 @@ function TimelineEditor({
     let latest = await refreshScriptContent();
     let status = getCreationStatus(latest, projectConfig);
 
-    if (!requireMainCharacterReference()) return false;
-
     // Every stage's verify step re-reads the script from the backend: batch
     // generation reports per-item failures instead of throwing, so a resolved
     // promise is not evidence the stage actually finished.
@@ -2680,7 +2678,6 @@ function TimelineEditor({
   }, [
     ensureLongFormThumbnailForYolo,
     refreshScriptContent,
-    requireMainCharacterReference,
     runMissingEliForYolo,
     runMissingFXForYolo,
     runVisualModePrepForYolo,
@@ -2808,6 +2805,10 @@ function TimelineEditor({
       showToast("Select a voice in settings before running YOLO render");
       return;
     }
+    // Checked before the controller exists: a run that never starts must not
+    // persist a snapshot, which would show as a bogus "Completed · 0:00" in the
+    // summary bar and evict a real run from the five-deep history.
+    if (!requireMainCharacterReference()) return;
 
     const controller = new YoloRunController({
       scriptId,
@@ -2969,6 +2970,7 @@ function TimelineEditor({
     requireShortFormThumbnailStatus,
     render,
     requestYoloStop,
+    requireMainCharacterReference,
     runYoloCreationPipeline,
     scriptId,
     voicePicker.selectedVoiceId,

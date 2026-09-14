@@ -109,3 +109,8 @@ the polling loops on an occluded window, and suspension stops them outright.
 - The export stage has no `verify`; it relies on `render.yoloRender` throwing.
   Re-running it is cheap (it checks for an existing long-form render first),
   but a silent partial export would not be retried.
+- A deliberate Stop is indistinguishable from a crash in storage. `Stop` calls
+  `stopYoloProcesses`, which quits the app ~100 ms later, so the controller
+  never writes its `cancelled` snapshot and the run is later labelled
+  "Interrupted" rather than "Stopped". Fixing it would mean flushing a terminal
+  snapshot before the quit.

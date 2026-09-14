@@ -448,10 +448,11 @@ export async function recordDuration(
 const yoloRunWriteQueues = new Map<string, Promise<void>>();
 
 /**
- * Persist a YOLO run snapshot. Deliberately swallows every failure — the run
- * log is an observability aid, and losing a write must never take down the
- * pipeline it is describing. `/api/yolo/runs` is in SILENT_PATHS so a backend
- * hiccup mid-run can't produce a toast per transition either.
+ * Persist a YOLO run snapshot. Never throws: `/api/yolo/runs` is in
+ * SILENT_PATHS, so the interceptor turns a backend failure into `{ok: false}`
+ * rather than a toast per transition, and the `catch` below covers anything
+ * that gets past it. The run log is an observability aid — losing a write must
+ * not take down the pipeline it is describing.
  */
 export async function saveYoloRun(
   scriptId: string,
