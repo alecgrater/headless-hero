@@ -575,7 +575,8 @@ def resolve_subtitle_style(scene: Scene, settings: dict[str, Any] | None = None)
     resolved = settings or subtitle_settings_from_env()
     enabled = resolved.get("enabled_styles")
     if enabled is None:
-        # Matches the TS default when no settings are supplied at all.
+        # Only reachable for a settings dict that omits the key — a caller passing
+        # nothing at all reads the env above. Matches the TS default for that case.
         enabled = ["clean", "kinetic"]
 
     style = scene.subtitle_style or "auto"
@@ -658,13 +659,14 @@ def _select_punchy_scene_ids(eligible: list[Scene]) -> set[str]:
         return set()
 
     slots = max(1, math.ceil(len(eligible) * 0.2))
+    indexed = list(enumerate(eligible))
     selected: set[str] = set()
     for slot in range(slots):
+        # Windows are contiguous, exhaustive, and never empty: slots <= len(eligible)
+        # for every script size, so each window holds at least one scene.
         start = (slot * len(eligible)) // slots
         end = ((slot + 1) * len(eligible)) // slots
-        window = list(enumerate(eligible))[start:end]
-        if not window:
-            continue
+        window = indexed[start:end]
         # Highest score wins the window; ties fall to the earliest scene in it.
         _index, scene = max(window, key=lambda item: (_subtitle_punch_score(item[1]), -item[0]))
         selected.add(scene.id)

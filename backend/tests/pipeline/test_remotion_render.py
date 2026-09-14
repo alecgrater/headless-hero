@@ -897,19 +897,24 @@ def test_punchy_coverage_scorer_stays_orthogonal_to_the_style_router():
 
 
 def test_punchy_coverage_kinetic_share_tracks_the_all_coverage_share(monkeypatch):
-    """Punchy must not concentrate kinetic — the share has to stay in the same band.
+    """Punchy must neither sweep up every punch beat nor exclude them all.
 
-    Asserting only `kinetic < selected` passes in both failure modes: coverage that
-    sweeps up every punch beat (the 83% bug) and coverage that excludes them all.
+    Both are real failure modes and a one-sided assertion misses one of them: the
+    original scorer swept them up (83% kinetic), while a corpus where a digit-bearing
+    scene wins every single window excludes them entirely (0%). The bounds below are
+    absolute rather than a ratio of a ratio — with a 20% budget one scene moves the
+    share by ~8 points, so a tight ratio band is false precision.
     """
     monkeypatch.setenv("SUBTITLE_STYLE_KINETIC_ENABLED", "true")
+    # 30 scenes -> 6 windows of 5. Every window holds one punch beat; only the first
+    # four also hold a figure-bearing scene, so figures win those and punch beats win
+    # the last two. That exercises both sides of the band.
     scenes = []
     for i in range(30):
-        # A repeating 5-scene shape, uniform across the script, so a positional bias
-        # in coverage selection shows up as a share change.
+        window = i // 5
         if i % 5 == 0:
-            scenes.append(_timed_scene(3, 1200, id=f"punch-{i}", narration="Her finding."))
-        elif i % 5 == 1:
+            scenes.append(_timed_scene(3, 1200, id=f"punch-{i}", narration="Her finding?"))
+        elif i % 5 == 1 and window < 4:
             scenes.append(
                 _timed_scene(20, 8000, id=f"figure-{i}", narration=f"In 19{70 + i} they tracked the cohort.")
             )
@@ -919,7 +924,7 @@ def test_punchy_coverage_kinetic_share_tracks_the_all_coverage_share(monkeypatch
             )
     content = ScriptContent(title="T", segments=[Segment(name="One", scenes=scenes)])
 
-    def kinetic_share(mode: str) -> float:
+    def kinetic_count(mode: str) -> tuple[int, int]:
         monkeypatch.setenv("SUBTITLE_COVERAGE_MODE", mode)
         styles = remotion_render._subtitle_styles_for_render(content)
         chosen = [sc for sc in scenes if styles.get(sc.id) != "none"]
@@ -928,14 +933,61 @@ def test_punchy_coverage_kinetic_share_tracks_the_all_coverage_share(monkeypatch
             sc for sc in chosen
             if remotion_render.resolve_subtitle_style(sc, _TWO_STYLE_SETTINGS) == "kinetic"
         ]
-        return len(kinetic) / len(chosen)
+        return len(kinetic), len(chosen)
 
-    all_share = kinetic_share("all")
-    punchy_share = kinetic_share("punchy")
+    all_kinetic, all_total = kinetic_count("all")
+    punchy_kinetic, punchy_total = kinetic_count("punchy")
 
-    assert all_share == pytest.approx(0.2, abs=0.01)
-    # Two-sided: punchy may neither sweep up the punch beats nor exclude them all.
-    assert punchy_share <= all_share * 2
+    assert (all_kinetic, all_total) == (6, 30)
+    # Lower bound: punchy must still reach punch beats at all.
+    assert punchy_kinetic > 0
+    # Upper bound: kinetic stays a minority of the subtitled scenes.
+    assert punchy_kinetic / punchy_total <= 0.5
+    # And punchy must never select more punch beats than exist under full coverage.
+    assert punchy_kinetic <= all_kinetic
+
+
+def test_subtitle_style_split_log_separates_every_suppression_reason(monkeypatch, caplog):
+    """The four buckets are the point of the line — an author pin, a coverage drop,
+    and a structurally ineligible scene are different facts."""
+    monkeypatch.setenv("SUBTITLE_COVERAGE_MODE", "all")
+    monkeypatch.setenv("SUBTITLE_STYLE_KINETIC_ENABLED", "true")
+    scenes = [
+        _timed_scene(20, 8000, id="clean-1", narration="A calm explanatory line follows."),
+        _timed_scene(3, 1200, id="kinetic-1", narration="Her finding."),
+        _timed_scene(20, 8000, id="pinned", narration="Author said no.", subtitle_style="none"),
+        Scene(id="title", narration="Title.", visual_prompt="", is_title_card=True),
+        Scene(id="cap", narration="The real cost.", visual_prompt="", visual_mode="captions"),
+    ]
+    settings = remotion_render.subtitle_settings_from_env()
+    styles = {"clean-1": "auto", "kinetic-1": "auto", "pinned": "none", "dropped": "none"}
+
+    with caplog.at_level("INFO", logger=remotion_render.logger.name):
+        remotion_render._log_subtitle_style_split("script-1", scenes, styles, settings)
+
+    line = caplog.text
+    assert "1 clean, 1 kinetic (50% of 2 subtitled)" in line
+    assert "0 coverage-suppressed" in line
+    assert "1 author-suppressed" in line
+    assert "2 ineligible" in line
+
+
+def test_subtitle_style_split_log_counts_coverage_drops_only_under_punchy(monkeypatch, caplog):
+    monkeypatch.setenv("SUBTITLE_COVERAGE_MODE", "punchy")
+    monkeypatch.setenv("SUBTITLE_STYLE_KINETIC_ENABLED", "true")
+    scenes = [
+        _timed_scene(20, 8000, id="kept", narration="A calm explanatory line follows."),
+        _timed_scene(20, 8000, id="dropped", narration="Another calm explanatory line."),
+    ]
+    settings = remotion_render.subtitle_settings_from_env()
+
+    with caplog.at_level("INFO", logger=remotion_render.logger.name):
+        remotion_render._log_subtitle_style_split(
+            "script-1", scenes, {"kept": "auto", "dropped": "none"}, settings,
+        )
+
+    assert "1 coverage-suppressed" in caplog.text
+    assert "0 author-suppressed" in caplog.text
 
 
 def test_punchy_coverage_spreads_across_the_script(monkeypatch):

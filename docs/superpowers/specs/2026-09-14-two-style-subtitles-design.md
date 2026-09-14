@@ -104,9 +104,30 @@ other term could outrank it, every punch beat was selected before any other scen
 punchy mode — the shipped configuration in `data/identity.json` — rendered **83%** kinetic
 against the 17% this design targets. The exception became the rule. `_subtitle_punch_score`
 therefore carries **no word-count or span term at all**; it ranks on figures in the
-narration (+3), a terminal `?`/`!` (+2), and motion-heavy visual modes (+1). Measured on
-the corpus, kinetic is then 17% under both `all` and `punchy`. A test pins that two scenes
-differing only in length score identically.
+narration (+3), a terminal `?`/`!` (+2), and motion-heavy visual modes (+1). A test pins
+that two scenes differing only in length score identically.
+
+**The budget must also be spread across the script.** Those terms are sparse — on the
+corpus, 38 of 59 scenes score 0.0 and exactly one contains a digit — so ranking the whole
+script and taking the top N left 9 of 12 slots as score ties broken by array position.
+Every subtitle landed in the first half and the back 45% of the video got none.
+`_select_punchy_scene_ids` instead divides the script into one contiguous window per slot
+and takes the best scorer in each; score decides which scene wins a window, position only
+decides which window a scene is in. Windows are provably non-empty (`slots = ceil(0.2n) ≤ n`
+for all `n ≥ 1`). Selections on the real script then span indices 1–55 of 58, six per half.
+
+This also fixed an unnoticed short-form bug: `short_form_render` computes coverage over the
+whole script and slices per segment, so under the old top-N, segments 4–7 of the real
+script rendered with **zero** subtitles. Every segment now gets at least one.
+
+**Residual correlation is two scenes, and that is acceptable.** Kinetic measures 17% under
+`coverage="all"` and 33% under `punchy` (4 of 12) on the real script. Only two of those four
+come from the `[!?]$` term — short punch beats often end in a question mark; the other two
+win their windows on `visual_mode`, which is fully orthogonal. Removing `[!?]$` would bring
+punchy to 16.7% against 17.0%, but would leave 38 of 59 scenes tied at 0.0 and make
+windowing the only discriminator, trading a two-scene correlation for the ranking signal.
+The term stays. Note that with a 12-slot budget one scene moves the share by ~8 points, so
+the tests assert counts and an absolute ceiling rather than a ratio of a ratio.
 
 **The thresholds live in Python and ship to the renderer in props.** `subtitle_settings`
 already flows from `remotion_render.subtitle_settings_from_env()` into `FullVideo` and
