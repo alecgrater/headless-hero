@@ -564,7 +564,30 @@ def chat(
         elapsed, input_tok, cache_read_tok, output_tok, resolved_model,
     )
 
-    return response.content[0].text
+    return _extract_anthropic_text(response)
+
+
+def _extract_anthropic_text(response: Any) -> str:
+    """Join the text blocks of a Messages response.
+
+    Claude 5 models run adaptive thinking by default, so `content[0]` is a
+    ThinkingBlock and indexing it for `.text` raises AttributeError. Only
+    blocks of type "text" carry the answer.
+    """
+    text = "".join(
+        block.text for block in response.content
+        if getattr(block, "type", None) == "text"
+    )
+    if text.strip():
+        return text
+
+    stop_reason = getattr(response, "stop_reason", None)
+    if stop_reason == "max_tokens":
+        raise RuntimeError(
+            "Claude hit max_tokens while thinking and returned no answer text. "
+            "Raise max_tokens for this task — thinking tokens count against it."
+        )
+    raise RuntimeError(f"Claude returned no text content (stop_reason={stop_reason!r}).")
 
 
 def _strip_think_blocks(text: str) -> str:
