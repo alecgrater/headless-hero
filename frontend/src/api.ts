@@ -46,11 +46,34 @@ declare global {
   }
 }
 
+/** Flatten FastAPI's 422 body — `detail` is an array of Pydantic error objects,
+ * which crashes React ("Objects are not valid as a React child") if a caller
+ * drops it straight into state. Returns null when the shape isn't recognised. */
+function formatValidationDetail(detail: unknown[]): string | null {
+  const parts = detail
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const { loc, msg } = item as { loc?: unknown; msg?: unknown };
+      if (typeof msg !== "string") return null;
+      // loc is ["body", "field", ...]; drop the leading source segment.
+      const field = Array.isArray(loc)
+        ? loc.filter((p) => typeof p === "string" && p !== "body").join(".")
+        : "";
+      return field ? `${field}: ${msg}` : msg;
+    })
+    .filter((p): p is string => Boolean(p));
+  return parts.length ? parts.join("; ") : null;
+}
+
 /** Extract a human-readable error message from a non-ok API response. */
-function extractErrorMessage(status: number, data: unknown): string {
+export function extractErrorMessage(status: number, data: unknown): string {
   if (data && typeof data === "object") {
     const d = data as Record<string, unknown>;
     if (typeof d.detail === "string") return d.detail;
+    if (Array.isArray(d.detail)) {
+      const formatted = formatValidationDetail(d.detail);
+      if (formatted) return formatted;
+    }
     if (typeof d.message === "string") return d.message;
     if (typeof d.error === "string") return d.error;
   }

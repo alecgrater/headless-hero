@@ -460,8 +460,11 @@ class GenerateScriptRequest(BaseModel):
     description: str = PydanticField(default="", description="Optional topic description or angle")
     creator_guidance: str | None = PydanticField(
         default=None,
-        max_length=2000,
-        description="Optional creator constraints from idea generation to preserve through script generation",
+        description=(
+            "Optional creator constraints from idea generation to preserve through script "
+            "generation. Uncapped on purpose: this value is produced by the unbounded `guide` "
+            "field of GenerateIdeasRequest, so any cap here rejects what ideation just accepted."
+        ),
     )
     format_id: str = PydanticField(..., description="Video format ID (e.g. 'youtube-listicle' | 'life-as-a')")
     brand_id: str | None = PydanticField(default=None, description="Brand profile ID (auto-resolved if omitted)")

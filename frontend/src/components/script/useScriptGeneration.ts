@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import api, { fetchGenerationEstimate, refineHook } from "../../api";
+import api, { extractErrorMessage, fetchGenerationEstimate, refineHook } from "../../api";
 import type { EstimateSource } from "../../api";
 import { DEFAULT_MODEL } from "../../constants";
 import { useOperationProgress } from "../../hooks/useOperationProgress";
@@ -325,10 +325,7 @@ export default function useScriptGeneration({ brandId, idea, supportsColdOpen = 
         });
         if (cancelledRef.current) return;
         if (!res.ok) {
-          const detail =
-            res.data && typeof res.data === "object" && "detail" in res.data
-              ? (res.data as { detail: string }).detail
-              : "Failed to start script generation";
+          const detail = extractErrorMessage(res.status, res.data);
           setError(detail);
           setLoading(false);
           setPhase("idle");
@@ -360,10 +357,7 @@ export default function useScriptGeneration({ brandId, idea, supportsColdOpen = 
       });
       if (cancelledRef.current) return;
       if (!res.ok) {
-        const detail =
-          res.data && typeof res.data === "object" && "detail" in res.data
-            ? (res.data as { detail: string }).detail
-            : "Failed to start cold open generation";
+        const detail = extractErrorMessage(res.status, res.data);
         setError(detail);
         setLoading(false);
         setPhase("idle");
@@ -464,10 +458,7 @@ export default function useScriptGeneration({ brandId, idea, supportsColdOpen = 
       .then((res) => {
         if (cancelledRef.current) return;
         if (!res.ok) {
-          const detail =
-            res.data && typeof res.data === "object" && "detail" in res.data
-              ? (res.data as { detail: string }).detail
-              : "Failed to start script generation";
+          const detail = extractErrorMessage(res.status, res.data);
           setError(detail);
           setLoading(false);
           setPhase("idle");
