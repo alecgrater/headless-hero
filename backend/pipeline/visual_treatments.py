@@ -75,6 +75,40 @@ REPETITION_STOPWORDS = {
     "to",
 }
 VARIETY_PRIORITY_MODES = {"full_frame", "multi_frame", "continuous"}
+
+# A popup item is something the renderer can draw as one isolated cutout —
+# "debt", "hide feelings", "a second monitor". It is not a clause. The previous
+# predicate accepted any fragment containing one non-stopword, so splitting
+# narration on commas turned prose into "items": one shipped export asked the
+# image model for "the belief makes sense. Money buys you out of very real pain
+# — rent stress" and "that gut-drop when you check your bank app", and got four
+# near-identical panels with that sentence rendered as text inside them.
+#
+# Six words, because a real item often carries the sentence's lead-in ("The desk
+# holds missing keys"). The junk this has to stop is much longer than that.
+MAX_LIST_ITEM_WORDS = 6
+
+# Subordinators and relatives: a fragment containing one is describing a thing
+# in passing, not naming it. Deliberately *not* a verb or pronoun list — real
+# list items are often short verb phrases ("keep your head down"), and rejecting
+# those threw away lists the format is built for.
+CLAUSE_MARKER_WORDS = frozenset({
+    "when", "while", "because", "if", "who", "whom", "whose", "which",
+    "that", "though", "although", "unless", "until", "since", "whether",
+})
+
+# Discourse openers that survive the comma split as their own "item". They are
+# dropped rather than rejected, so one filler at the head of a real list does
+# not disqualify the list.
+DISCOURSE_FILLERS = frozenset({
+    "look", "listen", "see", "okay", "ok", "right", "well", "honestly",
+    "truthfully", "sure", "yeah", "now", "anyway", "basically", "obviously",
+})
+
+_SENTENCE_BREAK_RE = re.compile(r"[.!?]")
+_LEADING_CONNECTOR_RE = re.compile(r"^(?:and|but|or|so|then|also|plus)\b\s*", flags=re.IGNORECASE)
+_MARKER_PHRASE_RE = re.compile(r"\b(?:first|second|third|fourth|1|2|3|4)\b[,:]?\s+", flags=re.IGNORECASE)
+
 CLEAR_IMPROVEMENT_MODES = {
     "comparison_board",
     "stat_card",
@@ -96,12 +130,6 @@ CAPTION_PUNCH_MARKERS = {
     "mistake",
     "trap",
 }
-STAT_VALUE_RE = re.compile(
-    r"(?<!\w)(?:[$#]?\d+(?:[,.]\d+)*(?:\.\d+)?%?|(?:one|two|three|four|five|six|seven|eight|nine|ten)\s+in\s+\d+)(?!\w)",
-    re.IGNORECASE,
-)
-
-
 class VisualTreatmentAssignment(BaseModel):
     scene_id: str
     visual_mode: str = "full_frame"
@@ -252,21 +280,6 @@ def stat_label_grounded_in_narration(stat_label: str, narration: str) -> bool:
         return False
     narration_words = {_normalize_word(token) for token in narration.split()}
     return bool(label_words & narration_words)
-
-
-def _stat_fields_for_scene(scene: Scene) -> tuple[str, str] | None:
-    text = scene.narration.strip()
-    matches = [match.group(0).strip() for match in STAT_VALUE_RE.finditer(text)]
-    if len(matches) != 1:
-        return None
-    stat_value = matches[0]
-    label = re.sub(re.escape(stat_value), "", text, count=1, flags=re.IGNORECASE)
-    label = re.sub(r"^\s*(?:by|in|after|before|around|about|nearly|almost|roughly)\b\s*", "", label, flags=re.IGNORECASE)
-    label = re.sub(r"\s+", " ", label.strip(" .,:;—–-"))
-    words = label.split()
-    if len(words) > 10:
-        label = " ".join(words[-10:])
-    return stat_value, label
 
 
 def _caption_fields_for_scene(scene: Scene) -> tuple[str, str] | None:
@@ -427,17 +440,6 @@ def _analyze_scene(scene: Scene, *, script_id: str | None = None) -> VisualTreat
             visual_layers=comparison_layers,
         )
 
-    stat_fields = _stat_fields_for_scene(scene)
-    if stat_fields is not None:
-        stat_value, stat_label = stat_fields
-        return VisualTreatmentAssignment(
-            scene_id=scene.id,
-            visual_mode="stat_card",
-            reasoning=f"Detected one decisive statistic: {stat_value}.",
-            stat_value=stat_value,
-            stat_label=stat_label,
-        )
-
     caption_fields = _caption_fields_for_scene(scene)
     if caption_fields is not None:
         caption_text, caption_emphasis = caption_fields
@@ -564,6 +566,37 @@ def _looks_like_continuous_progression(scene: Scene) -> bool:
     )
 
 
+def _marker_list_items(scene: Scene) -> list[tuple[str, float]]:
+    """Items from an enumerated list — "First the badge, second the receipt".
+
+    The item is the phrase each marker *introduces*, not the marker word. This
+    used to return the markers themselves, so the image model was asked for a
+    cutout of "first" and drew whatever it liked. Timing still comes from when
+    the marker is spoken, which is when the item should pop in.
+    """
+    text = re.sub(r"\s+", " ", scene.narration.strip())
+    matches = list(_MARKER_PHRASE_RE.finditer(text)) if text else []
+    if len(matches) < 2:
+        return []
+
+    spoken = _matching_words(scene, LIST_MARKERS)
+    items: list[tuple[str, float]] = []
+    for index, match in enumerate(matches):
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
+        phrase = _trim_list_item_phrase(text[match.end():end].strip(" .,:;-"))
+        # All-or-nothing, same as the natural path: one unusable phrase means
+        # the markers were prose ("first of all, ...") rather than a list.
+        if not _is_list_item_phrase(phrase):
+            return []
+        start = (
+            spoken[index][1]
+            if index < len(spoken)
+            else _phrase_start_seconds(scene, phrase, index, len(matches))
+        )
+        items.append((phrase, start))
+    return items
+
+
 def _popup_layers_for_scene(
     scene: Scene,
     *,
@@ -571,7 +604,7 @@ def _popup_layers_for_scene(
     natural_only: bool = False,
 ) -> list[VisualLayer]:
     if not natural_only:
-        marker_list_items = _matching_words(scene, LIST_MARKERS)
+        marker_list_items = _marker_list_items(scene)
         if len(marker_list_items) >= 2:
             layer_count = min(len(marker_list_items), 4)
             return _popup_layers(scene, marker_list_items[:layer_count])
@@ -600,6 +633,7 @@ def _popup_layers(scene: Scene, list_items: list[tuple[str, float]]) -> list[Vis
             VisualLayer(
                 id=f"{scene.id}_popup_{index + 1}",
                 prompt=_panel_prompt(scene, item),
+                label=item,
                 placement=placements[index],
                 enter_at_seconds=round(enter_at if enter_at >= 0 else fallback_enter_at, 2),
                 animation="pop_in",
@@ -646,12 +680,21 @@ def comparison_cutout_prompt(visual_prompt: str, narration: str, subject: str) -
 
 
 def _panel_prompt(scene: Scene, focus: str) -> str:
-    base_prompt = scene.visual_prompt.strip() or scene.narration.strip()
+    """Prompt for one popup item.
+
+    The item is the subject; the scene prompt is style reference only. Stating
+    that explicitly matters because this text previously read as though the
+    whole scene were the subject, so every item in a scene rendered as a
+    variation of the same picture.
+    """
+    style_context = scene.visual_prompt.strip() or scene.narration.strip()
     return (
-        f"Popup item cutout prompt for {focus}: {base_prompt}. "
+        f"Popup item cutout prompt for {focus}. "
+        f"The subject is exactly this one item: {focus}. "
         "Generate only the named popup item as a clean isolated cartoon cutout candidate. "
         "No decorative border, picture frame, mat, white margin, inset panel, UI chrome, caption box, or poster edge. "
-        "No text in image."
+        "No text in image. "
+        f"Match the art style of this scene, but do not draw the scene itself: {style_context}"
     )
 
 
@@ -685,9 +728,17 @@ def _natural_list_items(scene: Scene) -> list[tuple[str, float]]:
         _trim_list_item_phrase(piece.strip(" .,:;-"))
         for piece in re.split(r"\s*;\s*|\s*,\s*|\s+\b(?:and|or)\b\s+", normalized_text, flags=re.IGNORECASE)
     ]
-    items = [piece for piece in pieces if _is_list_item_phrase(piece)]
-    if not 2 <= len(items) <= 6:
+    pieces = [piece for piece in pieces if piece.strip() and not _is_discourse_filler(piece)]
+    if not 2 <= len(pieces) <= 6:
         return []
+
+    # Every piece must be an item. Keeping only the valid ones was the bug: prose
+    # that happens to contain one short noun phrase between commas would yield a
+    # two-item "list", so a paragraph became a popup sequence. If any piece is a
+    # clause, the commas were punctuation, not separators.
+    if not all(_is_list_item_phrase(piece) for piece in pieces):
+        return []
+    items = pieces
 
     return [(item, _phrase_start_seconds(scene, item, index, len(items))) for index, item in enumerate(items[:4])]
 
@@ -778,13 +829,41 @@ def _trim_list_item_phrase(text: str) -> str:
         text,
         flags=re.IGNORECASE,
     ).strip()
+    trimmed = _LEADING_CONNECTOR_RE.sub("", trimmed).strip()
     return trimmed or text
 
 
+def _is_discourse_filler(value: str) -> bool:
+    """True when the fragment is only an opener like "and look" — drop, don't reject."""
+    words = [word for word in (_normalize_word(word) for word in value.split()) if word]
+    if not words:
+        return True
+    return all(word in DISCOURSE_FILLERS or word in REPETITION_STOPWORDS for word in words)
+
+
 def _is_list_item_phrase(value: str) -> bool:
-    words = [_normalize_word(word) for word in value.split()]
-    content_words = [word for word in words if word and word not in REPETITION_STOPWORDS]
-    return bool(content_words)
+    """True when the fragment names something drawable rather than describing it.
+
+    Deliberately strict — see MAX_LIST_ITEM_WORDS. A rejected fragment means the
+    scene isn't a list, which costs a popup the scene never should have had.
+    """
+    if not value.strip():
+        return False
+    # A sentence boundary inside a "list item" means the comma split cut across
+    # prose rather than between items.
+    if _SENTENCE_BREAK_RE.search(value):
+        return False
+    words = [word for word in (_normalize_word(word) for word in value.split()) if word]
+    if not words or len(words) > MAX_LIST_ITEM_WORDS:
+        return False
+    if any(word in CLAUSE_MARKER_WORDS for word in words):
+        return False
+    # A bare enumeration marker is a position, not a subject. Asking the image
+    # model for a cutout of "first" produces whatever it feels like; until the
+    # marker path extracts the phrase each marker introduces, it yields nothing.
+    if any(word in LIST_MARKERS for word in words):
+        return False
+    return any(word not in REPETITION_STOPWORDS for word in words)
 
 
 def _phrase_start_seconds(scene: Scene, phrase: str, index: int, total: int) -> float:

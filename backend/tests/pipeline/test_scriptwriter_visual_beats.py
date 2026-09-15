@@ -271,7 +271,13 @@ def test_visual_mode_audit_promotes_caption_candidates_without_rewriting_narrati
     assert all(scene.caption_emphasis and scene.caption_emphasis in scene.caption_text for scene in caption_scenes)
 
 
-def test_visual_mode_audit_promotes_stat_card_from_life_story_number():
+def test_visual_mode_audit_does_not_promote_numbers_to_stat_card():
+    """A number in the narration is not a decisive statistic.
+
+    Regression: "grinding toward for two years" shipped as a stat card whose
+    value was "two years" and whose label was the rest of the sentence, cut to
+    the last ten words. Only script generation chooses this mode now.
+    """
     content = ScriptContent(
         title="Test",
         segments=[
@@ -279,43 +285,55 @@ def test_visual_mode_audit_promotes_stat_card_from_life_story_number():
                 name="Level 1",
                 scenes=[
                     Scene(id="scene_001", narration="The first paycheck is $214.", visual_prompt="[CLOSE-UP] A paper paycheck stub.", visual_mode="full_frame"),
-                    Scene(id="scene_002", narration="You keep walking home after close.", visual_prompt="[ESTABLISHING] A sidewalk after close.", visual_mode="full_frame"),
+                    Scene(id="scene_002", narration="You finally get the raise. The one you've been grinding toward for two years.", visual_prompt="[REACTION] An office desk.", visual_mode="full_frame"),
                     Scene(id="scene_003", narration="Marcus retires with seventeen years of service.", visual_prompt="[REACTION] A break room retirement cake.", visual_mode="full_frame"),
                 ],
             ),
         ],
     )
 
-    counts = _audit_visual_mode_metadata(content)
+    _audit_visual_mode_metadata(content)
 
-    assert counts["stat_card"] >= 1
-    stat_scenes = [scene for scene in content.all_scenes() if scene.visual_mode == "stat_card"]
-    assert stat_scenes[0].stat_value in {"$214", "seventeen years"}
-    assert stat_scenes[0].stat_label
+    assert [scene.visual_mode for scene in content.all_scenes()] == ["full_frame"] * 3
+    assert not any(scene.stat_value for scene in content.all_scenes())
+    assert not any(scene.stat_label for scene in content.all_scenes())
 
 
-def test_visual_mode_audit_does_not_invent_placeholder_stat_label():
-    content = ScriptContent(
-        title="Test",
-        segments=[
-            Segment(
-                name="Level 1",
-                scenes=[
-                    Scene(id="scene_001", narration="You keep walking home after close.", visual_prompt="[ESTABLISHING] A sidewalk after close.", visual_mode="full_frame"),
-                    Scene(id="scene_002", narration="Five hours.", visual_prompt="[TEXTURE] A shift clock over a flat background.", visual_mode="full_frame"),
-                    Scene(id="scene_003", narration="The doors lock behind you.", visual_prompt="[CLOSE-UP] Locked restaurant doors.", visual_mode="full_frame"),
-                ],
-            ),
-        ],
+def test_visual_mode_audit_keeps_a_stat_card_script_generation_asked_for():
+    scene = Scene(
+        id="scene_002",
+        narration="Roughly 85% of new restaurants close inside five years.",
+        visual_prompt="",
+        visual_mode="stat_card",
+        stat_value="85%",
+        stat_label="of new restaurants close",
     )
+    content = ScriptContent(title="Test", segments=[Segment(name="Level 1", scenes=[scene])])
 
-    counts = _audit_visual_mode_metadata(content)
+    _audit_visual_mode_metadata(content)
 
-    assert counts["stat_card"] == 1
-    stat_scene = content.segments[0].scenes[1]
-    assert stat_scene.visual_mode == "stat_card"
-    assert stat_scene.stat_value == "Five hours"
-    assert stat_scene.stat_label == ""
+    assert scene.visual_mode == "stat_card"
+    assert scene.stat_value == "85%"
+    assert scene.stat_label == "of new restaurants close"
+
+
+def test_visual_mode_audit_blanks_an_ungrounded_stat_label():
+    """An LLM label with no narration footing would render invented text."""
+    scene = Scene(
+        id="scene_002",
+        narration="Five hours.",
+        visual_prompt="",
+        visual_mode="stat_card",
+        stat_value="Five hours",
+        stat_label="key metric",
+    )
+    content = ScriptContent(title="Test", segments=[Segment(name="Level 1", scenes=[scene])])
+
+    _audit_visual_mode_metadata(content)
+
+    assert scene.visual_mode == "stat_card"
+    assert scene.stat_value == "Five hours"
+    assert scene.stat_label == ""
 
 
 def test_visual_mode_audit_does_not_promote_relative_time_realization_to_stat_card():
@@ -339,9 +357,8 @@ def test_visual_mode_audit_does_not_promote_relative_time_realization_to_stat_ca
         ],
     )
 
-    counts = _audit_visual_mode_metadata(content)
+    _audit_visual_mode_metadata(content)
 
-    assert counts["stat_card"] == 0
     assert scene.visual_mode == "captions"
     assert scene.caption_text == "You stopped calling it temporary sometime in the last twelve months"
     assert scene.caption_emphasis == "temporary"

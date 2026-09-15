@@ -2413,21 +2413,25 @@ def test_analyze_visual_treatments_preserves_explicit_stat_card_mode():
     assert assignment.visual_layers == scene.visual_layers
 
 
-def test_analyze_visual_treatments_does_not_invent_placeholder_stat_label():
+def test_analyze_visual_treatments_does_not_promote_a_bare_number_to_stat_card():
+    """Whether narration revolves around one decisive figure is a judgment call.
+
+    The analyzer used to make it with a regex, which is how "two years" became a
+    statistic in a shipped video. Script generation owns this mode now.
+    """
     scene = scene_with_words("s1", "5.")
     content = content_with_scenes(scene)
 
     assignments = analyze_visual_treatments(content, script_id="stat-script")
 
     assert len(assignments) == 1
-    assignment = assignments[0]
-    assert assignment.visual_mode == "stat_card"
-    assert assignment.stat_value == "5"
-    assert assignment.stat_label == ""
+    assert assignments[0].visual_mode != "stat_card"
+    assert assignments[0].stat_value == ""
 
 
 def test_apply_visual_treatment_assignment_clears_stale_stat_label():
     scene = scene_with_words("s1", "5.")
+    scene.set_visual_mode("stat_card")
     scene.stat_value = "5"
     scene.stat_label = "key metric"
     content = content_with_scenes(scene)
@@ -2670,3 +2674,72 @@ def test_apply_visual_treatment_assignments_enforces_non_full_frame_spacing():
         "stat_card",
     ]
     assert second.visual_layers == []
+
+
+class TestPopupItemExtraction:
+    """Narration measured from the export where every popup item was a clause.
+
+    The shipped video asked the image model for cutouts of "the belief makes
+    sense. Money buys you out of very real pain — rent stress" and "that
+    gut-drop when you check your bank app", then orbited the results around the
+    anchor. Prose that happens to contain commas is not a list.
+    """
+
+    BROKEN_NARRATION = {
+        "clause_run_on": (
+            "And look, the belief makes sense. Money buys you out of very real pain "
+            "— rent stress, debt, that gut-drop when you check your bank app."
+        ),
+        "two_sentence_study": (
+            "They tracked lottery winners who'd just landed small fortunes, and people "
+            "who'd just become paraplegic in accidents. A year later, both groups rated "
+            "their everyday happiness at almost the exact same level."
+        ),
+    }
+
+    @pytest.mark.parametrize("name", sorted(BROKEN_NARRATION))
+    def test_prose_no_longer_becomes_a_popup(self, name):
+        scene = scene_with_words("s1", self.BROKEN_NARRATION[name])
+        assignments = analyze_visual_treatments(content_with_scenes(scene), script_id="prose")
+        assert assignments[0].visual_mode != "popup_sequence"
+        assert assignments[0].visual_layers == []
+
+    def test_a_genuine_list_still_becomes_a_popup(self):
+        scene = scene_with_words("s1", "Money goes to rent stress, debt, and medical bills.")
+        assignments = analyze_visual_treatments(content_with_scenes(scene), script_id="list")
+        assert assignments[0].visual_mode == "popup_sequence"
+        assert len(assignments[0].visual_layers) == 3
+
+    def test_a_leading_filler_does_not_disqualify_a_list(self):
+        scene = scene_with_words("s1", "And look, rent stress, debt, medical bills.")
+        assignments = analyze_visual_treatments(content_with_scenes(scene), script_id="filler")
+        labels = [layer.label for layer in assignments[0].visual_layers]
+        assert labels == ["rent stress", "debt", "medical bills"]
+
+    def test_one_clause_disqualifies_the_whole_list(self):
+        """Keeping only the valid pieces is what turned paragraphs into popups.
+
+        Mid-list on purpose: a *trailing* clause is stripped as a lead-out by
+        _list_candidate_text, so it never reaches this gate.
+        """
+        scene = scene_with_words(
+            "s1", "Money goes to debt, that sinking feeling when you check the app, and medical bills."
+        )
+        assignments = analyze_visual_treatments(content_with_scenes(scene), script_id="mixed")
+        assert assignments[0].visual_mode != "popup_sequence"
+
+    def test_enumerated_markers_yield_the_phrase_not_the_marker(self):
+        scene = scene_with_words("s1", "First the badge, second the receipt, third the timer.")
+        assignments = analyze_visual_treatments(content_with_scenes(scene), script_id="markers")
+        labels = [layer.label for layer in assignments[0].visual_layers]
+        assert labels == ["the badge", "the receipt", "the timer"]
+        assert not any(label in {"first", "second", "third"} for label in labels)
+
+    def test_each_item_prompt_names_its_own_subject(self):
+        """Every item reused the scene prompt, so every panel looked the same."""
+        scene = scene_with_words("s1", "Money goes to rent stress, debt, and medical bills.")
+        assignments = analyze_visual_treatments(content_with_scenes(scene), script_id="subjects")
+        prompts = [layer.prompt for layer in assignments[0].visual_layers]
+        assert len(set(prompts)) == len(prompts)
+        for layer in assignments[0].visual_layers:
+            assert f"subject is exactly this one item: {layer.label}" in layer.prompt

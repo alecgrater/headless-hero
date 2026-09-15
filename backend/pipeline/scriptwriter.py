@@ -192,25 +192,6 @@ _CAPTION_PROMPT_LEAK_RE = re.compile(
     r"\b(?:caption text|clean sans-serif|words in|text on a dark background|readable caption text)\b",
     re.IGNORECASE,
 )
-_MONEY_STAT_RE = re.compile(r"\$[\d,]+(?:\.\d+)?(?:\s*(?:to|-|and)\s*\$?[\d,]+(?:\.\d+)?)?")
-_DIGIT_STAT_RE = re.compile(
-    r"\b\d+(?:\.\d+)?\s*(?:years?|months?|weeks?|days?|hours?|dollars?|percent|%)\b",
-    re.IGNORECASE,
-)
-_WORD_NUMBER_STAT_RE = re.compile(
-    r"\b(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|"
-    r"fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|"
-    r"eighty|ninety|hundred|thousand|million|billion)(?:[-\s](?:one|two|three|four|five|six|"
-    r"seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|"
-    r"eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|"
-    r"thousand|million|billion))*\s+(?:years?|months?|weeks?|days?|hours?|dollars?)\b",
-    re.IGNORECASE,
-)
-_RELATIVE_TIME_STAT_CONTEXT_RE = re.compile(
-    r"\b(?:sometime|somewhere|last|past|previous|next|ago|later|when|since|until)\b",
-    re.IGNORECASE,
-)
-_TIME_STAT_UNIT_RE = re.compile(r"\b(?:years?|months?|weeks?|days?|hours?)\b", re.IGNORECASE)
 _CAPTION_PUNCH_WORDS = {
     "actually",
     "almost",
@@ -394,33 +375,6 @@ def _caption_candidate_for_scene(scene: Scene) -> tuple[str, str] | None:
     return _caption_candidate_from_narration(scene)
 
 
-def _stat_candidate_for_scene(scene: Scene) -> tuple[str, str] | None:
-    if scene.is_title_card or scene.visual_mode not in _AUDIT_PROMOTABLE_MODES:
-        return None
-    text = scene.narration.strip()
-    matches = (
-        [match.group(0).strip() for match in _MONEY_STAT_RE.finditer(text)]
-        + [match.group(0).strip() for match in _DIGIT_STAT_RE.finditer(text)]
-        + [match.group(0).strip() for match in _WORD_NUMBER_STAT_RE.finditer(text)]
-    )
-    deduped: list[str] = []
-    for value in matches:
-        if value.casefold() not in {existing.casefold() for existing in deduped}:
-            deduped.append(value)
-    if len(deduped) != 1:
-        return None
-    stat_value = deduped[0]
-    if _TIME_STAT_UNIT_RE.search(stat_value) and _RELATIVE_TIME_STAT_CONTEXT_RE.search(text):
-        return None
-    label = re.sub(re.escape(stat_value), "", text, count=1, flags=re.IGNORECASE)
-    label = re.sub(r"^\s*(?:by|in|after|before|around|about|nearly|almost|roughly|with)\b\s*", "", label, flags=re.IGNORECASE)
-    label = re.sub(r"\s+", " ", label.strip(" .,:;—–-"))
-    words = label.split()
-    if len(words) > 10:
-        label = " ".join(words[-10:])
-    return stat_value, label
-
-
 def _audit_can_promote(scene: Scene, previous_mode: str, next_mode: str) -> bool:
     if scene.is_title_card or scene.visual_mode not in _AUDIT_PROMOTABLE_MODES:
         return False
@@ -443,18 +397,18 @@ def _set_text_only_caption(scene: Scene, caption_text: str, caption_emphasis: st
     scene.frame_urls = []
 
 
-def _set_stat_card(scene: Scene, stat_value: str, stat_label: str) -> None:
-    scene.set_visual_mode("stat_card")
-    scene.stat_value = stat_value
-    scene.stat_label = stat_label
-    scene.visual_prompt = ""
-    scene.frame_directives = []
-    scene.image_url = ""
-    scene.frame_urls = []
-
-
 def _audit_visual_mode_metadata(content: ScriptContent) -> dict[str, int]:
-    """Promote obvious metadata-only caption/stat opportunities before voiceover."""
+    """Promote obvious metadata-only caption opportunities before voiceover.
+
+    Stat cards are deliberately not promoted here. "Does this narration revolve
+    around one decisive figure?" is a judgment call with the whole script in
+    view, and a regex cannot make it: scanning for a number turned "grinding
+    toward for two years" into the statistic "two years", with a label built by
+    deleting that phrase and keeping the last ten words of what was left — the
+    mid-sentence fragment "get the raise. The one you've been grinding toward
+    for" rendered under a giant "two years" in a shipped video. A stat card now
+    exists only when script generation asks for one.
+    """
     scenes = [scene for scene in content.all_scenes() if not scene.is_title_card]
     leaked_scene_ids = [
         scene.id
@@ -467,7 +421,7 @@ def _audit_visual_mode_metadata(content: ScriptContent) -> dict[str, int]:
             f"in scenes: {', '.join(leaked_scene_ids)}"
         )
 
-    counts = {"captions": 0, "stat_card": 0}
+    counts = {"captions": 0}
     if not scenes:
         return counts
 
@@ -493,20 +447,11 @@ def _audit_visual_mode_metadata(content: ScriptContent) -> dict[str, int]:
         counts["captions"] += 1
 
     target_caption_count = min(6, max(2, len(scenes) // 18))
-    max_stat_count = 2
 
     modes_by_index = [scene.visual_mode or "full_frame" for scene in scenes]
     for index, scene in enumerate(scenes):
         previous_mode = modes_by_index[index - 1] if index > 0 else "full_frame"
         next_mode = modes_by_index[index + 1] if index < len(scenes) - 1 else "full_frame"
-        if counts["stat_card"] < max_stat_count and _audit_can_promote(scene, previous_mode, next_mode):
-            stat_candidate = _stat_candidate_for_scene(scene)
-            if stat_candidate is not None:
-                stat_value, stat_label = stat_candidate
-                _set_stat_card(scene, stat_value, stat_label)
-                modes_by_index[index] = "stat_card"
-                counts["stat_card"] += 1
-                continue
         if counts["captions"] < target_caption_count and _audit_can_promote(scene, previous_mode, next_mode):
             caption_candidate = _caption_candidate_for_scene(scene)
             if caption_candidate is not None:
