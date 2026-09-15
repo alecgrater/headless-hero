@@ -11,7 +11,7 @@ from PIL import Image
 from pydantic import BaseModel, Field
 
 from config import DATA_DIR, IMAGE_HEIGHT, IMAGE_WIDTH
-from integrations.image_client import generate_image
+from integrations.image_client import CUTOUT_SHEET, generate_image
 from pipeline.asset_vault import save_vault_image
 from pipeline.character_assets import process_character_asset_bundle
 from pipeline.cutout_chroma import key_out_background, sample_background_rgb, save_keyed_trimmed_cutout
@@ -129,7 +129,16 @@ def generate_popup_crop_item_sheet(
 
     composed_item_prompt = _compose_item_sheet_prompt(item_prompt, cleaned_items)
     generated_sheet_path = Path(
-        generate_image(composed_item_prompt, width=IMAGE_WIDTH, height=IMAGE_HEIGHT, script_id=PROJECT_ID)
+        generate_image(
+            composed_item_prompt,
+            width=IMAGE_WIDTH,
+            height=IMAGE_HEIGHT,
+            script_id=PROJECT_ID,
+            # Same escalation as production: the sheet is chroma-keyed, and a
+            # Test Lab that keys a different model's output is not a test of
+            # production. The anchor above stays local, also matching.
+            purpose=CUTOUT_SHEET,
+        )
     )
 
     sheet_path = output_dir / "item_sheet.png"
