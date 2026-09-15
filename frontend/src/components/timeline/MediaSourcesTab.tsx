@@ -148,6 +148,7 @@ export default function MediaSourcesTab({
           <h3 className="text-sm font-semibold text-neutral-100">Visual Mode Review</h3>
           <p className="text-xs text-neutral-500">
             Script generation plans visual rhythm before voiceover; validation prepares timing, layers, and safe video choices.
+            This runs automatically before images are generated — use this button only to re-run it after editing scenes.
           </p>
         </div>
         <button

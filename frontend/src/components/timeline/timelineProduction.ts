@@ -1,5 +1,42 @@
 export type ProductionTask = "lf-seo" | "sf-thumbnails" | "sf-seo" | "sf-renders" | "thumbnails-combined" | "seo-combined" | "export-combined";
 
+import type { ScriptContent } from "../../types/script";
+import { LAYERED_PREP_MODES, sceneVisualAssetsComplete } from "./assetCompletion";
+
+/** Layered scenes whose cutout assets the analysis still has to specify. */
+export function scenesNeedingVisualModePrep(content: ScriptContent): number {
+  return content.segments
+    .flatMap((seg) => seg.scenes)
+    .filter(
+      (sc) =>
+        !sc.is_title_card &&
+        LAYERED_PREP_MODES.has(sc.visual_mode ?? "full_frame") &&
+        !sceneVisualAssetsComplete(sc),
+    ).length;
+}
+
+/** True when the whole-script visual mode analysis still needs to run.
+ *
+ * Counting layered scenes that lack assets is not enough on its own: the
+ * analysis also fills scene timing, confirms video eligibility, and can promote
+ * scenes *into* the layered modes. A script that generated none of those modes
+ * skipped the stage entirely and never got any of it, which made "Prepare
+ * Visual Modes" a button the operator had to know to press first.
+ */
+export function needsVisualModePrep(content: ScriptContent): boolean {
+  if (!content.visual_modes_prepared) return true;
+  return scenesNeedingVisualModePrep(content) > 0;
+}
+
+/** Whether the analysis can run yet — it reads word-level voiceover timing. */
+export function canPrepareVisualModes(content: ScriptContent): boolean {
+  const nonTitle = content.segments.flatMap((seg) => seg.scenes).filter((sc) => !sc.is_title_card);
+  if (nonTitle.length === 0) return false;
+  return nonTitle.every(
+    (sc) => (sc.audio_duration_seconds ?? 0) > 0 && (sc.word_timestamps?.length ?? 0) > 0,
+  );
+}
+
 /**
  * Every stage the YOLO pipeline can run, in execution order.
  *

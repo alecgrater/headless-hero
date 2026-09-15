@@ -100,6 +100,7 @@ import { LongFormThumbnailsPanel } from "./ThumbnailsPanel";
 import { YoloProgressStrip } from "./YoloProgressStrip";
 import { YoloRunSummary } from "./YoloRunSummary";
 import type { ProductionTask, YoloStageKey } from "./timelineProduction";
+import { canPrepareVisualModes, needsVisualModePrep } from "./timelineProduction";
 import { YoloRunController, unresolvedStages, type YoloRunRecord } from "./yoloRun";
 import type { ThumbnailPhaseItem, ThumbnailPhaseStatus } from "./ThumbnailPhaseProgress";
 import { LAYERED_PREP_MODES, sceneVisualAssetsComplete } from "./assetCompletion";
@@ -530,17 +531,6 @@ function getCreationStatus(content: ScriptContent, projectConfig?: ProjectConfig
 // assets for the scene (see _generate_one_scene), so the images-complete check can
 // never pass for them. The mode set lives in assetCompletion to stay in sync with
 // sceneVisualAssetsComplete.
-function scenesNeedingVisualModePrep(content: ScriptContent): number {
-  return content.segments
-    .flatMap((seg) => seg.scenes)
-    .filter(
-      (sc) =>
-        !sc.is_title_card &&
-        LAYERED_PREP_MODES.has(sc.visual_mode ?? "full_frame") &&
-        !sceneVisualAssetsComplete(sc),
-    ).length;
-}
-
 function batchProgressValue(progress: { total: number; completed: number; failed: number }) {
   if (progress.total <= 0) return null;
   return Math.min(1, (progress.completed + progress.failed) / progress.total);
@@ -1671,10 +1661,60 @@ function TimelineEditor({
     void state.generateImage(sceneId);
   }, [requireMainCharacterReference, state]);
 
+  const prepareVisualModes = useCallback(async (): Promise<boolean> => {
+    // Populate layer specs for layered visual modes (popup_sequence / comparison_board)
+    // so batch image generation can produce their cutout assets, fill scene timing,
+    // and confirm video eligibility. Same analyze + apply the "Prepare Visual Modes"
+    // button runs, but awaited inline so callers can run it as a prerequisite.
+    const { job_id } = await analyzeVisualTreatments(scriptId);
+    let assignments: VisualTreatmentAssignment[] | null = null;
+    // Poll until the analysis job resolves, capped to avoid an infinite loop.
+    for (let attempt = 0; attempt < 150; attempt += 1) {
+      if (yoloCancelledRef.current) return false;
+      const status = await getVisualTreatmentStatus(job_id);
+      if (status.status === "completed") {
+        assignments = status.assignments ?? [];
+        break;
+      }
+      if (status.status === "failed" || status.status === "cancelled") {
+        throw new Error(status.error || "Visual mode analysis failed");
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+    }
+    if (assignments === null) {
+      throw new Error("Visual mode analysis timed out");
+    }
+    if (yoloCancelledRef.current) return false;
+    const result = await applyVisualTreatmentAssignments(scriptId, assignments);
+    if (yoloCancelledRef.current) return false;
+    state.setContent(result.script);
+    setVisualTreatmentAssignments(assignments);
+    return true;
+  }, [scriptId, state]);
+
+  /** Run the analysis if it has not run yet, so generating images never depends
+   *  on the operator having pressed "Prepare Visual Modes" first. A failure here
+   *  is logged and swallowed: images generated without fresh layer specs are
+   *  better than no images at all. */
+  const ensureVisualModesPrepared = useCallback(async () => {
+    if (!needsVisualModePrep(state.content) || !canPrepareVisualModes(state.content)) return;
+    setVisualTreatmentAnalyzing(true);
+    try {
+      await prepareVisualModes();
+    } catch (err) {
+      console.error("Automatic visual mode preparation failed", err);
+    } finally {
+      setVisualTreatmentAnalyzing(false);
+    }
+  }, [prepareVisualModes, state.content]);
+
   const generateAllImagesWithCharacterGate = useCallback((missingOnly = false) => {
     if (!requireMainCharacterReference()) return;
-    void state.generateAllImages(missingOnly);
-  }, [requireMainCharacterReference, state]);
+    void (async () => {
+      await ensureVisualModesPrepared();
+      await state.generateAllImages(missingOnly);
+    })();
+  }, [ensureVisualModesPrepared, requireMainCharacterReference, state]);
 
   // Find which segment the selected scene is in
   const selectedScene = state.selectedSceneId
@@ -2538,36 +2578,6 @@ function TimelineEditor({
     }
   }, [refreshLongFormThumbnailsInline, scriptId, state.content.format_id]);
 
-  const runVisualModePrepForYolo = useCallback(async (): Promise<boolean> => {
-    // Populate layer specs for layered visual modes (popup_sequence / comparison_board)
-    // so batch image generation can produce their cutout assets. Mirrors the manual
-    // "Prepare Visual Modes" analyze + apply flow, but awaits inline for the pipeline.
-    const { job_id } = await analyzeVisualTreatments(scriptId);
-    let assignments: VisualTreatmentAssignment[] | null = null;
-    // Poll until the analysis job resolves, capped to avoid an infinite loop.
-    for (let attempt = 0; attempt < 150; attempt += 1) {
-      if (yoloCancelledRef.current) return false;
-      const status = await getVisualTreatmentStatus(job_id);
-      if (status.status === "completed") {
-        assignments = status.assignments ?? [];
-        break;
-      }
-      if (status.status === "failed" || status.status === "cancelled") {
-        throw new Error(status.error || "Visual mode analysis failed");
-      }
-      await new Promise((resolve) => setTimeout(resolve, 1200));
-    }
-    if (assignments === null) {
-      throw new Error("Visual mode analysis timed out");
-    }
-    if (yoloCancelledRef.current) return false;
-    const result = await applyVisualTreatmentAssignments(scriptId, assignments);
-    if (yoloCancelledRef.current) return false;
-    state.setContent(result.script);
-    setVisualTreatmentAssignments(assignments);
-    return true;
-  }, [scriptId, state]);
-
   const runYoloCreationPipeline = useCallback(async (voiceId: string, controller: YoloRunController) => {
     let latest = await refreshScriptContent();
     let status = getCreationStatus(latest, projectConfig);
@@ -2618,12 +2628,12 @@ function TimelineEditor({
     if (controller.stopped) return false;
 
     await controller.stage("visual-modes", {
-      skip: () => scenesNeedingVisualModePrep(latest) === 0,
+      skip: () => !needsVisualModePrep(latest) || !canPrepareVisualModes(latest),
       // No verify: the analyzer fills per-scene layer specs, but the assets
       // those specs describe are generated by the images stage — so the
       // "needs prep" predicate is still true at this point by design.
       run: async () => {
-        const prepared = await runVisualModePrepForYolo();
+        const prepared = await prepareVisualModes();
         if (!prepared && !yoloCancelledRef.current) {
           throw new Error("Visual mode preparation did not complete");
         }
@@ -2679,8 +2689,8 @@ function TimelineEditor({
     ensureLongFormThumbnailForYolo,
     refreshScriptContent,
     runMissingEliForYolo,
+    prepareVisualModes,
     runMissingFXForYolo,
-    runVisualModePrepForYolo,
     state,
     titleCardProgress,
     projectConfig,

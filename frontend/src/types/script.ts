@@ -185,6 +185,8 @@ export interface ScriptContent {
   script_rating?: ScriptRating | null;
   // AI video media routing
   ai_video_enabled?: boolean;
+  /** True once whole-script visual mode analysis has been applied. */
+  visual_modes_prepared?: boolean;
   // Short-form export
   hook_scene_count?: number | null;  // Leading scenes in segment 0 that are hook teasers; skipped from short #1
   // Script format

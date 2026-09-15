@@ -256,6 +256,9 @@ def apply_visual_treatments(
     content = ScriptContent.model_validate_json(record.script_json)
     content.title = record.topic_title or content.title
     apply_visual_treatment_assignments(content, request.assignments)
+    # Whole-script apply only. The per-scene endpoint below is a manual override
+    # of one scene and says nothing about whether the script has been analysed.
+    content.visual_modes_prepared = True
     record.script_json = content.model_dump_json()
     session.add(record)
     session.commit()

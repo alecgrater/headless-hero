@@ -428,6 +428,10 @@ class ScriptContent(BaseModel):
     hook_scene_count: int | None = None  # Number of leading scenes in segment 0 that are hook teasers; skipped from short #1
     # --- Media source routing ---
     ai_video_enabled: bool = False
+    # Set once the whole-script visual mode analysis has been applied. The
+    # pipeline runs that analysis itself when this is false, so preparing visual
+    # modes is never a button the operator has to remember to press first.
+    visual_modes_prepared: bool = False
     # --- Format awareness ---
     format_id: str = "youtube-listicle"
     cinematic_thumbnail_prompt: str | None = None
