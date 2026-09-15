@@ -130,6 +130,8 @@ CAPTION_PUNCH_MARKERS = {
     "mistake",
     "trap",
 }
+
+
 class VisualTreatmentAssignment(BaseModel):
     scene_id: str
     visual_mode: str = "full_frame"
@@ -579,7 +581,14 @@ def _marker_list_items(scene: Scene) -> list[tuple[str, float]]:
     if len(matches) < 2:
         return []
 
+    # Positional pairing with the spoken markers is only sound when both lists
+    # describe the same markers. _MARKER_PHRASE_RE requires trailing whitespace,
+    # so a marker followed by "." or an em-dash ("…the first. Second, X, third,
+    # Y.") reaches _matching_words and not the regex; pairing by index would
+    # then give every item the previous marker's start time. On any mismatch,
+    # fall back to locating each phrase's own first content word.
     spoken = _matching_words(scene, LIST_MARKERS)
+    aligned = spoken if len(spoken) == len(matches) else []
     items: list[tuple[str, float]] = []
     for index, match in enumerate(matches):
         end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
@@ -589,8 +598,8 @@ def _marker_list_items(scene: Scene) -> list[tuple[str, float]]:
         if not _is_list_item_phrase(phrase):
             return []
         start = (
-            spoken[index][1]
-            if index < len(spoken)
+            aligned[index][1]
+            if aligned
             else _phrase_start_seconds(scene, phrase, index, len(matches))
         )
         items.append((phrase, start))

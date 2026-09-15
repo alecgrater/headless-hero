@@ -2735,6 +2735,18 @@ class TestPopupItemExtraction:
         assert labels == ["the badge", "the receipt", "the timer"]
         assert not any(label in {"first", "second", "third"} for label in labels)
 
+    def test_a_marker_the_phrase_regex_cannot_see_does_not_skew_timing(self):
+        """A marker followed by "." reaches the spoken-word scan but not the
+        phrase regex, so pairing the two lists by index gave every item the
+        previous marker's start time and popped it in early."""
+        scene = scene_with_words("s1", "You see the first. Second the badge, third the timer.")
+        assignments = analyze_visual_treatments(content_with_scenes(scene), script_id="skew")
+        layers = assignments[0].visual_layers
+        assert [layer.label for layer in layers] == ["the badge", "the timer"]
+        # "badge" is spoken at 2.1s; the stray "first" is at 1.05s.
+        assert layers[0].enter_at_seconds == pytest.approx(2.1, abs=0.01)
+        assert layers[1].enter_at_seconds == pytest.approx(3.15, abs=0.01)
+
     def test_each_item_prompt_names_its_own_subject(self):
         """Every item reused the scene prompt, so every panel looked the same."""
         scene = scene_with_words("s1", "Money goes to rent stress, debt, and medical bills.")

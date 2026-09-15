@@ -1,7 +1,7 @@
-export type ProductionTask = "lf-seo" | "sf-thumbnails" | "sf-seo" | "sf-renders" | "thumbnails-combined" | "seo-combined" | "export-combined";
-
 import type { ScriptContent } from "../../types/script";
 import { LAYERED_PREP_MODES, sceneVisualAssetsComplete } from "./assetCompletion";
+
+export type ProductionTask = "lf-seo" | "sf-thumbnails" | "sf-seo" | "sf-renders" | "thumbnails-combined" | "seo-combined" | "export-combined";
 
 /** Layered scenes whose cutout assets the analysis still has to specify. */
 export function scenesNeedingVisualModePrep(content: ScriptContent): number {
@@ -35,6 +35,18 @@ export function canPrepareVisualModes(content: ScriptContent): boolean {
   return nonTitle.every(
     (sc) => (sc.audio_duration_seconds ?? 0) > 0 && (sc.word_timestamps?.length ?? 0) > 0,
   );
+}
+
+/** Scene ids whose missing voiceover timing is holding preparation back. */
+export function blockingVisualModePrepSceneIds(content: ScriptContent): string[] {
+  return content.segments
+    .flatMap((seg) => seg.scenes)
+    .filter(
+      (sc) =>
+        !sc.is_title_card &&
+        ((sc.audio_duration_seconds ?? 0) <= 0 || (sc.word_timestamps?.length ?? 0) <= 0),
+    )
+    .map((sc) => sc.id);
 }
 
 /**

@@ -31,7 +31,7 @@ def alignment(*word_end_seconds: float) -> list[dict]:
 def stub_backend(monkeypatch):
     monkeypatch.setattr(local_tts_client, "ensure_daemon", lambda backend: None)
     monkeypatch.setattr(local_tts_client, "_post_speech", lambda **kwargs: make_wav(1.0))
-    monkeypatch.setattr(local_tts_client, "_wav_to_mp3", lambda data, trim=0.0: b"ID3FAKEMP3")
+    monkeypatch.setattr(local_tts_client, "_wav_to_mp3", lambda data, trim_to_seconds=0.0: b"ID3FAKEMP3")
     # Without this every run inserts api_usage rows into the real data/db.sqlite.
     monkeypatch.setattr(local_tts_client, "record_usage", lambda **kwargs: None)
     monkeypatch.setattr(
@@ -181,7 +181,7 @@ class TestRunawayGeneration:
         monkeypatch.setattr(
             local_tts_client,
             "_wav_to_mp3",
-            lambda data, trim=0.0: trims.append(trim) or b"ID3FAKEMP3",
+            lambda data, trim_to_seconds=0.0: trims.append(trim_to_seconds) or b"ID3FAKEMP3",
         )
         local_tts_client.generate_speech(text=self.five_word_text(), voice_id="narrator")
         assert trims == [pytest.approx(5.25, abs=0.01)]
@@ -193,7 +193,7 @@ class TestRunawayGeneration:
         monkeypatch.setattr(
             local_tts_client,
             "_wav_to_mp3",
-            lambda data, trim=0.0: trims.append(trim) or b"ID3FAKEMP3",
+            lambda data, trim_to_seconds=0.0: trims.append(trim_to_seconds) or b"ID3FAKEMP3",
         )
         local_tts_client.generate_speech(text=self.five_word_text(), voice_id="narrator")
         assert trims == [0.0]
