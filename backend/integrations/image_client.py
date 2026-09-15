@@ -15,8 +15,10 @@ from integrations.google_image_client import GoogleBatchImageRequest, GoogleBatc
 from integrations.local_models import active_model, modality_source
 
 __all__ = [
+    "CUTOUT_SHEET",
     "GoogleBatchImageRequest",
     "GoogleBatchImageResult",
+    "SCENE",
     "generate_image",
     "generate_images_batch",
     "provider_fingerprint",
@@ -28,6 +30,21 @@ logger = logging.getLogger(__name__)
 
 CLOUD_PROVIDER = "google"
 
+# What the generated image is for. Most images are shown as generated; a few are
+# raw material for a post-processing pass that can only succeed if the model
+# actually obeyed the prompt's negative instructions.
+SCENE = "scene"
+CUTOUT_SHEET = "cutout_sheet"
+
+# Purposes that need strict negative-instruction compliance. A contact sheet is
+# cropped and chroma-keyed into transparent cutouts, so "flat chroma background,
+# no frames, no text" are load-bearing, not stylistic. FLUX.2 klein-4B ignores
+# all three: a measured export produced framed magenta panels with narration
+# text baked in, on a green field, and the keyer could only remove the gutters —
+# 38 of 40 cutouts came out as opaque rectangles. Scene images from the same
+# model are fine, because nothing downstream has to cut them apart.
+STRICT_INSTRUCTION_PURPOSES = frozenset({CUTOUT_SHEET})
+
 
 def _cloud_provider() -> str:
     """The cloud image provider. Google is the only supported backend."""
@@ -37,23 +54,64 @@ def _cloud_provider() -> str:
     return CLOUD_PROVIDER
 
 
-def resolved_provider() -> str:
-    """"local" or "google" for the current mode.
+def _cutout_provider_preference() -> str:
+    """`auto`, `local`, or `cloud` for cutout sheets generated in Local Mode.
+
+    Deliberately a separate key from LOCAL_IMAGE_MODE with a different suffix:
+    `auto` here means "escalate to the cloud when a key exists", not "follow the
+    master switch". Same word, different question.
+    """
+    value = (os.environ.get("LOCAL_IMAGE_CUTOUT_PROVIDER") or "auto").strip().lower()
+    if value not in {"auto", "local", "cloud"}:
+        logger.warning("Unknown LOCAL_IMAGE_CUTOUT_PROVIDER %r; using auto", value)
+        return "auto"
+    return value
+
+
+def _cloud_image_key_available() -> bool:
+    return bool((os.environ.get("GOOGLE_AI_KEY") or "").strip())
+
+
+def _escalates_to_cloud(purpose: str) -> bool:
+    """True when a Local Mode image should be generated on the cloud anyway.
+
+    A handful of cutout sheets per video is ~$0.04 each — cheap next to the
+    scene images that make Local Mode worth using — so `auto` buys back the one
+    thing the local model cannot do. `local` keeps a fully offline install
+    offline, and an install with no cloud key stays local regardless.
+    """
+    if purpose not in STRICT_INSTRUCTION_PURPOSES:
+        return False
+    preference = _cutout_provider_preference()
+    if preference == "local":
+        return False
+    if preference == "cloud":
+        return True
+    return _cloud_image_key_available()
+
+
+def resolved_provider(purpose: str = SCENE) -> str:
+    """"local" or "google" for the current mode and image purpose.
 
     Local Mode wins over IMAGE_PROVIDER, which only selects among cloud
-    backends.
+    backends — except for purposes the local model demonstrably cannot serve.
     """
-    return "local" if modality_source("image") == "local" else _cloud_provider()
+    if modality_source("image") != "local":
+        return _cloud_provider()
+    if _escalates_to_cloud(purpose):
+        return _cloud_provider()
+    return "local"
 
 
-def provider_fingerprint() -> str:
+def provider_fingerprint(purpose: str = SCENE) -> str:
     """Stable identity of the active image engine, for cache markers.
 
     Cloud-generated and locally generated images are not interchangeable, and
     neither are images from two different local models, so this value is part
-    of every image cache marker.
+    of every image cache marker. Purpose matters too: flipping cutout
+    escalation has to invalidate cutout caches without touching scene images.
     """
-    if resolved_provider() == "local":
+    if resolved_provider(purpose) == "local":
         return f"local:{active_model('image').id}"
     return CLOUD_PROVIDER
 
@@ -66,6 +124,7 @@ def generate_image(
     style_reference_path: str | None = None,
     original_prompt: str | None = None,
     script_id: str | None = None,
+    purpose: str = SCENE,
 ) -> str:
     """Generate an image using the configured provider.
 
@@ -73,12 +132,16 @@ def generate_image(
     visual references for character and global-style consistency.
     original_prompt is the raw visual description before the style guide was
     prepended; the Google provider uses it to retry content-filter blocks.
+    purpose selects the provider for images that are post-processed rather than
+    shown as generated — see STRICT_INSTRUCTION_PURPOSES.
     """
-    provider = resolved_provider()
+    provider = resolved_provider(purpose)
     logger.info(
-        "Image generation via %s (width=%d, height=%d, has_reference=%s, has_style_ref=%s)",
-        provider, width, height, reference_image_path is not None, style_reference_path is not None,
+        "Image generation via %s (purpose=%s, width=%d, height=%d, has_reference=%s, has_style_ref=%s)",
+        provider, purpose, width, height, reference_image_path is not None, style_reference_path is not None,
     )
+    if purpose in STRICT_INSTRUCTION_PURPOSES and modality_source("image") == "local" and provider != "local":
+        logger.info("Escalating %s to %s: the local image model cannot hold a keyable cutout sheet", purpose, provider)
 
     if provider == "local":
         from integrations.local_image_client import generate_image as _gen

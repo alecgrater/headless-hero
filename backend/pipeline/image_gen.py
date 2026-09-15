@@ -14,6 +14,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 from config import DATA_DIR, IMAGE_HEIGHT, IMAGE_WIDTH, VIDEO_HEIGHT, VIDEO_WIDTH
 from integrations.image_client import (
+    CUTOUT_SHEET,
     GoogleBatchImageRequest,
     generate_image,
     generate_images_batch,
@@ -626,6 +627,10 @@ def generate_popup_sequence_cutouts(
             "anchor_prompt": anchor_prompt,
             "anchor_fallback_reason": anchor_fallback_reason,
             "item_prompt": item_prompt,
+            # The marker's own `#engine:` tag covers the anchor, which follows the
+            # scene provider. The item sheet can be escalated to the cloud
+            # independently, so its engine has to be part of the cache key too.
+            "cutout_engine": provider_fingerprint(CUTOUT_SHEET),
             "anchor_reference": _reference_fingerprint(anchor_reference_path),
             "anchor_style_reference": _reference_fingerprint(anchor_style_reference_path),
             "labels": labels,
@@ -809,6 +814,7 @@ def generate_comparison_board_cutouts(
     prompt_fingerprint = json.dumps(
         {
             "item_prompt": item_prompt,
+            "cutout_engine": provider_fingerprint(CUTOUT_SHEET),
             "labels": labels,
             "layers": [
                 {
@@ -1081,6 +1087,7 @@ def generate_stat_card_cutout(
     prompt_fingerprint = json.dumps(
         {
             "icon_prompt": composed_prompt,
+            "cutout_engine": provider_fingerprint(CUTOUT_SHEET),
             "width": width,
             "height": height,
             "layer": {
@@ -1103,7 +1110,9 @@ def generate_stat_card_cutout(
 
     if not cache_valid:
         logger.info("[STAT_CARD] generating icon cutout scene=%s", scene_id)
-        generated_path = Path(generate_image(composed_prompt, width=width, height=height, script_id=script_id))
+        generated_path = Path(
+            generate_image(composed_prompt, width=width, height=height, script_id=script_id, purpose=CUTOUT_SHEET)
+        )
         sheet_path = output_dir / "icon_source.png"
         if generated_path.resolve() != sheet_path.resolve():
             shutil.copyfile(generated_path, sheet_path)
@@ -1221,7 +1230,9 @@ def _generate_popup_item_cutouts(
     height: int,
     script_id: str,
 ) -> None:
-    generated_path = Path(generate_image(item_prompt, width=width, height=height, script_id=script_id))
+    generated_path = Path(
+        generate_image(item_prompt, width=width, height=height, script_id=script_id, purpose=CUTOUT_SHEET)
+    )
     sheet_path = output_dir / "item_sheet.png"
     if generated_path.resolve() != sheet_path.resolve():
         shutil.copyfile(generated_path, sheet_path)
@@ -1249,7 +1260,9 @@ def _generate_comparison_subject_cutouts(
     height: int,
     script_id: str,
 ) -> None:
-    generated_path = Path(generate_image(item_prompt, width=width, height=height, script_id=script_id))
+    generated_path = Path(
+        generate_image(item_prompt, width=width, height=height, script_id=script_id, purpose=CUTOUT_SHEET)
+    )
     sheet_path = output_dir / "subject_sheet.png"
     if generated_path.resolve() != sheet_path.resolve():
         shutil.copyfile(generated_path, sheet_path)
@@ -1406,8 +1419,15 @@ def _comparison_cutout_placement(placement: str, index: int, total: int) -> str:
 
 
 def _popup_item_label(layer: dict, index: int) -> str:
+    # The label is carried on the layer by _popup_layers. Parsing it back out of
+    # the prompt is the fallback for layers built elsewhere (the analyzer's own
+    # visual_layers, Test Lab fixtures), and is why the prompt's opening
+    # sentence stays in the "…for {item}." shape.
+    carried = _clean_popup_label(str(layer.get("label") or ""))
+    if carried:
+        return carried
     prompt = str(layer.get("prompt") or "").strip()
-    match = re.search(r"\bfor\s+(.+?):", prompt, flags=re.IGNORECASE)
+    match = re.search(r"\bfor\s+(.+?)[.:]", prompt, flags=re.IGNORECASE)
     if match:
         return _clean_popup_label(match.group(1))
     prompt = re.sub(r"small framed Headless Hero cartoon panel[:,]?\s*", "", prompt, flags=re.IGNORECASE)

@@ -217,3 +217,95 @@ def test_provider_fingerprint_distinguishes_modes_and_models(monkeypatch):
 
     assert first.startswith("local:")
     assert first != second != "google"
+
+
+class TestCutoutSheetEscalation:
+    """A cutout sheet is cropped and chroma-keyed, so the generator has to obey
+    'flat chroma background, no frames, no text'. FLUX.2 klein-4B does not."""
+
+    @pytest.fixture(autouse=True)
+    def _local_images_with_a_cloud_key(self, monkeypatch):
+        _enable_local_images(monkeypatch)
+        monkeypatch.setenv("GOOGLE_AI_KEY", "test-key")
+        monkeypatch.delenv("LOCAL_IMAGE_CUTOUT_PROVIDER", raising=False)
+
+    def test_scene_images_stay_local(self, monkeypatch):
+        from integrations import image_client, local_image_client
+
+        monkeypatch.setattr(local_image_client, "generate_image", lambda *a, **k: "/tmp/local.png")
+        assert image_client.generate_image("a scene") == "/tmp/local.png"
+        assert image_client.resolved_provider(image_client.SCENE) == "local"
+
+    def test_cutout_sheets_escalate_to_the_cloud(self, monkeypatch):
+        from integrations import google_image_client, image_client
+
+        monkeypatch.setattr(google_image_client, "generate_image", lambda *a, **k: "/tmp/google.png")
+        result = image_client.generate_image("a sheet", purpose=image_client.CUTOUT_SHEET)
+        assert result == "/tmp/google.png"
+
+    def test_no_cloud_key_keeps_cutouts_local(self, monkeypatch):
+        """An offline install must still produce cutouts, imperfect or not."""
+        from integrations import image_client, local_image_client
+
+        monkeypatch.delenv("GOOGLE_AI_KEY", raising=False)
+        monkeypatch.setattr(local_image_client, "generate_image", lambda *a, **k: "/tmp/local.png")
+        assert image_client.generate_image("a sheet", purpose=image_client.CUTOUT_SHEET) == "/tmp/local.png"
+
+    def test_blank_cloud_key_keeps_cutouts_local(self, monkeypatch):
+        from integrations import image_client, local_image_client
+
+        monkeypatch.setenv("GOOGLE_AI_KEY", "   ")
+        monkeypatch.setattr(local_image_client, "generate_image", lambda *a, **k: "/tmp/local.png")
+        assert image_client.generate_image("a sheet", purpose=image_client.CUTOUT_SHEET) == "/tmp/local.png"
+
+    def test_pinning_local_keeps_cutouts_local(self, monkeypatch):
+        from integrations import image_client, local_image_client
+
+        monkeypatch.setenv("LOCAL_IMAGE_CUTOUT_PROVIDER", "local")
+        monkeypatch.setattr(local_image_client, "generate_image", lambda *a, **k: "/tmp/local.png")
+        assert image_client.generate_image("a sheet", purpose=image_client.CUTOUT_SHEET) == "/tmp/local.png"
+
+    def test_pinning_cloud_escalates_without_a_key(self, monkeypatch):
+        """An explicit choice is honoured; the provider surfaces its own key error."""
+        from integrations import google_image_client, image_client
+
+        monkeypatch.delenv("GOOGLE_AI_KEY", raising=False)
+        monkeypatch.setenv("LOCAL_IMAGE_CUTOUT_PROVIDER", "cloud")
+        monkeypatch.setattr(google_image_client, "generate_image", lambda *a, **k: "/tmp/google.png")
+        assert image_client.generate_image("a sheet", purpose=image_client.CUTOUT_SHEET) == "/tmp/google.png"
+
+    def test_unknown_preference_falls_back_to_auto(self, monkeypatch):
+        from integrations import google_image_client, image_client
+
+        monkeypatch.setenv("LOCAL_IMAGE_CUTOUT_PROVIDER", "sideways")
+        monkeypatch.setattr(google_image_client, "generate_image", lambda *a, **k: "/tmp/google.png")
+        assert image_client.generate_image("a sheet", purpose=image_client.CUTOUT_SHEET) == "/tmp/google.png"
+
+    def test_cloud_mode_is_unaffected_by_the_cutout_preference(self, monkeypatch):
+        from integrations import google_image_client, image_client
+
+        monkeypatch.setenv("LOCAL_MODELS_ENABLED", "false")
+        monkeypatch.setenv("LOCAL_IMAGE_CUTOUT_PROVIDER", "local")
+        monkeypatch.setattr(google_image_client, "generate_image", lambda *a, **k: "/tmp/google.png")
+        assert image_client.generate_image("a sheet", purpose=image_client.CUTOUT_SHEET) == "/tmp/google.png"
+
+    def test_fingerprints_differ_by_purpose(self, monkeypatch):
+        """Otherwise flipping escalation would reuse the old broken cutouts."""
+        from integrations import image_client
+
+        assert image_client.provider_fingerprint(image_client.SCENE).startswith("local:")
+        assert image_client.provider_fingerprint(image_client.CUTOUT_SHEET) == "google"
+
+    def test_cutout_fingerprint_tracks_the_preference(self, monkeypatch):
+        from integrations import image_client
+
+        monkeypatch.setenv("LOCAL_IMAGE_CUTOUT_PROVIDER", "local")
+        assert image_client.provider_fingerprint(image_client.CUTOUT_SHEET).startswith("local:")
+        monkeypatch.setenv("LOCAL_IMAGE_CUTOUT_PROVIDER", "cloud")
+        assert image_client.provider_fingerprint(image_client.CUTOUT_SHEET) == "google"
+
+    def test_default_purpose_is_scene(self, monkeypatch):
+        from integrations import image_client
+
+        assert image_client.provider_fingerprint() == image_client.provider_fingerprint(image_client.SCENE)
+        assert image_client.resolved_provider() == image_client.resolved_provider(image_client.SCENE)

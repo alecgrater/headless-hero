@@ -7,9 +7,17 @@ import { useDebouncedAutosave } from "./useDebouncedAutosave";
 
 export type Modality = "text" | "image" | "voice";
 export type ModalityMode = "auto" | "local" | "cloud";
+export type CutoutProvider = "auto" | "local" | "cloud";
 
 const MODALITIES: Modality[] = ["text", "image", "voice"];
 const MODES: ModalityMode[] = ["auto", "local", "cloud"];
+const CUTOUT_PROVIDERS: CutoutProvider[] = ["auto", "local", "cloud"];
+
+const CUTOUT_PROVIDER_LABELS: Record<CutoutProvider, string> = {
+  auto: "Auto",
+  local: "Always local",
+  cloud: "Always cloud",
+};
 
 const MODE_KEYS: Record<Modality, string> = {
   text: "LOCAL_TEXT_MODE",
@@ -66,6 +74,8 @@ export interface LocalModeState {
   models: Record<Modality, string>;
   /** Empty means "the selected voice model's own default voice". */
   voiceId: string;
+  /** Provider for chroma-keyed cutout sheets, which local models render badly. */
+  cutoutProvider: CutoutProvider;
 }
 
 type KeyRow = { masked?: string };
@@ -86,12 +96,16 @@ export function localModeFromResponse(
   };
   const readModel = (modality: Modality): string =>
     data[MODEL_KEYS[modality]]?.masked || fallbacks[modality] || "";
+  const rawCutout = data.LOCAL_IMAGE_CUTOUT_PROVIDER?.masked ?? "";
 
   return {
     enabled: data.LOCAL_MODELS_ENABLED?.masked === "true",
     modes: { text: readMode("text"), image: readMode("image"), voice: readMode("voice") },
     models: { text: readModel("text"), image: readModel("image"), voice: readModel("voice") },
     voiceId: data.LOCAL_VOICE_ID?.masked ?? "",
+    cutoutProvider: (CUTOUT_PROVIDERS as string[]).includes(rawCutout)
+      ? (rawCutout as CutoutProvider)
+      : "auto",
   };
 }
 
@@ -106,6 +120,7 @@ export function localModePayload(state: LocalModeState): Record<string, string> 
     LOCAL_IMAGE_MODEL: state.models.image,
     LOCAL_VOICE_MODEL: state.models.voice,
     LOCAL_VOICE_ID: state.voiceId.trim(),
+    LOCAL_IMAGE_CUTOUT_PROVIDER: state.cutoutProvider,
   };
 }
 
@@ -123,6 +138,7 @@ export default function LocalModelsSection() {
     modes: { text: "auto", image: "auto", voice: "auto" },
     models: { text: "", image: "", voice: "" },
     voiceId: "",
+    cutoutProvider: "auto",
   });
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -160,7 +176,8 @@ export default function LocalModelsSection() {
       return res.ok;
     },
     [state.enabled, state.modes.text, state.modes.image, state.modes.voice,
-      state.models.text, state.models.image, state.models.voice, state.voiceId],
+      state.models.text, state.models.image, state.models.voice, state.voiceId,
+      state.cutoutProvider],
   );
 
   const setMode = (modality: Modality, mode: ModalityMode) =>
@@ -173,6 +190,7 @@ export default function LocalModelsSection() {
 
   const selectedVoice = catalogFor("voice").find((m) => m.id === state.models.voice);
   const voiceIsLocal = effectiveSource(state, "voice") === "local";
+  const imagesAreLocal = effectiveSource(state, "image") === "local";
   const showAttribution = Boolean(voiceIsLocal && selectedVoice?.requires_attribution);
 
   return (
@@ -268,6 +286,42 @@ export default function LocalModelsSection() {
               Currently using{" "}
               <span className="text-neutral-300">{effectiveSource(state, modality)}</span>.
             </p>
+
+            {modality === "image" && imagesAreLocal && (
+              <div data-testid="cutout-provider" className="space-y-2 rounded-lg border border-neutral-800 bg-neutral-950/50 p-3">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-sm text-neutral-300">Cutout sheets</p>
+                    <p className="text-xs leading-relaxed text-neutral-500">
+                      Popup items, comparison subjects, and stat-card icons are generated on a flat
+                      chroma background, then cropped into transparent cutouts. Local models tend to
+                      draw framed panels and caption text instead, which the keyer cannot remove.
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 overflow-hidden rounded-lg border border-neutral-700">
+                    {CUTOUT_PROVIDERS.map((provider) => (
+                      <button
+                        key={provider}
+                        type="button"
+                        onClick={() => setState((prev) => ({ ...prev, cutoutProvider: provider }))}
+                        aria-pressed={state.cutoutProvider === provider}
+                        className={`px-3 py-1.5 text-xs transition-colors hover:bg-neutral-700 ${
+                          state.cutoutProvider === provider
+                            ? "bg-violet-500/80 text-white"
+                            : "bg-neutral-900 text-neutral-400"
+                        }`}
+                      >
+                        {CUTOUT_PROVIDER_LABELS[provider]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <p className="text-xs leading-relaxed text-neutral-500">
+                  Auto sends just these few images to the cloud when a Google key is configured —
+                  around a dozen per video, a few cents total — and stays local without one.
+                </p>
+              </div>
+            )}
 
             {modality === "voice" && (
               <label className="block space-y-1">

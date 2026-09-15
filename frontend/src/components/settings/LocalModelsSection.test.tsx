@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { createElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -123,6 +123,7 @@ describe("LocalModelsSection settings mapping", () => {
       modes: { text: "cloud", image: "auto", voice: "local" },
       models: { text: "qwen3.8-27b", image: "flux2-klein-4b", voice: "kokoro-82m" },
       voiceId: "",
+      cutoutProvider: "auto",
     });
   });
 
@@ -137,6 +138,7 @@ describe("LocalModelsSection settings mapping", () => {
       // component, decides what the defaults are.
       models: { text: "", image: "", voice: "" },
       voiceId: "",
+      cutoutProvider: "auto",
     });
   });
 
@@ -157,6 +159,7 @@ describe("LocalModelsSection settings mapping", () => {
       modes: { text: "auto", image: "cloud", voice: "local" },
       models: { text: "qwen3.8-27b", image: "flux2-klein-4b", voice: "kokoro-82m" },
       voiceId: " af_heart ",
+      cutoutProvider: "cloud",
     })).toEqual({
       LOCAL_MODELS_ENABLED: "true",
       LOCAL_TEXT_MODE: "auto",
@@ -166,6 +169,7 @@ describe("LocalModelsSection settings mapping", () => {
       LOCAL_IMAGE_MODEL: "flux2-klein-4b",
       LOCAL_VOICE_MODEL: "kokoro-82m",
       LOCAL_VOICE_ID: "af_heart",
+      LOCAL_IMAGE_CUTOUT_PROVIDER: "cloud",
     });
   });
 });
@@ -222,5 +226,33 @@ describe("LocalModelsSection", () => {
   it("explains the one-model-at-a-time memory limit", async () => {
     render(createElement(LocalModelsSection));
     await waitFor(() => expect(screen.getByTestId("memory-arena-note")).toBeTruthy());
+  });
+
+  it("hides the cutout provider control while images are on the cloud", async () => {
+    render(createElement(LocalModelsSection));
+    await waitFor(() => expect(screen.getByTestId("video-cloud-note")).toBeTruthy());
+    expect(screen.queryByTestId("cutout-provider")).toBeNull();
+  });
+
+  it("offers a cutout provider once images are local", async () => {
+    mockKeys({ LOCAL_MODELS_ENABLED: { masked: "true" } });
+    render(createElement(LocalModelsSection));
+    await waitFor(() => expect(screen.getByTestId("cutout-provider")).toBeTruthy());
+    expect(screen.getByTestId("cutout-provider").textContent).toMatch(/chroma/i);
+  });
+
+  it("saves a pinned cutout provider", async () => {
+    mockKeys({ LOCAL_MODELS_ENABLED: { masked: "true" } });
+    render(createElement(LocalModelsSection));
+    const control = await screen.findByTestId("cutout-provider");
+    fireEvent.click(within(control).getByRole("button", { name: "Always local" }));
+    await waitFor(
+      () =>
+        expect(api.put).toHaveBeenCalledWith(
+          "/api/settings/keys",
+          expect.objectContaining({ LOCAL_IMAGE_CUTOUT_PROVIDER: "local" }),
+        ),
+      { timeout: 3000 },
+    );
   });
 });

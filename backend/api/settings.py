@@ -87,6 +87,7 @@ ALLOWED_KEYS = {
     "LOCAL_TEXT_MODE",
     "LOCAL_IMAGE_MODE",
     "LOCAL_VOICE_MODE",
+    "LOCAL_IMAGE_CUTOUT_PROVIDER",
     "LOCAL_TEXT_MODEL",
     "LOCAL_TEXT_FAST_MODEL",
     "LOCAL_IMAGE_MODEL",
@@ -138,6 +139,7 @@ _PLAINTEXT_KEYS = {
     "LOCAL_TEXT_MODE",
     "LOCAL_IMAGE_MODE",
     "LOCAL_VOICE_MODE",
+    "LOCAL_IMAGE_CUTOUT_PROVIDER",
     "LOCAL_TEXT_MODEL",
     "LOCAL_TEXT_FAST_MODEL",
     "LOCAL_IMAGE_MODEL",
@@ -188,6 +190,7 @@ _DEFAULTS: dict[str, str] = {
     "LOCAL_TEXT_MODE": "auto",
     "LOCAL_IMAGE_MODE": "auto",
     "LOCAL_VOICE_MODE": "auto",
+    "LOCAL_IMAGE_CUTOUT_PROVIDER": "auto",
     "LOCAL_TEXT_MODEL": _local_models_registry.DEFAULT_MODEL_IDS["text"],
     "LOCAL_TEXT_FAST_MODEL": _local_models_registry.DEFAULT_MODEL_IDS["text"],
     "LOCAL_IMAGE_MODEL": _local_models_registry.DEFAULT_MODEL_IDS["image"],
@@ -355,6 +358,17 @@ async def save_keys(
                 f"{sorted(_local_models_registry.VALID_MODES)}.",
             )
         keys[mode_key] = mode
+
+    if "LOCAL_IMAGE_CUTOUT_PROVIDER" in keys:
+        # Not a LOCAL_*_MODE: `auto` means "escalate to cloud when a key exists",
+        # not "follow the master switch", so it validates against its own set.
+        cutout_provider = (keys["LOCAL_IMAGE_CUTOUT_PROVIDER"] or "").strip().lower()
+        if cutout_provider and cutout_provider not in {"auto", "local", "cloud"}:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid LOCAL_IMAGE_CUTOUT_PROVIDER: must be 'auto', 'local', or 'cloud'.",
+            )
+        keys["LOCAL_IMAGE_CUTOUT_PROVIDER"] = cutout_provider or "auto"
 
     for modality, model_key in (
         ("text", "LOCAL_TEXT_MODEL"),
