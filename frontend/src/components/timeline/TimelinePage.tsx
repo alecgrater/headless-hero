@@ -1707,9 +1707,11 @@ function TimelineEditor({
       // Silently skipping is how this becomes undiagnosable: one scene whose
       // local alignment returned no word timings gates preparation off for the
       // whole script, and nothing downstream says why.
+      const blocking = blockingVisualModePrepSceneIds(state.content);
       console.warn(
-        "Skipping automatic visual mode preparation — these scenes have no voiceover timing yet:",
-        blockingVisualModePrepSceneIds(state.content),
+        blocking.length > 0
+          ? `Skipping automatic visual mode preparation — no voiceover timing yet for: ${blocking.join(", ")}`
+          : "Skipping automatic visual mode preparation — the script has no non-title scenes.",
       );
       return;
     }

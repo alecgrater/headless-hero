@@ -2755,3 +2755,69 @@ class TestPopupItemExtraction:
         assert len(set(prompts)) == len(prompts)
         for layer in assignments[0].visual_layers:
             assert f"subject is exactly this one item: {layer.label}" in layer.prompt
+
+
+class TestVisualModesPreparedFlag:
+    """The flag drives automatic preparation, so which endpoint sets it matters.
+
+    A per-scene override marking the whole script as analysed would permanently
+    suppress the automatic run — the distinction was previously held only by a
+    comment.
+    """
+
+    def build_session(self):
+        from sqlalchemy.pool import StaticPool
+        from sqlmodel import Session, SQLModel, create_engine
+
+        from models.script import Script
+
+        engine = create_engine(
+            "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
+        )
+        SQLModel.metadata.create_all(engine)
+        content = content_with_scenes(scene_with_words("s1", "A calm shot of the desk."))
+        session = Session(engine)
+        session.add(
+            Script(
+                id="script-1",
+                brand_id="brand-1",
+                topic_title="Demo",
+                script_json=content.model_dump_json(),
+            )
+        )
+        session.commit()
+        return session
+
+    def stored(self, session):
+        from models.script import Script, ScriptContent
+
+        return ScriptContent.model_validate_json(session.get(Script, "script-1").script_json)
+
+    def test_whole_script_apply_marks_the_script_prepared(self):
+        from api.visual_treatments import ApplyVisualTreatmentsRequest, apply_visual_treatments
+
+        session = self.build_session()
+        try:
+            assert self.stored(session).visual_modes_prepared is False
+            apply_visual_treatments(
+                "script-1",
+                ApplyVisualTreatmentsRequest(assignments=[]),
+                session,
+            )
+            assert self.stored(session).visual_modes_prepared is True
+        finally:
+            session.close()
+
+    def test_a_single_scene_override_does_not_mark_the_script_prepared(self):
+        from api.visual_treatments import UpdateVisualTreatmentRequest, update_scene_visual_treatment
+
+        session = self.build_session()
+        try:
+            update_scene_visual_treatment(
+                "script-1",
+                UpdateVisualTreatmentRequest(scene_id="s1", visual_mode="full_frame"),
+                session,
+            )
+            assert self.stored(session).visual_modes_prepared is False
+        finally:
+            session.close()
