@@ -111,6 +111,7 @@ def _stub_generate_image(monkeypatch, ig_mod, captured: list[dict]):
             "reference_image_path": reference_image_path,
             "style_reference_path": kwargs.get("style_reference_path"),
             "original_prompt": original_prompt,
+            "purpose": kwargs.get("purpose"),
         })
         return tmp
 
@@ -171,6 +172,15 @@ def test_popup_sequence_anchor_uses_project_character_reference_without_applying
     assert "Maya" in captured[0]["prompt"]
     assert captured[1]["reference_image_path"] is None
     assert "No main character or human figures" in captured[1]["prompt"]
+
+    # The multi-item sheet is cropped and chroma-keyed, so it must follow the
+    # cutout provider; the single-subject anchor follows the scene provider.
+    # Unpinned, the kwarg can be dropped and exports silently regress to opaque
+    # rectangles — which is exactly what shipped once.
+    from integrations.image_client import CUTOUT_SHEET
+
+    assert captured[0]["purpose"] is None
+    assert captured[1]["purpose"] == CUTOUT_SHEET
 
 
 def test_popup_sequence_anchor_uses_eli_reference_when_eli_is_active(tmp_path, monkeypatch):

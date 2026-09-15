@@ -136,7 +136,8 @@ def generate_popup_crop_item_sheet(
             script_id=PROJECT_ID,
             # Same escalation as production: the sheet is chroma-keyed, and a
             # Test Lab that keys a different model's output is not a test of
-            # production. The anchor above stays local, also matching.
+            # production. The anchor above follows the scene provider, also
+            # matching.
             purpose=CUTOUT_SHEET,
         )
     )
@@ -281,18 +282,6 @@ def _crop_item_sheet(sheet_path: Path, output_dir: Path, labels: list[str]) -> l
                 )
             )
     return crops
-
-
-def _save_keyed_trimmed_cutout(image: Image.Image, output_path: Path, *, padding: int = 24) -> list[int]:
-    return save_keyed_trimmed_cutout(image, output_path, padding=padding)
-
-
-def _key_out_background(image: Image.Image, *, tolerance: int = 70) -> Image.Image:
-    return key_out_background(image, tolerance=tolerance)
-
-
-def _sample_background_rgb(image: Image.Image) -> tuple[int, int, int]:
-    return sample_background_rgb(image)
 
 
 def _web_url(run_id: str, filename: str) -> str:

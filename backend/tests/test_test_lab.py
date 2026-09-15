@@ -705,9 +705,11 @@ def test_popup_crop_preview_generates_sheet_and_crops_fixed_grid(monkeypatch, tm
     sheet.save(sheet_path)
 
     generated_prompts = []
+    generated_purposes = []
 
-    def fake_generate_image(prompt, *_args, **_kwargs):
+    def fake_generate_image(prompt, *_args, **kwargs):
         generated_prompts.append(prompt)
+        generated_purposes.append(kwargs.get("purpose"))
         return str(anchor_path if len(generated_prompts) == 1 else sheet_path)
 
     monkeypatch.setattr(popup_crop, "generate_image", fake_generate_image)
@@ -734,6 +736,14 @@ def test_popup_crop_preview_generates_sheet_and_crops_fixed_grid(monkeypatch, tm
     assert "Single row only" in generated_prompts[1]
     assert "No drop shadows, glows, or effects" in generated_prompts[1]
     assert "Headless Hero" not in generated_prompts[1]
+    # The multi-item sheet is chroma-keyed and must follow the cutout provider;
+    # the single-subject anchor follows the scene provider. Without this the
+    # kwarg can be deleted and every test still passes, while exports quietly
+    # go back to opaque rectangles.
+    from integrations.image_client import CUTOUT_SHEET
+
+    assert generated_purposes[0] is None
+    assert generated_purposes[1] == CUTOUT_SHEET
     assert (tmp_path / "projects" / "test-lab-popup-crops" / "crop-test" / "anchor_source.png").exists()
     assert (tmp_path / "projects" / "test-lab-popup-crops" / "crop-test" / "anchor_cutout.png").exists()
     assert (tmp_path / "projects" / "test-lab-popup-crops" / "crop-test" / "anchor_metadata.json").exists()
