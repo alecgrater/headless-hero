@@ -8,8 +8,6 @@ not hypothetical: 38 of 40 cutouts in a shipped video were rectangles, and the
 only way anyone noticed was by measuring alpha after the fact.
 """
 
-import os
-import tempfile
 from types import SimpleNamespace
 
 import pytest
@@ -28,23 +26,27 @@ def image_gen(monkeypatch, tmp_path):
     monkeypatch.setattr(config, "DATA_DIR", tmp_path)
     monkeypatch.setattr(module, "DATA_DIR", tmp_path)
     monkeypatch.setattr(module, "save_vault_image", lambda **_kwargs: None)
-    monkeypatch.setattr(
-        module, "_save_keyed_trimmed_cutout", lambda image, path, **_k: path.write_bytes(b"") or [0, 0, 8, 8]
-    )
+
+    def fake_save_keyed_trimmed_cutout(image, output_path, **_kwargs):
+        output_path.write_bytes(b"")
+        return [0, 0, 8, 8]
+
+    monkeypatch.setattr(module, "_save_keyed_trimmed_cutout", fake_save_keyed_trimmed_cutout)
     return module
 
 
 @pytest.fixture
-def purposes(monkeypatch, image_gen):
+def purposes(monkeypatch, image_gen, tmp_path):
     """Records the `purpose` of every generate_image call, in order."""
     recorded: list[str | None] = []
 
     def fake_generate_image(prompt, **kwargs):
         recorded.append(kwargs.get("purpose"))
-        handle, path = tempfile.mkstemp(suffix=".png")
-        os.close(handle)
+        # Under tmp_path, and never inside a scene output_dir, so the callers'
+        # "copy unless already in place" branch behaves as it does in production.
+        path = tmp_path / f"generated_{len(recorded)}.png"
         Image.new("RGB", (24, 8), color=(0, 255, 0)).save(path)
-        return path
+        return str(path)
 
     monkeypatch.setattr(image_gen, "generate_image", fake_generate_image)
     return recorded
@@ -104,8 +106,10 @@ class TestAnchorFollowsTheSceneProvider:
 
         monkeypatch.setattr(image_gen, "process_character_asset_bundle", fake_bundle)
         monkeypatch.setattr(image_gen, "_generate_popup_item_cutouts", lambda **_kwargs: None)
+        # Fourth element is the fallback *reason*; None means "no fallback", which
+        # is what this test needs. "" only worked because it is falsy.
         monkeypatch.setattr(image_gen, "_resolve_popup_anchor_generation_context",
-                            lambda **_kwargs: (None, None, "", ""))
+                            lambda **_kwargs: (None, None, "", None))
         image_gen.generate_popup_sequence_cutouts(
             scene_id="s4",
             layers=[image_layer("a", "Popup item cutout prompt for wrench."),

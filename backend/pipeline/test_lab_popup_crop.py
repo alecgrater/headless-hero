@@ -14,7 +14,7 @@ from config import DATA_DIR, IMAGE_HEIGHT, IMAGE_WIDTH
 from integrations.image_client import CUTOUT_SHEET, generate_image
 from pipeline.asset_vault import save_vault_image
 from pipeline.character_assets import process_character_asset_bundle
-from pipeline.cutout_chroma import key_out_background, sample_background_rgb, save_keyed_trimmed_cutout
+from pipeline.cutout_chroma import save_keyed_trimmed_cutout
 
 PROJECT_ID = "test-lab-popup-crops"
 
