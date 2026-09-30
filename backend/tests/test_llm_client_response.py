@@ -112,16 +112,36 @@ def test_chat_streams_anthropic_calls_and_prices_cached_tokens_disjointly(monkey
     assert recorded["cost_estimate"] == pytest.approx(expected)
 
 
+class _FailingStream:
+    """A stream that opens, then fails while the body is being read."""
+
+    def __init__(self, error):
+        self._error = error
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def get_final_message(self):
+        raise self._error
+
+
 class _FlakyMessages(_FakeMessages):
-    def __init__(self, message, failures):
+    def __init__(self, message, failures, *, on_open=False):
         super().__init__(message)
         self.failures = list(failures)
+        self.on_open = on_open
         self.calls = 0
 
     def stream(self, **kwargs):
         self.calls += 1
         if self.failures:
-            raise self.failures.pop(0)
+            error = self.failures.pop(0)
+            if self.on_open:
+                raise error
+            return _FailingStream(error)
         return super().stream(**kwargs)
 
 
@@ -176,3 +196,16 @@ def test_a_second_failure_propagates():
     with pytest.raises(httpx.ReadTimeout):
         _anthropic_message(SimpleNamespace(messages=messages), "m", 100, "s", "hi", 30.0)
     assert messages.calls == 2
+
+
+def test_a_failure_to_open_the_stream_is_left_to_the_sdk_retries():
+    """The SDK already retried the open; retrying again would multiply attempts."""
+    import httpx
+
+    from integrations.llm_client import _anthropic_message
+
+    messages = _FlakyMessages(None, [httpx.ConnectError("refused")], on_open=True)
+
+    with pytest.raises(httpx.ConnectError):
+        _anthropic_message(SimpleNamespace(messages=messages), "m", 100, "s", "hi", 30.0)
+    assert messages.calls == 1

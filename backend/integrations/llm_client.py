@@ -591,11 +591,14 @@ def _anthropic_message(
     whole response. Non-streaming, a 32k-token script segment with adaptive
     thinking had to finish inside that one window or fail outright.
 
-    The SDK retries only before the stream opens, so a connection drop, stall,
-    or server error *mid-stream* is retried here once. A 4xx is never retried:
-    it is the caller's to handle (chat() retries a rejected cache_control).
+    The SDK already retries failures to *open* the stream (connection errors,
+    timeouts, 5xx/529), so only a failure after it opened — a connection drop,
+    stall, or server error mid-stream — is retried here, once. Retrying open
+    failures too would multiply the SDK's attempts. A 4xx is never retried: it
+    is the caller's to handle (chat() retries a rejected cache_control).
     """
     for attempt in range(_ANTHROPIC_STREAM_ATTEMPTS):
+        opened = False
         try:
             with client.messages.stream(
                 model=model,
@@ -604,12 +607,13 @@ def _anthropic_message(
                 messages=[{"role": "user", "content": user_message}],
                 timeout=timeout,
             ) as stream:
+                opened = True
                 return stream.get_final_message()
         except (httpx.TransportError, anthropic.APIConnectionError, anthropic.APIStatusError) as exc:
             status = getattr(exc, "status_code", None)
             # A mid-stream SSE error arrives on the 200 response that opened it.
             client_error = isinstance(status, int) and 400 <= status < 500
-            if client_error or attempt == _ANTHROPIC_STREAM_ATTEMPTS - 1:
+            if not opened or client_error or attempt == _ANTHROPIC_STREAM_ATTEMPTS - 1:
                 raise
             logger.warning(
                 "Anthropic stream failed (%s: %s); retrying once (model=%s)",
