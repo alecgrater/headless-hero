@@ -18,7 +18,9 @@ const IMAGE_PROVIDERS = [
 ] as const;
 
 // Mirrors backend config.GOOGLE_IMAGE_MODEL_PRICES; the backend rejects anything else.
-const GOOGLE_IMAGE_MODELS = [
+// GeneralSection.imageModels.test.ts fails if the two drift apart.
+// eslint-disable-next-line react-refresh/only-export-components -- read by the drift test
+export const GOOGLE_IMAGE_MODELS = [
   { value: "gemini-2.5-flash-image", label: "Nano Banana (Gemini 2.5 Flash Image) — $0.039/image" },
   { value: "gemini-3.1-flash-lite-image", label: "Nano Banana 2 Lite (Gemini 3.1 Flash Lite Image) — $0.034/image" },
   { value: "gemini-3.1-flash-image", label: "Nano Banana 2 (Gemini 3.1 Flash Image) — $0.067/image" },
