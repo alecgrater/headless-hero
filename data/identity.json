@@ -139,7 +139,7 @@
     "REPLICATE_PROMPT_UPSAMPLING": "true",
     "REPLICATE_SAFETY_TOLERANCE": "2",
     "SCRIPT_LLM_PROVIDER": "anthropic",
-    "SCRIPT_MODEL": "claude-sonnet-5",
+    "SCRIPT_MODEL": "claude-sonnet-5-5",
     "SCRIPT_RATING_LLM_PROVIDER": "openai",
     "SCRIPT_RATING_MODEL": "gpt-5.6-terra",
     "SEO_LLM_PROVIDER": "openai",

@@ -105,6 +105,74 @@ def test_chat_streams_anthropic_calls_and_prices_cached_tokens_disjointly(monkey
     assert llm_client.chat("sys", "hi", model="claude-sonnet-5-5", cache=True, max_tokens=32768) == "ok"
 
     assert messages.stream_kwargs["max_tokens"] == 32768
+    # Claude 5.5 models 400 on any of these; chat() must never send them.
+    assert not {"thinking", "temperature", "top_p", "top_k", "tool_choice"} & messages.stream_kwargs.keys()
     # Sonnet 5.5: $2 in, $10 out, $0.20 cache read per million tokens.
     expected = 1_000 * 2e-6 + 10_000 * 0.2e-6 + 2_000 * 10e-6
     assert recorded["cost_estimate"] == pytest.approx(expected)
+
+
+class _FlakyMessages(_FakeMessages):
+    def __init__(self, message, failures):
+        super().__init__(message)
+        self.failures = list(failures)
+        self.calls = 0
+
+    def stream(self, **kwargs):
+        self.calls += 1
+        if self.failures:
+            raise self.failures.pop(0)
+        return super().stream(**kwargs)
+
+
+def _anthropic_status_error(status: int):
+    import anthropic
+    import httpx
+
+    request = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
+    response = httpx.Response(status, request=request)
+    return anthropic.APIStatusError("boom", response=response, body=None)
+
+
+def test_a_mid_stream_failure_is_retried_once():
+    import httpx
+
+    from integrations.llm_client import _anthropic_message
+
+    message = SimpleNamespace(content=[_text("ok")], stop_reason="end_turn")
+    messages = _FlakyMessages(message, [httpx.ReadTimeout("stalled")])
+    client = SimpleNamespace(messages=messages)
+
+    assert _anthropic_message(client, "claude-sonnet-5-5", 100, "sys", "hi", 30.0) is message
+    assert messages.calls == 2
+
+
+def test_a_mid_stream_server_error_on_the_200_response_is_retried():
+    from integrations.llm_client import _anthropic_message
+
+    message = SimpleNamespace(content=[_text("ok")], stop_reason="end_turn")
+    messages = _FlakyMessages(message, [_anthropic_status_error(200)])
+
+    assert _anthropic_message(SimpleNamespace(messages=messages), "m", 100, "s", "hi", 30.0) is message
+
+
+def test_a_client_error_is_not_retried():
+    from integrations.llm_client import _anthropic_message
+
+    messages = _FlakyMessages(None, [_anthropic_status_error(400)])
+
+    with pytest.raises(Exception, match="boom"):
+        _anthropic_message(SimpleNamespace(messages=messages), "m", 100, "s", "hi", 30.0)
+    assert messages.calls == 1
+
+
+def test_a_second_failure_propagates():
+    import httpx
+
+    from integrations.llm_client import _anthropic_message
+
+    messages = _FlakyMessages(None, [httpx.ReadTimeout("a"), httpx.ReadTimeout("b")])
+
+    with pytest.raises(httpx.ReadTimeout):
+        _anthropic_message(SimpleNamespace(messages=messages), "m", 100, "s", "hi", 30.0)
+    assert messages.calls == 2

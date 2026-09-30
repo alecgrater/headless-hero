@@ -165,7 +165,7 @@ def test_text_fingerprint_matches_the_routing_chat_would_use(monkeypatch):
     monkeypatch.setenv("LOCAL_TEXT_MODEL", "qwen3.8-27b")
     local = llm_client.text_fingerprint("script")
     assert local.startswith("ollama:")
-    assert local != "anthropic:claude-opus-5"
+    assert local != "anthropic:claude-opus-5-5"
 
     # It is derived, not guessed: it equals the two resolvers chat() calls.
     provider = llm_client._resolve_provider("script")

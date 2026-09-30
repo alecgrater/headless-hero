@@ -9,6 +9,7 @@ import time
 from typing import Any
 
 import anthropic
+import httpx
 
 from config import (
     BALANCED_CLAUDE_MODEL,
@@ -445,7 +446,7 @@ def text_fingerprint(task: str | None = None, model: str | None = None) -> str:
     """Identity of the engine a `chat()` with these arguments would use.
 
     "<provider>:<model>", e.g. `ollama:hf.co/unsloth/Qwen3.8-27B-GGUF:UD-Q4_K_M`
-    or `anthropic:claude-opus-5`. Callers that cache generated text key on
+    or `anthropic:claude-opus-5-5`. Callers that cache generated text key on
     this for the same reason image_client.provider_fingerprint() exists: a
     cached artefact produced by one engine must not be reused as another's.
     """
@@ -573,6 +574,9 @@ def chat(
     return _extract_anthropic_text(response)
 
 
+_ANTHROPIC_STREAM_ATTEMPTS = 2
+
+
 def _anthropic_message(
     client: Any,
     model: str,
@@ -586,15 +590,32 @@ def _anthropic_message(
     Streaming keeps bytes flowing, so `timeout` bounds a stall rather than the
     whole response. Non-streaming, a 32k-token script segment with adaptive
     thinking had to finish inside that one window or fail outright.
+
+    The SDK retries only before the stream opens, so a connection drop, stall,
+    or server error *mid-stream* is retried here once. A 4xx is never retried:
+    it is the caller's to handle (chat() retries a rejected cache_control).
     """
-    with client.messages.stream(
-        model=model,
-        max_tokens=max_tokens,
-        system=system,
-        messages=[{"role": "user", "content": user_message}],
-        timeout=timeout,
-    ) as stream:
-        return stream.get_final_message()
+    for attempt in range(_ANTHROPIC_STREAM_ATTEMPTS):
+        try:
+            with client.messages.stream(
+                model=model,
+                max_tokens=max_tokens,
+                system=system,
+                messages=[{"role": "user", "content": user_message}],
+                timeout=timeout,
+            ) as stream:
+                return stream.get_final_message()
+        except (httpx.TransportError, anthropic.APIConnectionError, anthropic.APIStatusError) as exc:
+            status = getattr(exc, "status_code", None)
+            # A mid-stream SSE error arrives on the 200 response that opened it.
+            client_error = isinstance(status, int) and 400 <= status < 500
+            if client_error or attempt == _ANTHROPIC_STREAM_ATTEMPTS - 1:
+                raise
+            logger.warning(
+                "Anthropic stream failed (%s: %s); retrying once (model=%s)",
+                type(exc).__name__, exc, model,
+            )
+    raise AssertionError("unreachable")
 
 
 def _extract_anthropic_text(response: Any) -> str:
