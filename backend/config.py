@@ -68,7 +68,9 @@ DEFAULT_IMAGE_MODEL = "gemini-2.5-flash-image"
 # known, so the cost tracker never has to guess.
 GOOGLE_IMAGE_MODEL_PRICES: dict[str, float] = {
     DEFAULT_IMAGE_MODEL: 0.039,  # Nano Banana
-    "gemini-3.1-flash-image": 0.067,  # Nano Banana 2
+    "gemini-3.1-flash-lite-image": 0.0336,  # Nano Banana 2 Lite
+    "gemini-3.1-flash-image": 0.0672,  # Nano Banana 2
+    "gemini-3-pro-image": 0.134,  # Nano Banana Pro
 }
 
 # YouTube thumbnail dimensions

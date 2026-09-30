@@ -20,7 +20,9 @@ const IMAGE_PROVIDERS = [
 // Mirrors backend config.GOOGLE_IMAGE_MODEL_PRICES; the backend rejects anything else.
 const GOOGLE_IMAGE_MODELS = [
   { value: "gemini-2.5-flash-image", label: "Nano Banana (Gemini 2.5 Flash Image) — $0.039/image" },
+  { value: "gemini-3.1-flash-lite-image", label: "Nano Banana 2 Lite (Gemini 3.1 Flash Lite Image) — $0.034/image" },
   { value: "gemini-3.1-flash-image", label: "Nano Banana 2 (Gemini 3.1 Flash Image) — $0.067/image" },
+  { value: "gemini-3-pro-image", label: "Nano Banana Pro (Gemini 3 Pro Image) — $0.134/image" },
 ] as const;
 const DEFAULT_GOOGLE_IMAGE_MODEL = GOOGLE_IMAGE_MODELS[0].value;
 
