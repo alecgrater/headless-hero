@@ -72,6 +72,7 @@ _EXPORTED_KEYS: frozenset[str] = frozenset(
         "ELEVENLABS_SPEED",
         # Imagery
         "IMAGE_PROVIDER",
+        "GOOGLE_IMAGE_MODEL",
         "IMAGE_RATE_LIMIT_MS",
         "IMAGE_SCRAPER_FALLBACK_ENABLED",
         "GOOGLE_IMAGE_BATCH_ENABLED",

@@ -49,3 +49,62 @@ def test_a_response_with_no_text_block_raises_rather_than_returning_empty():
 
     with pytest.raises(RuntimeError, match="refusal"):
         _extract_anthropic_text(response)
+
+
+def test_a_refusal_after_partial_text_raises_instead_of_returning_the_fragment():
+    """A streamed turn can be declined mid-answer; the prefix is not an answer."""
+    response = _response(_text('{"scenes": [{"narr'), stop_reason="refusal")
+
+    with pytest.raises(RuntimeError, match="declined"):
+        _extract_anthropic_text(response)
+
+
+class _FakeStream:
+    def __init__(self, message):
+        self._message = message
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def get_final_message(self):
+        return self._message
+
+
+class _FakeMessages:
+    def __init__(self, message):
+        self.message = message
+        self.stream_kwargs = None
+
+    def create(self, **kwargs):  # pragma: no cover - must not be used
+        raise AssertionError("Anthropic calls must stream")
+
+    def stream(self, **kwargs):
+        self.stream_kwargs = kwargs
+        return _FakeStream(self.message)
+
+
+def test_chat_streams_anthropic_calls_and_prices_cached_tokens_disjointly(monkeypatch):
+    from integrations import llm_client
+
+    usage = SimpleNamespace(
+        input_tokens=1_000,
+        output_tokens=2_000,
+        cache_read_input_tokens=10_000,
+        cache_creation_input_tokens=0,
+    )
+    message = SimpleNamespace(content=[_text("ok")], stop_reason="end_turn", usage=usage)
+    messages = _FakeMessages(message)
+    monkeypatch.setattr(llm_client, "get_anthropic_client", lambda: SimpleNamespace(messages=messages))
+    monkeypatch.setattr(llm_client, "_resolve_provider", lambda task: "anthropic")
+    recorded = {}
+    monkeypatch.setattr(llm_client, "record_usage", lambda **kw: recorded.update(kw))
+
+    assert llm_client.chat("sys", "hi", model="claude-sonnet-5-5", cache=True, max_tokens=32768) == "ok"
+
+    assert messages.stream_kwargs["max_tokens"] == 32768
+    # Sonnet 5.5: $2 in, $10 out, $0.20 cache read per million tokens.
+    expected = 1_000 * 2e-6 + 10_000 * 0.2e-6 + 2_000 * 10e-6
+    assert recorded["cost_estimate"] == pytest.approx(expected)

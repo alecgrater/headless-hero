@@ -146,13 +146,14 @@ def generate_speech(
         "text": text,
         "model_id": model_id,
         "voice_settings": effective_settings,
-        "output_format": output_format,
     }
 
     t0 = time.monotonic()
     client = _get_http_client()
+    # output_format is a query parameter; in the JSON body it is silently ignored.
     response = client.post(
         url,
+        params={"output_format": output_format},
         json=payload,
         headers={
             "xi-api-key": _get_key(),

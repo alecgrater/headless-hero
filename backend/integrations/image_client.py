@@ -9,9 +9,9 @@ cloud.
 import logging
 import os
 
-from config import IMAGE_HEIGHT, IMAGE_WIDTH
+from config import DEFAULT_IMAGE_MODEL, IMAGE_HEIGHT, IMAGE_WIDTH
 # Re-exported so pipeline code never has to import google_image_client directly.
-from integrations.google_image_client import GoogleBatchImageRequest, GoogleBatchImageResult
+from integrations.google_image_client import GoogleBatchImageRequest, GoogleBatchImageResult, active_image_model
 from integrations.local_models import active_model, modality_source
 
 __all__ = [
@@ -113,7 +113,12 @@ def provider_fingerprint(purpose: str = SCENE) -> str:
     """
     if resolved_provider(purpose) == "local":
         return f"local:{active_model('image').id}"
-    return CLOUD_PROVIDER
+    # The default model keeps the bare provider id so images cached before the
+    # model became selectable stay valid; any other model regenerates.
+    cloud_model = active_image_model()
+    if cloud_model == DEFAULT_IMAGE_MODEL:
+        return CLOUD_PROVIDER
+    return f"{CLOUD_PROVIDER}:{cloud_model}"
 
 
 def generate_image(

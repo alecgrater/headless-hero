@@ -17,9 +17,16 @@ const IMAGE_PROVIDERS = [
   { value: "google", label: "Google Gemini" },
 ] as const;
 
+// Mirrors backend config.GOOGLE_IMAGE_MODEL_PRICES; the backend rejects anything else.
+const GOOGLE_IMAGE_MODELS = [
+  { value: "gemini-2.5-flash-image", label: "Nano Banana (Gemini 2.5 Flash Image) — $0.039/image" },
+  { value: "gemini-3.1-flash-image", label: "Nano Banana 2 (Gemini 3.1 Flash Image) — $0.067/image" },
+] as const;
+const DEFAULT_GOOGLE_IMAGE_MODEL = GOOGLE_IMAGE_MODELS[0].value;
+
 const AI_VIDEO_PROVIDERS = [
   { value: "runway", label: "Runway Gen-4 Turbo" },
-  { value: "fal", label: "Fal.ai Wan 2.2 image-to-video turbo" },
+  { value: "fal", label: "Fal.ai Wan 2.2 image-to-video" },
 ] as const;
 
 const LLM_PROVIDERS = [
@@ -69,8 +76,8 @@ const OPENAI_REASONING_OPTIONS: {
 ];
 
 const OPENAI_MODEL_RECOMMENDATIONS: Record<string, string> = {
-  "gpt-5.6": "Recommended model: GPT-5.6. Best fit when script quality, story structure, or hook judgment matters most. Tradeoff: higher latency and cost than the Terra and Luna tiers.",
-  "gpt-5.6-terra": "Recommended model: GPT-5.6 Terra. Strong balance for ideation, metadata, routing, and scene decisions where you want reliable judgment without flagship cost. Tradeoff: less nuanced than GPT-5.6 on long creative planning.",
+  "gpt-5.6-sol": "Recommended model: GPT-5.6 Sol. Best fit when script quality, story structure, or hook judgment matters most. Tradeoff: higher latency and cost than the Terra and Luna tiers.",
+  "gpt-5.6-terra": "Recommended model: GPT-5.6 Terra. Strong balance for ideation, metadata, routing, and scene decisions where you want reliable judgment without flagship cost. Tradeoff: less nuanced than GPT-5.6 Sol on long creative planning.",
   "gpt-5.6-luna": "Recommended model: GPT-5.6 Luna. Fast and inexpensive for short structured tasks such as scoring, detection, and simple animation choices. Tradeoff: least capable on ambiguous creative calls, so upgrade if outputs feel brittle.",
 };
 
@@ -109,7 +116,7 @@ const LLM_TASKS: LlmTaskConfig[] = [
     reasoningKey: "OPENAI_REASONING_EFFORT_SCRIPT",
     defaultProvider: "anthropic",
     defaultModel: DEFAULT_MODEL,
-    openaiDefaultModel: "gpt-5.6",
+    openaiDefaultModel: "gpt-5.6-sol",
     ollamaDefaultModel: "qwen3:14b",
     defaultReasoning: "low",
   },
@@ -121,7 +128,7 @@ const LLM_TASKS: LlmTaskConfig[] = [
     modelKey: "IDEA_MODEL",
     reasoningKey: "OPENAI_REASONING_EFFORT_IDEA",
     defaultProvider: "openai",
-    defaultModel: "claude-sonnet-5",
+    defaultModel: "claude-sonnet-5-5",
     openaiDefaultModel: "gpt-5.6-terra",
     ollamaDefaultModel: "qwen3:14b",
     defaultReasoning: "low",
@@ -134,7 +141,7 @@ const LLM_TASKS: LlmTaskConfig[] = [
     modelKey: "FX_MODEL",
     reasoningKey: "OPENAI_REASONING_EFFORT_FX",
     defaultProvider: "ollama",
-    defaultModel: "claude-sonnet-5",
+    defaultModel: "claude-sonnet-5-5",
     openaiDefaultModel: "gpt-5.6-terra",
     ollamaDefaultModel: "qwen3:14b",
     defaultReasoning: "none",
@@ -147,7 +154,7 @@ const LLM_TASKS: LlmTaskConfig[] = [
     modelKey: "SEO_MODEL",
     reasoningKey: "OPENAI_REASONING_EFFORT_SEO",
     defaultProvider: "ollama",
-    defaultModel: "claude-sonnet-5",
+    defaultModel: "claude-sonnet-5-5",
     openaiDefaultModel: "gpt-5.6-terra",
     ollamaDefaultModel: "qwen3:14b",
     defaultReasoning: "none",
@@ -160,7 +167,7 @@ const LLM_TASKS: LlmTaskConfig[] = [
     modelKey: "SHORT_FORM_SEO_MODEL",
     reasoningKey: "OPENAI_REASONING_EFFORT_SHORT_FORM_SEO",
     defaultProvider: "openai",
-    defaultModel: "claude-sonnet-5",
+    defaultModel: "claude-sonnet-5-5",
     openaiDefaultModel: "gpt-5.6-terra",
     ollamaDefaultModel: "qwen3:14b",
     defaultReasoning: "none",
@@ -174,7 +181,7 @@ const LLM_TASKS: LlmTaskConfig[] = [
     reasoningKey: "OPENAI_REASONING_EFFORT_HOOK",
     defaultProvider: "openai",
     defaultModel: "claude-haiku-4-5",
-    openaiDefaultModel: "gpt-5.6",
+    openaiDefaultModel: "gpt-5.6-sol",
     ollamaDefaultModel: "qwen3:14b",
     defaultReasoning: "low",
     note: "Shared task — this single model drives both hook scoring (rates how well the opening will retain viewers) and hook refinement (rewrites weak hooks). Set it once here.",
@@ -187,7 +194,7 @@ const LLM_TASKS: LlmTaskConfig[] = [
     modelKey: "MEDIA_MODEL",
     reasoningKey: "OPENAI_REASONING_EFFORT_MEDIA",
     defaultProvider: "ollama",
-    defaultModel: "claude-sonnet-5",
+    defaultModel: "claude-sonnet-5-5",
     openaiDefaultModel: "gpt-5.6-terra",
     ollamaDefaultModel: "qwen3:14b",
     defaultReasoning: "none",
@@ -261,10 +268,10 @@ const ADVANCED_ROUTING_GROUPS = [
 
 // eslint-disable-next-line react-refresh/only-export-components -- co-located with the GeneralSection component that consumes these
 export const SCRIPT_MODELS = [
-  { value: DEFAULT_MODEL, label: "Claude Opus 5" },
-  { value: "claude-sonnet-5", label: "Claude Sonnet 5" },
+  { value: DEFAULT_MODEL, label: "Claude Opus 5.5" },
+  { value: "claude-sonnet-5-5", label: "Claude Sonnet 5.5" },
   { value: "claude-haiku-4-5", label: "Claude Haiku 4.5" },
-  { value: "gpt-5.6", label: "OpenAI GPT-5.6" },
+  { value: "gpt-5.6-sol", label: "OpenAI GPT-5.6 Sol" },
   { value: "gpt-5.6-terra", label: "OpenAI GPT-5.6 Terra" },
   { value: "gpt-5.6-luna", label: "OpenAI GPT-5.6 Luna" },
 ] as const;
@@ -336,6 +343,8 @@ interface GeneralSectionProps {
 export default function GeneralSection({ panel, showHeader = true }: GeneralSectionProps) {
   const [exportsDir, setExportsDir] = useState("");
   const [imageProvider, setImageProvider] = useState("google");
+  const [googleImageModel, setGoogleImageModel] = useState<string>(DEFAULT_GOOGLE_IMAGE_MODEL);
+  const [originalGoogleImageModel, setOriginalGoogleImageModel] = useState<string>(DEFAULT_GOOGLE_IMAGE_MODEL);
   const [googleImageBatchEnabled, setGoogleImageBatchEnabled] = useState(false);
   const [aiVideoEnabled, setAiVideoEnabled] = useState(false);
   const [aiVideoProvider, setAiVideoProvider] = useState("runway");
@@ -377,6 +386,12 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
         const provVal = IMAGE_PROVIDERS.some((p) => p.value === rawProvider) ? rawProvider : "google";
         setImageProvider(provVal);
         setOriginalProvider(provVal);
+        const rawImageModel = data.GOOGLE_IMAGE_MODEL?.masked || DEFAULT_GOOGLE_IMAGE_MODEL;
+        const imageModelVal = GOOGLE_IMAGE_MODELS.some((m) => m.value === rawImageModel)
+          ? rawImageModel
+          : DEFAULT_GOOGLE_IMAGE_MODEL;
+        setGoogleImageModel(imageModelVal);
+        setOriginalGoogleImageModel(imageModelVal);
         const googleBatchVal = data.GOOGLE_IMAGE_BATCH_ENABLED?.masked === "true";
         setGoogleImageBatchEnabled(googleBatchVal);
         setOriginalGoogleImageBatchEnabled(googleBatchVal);
@@ -445,6 +460,7 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
     const res = await api.put("/api/settings/keys", {
       DOWNLOADS_DIR: exportsDir.trim(),
       IMAGE_PROVIDER: imageProvider,
+      GOOGLE_IMAGE_MODEL: googleImageModel,
       GOOGLE_IMAGE_BATCH_ENABLED: googleImageBatchEnabled ? "true" : "false",
       AI_VIDEO_ENABLED: aiVideoEnabled ? "true" : "false",
       AI_VIDEO_PROVIDER: aiVideoProvider,
@@ -462,6 +478,7 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
     if (res.ok) {
       setOriginalExportsDir(exportsDir.trim());
       setOriginalProvider(imageProvider);
+      setOriginalGoogleImageModel(googleImageModel);
       setOriginalGoogleImageBatchEnabled(googleImageBatchEnabled);
       setOriginalAiVideoEnabled(aiVideoEnabled);
       setOriginalAiVideoProvider(aiVideoProvider);
@@ -499,6 +516,7 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
     aiVideoScenesPerSegment,
     exportsDir,
     googleImageBatchEnabled,
+    googleImageModel,
     imageProvider,
     lifeAsAChunkingEnabled,
     lifeAsAMaxSeconds,
@@ -629,6 +647,7 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
   const hasChanges =
     exportsDir.trim() !== originalExportsDir ||
     imageProvider !== originalProvider ||
+    googleImageModel !== originalGoogleImageModel ||
     googleImageBatchEnabled !== originalGoogleImageBatchEnabled ||
     aiVideoEnabled !== originalAiVideoEnabled ||
     aiVideoProvider !== originalAiVideoProvider ||
@@ -643,6 +662,7 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
   useDebouncedAutosave(hasChanges && !saving && !loading, handleSave, [
     exportsDir,
     imageProvider,
+    googleImageModel,
     googleImageBatchEnabled,
     aiVideoEnabled,
     aiVideoProvider,
@@ -973,6 +993,27 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
                   </option>
                 ))}
               </select>
+              <div className="space-y-1.5">
+                <label htmlFor="google-image-model" className="text-sm font-medium text-neutral-100">
+                  Image model
+                </label>
+                <select
+                  id="google-image-model"
+                  value={googleImageModel}
+                  onChange={(e) => setGoogleImageModel(e.target.value)}
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 hover:border-neutral-600 focus:outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors"
+                >
+                  {GOOGLE_IMAGE_MODELS.map((m) => (
+                    <option key={m.value} value={m.value}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs leading-relaxed text-neutral-500">
+                  Used for scene images, cutout sheets, and thumbnails. Switching models regenerates scene images and
+                  cutouts on the next run instead of reusing the other model's. Try a new model in Test Lab before a full video.
+                </p>
+              </div>
               <div className="flex items-start justify-between gap-4 rounded-xl border border-neutral-800 bg-neutral-900 px-4 py-3">
                 <div className="min-w-0 space-y-1">
                   <h4 className="text-sm font-semibold text-neutral-100">Google Batch for Generate All</h4>

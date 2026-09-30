@@ -174,12 +174,14 @@ def record_usage(
 
 # --- Pricing constants (USD per token) ---
 _MODEL_PRICING: dict[str, dict[str, float]] = {
-    "claude-opus-5": {
-        "input": 5.0 / 1_000_000,
-        "output": 25.0 / 1_000_000,
-        "cache_read": 0.5 / 1_000_000,
+    # Only ids that can reach the API are priced here: retired ids are
+    # rewritten by llm_client.STALE_MODEL_UPGRADES before any call is made.
+    "claude-opus-5-5": {
+        "input": 4.0 / 1_000_000,
+        "output": 20.0 / 1_000_000,
+        "cache_read": 0.2 / 1_000_000,
     },
-    "claude-sonnet-5": {
+    "claude-sonnet-5-5": {
         "input": 2.0 / 1_000_000,
         "output": 10.0 / 1_000_000,
         "cache_read": 0.2 / 1_000_000,
@@ -189,25 +191,7 @@ _MODEL_PRICING: dict[str, dict[str, float]] = {
         "output": 5.0 / 1_000_000,
         "cache_read": 0.1 / 1_000_000,
     },
-    # Previous-generation Claude models. Still served, and still selectable by
-    # typing the id into the Settings model field, so they keep real rates.
-    "claude-opus-4-7": {
-        "input": 5.0 / 1_000_000,
-        "output": 25.0 / 1_000_000,
-        "cache_read": 0.5 / 1_000_000,
-    },
-    "claude-sonnet-4-6": {
-        "input": 3.0 / 1_000_000,
-        "output": 15.0 / 1_000_000,
-        "cache_read": 0.3 / 1_000_000,
-    },
-    # GPT-5.6 family. "gpt-5.6" is the alias for the Sol tier and bills at the
-    # same rate, so both ids are listed rather than aliased at lookup time.
-    "gpt-5.6": {
-        "input": 4.0 / 1_000_000,
-        "output": 20.0 / 1_000_000,
-        "cache_read": 0.4 / 1_000_000,
-    },
+    # GPT-5.6 family.
     "gpt-5.6-sol": {
         "input": 4.0 / 1_000_000,
         "output": 20.0 / 1_000_000,
@@ -269,8 +253,6 @@ def estimate_local_llm_savings(input_tokens: int, output_tokens: int) -> float:
         + max(output_tokens, 0) * LOCAL_LLM_SAVINGS_PRICING["output"]
     )
 
-# Google Gemini 2.5 Flash image generation — per image
-GOOGLE_IMAGE_PER_CALL = 0.039  # $0.0390/image (Gemini 2.5 Flash image gen)
 
 # Runway Gen-4 Turbo video generation — 5 credits/sec, $0.01/credit.
 RUNWAY_GEN4_TURBO_PER_SECOND = 0.05

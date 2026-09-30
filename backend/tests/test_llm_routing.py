@@ -16,14 +16,17 @@ from api.settings import ALLOWED_KEYS, _DEFAULTS, _PLAINTEXT_KEYS
 
 def test_retired_openai_models_upgrade_within_the_same_provider():
     """A user who chose OpenAI for scripts must not be moved to Claude."""
-    assert _resolve_model("openai", "script", "gpt-5.5") == "gpt-5.6"
+    assert _resolve_model("openai", "script", "gpt-5.5") == "gpt-5.6-sol"
+    assert _resolve_model("openai", "script", "gpt-5.6") == "gpt-5.6-sol"
     assert _resolve_model("openai", "script", "gpt-5-mini") == "gpt-5.6-terra"
     assert _resolve_model("openai", "script", "gpt-5-nano") == "gpt-5.6-luna"
 
 
 def test_retired_claude_models_upgrade_to_current_tier():
-    assert _resolve_model("anthropic", "script", "claude-opus-4-7") == "claude-opus-5"
-    assert _resolve_model("anthropic", "script", "claude-sonnet-4-6") == "claude-sonnet-5"
+    assert _resolve_model("anthropic", "script", "claude-opus-4-7") == "claude-opus-5-5"
+    assert _resolve_model("anthropic", "script", "claude-opus-5") == "claude-opus-5-5"
+    assert _resolve_model("anthropic", "script", "claude-sonnet-4-6") == "claude-sonnet-5-5"
+    assert _resolve_model("anthropic", "script", "claude-sonnet-5") == "claude-sonnet-5-5"
     assert _resolve_model("anthropic", "script", "claude-haiku-4-5-20251001") == "claude-haiku-4-5"
 
 
@@ -63,10 +66,10 @@ def test_short_form_seo_has_dedicated_openai_default(monkeypatch):
 
 def test_short_form_seo_settings_override_defaults(monkeypatch):
     monkeypatch.setenv("SHORT_FORM_SEO_LLM_PROVIDER", "anthropic")
-    monkeypatch.setenv("SHORT_FORM_SEO_MODEL", "claude-sonnet-5")
+    monkeypatch.setenv("SHORT_FORM_SEO_MODEL", "claude-sonnet-5-5")
 
     assert _resolve_provider("short_form_seo") == "anthropic"
-    assert _resolve_model("anthropic", "short_form_seo", None) == "claude-sonnet-5"
+    assert _resolve_model("anthropic", "short_form_seo", None) == "claude-sonnet-5-5"
 
 
 def test_script_generation_defaults_to_anthropic_claude(monkeypatch):
@@ -74,25 +77,25 @@ def test_script_generation_defaults_to_anthropic_claude(monkeypatch):
     monkeypatch.delenv("SCRIPT_MODEL", raising=False)
 
     assert _resolve_provider("script") == "anthropic"
-    assert _resolve_model("anthropic", "script", None) == "claude-opus-5"
+    assert _resolve_model("anthropic", "script", None) == "claude-opus-5-5"
 
 
 def test_anthropic_bedrock_style_defaults_are_normalized(monkeypatch):
     monkeypatch.setenv("SCRIPT_LLM_PROVIDER", "anthropic")
     monkeypatch.setenv("SCRIPT_MODEL", "anthropic.claude-opus-4-6-v1")
 
-    assert _resolve_model("anthropic", "script", None) == "claude-opus-5"
+    assert _resolve_model("anthropic", "script", None) == "claude-opus-5-5"
 
 
 def test_explicit_incompatible_model_override_falls_back_to_provider_default():
-    assert _resolve_model("anthropic", "script", "gpt-5.6") == "claude-opus-5"
-    assert _resolve_model("openai", "script", "claude-opus-5") == "gpt-5.6"
-    assert _resolve_model("ollama", "script", "claude-opus-5") == "qwen3:14b"
+    assert _resolve_model("anthropic", "script", "gpt-5.6-sol") == "claude-opus-5-5"
+    assert _resolve_model("openai", "script", "claude-opus-5-5") == "gpt-5.6-sol"
+    assert _resolve_model("ollama", "script", "claude-opus-5-5") == "qwen3:14b"
 
 
 def test_claude_pricing_uses_direct_anthropic_api_model_ids():
-    assert get_model_pricing("claude-opus-5")["input"] == 5.0 / 1_000_000
-    assert get_model_pricing("claude-sonnet-5")["output"] == 10.0 / 1_000_000
+    assert get_model_pricing("claude-opus-5-5")["input"] == 4.0 / 1_000_000
+    assert get_model_pricing("claude-sonnet-5-5")["output"] == 10.0 / 1_000_000
 
 
 def test_structured_openai_tasks_use_no_reasoning_by_default(monkeypatch):
@@ -153,8 +156,8 @@ def test_text_fingerprint_matches_the_routing_chat_would_use(monkeypatch):
 
     monkeypatch.setenv("LOCAL_MODELS_ENABLED", "false")
     monkeypatch.setenv("SCRIPT_LLM_PROVIDER", "anthropic")
-    monkeypatch.setenv("SCRIPT_MODEL", "claude-opus-5")
-    assert llm_client.text_fingerprint("script") == "anthropic:claude-opus-5"
+    monkeypatch.setenv("SCRIPT_MODEL", "claude-opus-5-5")
+    assert llm_client.text_fingerprint("script") == "anthropic:claude-opus-5-5"
 
     # Local Mode overrides both halves, exactly as _resolve_provider/_resolve_model do.
     monkeypatch.setenv("LOCAL_MODELS_ENABLED", "true")

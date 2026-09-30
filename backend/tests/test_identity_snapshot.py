@@ -107,7 +107,7 @@ def _seed_rows(session: Session) -> None:
     for key in CREDENTIAL_KEYS + MACHINE_SPECIFIC_KEYS:
         session.add(AppSetting(key=key, value="super-secret-value"))
     session.add(AppSetting(key="ACTIVE_STYLE_PRESET_ID", value="preset-1"))
-    session.add(AppSetting(key="SCRIPT_MODEL", value="claude-sonnet-5"))
+    session.add(AppSetting(key="SCRIPT_MODEL", value="claude-sonnet-5-5"))
     session.add(AppSetting(key="_yt_channel_id:Vsauce", value="UC6nSF"))
     session.commit()
 
@@ -155,7 +155,7 @@ def test_snapshot_excludes_secrets(identity_engine) -> None:
         assert key not in exported
     assert "super-secret-value" not in str(snapshot)
     assert exported["ACTIVE_STYLE_PRESET_ID"] == "preset-1"
-    assert exported["SCRIPT_MODEL"] == "claude-sonnet-5"
+    assert exported["SCRIPT_MODEL"] == "claude-sonnet-5-5"
 
 
 def test_snapshot_round_trips_into_an_empty_database(identity_engine, tmp_path) -> None:
@@ -218,7 +218,7 @@ def test_snapshot_wins_over_local_values(identity_engine) -> None:
         identity.seed_from_snapshot(session)
 
         assert session.get(StylePreset, "preset-1").name == "House Style"
-        assert session.get(AppSetting, "SCRIPT_MODEL").value == "claude-sonnet-5"
+        assert session.get(AppSetting, "SCRIPT_MODEL").value == "claude-sonnet-5-5"
 
 
 def test_seeding_does_not_delete_local_rows(identity_engine) -> None:

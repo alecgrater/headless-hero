@@ -11,13 +11,25 @@ from pathlib import Path
 from google import genai
 from google.genai import types
 
-from config import DEFAULT_IMAGE_MODEL, IMAGE_HEIGHT, IMAGE_WIDTH
+from config import DEFAULT_IMAGE_MODEL, GOOGLE_IMAGE_MODEL_PRICES, IMAGE_HEIGHT, IMAGE_WIDTH
 from integrations.google_client_base import get_google_client
-from integrations.usage_tracker import record_usage, GOOGLE_IMAGE_PER_CALL
+from integrations.usage_tracker import record_usage
 
 logger = logging.getLogger(__name__)
 
-BATCH_IMAGE_PER_CALL = GOOGLE_IMAGE_PER_CALL / 2
+
+def active_image_model() -> str:
+    """The Gemini image model Settings selects; an unknown value falls back to the default."""
+    model = (os.environ.get("GOOGLE_IMAGE_MODEL") or "").strip()
+    return model if model in GOOGLE_IMAGE_MODEL_PRICES else DEFAULT_IMAGE_MODEL
+
+
+def image_price(model: str, *, batch: bool = False) -> float:
+    """Per-image cost; Google Batch bills half the interactive rate."""
+    price = GOOGLE_IMAGE_MODEL_PRICES[model]
+    return price / 2 if batch else price
+
+
 BATCH_TERMINAL_STATES = {"JOB_STATE_SUCCEEDED", "JOB_STATE_FAILED", "JOB_STATE_CANCELLED", "JOB_STATE_EXPIRED"}
 BATCH_INLINE_REQUEST_LIMIT_BYTES = 18 * 1024 * 1024
 
@@ -195,8 +207,9 @@ def _generate_images_batch_chunk(
         "Creating Google image batch job for %d request(s) (script=%s, chunk=%d/%d)",
         len(requests), script_id or "none", chunk_index + 1, chunk_count,
     )
+    model = active_image_model()
     batch_job = client.batches.create(
-        model=DEFAULT_IMAGE_MODEL,
+        model=model,
         src=inline_requests,
         config={"display_name": display_name},
     )
@@ -244,9 +257,9 @@ def _generate_images_batch_chunk(
         record_usage(
             service="google_ai",
             operation="image_gen_batch",
-            model=DEFAULT_IMAGE_MODEL,
+            model=model,
             images=successful_images,
-            cost_estimate=BATCH_IMAGE_PER_CALL * successful_images,
+            cost_estimate=image_price(model, batch=True) * successful_images,
             script_id=script_id,
         )
     logger.info(
@@ -293,11 +306,12 @@ def _call_gemini(
     Retries on transient server errors (503, 500, 429) with exponential backoff.
     """
     t0 = time.monotonic()
+    model = active_image_model()
     last_exc: Exception | None = None
     for attempt in range(max_retries):
         try:
             response = client.models.generate_content(
-                model=DEFAULT_IMAGE_MODEL,
+                model=model,
                 contents=contents,
                 config=types.GenerateContentConfig(
                     response_modalities=["IMAGE"],
@@ -335,12 +349,12 @@ def _call_gemini(
             record_usage(
                 service="google_ai",
                 operation="image_gen",
-                model=DEFAULT_IMAGE_MODEL,
+                model=model,
                 images=1,
-                cost_estimate=GOOGLE_IMAGE_PER_CALL,
+                cost_estimate=image_price(model),
                 script_id=script_id,
             )
-            logger.info("Gemini image generated successfully (%.1fs)", time.monotonic() - t0)
+            logger.info("Gemini image generated successfully (%.1fs, model=%s)", time.monotonic() - t0, model)
             return tmp_path
 
     return None

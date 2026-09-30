@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
 from database import get_session
-from config import DEFAULT_CLAUDE_MODEL, DEFAULT_EXPORTS_DIR
+from config import DEFAULT_CLAUDE_MODEL, DEFAULT_EXPORTS_DIR, DEFAULT_IMAGE_MODEL, GOOGLE_IMAGE_MODEL_PRICES
 from integrations.llm_client import (
     ALLOWED_PROVIDERS,
     LLM_TASKS,
@@ -57,6 +57,7 @@ ALLOWED_KEYS = {
     "GOOGLE_CLIENT_SECRET",
     "DOWNLOADS_DIR",
     "IMAGE_PROVIDER",
+    "GOOGLE_IMAGE_MODEL",
     "GOOGLE_IMAGE_BATCH_ENABLED",
     "AI_VIDEO_ENABLED",
     "AI_VIDEO_PROVIDER",
@@ -114,6 +115,7 @@ for _task_id, _task_config in LLM_TASKS.items():
 _PLAINTEXT_KEYS = {
     "DOWNLOADS_DIR",
     "IMAGE_PROVIDER",
+    "GOOGLE_IMAGE_MODEL",
     "GOOGLE_IMAGE_BATCH_ENABLED",
     "AI_VIDEO_ENABLED",
     "AI_VIDEO_PROVIDER",
@@ -166,6 +168,7 @@ for _task_id, _task_config in LLM_TASKS.items():
 _DEFAULTS: dict[str, str] = {
     "DOWNLOADS_DIR": str(DEFAULT_EXPORTS_DIR),
     "GOOGLE_IMAGE_BATCH_ENABLED": "false",
+    "GOOGLE_IMAGE_MODEL": DEFAULT_IMAGE_MODEL,
     "IMAGE_RATE_LIMIT_MS": "10000",  # 6 req/min to stay under free-tier limits
     "IMAGE_SCRAPER_FALLBACK_ENABLED": "false",
     "AI_VIDEO_ENABLED": "false",
@@ -398,6 +401,14 @@ async def save_keys(
                 detail="Invalid ELEVENLABS_TTS_MODEL: must be 'eleven_multilingual_v2' or 'eleven_v3'.",
             )
         keys["ELEVENLABS_TTS_MODEL"] = tts_model
+    if "GOOGLE_IMAGE_MODEL" in keys:
+        image_model = (keys["GOOGLE_IMAGE_MODEL"] or "").strip()
+        if image_model and image_model not in GOOGLE_IMAGE_MODEL_PRICES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid GOOGLE_IMAGE_MODEL: {image_model!r}. Must be one of {sorted(GOOGLE_IMAGE_MODEL_PRICES)}.",
+            )
+        keys["GOOGLE_IMAGE_MODEL"] = image_model or DEFAULT_IMAGE_MODEL
     if SUBTITLE_COVERAGE_MODE_KEY in keys:
         coverage_mode = (keys[SUBTITLE_COVERAGE_MODE_KEY] or "").strip().lower()
         if coverage_mode and coverage_mode not in {"all", "punchy"}:

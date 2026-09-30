@@ -46,21 +46,30 @@ DEFAULT_ACCENT_COLOR = "#e91e63"
 # Default Claude model for script generation and LLM tasks.
 # Anthropic API model ids are used here, not AWS Bedrock ids, and the ids are
 # complete as written — never append a date suffix.
-DEFAULT_CLAUDE_MODEL = "claude-opus-5"
+DEFAULT_CLAUDE_MODEL = "claude-opus-5-5"
 
 # Faster models for structured/classification tasks
-BALANCED_CLAUDE_MODEL = "claude-sonnet-5"
+BALANCED_CLAUDE_MODEL = "claude-sonnet-5-5"
 FAST_CLAUDE_MODEL = "claude-haiku-4-5"
 
 # Default OpenAI models for routed LLM tasks. The GPT-5.6 family replaced the
-# gpt-5.x / mini / nano naming outright — terra and luna are the tiers, not
-# separate small models.
-DEFAULT_OPENAI_MODEL = "gpt-5.6"
+# gpt-5.x / mini / nano naming outright — sol, terra and luna are the tiers, not
+# separate small models. There is no bare "gpt-5.6" id: the API does not list
+# one, so the flagship is named by its tier.
+DEFAULT_OPENAI_MODEL = "gpt-5.6-sol"
 BALANCED_OPENAI_MODEL = "gpt-5.6-terra"
 FAST_OPENAI_MODEL = "gpt-5.6-luna"
 
 # Default Gemini model for image generation
 DEFAULT_IMAGE_MODEL = "gemini-2.5-flash-image"
+
+# Selectable Gemini image models (Settings → Visuals → Image model), with the
+# per-image price at 1K output. A model is listed only once its price is
+# known, so the cost tracker never has to guess.
+GOOGLE_IMAGE_MODEL_PRICES: dict[str, float] = {
+    DEFAULT_IMAGE_MODEL: 0.039,  # Nano Banana
+    "gemini-3.1-flash-image": 0.067,  # Nano Banana 2
+}
 
 # YouTube thumbnail dimensions
 THUMBNAIL_WIDTH = 1280

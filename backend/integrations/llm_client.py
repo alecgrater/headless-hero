@@ -138,8 +138,16 @@ _reset_clients_for_testing = reset_clients
 ANTHROPIC_MODEL_ALIASES = {
     # Previous-generation Headless Hero defaults, mapped to the current tier
     # equivalent. Claude ids carry no date suffix.
+    "claude-opus-5": DEFAULT_CLAUDE_MODEL,
+    "claude-sonnet-5": BALANCED_CLAUDE_MODEL,
+    "claude-opus-4-8": DEFAULT_CLAUDE_MODEL,
     "claude-opus-4-7": DEFAULT_CLAUDE_MODEL,
+    "claude-opus-4-6": DEFAULT_CLAUDE_MODEL,
+    "claude-opus-4-5": DEFAULT_CLAUDE_MODEL,
+    "claude-opus-4-5-20251101": DEFAULT_CLAUDE_MODEL,
     "claude-sonnet-4-6": BALANCED_CLAUDE_MODEL,
+    "claude-sonnet-4-5": BALANCED_CLAUDE_MODEL,
+    "claude-sonnet-4-5-20250929": BALANCED_CLAUDE_MODEL,
     "claude-haiku-4-5-20251001": FAST_CLAUDE_MODEL,
     # Legacy Headless Hero defaults that used Bedrock-style or provisional ids.
     "anthropic.claude-opus-4-6-v1": DEFAULT_CLAUDE_MODEL,
@@ -161,10 +169,14 @@ ANTHROPIC_MODEL_ALIASES = {
 
 OPENAI_MODEL_ALIASES = {
     # The GPT-5.6 family replaced the gpt-5.x / mini / nano lineup; the old
-    # mini and nano tiers are now terra and luna.
+    # mini and nano tiers are now terra and luna. Bare "gpt-5.6" was a
+    # previous default that the API never listed; sol is the flagship tier.
+    "gpt-5.6": DEFAULT_OPENAI_MODEL,
     "gpt-5.5": DEFAULT_OPENAI_MODEL,
     "gpt-5.4": DEFAULT_OPENAI_MODEL,
     "gpt-5.2": BALANCED_OPENAI_MODEL,
+    "gpt-5.1": DEFAULT_OPENAI_MODEL,
+    "gpt-5": DEFAULT_OPENAI_MODEL,
     "gpt-5-mini": BALANCED_OPENAI_MODEL,
     "gpt-5-nano": FAST_OPENAI_MODEL,
 }
@@ -510,22 +522,13 @@ def chat(
         system_param = system
 
     try:
-        response = client.messages.create(
-            model=resolved_model,
-            max_tokens=max_tokens,
-            system=system_param,
-            messages=[{"role": "user", "content": user_message}],
-            timeout=timeout,
-        )
+        response = _anthropic_message(client, resolved_model, max_tokens, system_param, user_message, timeout)
     except anthropic.BadRequestError:
         if cache:
             logger.warning("Cache control rejected by API — retrying without cache (model=%s)", resolved_model)
-            response = client.messages.create(
-                model=resolved_model,
-                max_tokens=max_tokens,
-                system=system if system else anthropic.NOT_GIVEN,
-                messages=[{"role": "user", "content": user_message}],
-                timeout=timeout,
+            response = _anthropic_message(
+                client, resolved_model, max_tokens,
+                system if system else anthropic.NOT_GIVEN, user_message, timeout,
             )
         else:
             raise
@@ -543,8 +546,11 @@ def chat(
     cache_create_tok = getattr(usage, "cache_creation_input_tokens", 0) or 0
 
     pricing = get_model_pricing(resolved_model)
+    # Anthropic's input_tokens already excludes cache reads and writes, so the
+    # three input terms are disjoint — subtracting the cache counts from it
+    # under-reported every cached call.
     cost = (
-        (input_tok - cache_read_tok - cache_create_tok) * pricing["input"]
+        input_tok * pricing["input"]
         + cache_create_tok * pricing["input"] * 1.25
         + cache_read_tok * pricing["cache_read"]
         + output_tok * pricing["output"]
@@ -567,13 +573,49 @@ def chat(
     return _extract_anthropic_text(response)
 
 
+def _anthropic_message(
+    client: Any,
+    model: str,
+    max_tokens: int,
+    system: Any,
+    user_message: str,
+    timeout: float,
+) -> Any:
+    """Run one Messages request as a stream and return the final message.
+
+    Streaming keeps bytes flowing, so `timeout` bounds a stall rather than the
+    whole response. Non-streaming, a 32k-token script segment with adaptive
+    thinking had to finish inside that one window or fail outright.
+    """
+    with client.messages.stream(
+        model=model,
+        max_tokens=max_tokens,
+        system=system,
+        messages=[{"role": "user", "content": user_message}],
+        timeout=timeout,
+    ) as stream:
+        return stream.get_final_message()
+
+
 def _extract_anthropic_text(response: Any) -> str:
     """Join the text blocks of a Messages response.
 
     Claude 5 models run adaptive thinking by default, so `content[0]` is a
     ThinkingBlock and indexing it for `.text` raises AttributeError. Only
     blocks of type "text" carry the answer.
+
+    A refusal is checked first: it can stop a streamed turn mid-answer, and
+    the partial text before it is not a usable response.
     """
+    stop_reason = getattr(response, "stop_reason", None)
+    if stop_reason == "refusal":
+        details = getattr(response, "stop_details", None)
+        category = getattr(details, "category", None) if details else None
+        raise RuntimeError(
+            f"Claude declined this request (refusal, category={category!r}). "
+            "Rewording the topic or switching this task to another model usually clears it."
+        )
+
     text = "".join(
         block.text for block in response.content
         if getattr(block, "type", None) == "text"
@@ -581,7 +623,6 @@ def _extract_anthropic_text(response: Any) -> str:
     if text.strip():
         return text
 
-    stop_reason = getattr(response, "stop_reason", None)
     if stop_reason == "max_tokens":
         raise RuntimeError(
             "Claude hit max_tokens while thinking and returned no answer text. "
