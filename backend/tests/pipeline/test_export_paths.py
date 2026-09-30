@@ -136,3 +136,26 @@ def test_rename_project_exports_does_not_overwrite_existing_destination_files(tm
     assert (new_folder / longform_filename("Video", "New Project", ".mp4")).read_bytes() == b"video"
     assert old_folder.is_dir()
     assert (old_folder / shared_name).read_bytes() == b"old"
+
+
+def test_project_downloads_folder_names_an_unmounted_exports_drive(monkeypatch):
+    import pytest
+
+    from pipeline.export_paths import ExportsDriveUnavailableError
+    from pipeline.render_jobs import UserFacingJobError
+
+    monkeypatch.setenv("DOWNLOADS_DIR", "/Volumes/hh-test-missing-drive/Headless Hero Videos")
+
+    with pytest.raises(ExportsDriveUnavailableError, match="hh-test-missing-drive") as excinfo:
+        copy_to_project_downloads("Project", __file__, "x.txt")
+
+    assert isinstance(excinfo.value, UserFacingJobError)
+    assert not Path("/Volumes/hh-test-missing-drive").exists()
+
+
+def test_project_downloads_folder_without_create_skips_the_mount_check(monkeypatch):
+    monkeypatch.setenv("DOWNLOADS_DIR", "/Volumes/hh-test-missing-drive/Headless Hero Videos")
+
+    folder = project_downloads_folder("Project", create=False)
+
+    assert folder == Path("/Volumes/hh-test-missing-drive/Headless Hero Videos/[project] Project")

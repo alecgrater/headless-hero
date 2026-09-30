@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Literal
 
 from config import DEFAULT_EXPORTS_DIR, sanitize_filename
+from pipeline.render_jobs import UserFacingJobError
 
 logger = logging.getLogger(__name__)
 
@@ -32,10 +33,34 @@ def project_folder_name(project_title: str) -> str:
     return f"[project] {safe_title}"
 
 
+class ExportsDriveUnavailableError(UserFacingJobError):
+    """The configured Exports folder lives on an external volume that is not mounted."""
+
+
+def _unmounted_volume(base: Path) -> Path | None:
+    """Return the ``/Volumes/<name>`` root of ``base`` when that volume is not mounted."""
+    parts = base.parts
+    if len(parts) < 3 or parts[:2] != ("/", "Volumes"):
+        return None
+    volume = Path(*parts[:3])
+    return None if volume.is_dir() else volume
+
+
 def project_downloads_folder(project_title: str, *, create: bool = True) -> Path:
     """Return the configured export project folder, creating it by default."""
-    folder = downloads_base() / project_folder_name(project_title)
+    base = downloads_base()
+    folder = base / project_folder_name(project_title)
     if create:
+        # Creating parents here would make a stand-in directory where the drive
+        # mounts (or fail with EACCES on /Volumes), so name the real problem.
+        volume = _unmounted_volume(base)
+        if volume is not None:
+            logger.warning("Exports drive %s is not mounted (Exports folder: %s)", volume, base)
+            raise ExportsDriveUnavailableError(
+                f"The Exports folder is on the drive \"{volume.name}\", which isn't connected. "
+                f"Connect the drive, or change the Exports folder in Settings → General → Storage, "
+                f"then export again."
+            )
         folder.mkdir(parents=True, exist_ok=True)
     return folder
 
