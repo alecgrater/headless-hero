@@ -234,3 +234,28 @@ def test_single_scene_generate_backfills_a_missing_prompt(monkeypatch):
 
     assert seen["prompt"] == "A scene."
     assert stored.all_scenes()[0].visual_prompt == "A scene."
+
+
+def test_backfill_for_an_unsaved_mode_switch_is_not_persisted():
+    # Stored as captions, edited to full_frame but not saved: the request still gets
+    # a prompt, but the stored text-only scene must not gain one.
+    from api import visuals as visuals_api
+
+    engine = _engine()
+    content = _content()
+    stored_scene = content.all_scenes()[0]
+    stored_scene.visual_prompt = ""
+    stored_scene.set_visual_mode("captions")
+    stored_scene.caption_text = "A scene."
+    with Session(engine) as session:
+        session.add(BrandProfile(id="brand-1", name="Default"))
+        record = Script(id="script-1", brand_id="brand-1", topic_title="T",
+                        script_json=content.model_dump_json(), status="draft")
+        session.add(record)
+        session.commit()
+        loaded = ScriptContent.model_validate_json(record.script_json)
+        prompts = visuals_api._backfill_requested_prompts(session, record, loaded, [("scene_001", "full_frame")])
+        stored = ScriptContent.model_validate_json(session.get(Script, "script-1").script_json)
+
+    assert prompts["scene_001"] == "A scene."
+    assert stored.all_scenes()[0].visual_prompt == ""

@@ -410,9 +410,12 @@ def _backfill_requested_prompts(
 
     `requested` pairs a scene id with the visual mode the editor sent, which wins
     over the stored one so an unsaved switch into an image mode still backfills.
-    Returns scene_id -> prompt for every scene that now has one.
+    The prompt is only persisted when the *stored* mode is image-backed: written
+    onto a stored captions scene, a failed generation would leave a text-only beat
+    carrying a picture prompt. Returns scene_id -> prompt for this request.
     """
     scene_map = {sc.id: sc for sc in content.all_scenes()}
+    prompts = {sc_id: sc.visual_prompt for sc_id, sc in scene_map.items() if sc.visual_prompt}
     backfilled: list[str] = []
     for scene_id, request_mode in requested:
         scene = scene_map.get(scene_id)
@@ -420,7 +423,10 @@ def _backfill_requested_prompts(
             continue
         mode = request_mode if request_mode in IMAGE_BACKED_MODES else scene.visual_mode
         probe = scene.model_copy(update={"visual_mode": mode})
-        if backfill_image_prompt(probe):
+        if not backfill_image_prompt(probe):
+            continue
+        prompts[scene_id] = probe.visual_prompt
+        if scene.visual_mode in IMAGE_BACKED_MODES:
             scene.visual_prompt = probe.visual_prompt
             backfilled.append(scene_id)
     if backfilled:
@@ -432,7 +438,7 @@ def _backfill_requested_prompts(
             "Backfilled visual_prompt from narration for %d image-backed scene(s) in %s: %s",
             len(backfilled), record.id, ", ".join(sorted(backfilled)),
         )
-    return {sc_id: sc.visual_prompt for sc_id, sc in scene_map.items() if sc.visual_prompt}
+    return prompts
 
 
 @router.post("/generate", response_model=GenerateVisualResponse)
