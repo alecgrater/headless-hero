@@ -775,8 +775,9 @@ def start_visual_batch_job(body: GenerateBatchRequest, session: Session = Depend
 
         try:
             if batch_enabled:
-                # Google Batch spends most of its time inside one blocking poll
-                # (timeout 24h) with no per-scene signal, so a heartbeat keeps
+                # Google Batch spends most of its time inside blocking polls (one
+                # per frame round, each up to 24h, minutes in practice) with no
+                # per-scene signal until a scene finishes, so a heartbeat keeps
                 # the job off the poller's stall path until results land. The
                 # cadence is sized against that timeout, not against a typical
                 # run: 166 nudges of 0.005 up to the 0.85 ceiling must outlast

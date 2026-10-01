@@ -2552,13 +2552,13 @@ class _SequenceBatchRun:
         self.done = True
         return None
 
-    def complete_pending(self, image_path: str) -> None:
+    def complete_pending(self, image_path: str, *, batch: bool = True) -> None:
         plan = self.pending
         assert plan is not None
         metadata = _move_generated_image(image_path, plan.local_path, {
             "source_type": "ai_generated",
             "provider": provider_fingerprint(),
-            "batch": True,
+            "batch": batch,
             "fallback": False,
         })
         plan.prompt_marker.write_text(_marker_payload(plan.prompt), encoding="utf-8")
@@ -2566,6 +2566,26 @@ class _SequenceBatchRun:
         self.prev_frame_path = plan.local_path
         self.next_index += 1
         self.pending = None
+
+    def retry_pending_interactively(self, width: int, height: int) -> None:
+        """Regenerate a frame Batch failed on through the normal call.
+
+        That call retries a filter-blocked prompt in simplified form, which Batch
+        cannot; a real run hit the filter once in 138 images. Without this, one
+        blocked frame failed its whole scene and the render generated it late.
+        """
+        plan = self.pending
+        assert plan is not None
+        tmp_path = generate_image(
+            plan.prompt,
+            width=width,
+            height=height,
+            reference_image_path=plan.reference_image_path,
+            original_prompt=plan.directive_prompt,
+            style_reference_path=plan.style_reference_path,
+            script_id=self.sequence.script_id,
+        )
+        self.complete_pending(tmp_path, batch=False)
 
     def result(self) -> dict[str, object]:
         self.done = True
@@ -2622,6 +2642,7 @@ def generate_batch_with_google_batch(
             logger.exception("Batch image progress callback failed; continuing")
     standard_scenes: list[dict[str, object]] = []
     single_requests: list[GoogleBatchImageRequest] = []
+    single_scenes: dict[str, dict[str, object]] = {}
     output_paths: dict[str, tuple[Path, Path, str]] = {}
     sequences: list[_SequenceBatchRun] = []
 
@@ -2668,6 +2689,7 @@ def generate_batch_with_google_batch(
             continue
         if request and local_path and prompt_marker:
             single_requests.append(request)
+            single_scenes[scene_id] = scene
             output_paths[scene_id] = (
                 local_path,
                 prompt_marker,
@@ -2723,22 +2745,57 @@ def generate_batch_with_google_batch(
         for batch_result in batch_results:
             run = runs_by_key.get(batch_result.key)
             if run is not None:
-                if batch_result.error or not batch_result.image_path:
-                    run.error = batch_result.error or "Google Batch returned no image"
+                if batch_result.image_path:
+                    run.complete_pending(batch_result.image_path)
+                    continue
+                logger.warning(
+                    "Google Batch failed frame %s (%s); retrying it with a normal call",
+                    batch_result.key, batch_result.error or "no image",
+                )
+                try:
+                    run.retry_pending_interactively(width, height)
+                except Exception as exc:
+                    logger.error("Retry of frame %s failed: %s", batch_result.key, exc, exc_info=True)
+                    run.error = str(exc)
                     run.pending = None
                     _finish_sequence(run)
-                else:
-                    run.complete_pending(batch_result.image_path)
                 continue
             local_path, prompt_marker, web_path = output_paths[batch_result.key]
             prompt = prompts_by_key[batch_result.key]
             if batch_result.error or not batch_result.image_path:
-                results_by_scene[batch_result.key] = {
-                    "scene_id": batch_result.key,
-                    "image_url": None,
-                    "prompt_used": prompt,
-                    "error": batch_result.error or "Google Batch returned no image",
-                }
+                # Same reason as frames: only the normal call has the filter retry.
+                logger.warning(
+                    "Google Batch failed scene %s (%s); retrying it with a normal call",
+                    batch_result.key, batch_result.error or "no image",
+                )
+                scene = single_scenes[batch_result.key]
+                try:
+                    image_url, prompt_used, metadata = generate_scene_image(
+                        scene_id=batch_result.key,
+                        visual_prompt=single_image_prompt(scene),
+                        script_id=script_id,
+                        width=width,
+                        height=height,
+                        style_guide=style_guide,
+                        contains_person=single_image_contains_person(scene),
+                    )
+                    results_by_scene[batch_result.key] = {
+                        "scene_id": batch_result.key,
+                        "image_url": image_url,
+                        "frame_urls": [],
+                        "video_url": "",
+                        "prompt_used": prompt_used,
+                        "visual_source_metadata": metadata,
+                        "error": None,
+                    }
+                except Exception as exc:
+                    logger.error("Retry of scene %s failed: %s", batch_result.key, exc, exc_info=True)
+                    results_by_scene[batch_result.key] = {
+                        "scene_id": batch_result.key,
+                        "image_url": None,
+                        "prompt_used": prompt,
+                        "error": str(exc),
+                    }
                 _tick()
                 continue
             metadata = _move_generated_image(batch_result.image_path, local_path, {
@@ -2758,6 +2815,13 @@ def generate_batch_with_google_batch(
                 "error": None,
             }
             _tick()
+        returned_keys = {batch_result.key for batch_result in batch_results}
+        for run in runs_by_key.values():
+            if run.pending is not None and not run.done and run.frame_key(run.pending.index) not in returned_keys:
+                # Never resubmit a frame forever because a result went missing.
+                run.error = "Google Batch returned no result for this frame"
+                run.pending = None
+                _finish_sequence(run)
         single_requests = []
         pending_frames = _advance_sequences()
 

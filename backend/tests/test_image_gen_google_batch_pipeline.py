@@ -306,12 +306,80 @@ def test_a_failed_frame_stops_only_its_own_scene(monkeypatch, tmp_path):
     rounds = []
     monkeypatch.setattr(image_gen, "generate_images_batch", _fake_rounds(tmp_path, rounds, fail_keys={"scene_a::f1"}))
 
+    def still_blocked(*_args, **_kwargs):
+        raise RuntimeError("still blocked")
+
+    monkeypatch.setattr(image_gen, "generate_image", still_blocked)
+
     results = image_gen.generate_batch_with_google_batch(
         scenes=[_sequence_scene("scene_a", 3), _sequence_scene("scene_b", 3)],
         script_id="s1",
     )
 
     by_id = {r["scene_id"]: r for r in results}
-    assert by_id["scene_a"]["error"] == "blocked"
+    assert by_id["scene_a"]["error"] == "still blocked"
     assert len(by_id["scene_b"]["frame_urls"]) == 3
     assert [key for key, _ in rounds[2]] == ["scene_b::f2"]
+
+
+def test_a_blocked_batch_item_is_retried_with_a_normal_call(monkeypatch, tmp_path):
+    # Only the normal call retries a filter-blocked prompt in simplified form.
+    _sequence_env(monkeypatch, tmp_path)
+    rounds = []
+    monkeypatch.setattr(
+        image_gen, "generate_images_batch",
+        _fake_rounds(tmp_path, rounds, fail_keys={"scene_a::f1", "scene_c"}),
+    )
+    normal_calls = []
+
+    def fake_generate_image(prompt, **_kwargs):
+        normal_calls.append(prompt)
+        out = tmp_path / f"normal_{len(normal_calls)}.png"
+        _write_png(out)
+        return str(out)
+
+    monkeypatch.setattr(image_gen, "generate_image", fake_generate_image)
+
+    results = image_gen.generate_batch_with_google_batch(
+        scenes=[
+            _sequence_scene("scene_a", 3),
+            {"scene_id": "scene_c", "visual_prompt": "One image", "visual_mode": "full_frame"},
+        ],
+        script_id="s1",
+    )
+
+    by_id = {r["scene_id"]: r for r in results}
+    assert len(normal_calls) == 2
+    assert by_id["scene_a"]["error"] is None and len(by_id["scene_a"]["frame_urls"]) == 3
+    assert by_id["scene_c"]["error"] is None
+    assert by_id["scene_c"]["image_url"] == "/static/projects/s1/images/scene_c.png"
+    # Frame 2 still anchors on the retried frame 1.
+    assert dict(rounds[2])["scene_a::f2"].endswith("scene_a_f1.png")
+
+
+def test_progress_ticks_once_per_scene_across_every_path(monkeypatch, tmp_path):
+    _sequence_env(monkeypatch, tmp_path)
+    rounds = []
+    monkeypatch.setattr(image_gen, "generate_images_batch", _fake_rounds(tmp_path, rounds))
+
+    def failing_generate_image(*_args, **_kwargs):
+        raise RuntimeError("still blocked")
+
+    monkeypatch.setattr(image_gen, "generate_image", failing_generate_image)
+    monkeypatch.setattr(image_gen, "_generate_one_scene", lambda scene, *a, **k: {
+        "scene_id": scene["scene_id"], "image_url": None, "frame_urls": [], "prompt_used": None, "error": None,
+    })
+    scenes = [
+        _sequence_scene("seq_ok", 2),
+        {**_sequence_scene("seq_subtitle", 2), "frame_directives": [
+            {"prompt": "Words", "source": "subtitle"},
+            {"prompt": "Picture", "source": "ai_generated", "reference_previous": False},
+        ]},
+        {"scene_id": "single", "visual_prompt": "One image", "visual_mode": "full_frame"},
+        {"scene_id": "popup", "visual_prompt": "Popup", "visual_mode": "popup_sequence"},
+    ]
+    ticks = []
+    image_gen.generate_batch_with_google_batch(
+        scenes=scenes, script_id="s1", on_scene_done=lambda done, total: ticks.append((done, total)),
+    )
+    assert ticks == [(i, len(scenes)) for i in range(1, len(scenes) + 1)]
