@@ -272,8 +272,9 @@ def _main_character_scene_prompt(prompt: str, content: ScriptContent, role: str)
     character_instruction = (
         f"{character_name} is the main subject and protagonist in this scene. "
         f"Depict {character_name} as {role}; any other people are secondary and visually distinct from {character_name}. "
-        f"Preserve {character_name}'s identity and selected reference style, but adapt {character_name}'s visible age, "
-        "posture, outfit condition, and life-stage details to this scene's time marker or level. "
+        f"Preserve {character_name}'s identity and selected reference style. Dress {character_name} for this role and "
+        "moment (for example the job's uniform); the reference outfit is only a default. Adapt visible age, posture, "
+        "and life-stage details to this scene's time marker or level. "
         f"Do not keep {character_name} frozen at the reference age when the narration implies years have passed."
     )
     if stripped.startswith(character_instruction):

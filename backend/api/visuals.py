@@ -220,6 +220,7 @@ def _generate_scene_visual_layers(
             scene_prompt=request_scene_prompt or (scene.visual_prompt if scene is not None else ""),
             width=width,
             height=height,
+            contains_person=contains_person,
         )
     if treatment == "stat_card":
         return generate_stat_card_cutout(

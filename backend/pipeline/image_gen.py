@@ -143,16 +143,48 @@ def _resolve_style_preset(
     return _active_style_preset_path()
 
 
+# Written for the reference image, not for a name: scene text written before a
+# character swap can call the protagonist by another name, a role ("the guard"),
+# or "you". Placed LAST in every prompt so it outranks scene text that describes
+# the protagonist's face — measured on Nano Banana 2 Lite, earlier placement lost
+# to "square jaw, heavy brows" and drew a different, realistic person.
+_PROTAGONIST_STYLE_LOCK = (
+    "STYLE LOCK — this overrides anything above: draw the protagonist exactly in the reference's drawing style — the "
+    "same head shape and head-to-body ratio, skin color, eye and mouth style, hair shapes, and limb style. Never draw "
+    "the protagonist more realistically or in more detail than the reference, even if the scene text describes their "
+    "face or build, and even if the rest of the scene is detailed. Only their clothing, expression, pose, and small age "
+    "cues change."
+)
+
+
 def _serialize_main_character(char: MainCharacter) -> str:
-    return (
-        f'The primary/main person in this image MUST be "{char.name}" - the project-specific recurring main character. '
-        "A reference image of this character is included. The character MUST match this reference exactly: "
-        "same face, hair, body type, proportions, clothing cues, distinguishing features, and flat 2D cartoon style. "
-        "If the prompt depicts the protagonist, role character, or visible main person, make this character the "
-        "visually dominant subject. Other people may appear only as secondary characters and must be visually distinct. "
-        f"Appearance: {char.appearance}. "
-        f"Vibe: {char.vibe}."
-    )
+    """Identity-only instructions for the project's recurring main character.
+
+    The reference image defines who the protagonist is and how they are drawn,
+    never what they wear: "match the reference exactly, including clothing cues"
+    made image models dress a prison guard in the reference's tank top.
+    """
+    lines = [
+        "The protagonist of this image is the project's recurring main character; a reference image of them is included. "
+        f'The scene text may call this person "{char.name}", another name, a role (for example "the guard" or '
+        '"a lone officer"), or "you" — every one of those means this same character.',
+        "The reference defines IDENTITY and DRAWING STYLE only: head shape, face, hair, eyes, body proportions, line "
+        "weight, flat 2D cartoon rendering, and signature features such as glasses. Keep every signature feature from "
+        "the reference whenever the face is visible.",
+        "The reference does NOT define clothing. Dress the character for the role, place, and moment the scene "
+        "describes (for example a uniform for a job). Use the reference outfit only when the scene gives no role or setting.",
+        "If the scene text describes the protagonist's face or body differently from the reference (a square jaw, heavy "
+        "brows, realistic proportions), keep the reference's identity and style and carry that detail through "
+        "expression, posture, clothing wear, or props instead. When years have passed, show age with small cues "
+        "(tired eyes, a few grey strands, posture) on the same character.",
+        "Make this character the visually dominant subject. Other people may appear only as secondary characters and "
+        "must look clearly different from the protagonist.",
+        f"Reference description (identity only; the outfit it mentions is just a default): {char.appearance}",
+    ]
+    if char.vibe:
+        lines.append(f"Personality, for expression and body language only: {char.vibe}")
+    lines.append(_PROTAGONIST_STYLE_LOCK)
+    return "\n".join(lines)
 
 
 def _load_project_style_enabled(script_id: str) -> bool:
@@ -382,9 +414,9 @@ def _compose_image_prompt_context(
     parts.append(_FULL_BLEED_IMAGE_GUARD)
     if guide:
         parts.append(guide)
+    parts.append(visual_prompt)
     if character_text:
         parts.append(character_text)
-    parts.append(visual_prompt)
     prompt = "\n\n".join(parts)
 
     if reference_image_path:
@@ -440,9 +472,9 @@ def _compose_cutout_prompt_context(
         parts.append(_VISUAL_STYLE)
     if guide:
         parts.append(guide)
+    parts.append(visual_prompt)
     if character_text:
         parts.append(character_text)
-    parts.append(visual_prompt)
     prompt = "\n\n".join(parts)
 
     if reference_image_path:
@@ -794,8 +826,14 @@ def generate_comparison_board_cutouts(
     width: int = IMAGE_WIDTH,
     height: int = IMAGE_HEIGHT,
     force: bool = False,
+    contains_person: bool = False,
 ) -> list[dict]:
-    """Generate transparent subject cutouts for renderer-owned comparison boards."""
+    """Generate transparent subject cutouts for renderer-owned comparison boards.
+
+    When the scene shows a person, the subjects are usually the protagonist
+    ("year one" vs "year twelve"), so the project character reference and its
+    identity block go with the sheet; without them the model invents a stranger.
+    """
 
     image_layers = [
         dict(layer)
@@ -809,11 +847,23 @@ def generate_comparison_board_cutouts(
     output_dir.mkdir(parents=True, exist_ok=True)
 
     labels = [_comparison_subject_label(layer, index) for index, layer in enumerate(image_layers)]
-    item_prompt = _compose_comparison_subject_sheet_prompt(scene_prompt, labels)
+    reference_image_path: str | None = None
+    character_text = ""
+    if contains_person:
+        eli_enabled, main_character_url, main_character_obj = _load_project_character_context(script_id)
+        reference_image_path, character_text = _resolve_character_reference(
+            script_id=script_id,
+            contains_person=True,
+            eli_enabled=eli_enabled,
+            main_character_reference_url=main_character_url,
+            main_character=main_character_obj,
+        )
+    item_prompt = _compose_comparison_subject_sheet_prompt(scene_prompt, labels, character_block=character_text)
     prompt_marker = output_dir / "comparison_board.prompt"
     prompt_fingerprint = json.dumps(
         {
             "item_prompt": item_prompt,
+            "reference": _reference_fingerprint(reference_image_path),
             "cutout_engine": provider_fingerprint(CUTOUT_SHEET),
             "labels": labels,
             "layers": [
@@ -841,6 +891,7 @@ def generate_comparison_board_cutouts(
         logger.info("[COMPARISON_BOARD] generating cutouts scene=%s subjects=%d", scene_id, len(labels))
         _generate_comparison_subject_cutouts(
             item_prompt=item_prompt,
+            reference_image_path=reference_image_path,
             labels=labels,
             output_dir=output_dir,
             width=width,
@@ -1259,9 +1310,17 @@ def _generate_comparison_subject_cutouts(
     width: int,
     height: int,
     script_id: str,
+    reference_image_path: str | None = None,
 ) -> None:
     generated_path = Path(
-        generate_image(item_prompt, width=width, height=height, script_id=script_id, purpose=CUTOUT_SHEET)
+        generate_image(
+            item_prompt,
+            width=width,
+            height=height,
+            reference_image_path=reference_image_path,
+            script_id=script_id,
+            purpose=CUTOUT_SHEET,
+        )
     )
     sheet_path = output_dir / "subject_sheet.png"
     if generated_path.resolve() != sheet_path.resolve():
@@ -1299,21 +1358,13 @@ def _compose_popup_anchor_prompt(
         )
     parts = [
         subject_line,
-        "The subject should be detailed, expressive, centered, visually dominant, and shown in a clean neutral standing pose.",
+        "The subject should be expressive, centered, visually dominant, and shown in a clean neutral standing pose.",
         "Use a flat chroma background color that does not appear anywhere in the subject, preferably bright green unless the subject contains green.",
         "No popup items, no secondary icons, no speech bubbles, no text, no labels, no frames, no full background scene.",
         "No sitting.",
         "No desks, no phones, no notification bubbles, no props, and no environment.",
         "Leave a little empty margin around the full subject so automatic trimming does not clip the pose.",
     ]
-    if character_context:
-        parts.extend(
-            [
-                "Use the included character reference as the source of truth for the anchor identity.",
-                "The popup anchor must preserve the active protagonist exactly; do not invent a new anonymous host or substitute character.",
-                character_context,
-            ]
-        )
     parts.extend(
         [
             "Use the scene direction only for character identity and visual style; ignore its action, environment, props, and popup items.",
@@ -1322,78 +1373,81 @@ def _compose_popup_anchor_prompt(
             scene_prompt.strip(),
         ]
     )
+    # Character block last, as in scene images: it has to outrank scene text
+    # that describes the protagonist's face (see _PROTAGONIST_STYLE_LOCK).
+    if character_context:
+        parts.extend(
+            [
+                "",
+                "Use the included character reference as the source of truth for the anchor identity.",
+                "The popup anchor must preserve the active protagonist exactly; do not invent a new anonymous host or substitute character.",
+                character_context,
+            ]
+        )
     return "\n".join(parts).strip()
 
 
+def _compose_cutout_sheet_prompt(
+    scene_prompt: str,
+    labels: list[str],
+    *,
+    noun: str,
+    no_people: bool = False,
+    character_block: str = "",
+) -> str:
+    """Prompt for a row of subjects that is cut into equal-width cutouts.
+
+    Wording here is measured, not stylistic. "Contact sheet", "slots", and a
+    numbered label list each invited Nano Banana 2 Lite to draw panels,
+    dividers, tinted bands, or the label as a caption — all fatal to the
+    equal-width crop and chroma key. Describing subjects as things to draw,
+    asking for wide same-color gaps, and stating each subject's position kept
+    the background continuous while still landing one subject per crop.
+    """
+    count = len(labels)
+    positions = ", ".join(f"{round((2 * index + 1) * 100 / (2 * count))}%" for index in range(count))
+    lines = [
+        "This image is raw material for automatic cutting. No viewer ever reads it; software adds every word later.",
+        "",
+        f"Draw exactly {count} {noun}(s) in a single row, left to right:",
+        *[f"Subject {index}: {label}" for index, label in enumerate(labels, start=1)],
+        "These descriptions tell you WHAT to draw. Never write them, or any other words, in the image.",
+        "",
+        "Layout:",
+        f"- Center the subjects at about {positions} of the image width, each no wider than {round(75 / count)}% of the image",
+        "- Leave wide empty gaps of the SAME background color between subjects; do not divide the image into sections of any kind",
+        "- Single row only; no stacking, wrapping, or overlapping",
+        "",
+        "Background:",
+        "- ONE solid flat chroma color fills the ENTIRE image, edge to edge, around and between every subject",
+        "- Bright green (#00FF00), or bright magenta (#FF00FF) if a subject contains green; that color never appears in a subject",
+        "- No white areas, bars, header or footer strips, panels, tiles, cards, boxes, borders, frames, dividers, or gutters",
+        "",
+        "Absolutely no text: no labels, captions, titles, numbers, letters, signs, or words anywhere, including on the subjects.",
+        "",
+        "Rendering:",
+        "- Crisp closed silhouettes; no glow, feathering, drop shadows, or effects past the subject edge",
+        "- No background scene or environment behind subjects",
+    ]
+    if no_people:
+        lines.append("- No main character or human figures")
+    lines += ["", "Scene context, for style only:", scene_prompt.strip()]
+    if character_block:
+        lines += ["", "Wherever a subject is the main character, draw them as the character in the reference image:",
+                  character_block]
+    return "\n".join(lines).strip()
+
+
 def _compose_popup_item_sheet_prompt(scene_prompt: str, labels: list[str]) -> str:
-    item_lines = [f"{index}. {label}" for index, label in enumerate(labels, start=1)]
-    return "\n".join(
-        [
-            "You are generating a contact sheet for automatic programmatic cropping.",
-            "",
-            f"Generate exactly {len(labels)} cartoon popup item(s) arranged in a single row,",
-            "evenly spaced, left to right in this exact order:",
-            *item_lines,
-            "",
-            "Layout rules:",
-            "- Each item occupies an equal-width vertical slot",
-            "- Items are horizontally centered within their slot",
-            "- Items fill no more than 70% of their slot width, leaving clear margins on both sides",
-            "- All items are the same visual scale relative to their slot",
-            "- Single row only; do not stack or wrap items",
-            "",
-            "Background:",
-            "- Solid flat chroma key background across the entire image",
-            "- Use bright green (#00FF00) unless any item contains green, in which case use bright magenta (#FF00FF)",
-            "- The chroma color must not appear anywhere within any item",
-            "",
-            "Item rendering:",
-            "- Each item is fully self-contained with no overlap into adjacent slots",
-            "- Crisp closed silhouettes with no soft glow, feathering, or semi-transparent color bleed into the chroma background",
-            "- No drop shadows, glows, or effects that extend outside the item boundary",
-            "- No frames, borders, labels, captions, arrows, or text",
-            "- No background scenes, environments, or context behind items",
-            "- No main character or human figures",
-            "",
-            "Scene context for style only:",
-            scene_prompt.strip(),
-        ]
-    ).strip()
+    return _compose_cutout_sheet_prompt(scene_prompt, labels, noun="cartoon popup item", no_people=True)
 
 
-def _compose_comparison_subject_sheet_prompt(scene_prompt: str, labels: list[str]) -> str:
-    item_lines = [f"{index}. {label}" for index, label in enumerate(labels, start=1)]
-    return "\n".join(
-        [
-            "You are generating a contact sheet for automatic programmatic cropping.",
-            "",
-            f"Generate exactly {len(labels)} comparison subject cutout(s) arranged in a single row,",
-            "evenly spaced, left to right in this exact order:",
-            *item_lines,
-            "",
-            "Layout rules:",
-            "- Each subject occupies an equal-width vertical slot",
-            "- Subjects are horizontally centered within their slot",
-            "- Subjects fill no more than 78% of their slot width, leaving clear margins",
-            "- Single row only; do not stack or wrap subjects",
-            "- Do not create a split-screen board; the renderer owns all board layout, dividers, labels, arrows, and stat chips",
-            "",
-            "Background:",
-            "- Solid flat chroma key background across the entire image",
-            "- Use bright green (#00FF00) unless a subject contains green, in which case use bright magenta (#FF00FF)",
-            "- The chroma color must not appear anywhere within any subject",
-            "",
-            "Subject rendering:",
-            "- Each subject is fully self-contained with no overlap into adjacent slots",
-            "- Crisp closed silhouettes with no soft glow, feathering, or semi-transparent color bleed into the chroma background",
-            "- No drop shadows, glows, or effects that extend outside the subject boundary",
-            "- No frames, borders, labels, captions, arrows, badges, stat chips, or text",
-            "- No background scenes, environments, or context behind subjects",
-            "",
-            "Scene context for style only:",
-            scene_prompt.strip(),
-        ]
-    ).strip()
+def _compose_comparison_subject_sheet_prompt(
+    scene_prompt: str, labels: list[str], *, character_block: str = ""
+) -> str:
+    return _compose_cutout_sheet_prompt(
+        scene_prompt, labels, noun="comparison subject", character_block=character_block
+    )
 
 
 def _comparison_subject_label(layer: dict, index: int) -> str:
@@ -1715,8 +1769,6 @@ def generate_scene_frames(
             if _VISUAL_STYLE:
                 parts.append(_VISUAL_STYLE)
             parts.append(_FULL_BLEED_IMAGE_GUARD)
-            if character_text:
-                parts.append(character_text)
             if visual_prompt.strip():
                 parts.append(f"Shared scene brief for the whole continuous sequence:\n{visual_prompt.strip()}")
             parts.append(
@@ -1726,6 +1778,8 @@ def generate_scene_frames(
                 f"Maintain identical style, background, composition, character design, "
                 f"and color palette. Only the described action should change."
             )
+            if character_text:
+                parts.append(character_text)
             prompt = "\n\n".join(parts)
         else:
             # First frame or no reference: full text-to-image prompt
@@ -1735,8 +1789,6 @@ def generate_scene_frames(
             parts.append(_FULL_BLEED_IMAGE_GUARD)
             if guide:
                 parts.append(guide)
-            if character_text:
-                parts.append(character_text)
 
             if visual_prompt and total_frames > 1:
                 continuity = (
@@ -1753,6 +1805,8 @@ def generate_scene_frames(
             else:
                 parts.append(full_frame_description)
 
+            if character_text:
+                parts.append(character_text)
             prompt = "\n\n".join(parts)
 
         # Append reference path + mtime for cache invalidation when reference changes
@@ -1915,8 +1969,6 @@ def generate_scene_frames_v2(
             if _VISUAL_STYLE:
                 parts.append(_VISUAL_STYLE)
             parts.append(_FULL_BLEED_IMAGE_GUARD)
-            if character_text:
-                parts.append(character_text)
             if visual_prompt.strip():
                 parts.append(f"Shared scene brief for the whole continuous sequence:\n{visual_prompt.strip()}")
             parts.append(
@@ -1926,6 +1978,8 @@ def generate_scene_frames_v2(
                 f"Maintain identical style, background, composition, character design, "
                 f"and color palette. Only the described action should change."
             )
+            if character_text:
+                parts.append(character_text)
             prompt = "\n\n".join(parts)
         else:
             # Independent sequence images may change subject/composition, but use
@@ -1946,9 +2000,9 @@ def generate_scene_frames_v2(
                 )
             if guide and guide != directive_prompt:
                 parts.append(f"Scene context: {guide}\n\nThis specific image:")
+            parts.append(directive_prompt)
             if character_text:
                 parts.append(character_text)
-            parts.append(directive_prompt)
             prompt = "\n\n".join(parts)
 
         # Append reference path + mtime for cache invalidation when reference changes
@@ -2061,6 +2115,7 @@ def _generate_one_scene(
                 scene_prompt=str(scene.get("visual_prompt") or ""),
                 width=width,
                 height=height,
+                contains_person=bool(scene.get("contains_person", False)),
             )
         elif treatment == "stat_card":
             result["visual_layers"] = generate_stat_card_cutout(

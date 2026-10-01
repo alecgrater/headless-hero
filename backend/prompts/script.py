@@ -513,6 +513,8 @@ Shot-type palette: every `visual_prompt` MUST begin with one of `[ESTABLISHING]`
 
 Eli is the visual identity of the second-person protagonist. When a life-as-a visual depicts the protagonist, the role named in the title, or a visible main person (for example a guard in "Your Life As A Guard"), the primary subject MUST be Eli in that role. If other people appear, they are secondary and visually distinct from Eli. Object-only, room-only, and atmosphere shots can omit Eli.
 
+When Eli appears, describe only the role, clothing, action, expression, posture, small age cues, and setting. Never describe Eli's face, head, jaw, brows, hair, skin, or build — Eli's reference image owns their appearance, and a written description like "square jaw, heavy brows" makes the image model draw a different person.
+
 For `continuous` scenes, frames should show subtle progression of the SAME scene (reference_previous: true, transition: "crossfade"). For `multi_frame`, every frame should be a distinct image with reference_previous: false and transition: "cut". Use multi-frame directives deliberately when the scene has enough visual change to justify them.
 
 ---

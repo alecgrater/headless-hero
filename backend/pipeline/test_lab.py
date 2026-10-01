@@ -1136,6 +1136,7 @@ def _stage_treatment_assets(ctx: TestLabRunContext) -> None:
                     script_id=ctx.script_id,
                     scene_prompt=scene.visual_prompt,
                     force=True,
+                    contains_person=scene.contains_person,
                 )
             elif scene.visual_mode == "stat_card":
                 generated_layers = generate_stat_card_cutout(

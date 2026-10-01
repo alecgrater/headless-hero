@@ -214,6 +214,7 @@ def _phase_images(ctx: ExportContext) -> None:
                     script_id=ctx.script_id,
                     scene_prompt=sc_info.get("visual_prompt") or (scene_now.visual_prompt if scene_now is not None else ""),
                     force=True,
+                    contains_person=contains_person,
                 )
             elif treatment == "stat_card":
                 sc_info["_visual_layers"] = generate_stat_card_cutout(
