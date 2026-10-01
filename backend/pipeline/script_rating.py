@@ -105,9 +105,14 @@ def parse_script_rating_response(raw: str, *, narration: str, model: str) -> Scr
     if not isinstance(parsed, dict):
         raise ValueError("Script rating response must be a JSON object")
     raw_scores = parsed.get("scores")
-    if not isinstance(raw_scores, dict) or "overall" not in raw_scores:
+    if not isinstance(raw_scores, dict) or not isinstance(raw_scores.get("overall"), (int, float)):
         raise ValueError("Script rating response is missing scores")
-    scores = ScriptRatingScores.model_validate({key: raw_scores.get(key) for key in SCORE_KEYS})
+    # Round rather than reject a fractional sub-score ("flow": 6.5); overall stays as given.
+    scores = ScriptRatingScores.model_validate({
+        key: round(value) if isinstance(value, float) else value
+        for key in SCORE_KEYS
+        for value in [raw_scores.get(key)]
+    })
 
     haystack = _norm(narration)
     problems: list[ScriptRatingProblem] = []
@@ -156,7 +161,8 @@ def rate_script(content: ScriptContent, *, script_id: str | None = None) -> Scri
     )
 
     try:
-        rating = parse_script_rating_response(raw, narration=_narration_payload(content), model=model)
+        narration = " ".join(scene.narration for scene in content.all_scenes())
+        rating = parse_script_rating_response(raw, narration=narration, model=model)
     except (json.JSONDecodeError, ValueError) as exc:
         logger.error("[%s] Failed to parse script rating response: %s", script_id or "no-id", exc)
         raise RuntimeError(f"Script rating returned invalid JSON: {exc}") from exc

@@ -1,5 +1,7 @@
 # Script Rating Design
 
+> **Superseded 2026-09-30.** This category scorecard could not detect defects (it rated scripts with major errors ~7/10 on any model). `script_rating` is now the calibrated problem-finding judge — see CLAUDE.md "Script generation (measured 2026-09-30)". Do not rebuild the scorecard from this spec.
+
 ## Goal
 
 Add an honest post-generation script scorecard that runs in a fresh LLM call after each script is created, persists with the script, and is visible both on the project dashboard and the timeline/script page.

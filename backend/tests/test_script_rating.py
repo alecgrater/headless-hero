@@ -49,9 +49,7 @@ def _rating_payload(**overrides) -> dict:
 
 
 def _narration() -> str:
-    from pipeline.script_rating import _narration_payload
-
-    return _narration_payload(_content())
+    return " ".join(scene.narration for scene in _content().all_scenes())
 
 
 def test_review_keeps_only_quotes_that_are_in_the_narration():
@@ -128,3 +126,20 @@ def test_review_prompt_uses_the_format_notes(monkeypatch, format_id, expected, a
     assert expected in captured["user"]
     assert absent not in captured["user"]
     assert "scene-1: A cartridge clicks into place" in captured["user"]
+
+
+def test_fractional_sub_scores_round_instead_of_discarding_the_review():
+    from pipeline.script_rating import parse_script_rating_response
+
+    scores = {"flow": 6.5, "clarity": 8, "human_sounding": 6, "continuity": 8, "format_fit": 7, "overall": 6.5}
+    rating = parse_script_rating_response(json.dumps(_rating_payload(scores=scores)), narration=_narration(), model="m")
+    assert rating.scores.flow in (6, 7)
+    assert rating.overall == 6.5
+
+
+def test_a_non_numeric_overall_is_a_parse_error():
+    from pipeline.script_rating import parse_script_rating_response
+
+    scores = {"flow": 7, "clarity": 8, "human_sounding": 6, "continuity": 8, "format_fit": 7, "overall": None}
+    with pytest.raises(ValueError):
+        parse_script_rating_response(json.dumps(_rating_payload(scores=scores)), narration=_narration(), model="m")
