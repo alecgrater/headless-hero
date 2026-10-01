@@ -1,5 +1,6 @@
 """Tests for style-preset-scoped main characters."""
 
+import time
 from datetime import datetime, timezone
 from unittest.mock import patch
 
@@ -734,6 +735,19 @@ def test_sync_active_preset_character_asset_change_clears_project_variants(
     assert not old_cutout.exists()
     assert new_ref.exists()
     assert new_cutout.exists()
+
+    # A second sync with nothing changed must leave the files alone. It used to
+    # re-copy the reference on every call (once per scene image), and a
+    # half-copied file looked "changed" to a parallel job.
+    reference_mtime = (project_character_dir / "reference.png").stat().st_mtime_ns
+    prompt_marker.write_text("new scene prompt", encoding="utf-8")
+    time.sleep(0.01)
+    with Session(style_character_engine) as session:
+        changed_again = main_character.sync_global_main_character_to_project(session, "script-a")
+        session.commit()
+    assert changed_again is False
+    assert (project_character_dir / "reference.png").stat().st_mtime_ns == reference_mtime
+    assert prompt_marker.exists()
 
 
 def test_sync_active_preset_character_to_project_skips_when_style_preset_disabled(
