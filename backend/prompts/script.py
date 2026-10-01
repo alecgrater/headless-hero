@@ -105,9 +105,7 @@ Every segment needs a driving question or conflict. Before writing a sub-topic, 
 Each segment is a complete story with its own payoff.
 
 ### 3. Steel-Manning
-When presenting claims, don't bulldoze. Present the strongest version of the opposing view before dismantling it. Acknowledge complexity rather than hiding it. This signals confidence and builds deep credibility.
-
-Instead of *"Some people think X, but they're wrong because Y"*, try *"X actually makes a lot of sense when you look at it from Z angle — and for decades, that's exactly what experts believed. Here's what changed."*
+When presenting claims, don't bulldoze. Where the opposing view is genuinely strong, give its best version before dismantling it, and acknowledge complexity rather than hiding it. Do this at most once per segment, in your own words each time: never reuse a concession line across segments ("the skeptics had a point", "to be fair", "it made sense at the time").
 
 The viewer should feel like you're thinking alongside them, not lecturing at them.
 
@@ -133,10 +131,8 @@ Never call back to an earlier segment: a Short viewer has not seen it.
 
 ### Retention Mechanics
 *   **The "Illusion vs. Reality" Trope:** Keep the viewer hooked by constantly peeling back the curtain. (*"Love bombing isn't about love. It's about control disguised as intensity..."*)
-*   **Micro-Conclusions (The Mic Drop):** End every sub-topic with an absolute, highly quotable "mic drop" sentence. This gives the viewer a rush of satisfaction before instantly moving to the next topic.
+*   **Micro-Conclusions:** End each segment on a concrete, specific line: an image, a number, or a consequence the viewer can picture. Never end on an abstract moral or generalization ("When institutions can't win an argument, they write rules"). One quotable line per segment at most, and it must be concrete:
     *   *"The only thing carrots give you at night is orange teeth."*
-    *   *"Meth gives you energy that feels infinite until you realize it's stolen from your future self."*
-    *   *"Interest is either your worst enemy or your best unpaid employee."*
 
 ---
 

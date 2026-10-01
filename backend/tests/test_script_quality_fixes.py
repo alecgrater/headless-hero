@@ -192,3 +192,14 @@ def test_main_character_block_asks_for_a_placeholder_not_a_face():
     assert "detailed visual description (face, hair, build" not in text
     addendum = scriptwriter.build_outline_main_character_addendum()
     assert "never in narration" in addendum
+
+
+def test_listicle_endings_are_concrete_and_concessions_are_not_templated():
+    # A/B on the same outline: the old "Mic Drop on every sub-topic" and copyable
+    # steel-man example produced aphorism closers and a repeated "the skeptics had
+    # a point" line; softened, judged human-sounding went 5 -> 6-7, majors 1 -> 0.
+    text = SCRIPT_SYSTEM.template
+    assert "End every sub-topic with an absolute, highly quotable" not in text
+    assert "Never end on an abstract moral or generalization" in text
+    assert "X actually makes a lot of sense when you look at it from Z angle" not in text
+    assert "at most once per segment, in your own words each time" in text
