@@ -364,6 +364,11 @@ def _read_source_metadata(image_path: Path) -> dict[str, object] | None:
         return None
 
 
+def _is_placeholder_image(image_path: Path) -> bool:
+    """True for the "Image generation failed" stand-in, which must never be reused."""
+    return (_read_source_metadata(image_path) or {}).get("source_type") == "placeholder"
+
+
 def _move_generated_image(tmp_path: str, local_path: Path, metadata: dict[str, object]) -> dict[str, object]:
     tmp_source_path = _source_metadata_path(Path(tmp_path))
     shutil.move(tmp_path, str(local_path))
@@ -1625,7 +1630,7 @@ def generate_scene_image(
     prompt_marker = images_dir / f"{scene_id}.prompt"
     web_path = f"/static/projects/{script_id}/images/{filename}"
 
-    if not force and local_path.exists() and prompt_marker.exists():
+    if not force and local_path.exists() and prompt_marker.exists() and not _is_placeholder_image(local_path):
         if _marker_matches(prompt_marker, prompt):
             logger.info("Image cache hit for scene %s", scene_id)
             return web_path, prompt, _read_source_metadata(local_path)
@@ -1703,7 +1708,11 @@ def generate_scene_image(
             "fallback": True,
         }
         _write_source_metadata(local_path, metadata)
-        prompt_marker.write_text(_marker_payload(prompt), encoding="utf-8")
+        # No prompt marker: a cached placeholder was a cache hit on every later
+        # attempt, so a transient failure shipped "Image generation failed" in
+        # the video. Without one, the next attempt regenerates; completion checks
+        # also treat source_type "placeholder" as missing.
+        prompt_marker.unlink(missing_ok=True)
         return web_path, prompt, metadata
 
     metadata = _move_generated_image(tmp_path, local_path, {
@@ -2476,7 +2485,7 @@ def _prepare_google_batch_scene(
     prompt_marker = images_dir / f"{scene_id}.prompt"
     web_path = f"/static/projects/{script_id}/images/{scene_id}.png"
 
-    if local_path.exists() and prompt_marker.exists():
+    if local_path.exists() and prompt_marker.exists() and not _is_placeholder_image(local_path):
         if _marker_matches(prompt_marker, prompt):
             logger.info("Image cache hit for Google batch scene %s", scene_id)
             return None, {

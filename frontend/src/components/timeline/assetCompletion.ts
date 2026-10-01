@@ -26,6 +26,9 @@ function generatedLayersComplete(scene: Scene): boolean {
 }
 
 export function sceneVisualAssetsComplete(scene: Scene): boolean {
+  // A failed generation leaves an "Image generation failed" placeholder; it must
+  // read as missing so YOLO and "Generate missing" retry it instead of shipping it.
+  if (scene.visual_source_metadata?.source_type === "placeholder") return false;
   if (scene.image_url || scene.frame_urls?.length || scene.video_url) return true;
   const visualMode = scene.visual_mode ?? "full_frame";
   if (REQUIRED_LAYER_MODES.has(visualMode)) return generatedLayersComplete(scene);

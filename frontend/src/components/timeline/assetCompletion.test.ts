@@ -66,3 +66,15 @@ describe("sceneNeedsImageGeneration", () => {
     expect(sceneNeedsImageGeneration({ ...baseScene, visual_mode: "popup_sequence" })).toBe(true);
   });
 });
+
+describe("placeholder images", () => {
+  it("count a failed-generation placeholder as missing so it is retried", () => {
+    const placeholder = {
+      ...baseScene,
+      image_url: "/static/projects/s/images/scene_001.png",
+      visual_source_metadata: { source_type: "placeholder", fallback: true },
+    };
+    expect(sceneVisualAssetsComplete(placeholder)).toBe(false);
+    expect(sceneVisualAssetsComplete({ ...placeholder, visual_source_metadata: { source_type: "ai_generated" } })).toBe(true);
+  });
+});

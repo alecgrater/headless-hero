@@ -1075,7 +1075,8 @@ def ensure_renderable_scene_images(script_id: str, content: ScriptContent) -> in
             continue
         if scene.visual_mode not in IMAGE_BACKED_MODES:
             continue
-        if scene.image_url or scene.frame_urls or scene.video_url:
+        placeholder = (scene.visual_source_metadata or {}).get("source_type") == "placeholder"
+        if (scene.image_url or scene.frame_urls or scene.video_url) and not placeholder:
             continue
 
         backfilled = backfill_image_prompt(scene)
@@ -1088,9 +1089,9 @@ def ensure_renderable_scene_images(script_id: str, content: ScriptContent) -> in
             continue
 
         logger.warning(
-            "[ENSURE_IMAGES] %s scene %s (%s) has no generated image; generating from %s "
-            "to avoid a blank frame",
+            "[ENSURE_IMAGES] %s scene %s (%s) has %s; generating from %s to avoid a blank frame",
             script_id, scene.id, scene.visual_mode,
+            "only a failed-generation placeholder" if placeholder else "no generated image",
             "scene narration" if backfilled else "visual prompt",
         )
         try:
