@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -33,6 +34,7 @@ BLINK_EYE_MAX_SEPARATION = 0.6
 # so marks can never cross the nose. This guard only rejects degenerate
 # mis-detections where an "eye" is nearly as wide as the gap between the eyes.
 BLINK_EYE_MAX_WIDTH_VS_SEPARATION = 0.9
+BLINK_FILL_MAX_LUMINANCE_GAP = 45
 
 
 class FullFrameBlinkDetection(BaseModel):
@@ -71,7 +73,13 @@ def detect_full_frame_blink_anchor(image_path: Path) -> FullFrameBlinkDetection:
     try:
         with Image.open(image_path) as image:
             rgba = image.convert("RGBA")
-            detected = _detect_full_frame_main_face_anchor_points(_full_frame_detection_image(rgba))
+            detection_image = _full_frame_detection_image(rgba)
+            # Glasses first: it is the stricter test, and on a glasses face the
+            # skin/eye-pair path can lock onto something else (it once picked two
+            # outlined shirt pockets with buttons under the real face).
+            detected = _detect_full_frame_glasses_face_anchor_points(detection_image)
+            if detected is None:
+                detected = _detect_full_frame_main_face_anchor_points(detection_image)
             if detected is None:
                 return FullFrameBlinkDetection(status="failed", eligible=False, reason="face_landmarks_missing")
             skin_fill = _sample_blink_face_skin_fill(rgba, detected)
@@ -85,6 +93,7 @@ def detect_full_frame_blink_anchor(image_path: Path) -> FullFrameBlinkDetection:
                 "mouth": dict(detected["mouth"]),
                 "brow_left": dict(detected["brow_left"]),
                 "brow_right": dict(detected["brow_right"]),
+                **({"eye_fill_source": detected["eye_fill_source"]} if "eye_fill_source" in detected else {}),
             }
     except OSError:
         return FullFrameBlinkDetection(status="failed", eligible=False, reason="image_unreadable")
@@ -146,7 +155,27 @@ def full_frame_blink_quality_rejection_reason(anchor: dict[str, object]) -> str:
     if max(left_width, right_width) > separation * BLINK_EYE_MAX_WIDTH_VS_SEPARATION:
         return "blink_quality_overlay_would_span_nose"
 
+    # The closed eye is painted with these fills. On a pale face the skin sampler
+    # can only find the grey eye edge, and the blink renders as two grey patches.
+    # Lens fills are sampled from the lens itself, so a tinted lens is expected
+    # to differ from the face.
+    if anchor.get("eye_fill_source") != "lens":
+        skin_rgb = _hex_rgb(anchor.get("skin_fill"))
+        for eye in (left_eye, right_eye):
+            fill_rgb = _hex_rgb(eye.get("fill_top"))
+            if skin_rgb and fill_rgb and abs(_luminance(fill_rgb) - _luminance(skin_rgb)) > BLINK_FILL_MAX_LUMINANCE_GAP:
+                return "blink_quality_fill_mismatch"
+
     return ""
+
+
+def _hex_rgb(value: object) -> tuple[int, int, int] | None:
+    if not isinstance(value, str) or len(value) != 7 or not value.startswith("#"):
+        return None
+    try:
+        return int(value[1:3], 16), int(value[3:5], 16), int(value[5:7], 16)
+    except ValueError:
+        return None
 
 
 def build_full_frame_blink_metadata(script_id: str, scene_id: str, image_url: str) -> dict[str, object] | None:
@@ -291,6 +320,258 @@ def _detect_full_frame_main_face_anchor_points(image: Image.Image) -> dict[str, 
     if not ranked_faces:
         return None
     return _anchor_for_face_component(image, ranked_faces[0], dark_components, light_eye_components, components)
+
+
+# --- Glasses faces -----------------------------------------------------------
+# Minimal cartoon characters with round glasses defeat the skin/eye-pair path:
+# the frame joins both eyes and the hair into one dark shape, the eyes are small
+# grey dots behind tinted lenses, and an off-white head merges with pale walls.
+# Measured on 76 images of a stick-figure protagonist: the main path found 2;
+# this path finds the matched lens pair in 40 with no false hits. It runs only
+# when the main path finds nothing, and its anchor goes through the same
+# full_frame_blink_quality_rejection_reason gate.
+GLASSES_LENS_MIN_WIDTH = 0.008
+GLASSES_LENS_MAX_WIDTH = 0.08
+GLASSES_RIM_MIN_FRACTION = 0.6
+GLASSES_EYE_CONTRAST = 55
+
+
+def _luminance(pixel: tuple[int, ...]) -> float:
+    red, green, blue = pixel[:3]
+    return 0.299 * red + 0.587 * green + 0.114 * blue
+
+
+def _is_full_frame_pale_pixel(red: int, green: int, blue: int, alpha: int) -> bool:
+    return alpha > 140 and min(red, green, blue) >= 170 and max(red, green, blue) - min(red, green, blue) <= 45
+
+
+def _collect_pale_and_dark_components(image: Image.Image) -> tuple[list[dict[str, float]], list[dict[str, float]]]:
+    width, height = image.size
+    pixels = image.load()
+    pale: set[tuple[int, int]] = set()
+    dark: set[tuple[int, int]] = set()
+    for y in range(round(height * 0.04), round(height * 0.82)):
+        for x in range(round(width * 0.03), round(width * 0.97)):
+            red, green, blue, alpha = pixels[x, y]
+            if _is_full_frame_pale_pixel(red, green, blue, alpha):
+                pale.add((x, y))
+            if alpha > 80 and red < 70 and green < 70 and blue < 70:
+                dark.add((x, y))
+    return (
+        _components_from_points(pale, width, height, "pale", min_area=20),
+        _components_from_points(dark, width, height, "dark", min_area=8),
+    )
+
+
+def _lens_rim_fraction(image: Image.Image, lens: dict[str, float], *, samples: int = 36, reach: float = 1.9) -> float:
+    """Share of rays from the lens center that meet a dark rim within `reach` lens radii.
+
+    Walks outward rather than sampling one circle: a lens highlight splits the
+    pale interior, so the detected lens shape can be smaller than the real lens.
+    """
+    width, height = image.size
+    pixels = image.load()
+    center_x, center_y = lens["cx"] * width, lens["cy"] * height
+    radius = max(lens["width"] * width, lens["height"] * height) / 2
+    hits = 0
+    for index in range(samples):
+        angle = 2 * math.pi * index / samples
+        for step in range(int(radius * 0.5), int(radius * reach) + 2):
+            x = int(center_x + step * math.cos(angle))
+            y = int(center_y + step * math.sin(angle))
+            if not (0 <= x < width and 0 <= y < height):
+                break
+            if _luminance(pixels[x, y]) < 90:
+                hits += 1
+                break
+    return hits / samples
+
+
+def _eye_inside_lens(image: Image.Image, lens: dict[str, float]) -> dict[str, float] | None:
+    """The blob clearly darker than the lens itself — eyes behind tinted glass are grey, not black."""
+    width, height = image.size
+    pixels = image.load()
+    # Only inside the lens oval: the corners of the lens' bounding box lie on the
+    # dark rim, which would otherwise pass for an eye in an empty pair of glasses.
+    center_x, center_y = lens["cx"] * width, lens["cy"] * height
+    radius_x, radius_y = lens["width"] * width * 0.4, lens["height"] * height * 0.4
+    inside = [
+        (x, y)
+        for y in range(int(center_y - radius_y), int(center_y + radius_y) + 1)
+        for x in range(int(center_x - radius_x), int(center_x + radius_x) + 1)
+        if 0 <= x < width and 0 <= y < height
+        and ((x - center_x) / max(radius_x, 1)) ** 2 + ((y - center_y) / max(radius_y, 1)) ** 2 <= 1
+    ]
+    if not inside:
+        return None
+    levels = sorted(_luminance(pixels[x, y]) for x, y in inside)
+    lens_level = levels[int(len(levels) * 0.7)]
+    points = {(x, y) for x, y in inside if _luminance(pixels[x, y]) < lens_level - GLASSES_EYE_CONTRAST}
+    blobs = _components_from_points(points, width, height, "eye", min_area=4)
+    eye = max(blobs, key=lambda blob: blob["area"], default=None)
+    if eye is None:
+        return None
+    lens_area = lens["width"] * width * lens["height"] * height
+    if eye["area"] > lens_area * 0.4 or eye["width"] > lens["width"] * 0.6 or eye["height"] > lens["height"] * 0.6:
+        return None
+    return eye
+
+
+def _lens_fill(image: Image.Image, lens: dict[str, float]) -> str | None:
+    """Median color of the lens interior, excluding the eye and the rim.
+
+    The closed eye is painted over with this. Sampling the erase-box edges
+    instead picked up the eye and frame and left a visible grey patch.
+    """
+    width, height = image.size
+    pixels = image.load()
+    x0, x1 = int(lens["left"] * width), int(lens["right"] * width)
+    y0, y1 = int(lens["top"] * height), int(lens["bottom"] * height)
+    samples = [pixels[x, y][:3] for y in range(y0, y1 + 1) for x in range(x0, x1 + 1)]
+    if not samples:
+        return None
+    levels = sorted(_luminance(sample) for sample in samples)
+    floor = levels[int(len(levels) * 0.7)] - 20
+    bright = [sample for sample in samples if _luminance(sample) >= floor]
+    if not bright:
+        return None
+    channels = [sorted(sample[index] for sample in bright)[len(bright) // 2] for index in range(3)]
+    return "#{:02x}{:02x}{:02x}".format(*channels)
+
+
+def _clamp_box_to(box: dict[str, float], bounds: dict[str, float]) -> dict[str, float]:
+    return {
+        "left": round(max(box["left"], bounds["left"]), 4),
+        "top": round(max(box["top"], bounds["top"]), 4),
+        "right": round(min(box["right"], bounds["right"]), 4),
+        "bottom": round(min(box["bottom"], bounds["bottom"]), 4),
+    }
+
+
+def _detect_full_frame_glasses_face_anchor_points(image: Image.Image) -> dict[str, dict[str, float]] | None:
+    width, height = image.size
+    if width <= 0 or height <= 0:
+        return None
+    pale_components, dark_components = _collect_pale_and_dark_components(image)
+    aspect = width / height
+    lenses = [
+        component
+        for component in pale_components
+        if GLASSES_LENS_MIN_WIDTH <= component["width"] <= GLASSES_LENS_MAX_WIDTH
+        and component["area"] >= 30
+        and 0.6 <= (component["width"] * aspect) / max(component["height"], 0.001) <= 1.7
+    ]
+    best: tuple[float, dict, dict, dict, dict, dict] | None = None
+    for left_lens in lenses:
+        for right_lens in lenses:
+            if left_lens is right_lens or left_lens["cx"] >= right_lens["cx"]:
+                continue
+            if min(left_lens["width"], right_lens["width"]) / max(left_lens["width"], right_lens["width"]) < 0.7:
+                continue
+            if min(left_lens["height"], right_lens["height"]) / max(left_lens["height"], right_lens["height"]) < 0.7:
+                continue
+            lens_width = (left_lens["width"] + right_lens["width"]) / 2
+            lens_height = (left_lens["height"] + right_lens["height"]) / 2
+            if abs(left_lens["cy"] - right_lens["cy"]) > lens_height * 0.3:
+                continue
+            gap = right_lens["left"] - left_lens["right"]
+            if not lens_width * 0.05 <= gap <= lens_width * 1.2:
+                continue
+            if (
+                _lens_rim_fraction(image, left_lens) < GLASSES_RIM_MIN_FRACTION
+                or _lens_rim_fraction(image, right_lens) < GLASSES_RIM_MIN_FRACTION
+            ):
+                continue
+            left_eye = _eye_inside_lens(image, left_lens)
+            right_eye = _eye_inside_lens(image, right_lens)
+            if left_eye is None or right_eye is None:
+                continue
+            if min(left_eye["area"], right_eye["area"]) / max(left_eye["area"], right_eye["area"]) < 0.5:
+                continue
+            # The pale face has to continue below the glasses, or this is just two
+            # framed pale shapes (windows, gauges) that happen to sit side by side.
+            span = right_lens["right"] - left_lens["left"]
+            faces = [
+                component
+                for component in pale_components
+                if component is not left_lens
+                and component is not right_lens
+                and component["left"] <= left_lens["cx"]
+                and component["right"] >= right_lens["cx"]
+                and component["bottom"] >= max(left_lens["bottom"], right_lens["bottom"]) + lens_height * 0.3
+                and span * 0.6 <= component["width"] <= span * 3.5
+            ]
+            # ...and above them: a forehead. Outlined shirt pockets with buttons passed
+            # every other check; the collar above them is not pale head.
+            foreheads = [
+                component
+                for component in pale_components
+                if component is not left_lens
+                and component is not right_lens
+                and component["left"] <= right_lens["cx"]
+                and component["right"] >= left_lens["cx"]
+                and component["top"] <= min(left_lens["top"], right_lens["top"]) - lens_height * 0.2
+                and component["bottom"] >= min(left_lens["top"], right_lens["top"]) - lens_height * 0.6
+                and component["width"] >= span * 0.4
+            ]
+            if not faces or not foreheads:
+                continue
+            face_component = max(faces, key=lambda component: component["area"])
+            score = -abs(left_lens["cy"] - right_lens["cy"]) + min(left_eye["area"], right_eye["area"]) / 1000
+            if best is None or score > best[0]:
+                best = (score, left_lens, right_lens, face_component, left_eye, right_eye)
+    if best is None:
+        return None
+    _score, left_lens, right_lens, face_component, left_eye, right_eye = best
+    lens_height = (left_lens["height"] + right_lens["height"]) / 2
+    face_left = min(face_component["left"], left_lens["left"])
+    face_right = max(face_component["right"], right_lens["right"])
+    face_top = max(0.0, min(left_lens["top"], right_lens["top"]) - lens_height)
+    face_bottom = face_component["bottom"]
+    face = {
+        "left": face_left,
+        "right": face_right,
+        "top": face_top,
+        "bottom": face_bottom,
+        "width": face_right - face_left,
+        "height": face_bottom - face_top,
+        "cx": (face_left + face_right) / 2,
+        "cy": (face_top + face_bottom) / 2,
+        "area": face_component["area"],
+    }
+    eye_y = (left_eye["cy"] + right_eye["cy"]) / 2
+    midpoint = (left_eye["cx"] + right_eye["cx"]) / 2
+    mouth = _mouth_for_face(face, dark_components, midpoint, eye_y)
+    brow_y = max(face_top, eye_y - face["height"] * 0.17)
+    eyes = {}
+    for key, eye, lens in (("eye_left", left_eye, left_lens), ("eye_right", right_eye, right_lens)):
+        # Keep the erase inside the lens so the closed eye never paints over the frame.
+        erase_box = _clamp_box_to(_full_frame_eye_erase_box(eye, face), lens)
+        # Lens interiors are one flat color, so the closed eye is painted with it
+        # directly. _blink_eye_fill_gradient skips pale pixels (it was built to
+        # avoid eye whites on skin-toned faces) and returned the grey eye edge.
+        lens_fill = _lens_fill(image, lens)
+        if lens_fill is None:
+            return None
+        fill_top = fill_bottom = fill_left = fill_right = lens_fill
+        eyes[key] = {
+            "x": round(eye["cx"], 4),
+            "y": round(eye["cy"], 4),
+            "width": round(eye["width"], 4),
+            "height": round(eye["height"], 4),
+            "erase_box": erase_box,
+            "fill_top": fill_top,
+            "fill_bottom": fill_bottom,
+            "fill_left": fill_left,
+            "fill_right": fill_right,
+        }
+    return {
+        **eyes,
+        "eye_fill_source": "lens",
+        "mouth": {"x": round(mouth["cx"], 4), "y": round(mouth["cy"], 4)},
+        "brow_left": {"x": round(left_eye["cx"], 4), "y": round(brow_y, 4)},
+        "brow_right": {"x": round(right_eye["cx"], 4), "y": round(brow_y, 4)},
+    }
 
 
 def _collect_full_frame_components(image: Image.Image) -> dict[str, list[dict[str, float]]]:
