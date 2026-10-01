@@ -131,7 +131,7 @@ Never call back to an earlier segment: a Short viewer has not seen it.
 
 ### Retention Mechanics
 *   **The "Illusion vs. Reality" Trope:** Keep the viewer hooked by constantly peeling back the curtain. (*"Love bombing isn't about love. It's about control disguised as intensity..."*)
-*   **Micro-Conclusions:** End each segment on a concrete, specific line: an image, a number, or a consequence the viewer can picture. Never end on an abstract moral or generalization ("When institutions can't win an argument, they write rules"). One quotable line per segment at most, and it must be concrete:
+*   **Micro-Conclusions:** End each segment on a concrete, specific line: an image, a number, or a consequence the viewer can picture. Never end on an abstract moral or generalization ("When institutions can't win an argument, they write rules"), and never on two short parallel sentences that contrast one side with the other. End on what happened next instead. One quotable line per segment at most, and it must be concrete:
     *   *"The only thing carrots give you at night is orange teeth."*
 
 ---
@@ -871,6 +871,8 @@ For each variant produce:
   flow naturally from the hook
 
 OPENING RULES: The opening is the start of the FIRST segment's story; the rest of that segment continues directly from it. Set up that first story and stop at its open question: do not reveal how it ends. Do not mention the video's list or count (never "the first of eight times"), because the first segment may also be watched alone as a Short.
+- End on a concrete question about what happens next in that story. Never end on a question that pits one side against another (what did one group know that another didn't): the segment then answers it with a two-sided slogan.
+- Use at most one run of stacked fragments in the whole opening, and do not open with one.
 
 Then SCORE each variant on three dimensions (0-100):
 - `tension`: How much unresolved curiosity does the opening create?
