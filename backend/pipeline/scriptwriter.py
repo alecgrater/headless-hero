@@ -40,17 +40,19 @@ BASE_SYSTEM_PROMPT = SCRIPT_SYSTEM.template
 def build_main_character_instructions() -> str:
     """Instructions appended to the system prompt when Eli is disabled.
 
-    Tells Claude to invent one project-wide main character and to set
-    contains_person=true on scenes where that character would naturally appear.
+    The project's main character already exists as a style-preset reference image,
+    which replaces whatever the model writes here once the script is saved. So the
+    model only supplies a placeholder: no face or build (the reference owns those,
+    and a written face makes the image model draw a stranger), and a name that is
+    never narrated (it leaked into second-person narration as "Ray").
     """
     return (
         "\n\n## Main Character (Eli is disabled for this project)\n"
-        "Invent ONE recurring main character that fits this video's topic. "
-        "Output a top-level `main_character` object with three fields:\n"
-        "  - name: the character's name\n"
-        "  - appearance: detailed visual description (face, hair, build, "
-        "    clothing, distinguishing features) — written so an image "
-        "    generator could draw them consistently\n"
+        "The project already has a recurring main character, drawn from a reference image, who plays the "
+        "protagonist in the visuals. Output a top-level `main_character` object with three fields:\n"
+        "  - name: a placeholder first name for the visuals only. Never use it in narration.\n"
+        "  - appearance: one line naming only the role and default outfit. Never describe the face, hair, "
+        "skin, or build — the reference image owns those.\n"
         "  - vibe: 1-2 sentences on personality / energy\n\n"
         "For each scene, set `contains_person: true` ONLY when this main "
         "character should appear in that scene's visual. Set "
@@ -75,8 +77,8 @@ def build_outline_main_character_addendum() -> str:
         "The outline JSON MUST also include a top-level `main_character` "
         "object with this exact shape:\n"
         '  "main_character": {\n'
-        '    "name": "Character Name",\n'
-        '    "appearance": "Detailed visual description (face, hair, build, clothing, distinguishing features) so an image generator could draw them consistently.",\n'
+        '    "name": "Placeholder first name, used only in visual prompts, never in narration",\n'
+        '    "appearance": "One line: the role and default outfit only. No face, hair, skin, or build.",\n'
         '    "vibe": "1-2 sentences on personality / energy."\n'
         "  }\n"
         "This is REQUIRED — do not omit it. Add it alongside the existing "
@@ -781,6 +783,7 @@ def generate_script(
             eli_enabled=eli_enabled,
             cold_open_text=cold_open_text if fmt.supports_cold_open else None,
             level_label=fmt.level_label,
+            segments_stand_alone=fmt.segments_stand_alone,
         )
     else:
         logger.info(
@@ -844,7 +847,10 @@ _OUTLINE_INSTRUCTIONS = SCRIPT_OUTLINE_INSTRUCTIONS.template
 
 _SEGMENT_SCENES_INSTRUCTIONS = SCRIPT_SEGMENT_SCENES_INSTRUCTIONS.template
 
-_OUTLINE_MAX_TOKENS = 8192
+# Claude 5 models think adaptively, and thinking shares this budget with the JSON.
+# At 8192 every Sonnet 5.5 outline was cut off mid-JSON; a measured outline used
+# ~11k output tokens, about half of it thinking.
+_OUTLINE_MAX_TOKENS = 32000
 
 # Attempts per segment scene call, including the first.
 _SEGMENT_PARSE_ATTEMPTS = 2
@@ -1054,6 +1060,42 @@ def _build_segment_scene_user_message(
         f"{_segment_visual_opportunities_block(segment, section_upper)}"
         f"{trailing_context}"
         f"{segment_scenes_instructions}"
+    )
+
+
+# The selected cold open tends to tell the first story's outcome; without this the
+# first segment then rewound and retold it ("That's the first of eight times…"
+# followed by "Picture two delivery wards…" in every measured sample).
+_OPENING_CONTINUATION_RULE = (
+    "Continue the story from exactly where this opening stops. Never summarize, retell, "
+    "or rewind what the opening already said."
+)
+
+
+def _story_so_far_block(written: list[Segment], section_label: str, stand_alone: bool) -> str:
+    """The narration already written, so a segment call can stay consistent with it.
+
+    Each segment call used to see only the outline, so later sections re-introduced
+    characters as new, contradicted ages and numbers, and reused whole lines. Measured
+    on life-as-a, giving them the earlier narration (plus the outline's story bible)
+    took judged continuity from 4/10 to 7/10.
+    """
+    if not written:
+        return ""
+    body = "\n".join(
+        f"[{segment.name}]\n" + "\n".join(s.narration for s in segment.scenes if not s.is_title_card)
+        for segment in written
+    )
+    stand_alone_rule = (
+        f" Each {section_label} must still stand alone as a Short: do not mention or refer back to "
+        f"these earlier {section_label}s."
+        if stand_alone else ""
+    )
+    return (
+        f"STORY SO FAR — the narration already written for earlier {section_label}s, verbatim. "
+        "Continue from it: do not re-introduce anyone already introduced, do not contradict any fact "
+        f"in it, and never reuse its sentences or sentence patterns.{stand_alone_rule}\n"
+        f"<narration>\n{body}\n</narration>\n\n"
     )
 
 
@@ -1282,6 +1324,7 @@ def _generate_segmented(
     eli_enabled: bool = True,
     cold_open_text: str | None = None,
     level_label: str = "segment",
+    segments_stand_alone: bool = False,
 ) -> ScriptContent:
     """Orchestrate two-phase segmented script generation."""
     total_t0 = time.monotonic()
@@ -1372,6 +1415,7 @@ def _generate_segmented(
                         "content scenes with this exact selected opening. These opening scenes "
                         "are for the long-form video and may be skipped from short #1:\n\n"
                         f"{cold_open_text}\n\n"
+                        f"{_OPENING_CONTINUATION_RULE}\n\n"
                     )
 
                 scenes = _generate_segment_scenes(
@@ -1379,7 +1423,8 @@ def _generate_segmented(
                     outline,
                     i,
                     model,
-                    first_level_opening + trailing_context,
+                    _story_so_far_block(segments, section_label, segments_stand_alone)
+                    + first_level_opening + trailing_context,
                     script_id=script_id,
                     segment_scenes_instructions=segment_scenes_instructions,
                     level_label=section_label,

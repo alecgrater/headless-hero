@@ -103,6 +103,10 @@ class VideoFormat:
     # Post-processing — applied after Claude generation, before _fix_visual_monotony
     enforce_post_processing: Callable[..., ScriptContent]
 
+    # Each segment may be watched alone as a Short, so segment calls are told not to
+    # refer back to earlier segments even though they see the narration written so far.
+    segments_stand_alone: bool = False
+
     # Reference-only metadata (drives the Script Types settings page; not enforced)
     supported_visual_modes: tuple[str, ...] = ()
     reference_notes: tuple[FormatNote, ...] = ()

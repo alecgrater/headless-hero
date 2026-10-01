@@ -158,22 +158,13 @@ def test_script_prompt_includes_popup_sequence_mode():
     assert "pop around" in prompt_text
 
 
-def test_script_prompt_defines_blink_as_cutout_body_language_not_contrast():
-    prompt_text = script_prompt.SCRIPT_SYSTEM.template
-
-    assert '"blink"' in prompt_text
-    assert "cropped-subject" in prompt_text
-    assert "Test Lab-only" in prompt_text
-    assert "Do not choose this mode for production script generation yet" in prompt_text
-    assert "Use another visual_mode" in prompt_text
-
-
-def test_script_prompt_requires_blink_action_allowlist():
+def test_script_prompt_does_not_offer_retired_blink_mode():
+    # Blink is a renderer overlay, not a visual mode; describing it in the mode
+    # vocabulary only invited the model to consider and then reject it.
     prompt_text = SCRIPT_SYSTEM_PROMPT.template
 
-    assert "Experimental Test Lab-only" in prompt_text
-    assert "Do not choose this mode for production script generation yet" in prompt_text
-    assert "Use another visual_mode" in prompt_text
+    assert '- "blink"' not in prompt_text
+    assert "cropped-subject micro-animation" not in prompt_text
 
 
 def test_script_prompt_includes_comparison_board_mode():

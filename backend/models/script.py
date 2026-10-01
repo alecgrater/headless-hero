@@ -241,6 +241,21 @@ class Scene(BaseModel):
             normalized["video_url"] = ""
         return normalized
 
+    @field_validator("caption_text", "caption_emphasis", "stat_value", "stat_label", mode="before")
+    @classmethod
+    def normalize_scene_text_field(_cls, value: object) -> object:
+        """Take the first phrase when a model returns a one-phrase field as a list.
+
+        Script generation has returned `caption_emphasis: ["Nobody"]`, and a list here
+        used to fail validation for the whole segment. Joining would invent a phrase
+        that is not in the narration (["ever", "your name"]), so keep the first one.
+        """
+        if value is None:
+            return ""
+        if isinstance(value, list):
+            return next((str(item).strip() for item in value if str(item).strip()), "")
+        return value
+
     @field_validator("transition_in", mode="before")
     @classmethod
     def normalize_transition_in(_cls, value: object) -> str:

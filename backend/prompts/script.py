@@ -98,11 +98,11 @@ Combine these techniques:
 The pivot IS the partial payoff — the viewer just learned something real. Now they trust you to keep delivering.
 
 ### 2. Mosaic Structure
-Do NOT write scripts as flat A→B→C progressions. Drop viewers into the middle of an interesting idea. Let threads dangle — open loops that create tension and pull the viewer forward. Weave them together later. Each answered loop opens a new question until the final payoff closes them all simultaneously.
+Do NOT write segments as flat A→B→C progressions. Drop viewers into the middle of an interesting idea. Open a loop early in a segment and close it before that segment ends: every segment may be watched alone as a Short, so no loop may stay open across segments.
 
 Every segment needs a driving question or conflict. Before writing a sub-topic, identify the tension: What does the viewer believe that's wrong? What's the gap between expectation and reality? What's at stake? Structure each segment as *setup → escalation → resolution*, not *definition → explanation → summary*.
 
-Think of the script as a braid, not a list.
+Each segment is a complete story with its own payoff.
 
 ### 3. Steel-Manning
 When presenting claims, don't bulldoze. Present the strongest version of the opposing view before dismantling it. Acknowledge complexity rather than hiding it. This signals confidence and builds deep credibility.
@@ -119,11 +119,11 @@ Instead of *"stress affects decision-making,"* say *"You're standing in the cere
 Strip away academic jargon and use grounded, slightly cynical, or highly relatable metaphors. (*"Your credit score is like a pet dog. Ignore it and it poops all over your life."*)
 
 ### 5. Callback Economy
-Plant a detail, phrase, or visual element early in the script that seems incidental. Bring it back later with new meaning. This creates the feeling that the script is *architected*, not just listed. Even a single callback transforms a collection of facts into a narrative.
+Plant a detail, phrase, or visual element early in a segment that seems incidental. Bring it back by the end of the SAME segment with new meaning. This makes the segment feel *architected*, not just listed.
 
-Example: Mention a cereal aisle in the first segment, then return to it three segments later — *"Remember that cereal aisle? That's your prefrontal cortex waving a white flag."*
+Example: open a segment in a cereal aisle at 11pm, and close the same segment on it — *"That cereal aisle? That's your prefrontal cortex waving a white flag."*
 
-Callbacks reward attentive watching and create emotional resonance at key beats. Aim for at least one strong callback per video.
+Never call back to an earlier segment: a Short viewer has not seen it.
 
 ### Narration Style & Rhythm (The "Staccato Flow")
 *   **Short, Punchy Sentences:** Avoid run-on sentences. Use periods instead of commas. Create a driving, percussive rhythm.
@@ -176,7 +176,6 @@ VISUAL MODE VOCABULARY:
 - "continuous" — When narration describes a physical process unfolding over time (pouring, growing, building). 2-4 frames with reference_previous: true and transition: "crossfade". Frames show subtle progression of the SAME scene. Use deliberately, not as default.
 - "multi_frame" — When narration covers multiple examples, lists, comparisons, rapid context switches, or visual variety that adds impact. 3-8 frames with reference_previous: false and mostly transition: "cut". Each frame is a completely DIFFERENT shot — different subject, angle, composition, example, or context. Use deliberately for visual energy.
 - "popup_sequence" — When narration names a small set of concrete items, examples, ingredients, symptoms, tools, steps, or visible objects that should pop around the main subject. Use a single anchor visual plus popup item intent; the post-voiceover pass will create timed cutout layers. Do not use for abstract contrasts or long lists.
-- "blink" — Experimental Test Lab-only cropped-subject micro-animation. Do not choose this mode for production script generation yet; generated two-state image paths cannot reliably preserve locked facial/body geometry. Use another visual_mode for human reactions that would otherwise look like blink.
 - "comparison_board" — When narration contrasts two or three subjects, concepts, states, levels, choices, or outcomes that should be displayed in a side-by-side renderer-controlled comparison. Best for Before vs After, Then vs Now, Myth vs Reality, Level 1 vs Level 5, Rich vs Poor, Human vs Neanderthal, Prisoner vs Guard, Success vs Failure, or Good Choice vs Bad Choice. Use transparent cutout subject intent; the renderer owns columns, divider, VS marker, arrows, stat chips, badges, and labels. Do not use when narration focuses on one environment, one event, or a same-subject micro-action.
 - "stat_card" — When narration delivers ONE decisive percentage, financial figure, population count, duration, distance, ranking, odds, risk factor, or scientific measurement that is the most important information in the scene. Use transparent renderer-owned typography over the canvas. Emit "stat_value" (the giant headline number, e.g. "85%", "$2M", "30 days", "#1", "1 in 4" — 1-12 characters typical) and "stat_label" (supporting subtitle, 2-12 words, e.g. "of users churn in week 1"). Optionally provide a single short "visual_prompt" describing a small supporting icon if it helps; otherwise leave "visual_prompt" empty. Do NOT describe layout, color, animation, or typography — the renderer owns those. Do NOT use when atmosphere, environment, or setting matters more than the metric, or when there is no single dominant number.
 - "video" — Plan this before voiceover when motion clearly improves the scene. Later validation may downgrade the scene if real timing, adjacency, duration, or assets make video unsafe. Aim for at least three planned video scenes per project when the topic naturally supports motion, but never force video into static diagrams, title cards, captions, or scenes that need precise readable text.
@@ -195,7 +194,6 @@ BEST-FIT ROUTING RULES:
    - continuous: one coherent process, physical progression, or time passage in the same space/subject.
    - multi_frame: multiple distinct examples, beats, or fast context shifts.
    - popup_sequence: concrete items, tools, documents, symptoms, objects, or ingredients around an anchor subject.
-   - blink: Test Lab-only experimental micro-animation; do not choose it for production scenes.
    - comparison_board: a true two- or three-way contrast.
    - captions: one renderer-owned editorial text beat, not standard subtitles.
    - stat_card: one decisive number.
@@ -274,16 +272,25 @@ Output rules:
 Writing guidelines:
 - Each non-title scene should be exactly 1-2 sentences of narration — no more. Shorter scenes create better visual variety.
 - Write narration in a conversational, engaging tone — not dry or academic.
-- Use hooks, cliffhangers between segments, and smooth transitions.
+- Use hooks and smooth transitions within each segment. Never end a segment on a cliffhanger or a tease for the next one.
 - Each segment may be exported as a standalone short-form video. Therefore every segment, including the final segment, must end cleanly on its own topic. Do NOT include whole-video recap language, channel CTAs, subscribe requests, "come back next week", "before you go", "as we have seen", "all eight", or references to having watched previous segments inside any scene narration.
 - The "outro_cta" field is metadata/editor copy only. Do NOT fold outro_cta language into scene narration.
 - Visual prompts should be detailed enough for an AI image generator: describe the subject, composition, and mood. The art style is flat 2D cartoon illustration (defined separately) — focus visual_prompt on WHAT to show, not HOW to render it.
 - Visual prompts must NEVER ask for text, letters, words, labels, or written characters to appear in the image. If a scene involves signage, books, or screens, describe them without readable text (e.g., "a blank chalkboard" or "a book with abstract scribble marks").
-- Text overlays should be short key phrases (1-6 words) that reinforce the narration.
 - Scene IDs must be unique and sequential: scene_001, scene_002, etc.
 
 Life-as-a compatibility:
 - Life-as-a may use the full visual-mode vocabulary when the scene naturally calls for it. Preserve second-person literary immersion and protagonist continuity; do not turn lived experience into listicle cadence just to use a specialized mode.
+
+
+## FLOW AND CLARITY (applies to every scene)
+- The narration is heard as ONE continuous voiceover; scene breaks are invisible to the listener. Every scene must follow naturally from the one before it.
+- Introduce every person, place, term, or object the first time it appears in narration. Never refer to someone or something the listener has not met yet (for example "Mara is back", "the Feldman loop", or "your sergeant" before any sergeant exists).
+- Narration is only the words the narrator says aloud. Never describe the image, the shot, or the camera in narration.
+- Keep facts fixed: names, ages, dates, amounts, and places stay the same everywhere they recur, and time markers only move forward.
+- Sound like one thoughtful person talking, not a template. Never reuse a sentence from earlier in the script, and never use the same sentence pattern twice in a segment (for example "It's not X. It's Y." or "You don't think of yourself as X. You think of yourself as Y.").
+- Do not narrate the protagonist or main character by name. The viewer never learns that name.
+- A segment may be watched alone as a Short, so introduce any person, term, or example inside the segment that uses it, even if another segment already introduced it.
 """,
     retention=RetentionMeta(
         goal="Generate scripts with high first-30s retention and sustained watch time",
@@ -340,6 +347,10 @@ For each segment, include a compact "visual_opportunities" array before any scen
 Use soft candidate discovery expectations, not final visual-mode quotas: for a long script, usually surface at least 2 plausible candidates each for `captions`, `popup_sequence`, and `comparison_board`, plus 1-2 `stat_card` candidates, unless the topic genuinely lacks that mode shape. If any of those modes falls below the soft expectation, explain why in top-level "visual_opportunity_coverage". Do not force opportunities or invent extra segment beats; preserve script quality first.
 Do NOT include countdown/ranking numbers in segment names or short_name values. Avoid prefixes like "Number eight", "#8", "8.", "No. 8", "Part 8", or "Segment 8" unless the number is intrinsic to the topic.
 Set card_subtitle to an empty string. Do NOT create title-card subtitles, kickers, taglines, or secondary phrases.
+SEGMENT PLAN (required): add a top-level "segment_plan" array with one entry per segment:
+"segment_plan": [{"segment": 1, "central_claim": "the one idea this segment proves", "key_terms": ["any named person or term, with the line that introduces it"]}]
+- Every segment's central claim is distinct; no segment repeats another segment's point or punchline.
+- Each segment may be watched alone, so a person or term used in more than one segment is introduced again, briefly, in each.
 """,
     retention=RetentionMeta(
         goal="Structure video narrative for maximum sustained engagement",
@@ -392,6 +403,7 @@ RULES:
 - If a CROSS-SEGMENT CONTINUITY note is provided above, respect it: do not repeat the same beat/shot pattern that ended the previous segment. The title card already breaks the visual run, but the first CONTENT scene after it should use a different beat or shot type than the previous segment's final content scene.
 - Return ONLY the JSON object with the "scenes" key — no markdown fences, no commentary, no other top-level keys.
 - The "scenes" array must be a FLAT list of scene dicts. Never wrap them under segment objects (no {"name": ..., "scenes": [...]} entries) and never add extra top-level keys like "segments" or "frame_directives".
+- Follow the segment_plan in the outline: make only this segment's central claim, and introduce its key terms inside this segment.
 """,
     retention=RetentionMeta(
         goal="Generate visually varied, engaging scenes within each segment",
@@ -500,7 +512,6 @@ Choose the single best visual mode for each scene. There is no quota and no requ
 - `continuous`: one coherent process, time-passage moment, or same-space progression.
 - `multi_frame`: multiple distinct memories, routines, examples, sensory beats, or fast context shifts.
 - `popup_sequence`: concrete items, tools, documents, objects, symptoms, or possessions orbiting an anchor subject. For protagonist scenes, the anchor must follow protagonist-aware behavior.
-- `blink`: Test Lab-only experimental micro-animation. Do not choose it for production life-as-a scenes; use another visual mode for human reactions.
 - `comparison_board`: a true two- or three-way contrast that the viewer should understand side by side.
 - `captions`: a renderer-owned editorial text beat for a short realization or label. Do not use it as ordinary subtitles.
 - `stat_card`: one decisive number that matters more than the room or atmosphere.
@@ -511,9 +522,9 @@ Use multiple generated images only when the visual mode genuinely benefits from 
 
 Shot-type palette: every `visual_prompt` MUST begin with one of `[ESTABLISHING]`, `[CLOSE-UP]`, `[REACTION]`, `[METAPHOR]`. `[DIAGRAM]` and `[SCALE]` are de-prioritized — this format is not explanatory. Visual prompts must NEVER ask for text, letters, words, labels, or written characters in the image.
 
-Eli is the visual identity of the second-person protagonist. When a life-as-a visual depicts the protagonist, the role named in the title, or a visible main person (for example a guard in "Your Life As A Guard"), the primary subject MUST be Eli in that role. If other people appear, they are secondary and visually distinct from Eli. Object-only, room-only, and atmosphere shots can omit Eli.
+The recurring main character (Eli when Eli is enabled, otherwise the project's main character) is the visual identity of the second-person protagonist. When a life-as-a visual depicts the protagonist, the role named in the title, or a visible main person (for example a guard in "Your Life As A Guard"), the primary subject MUST be the main character in that role. If other people appear, they are secondary and visually distinct from the main character. Object-only, room-only, and atmosphere shots can omit the main character.
 
-When Eli appears, describe only the role, clothing, action, expression, posture, small age cues, and setting. Never describe Eli's face, head, jaw, brows, hair, skin, or build — Eli's reference image owns their appearance, and a written description like "square jaw, heavy brows" makes the image model draw a different person.
+When the main character appears, describe only the role, clothing, action, expression, posture, small age cues, and setting. Never describe their face, head, jaw, brows, hair, skin, or build — their reference image owns their appearance, and a written description like "square jaw, heavy brows" makes the image model draw a different person.
 
 For `continuous` scenes, frames should show subtle progression of the SAME scene (reference_previous: true, transition: "crossfade"). For `multi_frame`, every frame should be a distinct image with reference_previous: false and transition: "cut". Use multi-frame directives deliberately when the scene has enough visual change to justify them.
 
@@ -575,6 +586,17 @@ Output rules:
 - Scene IDs must be unique and sequential across the entire script: `scene_001`, `scene_002`, etc.
 - Visual prompts must NEVER request text, letters, words, labels, or written characters in the image.
 - Do NOT use whole-video recap language, channel CTAs, subscribe requests, or "as we have seen". The format is meant to feel like a single continuous progression — there is nothing to recap.
+
+
+## FLOW AND CLARITY (applies to every scene)
+- The narration is heard as ONE continuous voiceover; scene breaks are invisible to the listener. Every scene must follow naturally from the one before it.
+- Introduce every person, place, term, or object the first time it appears in narration. Never refer to someone or something the listener has not met yet (for example "Mara is back", "the Feldman loop", or "your sergeant" before any sergeant exists).
+- Narration is only the words the narrator says aloud. Never describe the image, the shot, or the camera in narration.
+- Keep facts fixed: names, ages, dates, amounts, and places stay the same everywhere they recur, and time markers only move forward.
+- Sound like one thoughtful person talking, not a template. Never reuse a sentence from earlier in the script, and never use the same sentence pattern twice in a segment (for example "It's not X. It's Y." or "You don't think of yourself as X. You think of yourself as Y.").
+- Do not narrate the protagonist or main character by name. The viewer never learns that name.
+- A recurring character is introduced once, the first time they appear. Every later level treats them as already known: no second introduction, no changed details.
+- The protagonist ages with the timeline. Every stated age, year, and child's age must agree with the time that has passed.
 """,
     retention=RetentionMeta(
         goal="Produce literary level-by-level life-path videos with concrete sensory anchors",
@@ -691,6 +713,14 @@ CRITICAL:
 - For every level and its parallel segment object, include "visual_opportunities". These are not scenes. They are early planning notes that identify natural opportunities across the canonical visual-mode vocabulary so the later per-level scene phase can write narration at the right length for the selected mode.
 - Use soft candidate discovery expectations, not final visual-mode quotas: for a long script, usually surface at least 2 plausible candidates each for `captions`, `popup_sequence`, and `comparison_board`, plus 1-2 `stat_card` candidates, unless the life path genuinely lacks that mode shape. If any of those modes falls below the soft expectation, explain why in top-level "visual_opportunity_coverage". Do not turn the level into a listicle or add beats only to satisfy variety. They are planning notes, not final scene JSON.
 - Do NOT include any scenes. Only metadata.
+STORY BIBLE (required): add a top-level "story_bible" object. Every level's scenes must follow it exactly.
+"story_bible": {
+  "protagonist_timeline": [{"level": 1, "age": 24, "time_marker": "first month on the job"}],
+  "recurring_characters": [{"name": "First name", "who": "one line", "fixed_facts": ["facts that never change: relationship, age relative to the timeline, places, numbers"], "introduced_in_level": 1, "introduction": "the one line that introduces them"}],
+  "callbacks": [{"detail": "an object, phrase, or moment", "planted_in_level": 1, "paid_off_in_level": 4}]
+}
+- protagonist_timeline has one entry per level, and every age agrees with the time that has passed.
+- A recurring character is introduced only in their introduced_in_level; every later level treats them as already known.
 """,
     retention=RetentionMeta(
         goal="Lock the level structure, closing register, and closing image before any scenes are written",
@@ -764,7 +794,6 @@ Return a JSON object with a single key `"scenes"` whose value is a flat array of
 - `continuous`: one coherent process, time-passage moment, or same-space progression.
 - `multi_frame`: multiple distinct memories, repeated routines, examples, sensory beats, or fast context shifts.
 - `popup_sequence`: concrete items, tools, documents, objects, symptoms, or possessions around an anchor subject. For protagonist scenes, the anchor must stay protagonist-aware.
-- `blink`: Test Lab-only experimental micro-animation. Do not choose it for production scenes; use another visual mode for human reactions.
 - `comparison_board`: a true two- or three-way contrast that should be understood side by side.
 - `captions`: a renderer-owned editorial text beat for a short realization or label. Do not use it as ordinary subtitles.
 - `stat_card`: one decisive number that matters more than the room or atmosphere.
@@ -773,7 +802,7 @@ Return a JSON object with a single key `"scenes"` whose value is a flat array of
 - For compatibility, set `visual_beat` to the same value as `visual_mode` except use `"static"` when `visual_mode` is `"full_frame"`.
 - Every `visual_prompt` MUST begin with `[ESTABLISHING]`, `[CLOSE-UP]`, `[REACTION]`, or `[METAPHOR]`. `[DIAGRAM]` and `[SCALE]` are de-prioritized for this format.
 - Visual prompts and frame directives must NEVER request text, letters, words, labels, captions, typography, fonts, title cards, clean sans-serif words, or written characters in the image. If the intended beat is readable editorial text on screen, use `visual_mode: "captions"` with exact `caption_text` and `caption_emphasis`, and leave `visual_prompt` and `frame_directives` empty.
-- Eli is the visual identity of the second-person protagonist. When a scene or frame depicts the protagonist, the role named in the title, or a visible main person, make Eli the visually dominant main subject in that role. Other people may appear as secondary characters, but they must be visually distinct from Eli. Object-only, room-only, and atmosphere shots can omit Eli.
+- The recurring main character is the visual identity of the second-person protagonist. When a scene or frame depicts the protagonist, the role named in the title, or a visible main person, make the main character the visually dominant main subject in that role. Other people may appear as secondary characters, but they must be visually distinct from the main character. Object-only, room-only, and atmosphere shots can omit the main character.
 
 ### Forbidden in scene narration
 - Whole-video recap language, channel CTAs, subscribe requests, "come back next week", "before you go", "as we have seen", references to other levels by number ("in level three we saw").
@@ -783,6 +812,7 @@ Return a JSON object with a single key `"scenes"` whose value is a flat array of
 ### JSON hygiene
 - Return ONLY the JSON object with the `"scenes"` key — no markdown fences, no commentary.
 - The `"scenes"` array must be a FLAT list of scene dicts. Never wrap them under level objects, never add other top-level keys.
+- Follow the story_bible in the outline exactly: introductions only in the level it names, and ages and facts that agree with it.
 """,
     retention=RetentionMeta(
         goal="Produce short, sensorially-anchored single-beat scenes that progress within one level without breaking voice",
@@ -843,6 +873,8 @@ For each variant produce:
 - `intro_hook`: 1-2 sentences — the very first words the viewer hears
 - `opening_narration`: 3-4 sentences for the first 2-3 content scenes that
   flow naturally from the hook
+
+OPENING RULES: The opening is the start of the FIRST segment's story; the rest of that segment continues directly from it. Set up that first story and stop at its open question: do not reveal how it ends. Do not mention the video's list or count (never "the first of eight times"), because the first segment may also be watched alone as a Short.
 
 Then SCORE each variant on three dimensions (0-100):
 - `tension`: How much unresolved curiosity does the opening create?

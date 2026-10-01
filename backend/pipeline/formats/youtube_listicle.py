@@ -38,6 +38,7 @@ YOUTUBE_LISTICLE = _register(VideoFormat(
     title_card_strategy=COMPOSITE_GRID,
     visual_beat_rules=YOUTUBE_LISTICLE_BEAT_RULES,
     enforce_post_processing=enforce_title_cards_and_min_scenes,
+    segments_stand_alone=True,
     supported_visual_modes=FULL_VISUAL_MODE_VOCABULARY,
     reference_notes=(
         FormatNote(category="Openings",

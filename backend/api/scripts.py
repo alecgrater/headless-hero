@@ -394,11 +394,13 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
             update_job(job.id, status="completed", progress=1.0, current_step="Complete", output_urls=[existing.id])
             return GenerateJobResponse(job_id=job.id)
 
-    # Build brand context string with universal style + character
+    # Build brand context string with universal style + character. Eli's spec only
+    # goes in when Eli is the protagonist: with Eli off it told the model "Eli
+    # appears throughout every video" while the prompt asked for a different lead.
     parts = [brand.name]
     if _VISUAL_STYLE:
         parts.append(f"Visual Style:\n{_VISUAL_STYLE}")
-    if _CHARACTER:
+    if _CHARACTER and resolved_eli_enabled:
         parts.append(f"Character:\n{_CHARACTER}")
     brand_context = "\n\n".join(parts)
 
