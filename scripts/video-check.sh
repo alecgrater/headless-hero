@@ -283,26 +283,47 @@ groups = {
     "comparison subjects": sorted(root.glob("comparison_boards/*/subject_[0-9]*.png")),
     "stat card icons": sorted(root.glob("stat_cards/*/icon_cutout.png")),
 }
+# Crops are auto-trimmed with padding, so a real cutout has a clear border and an
+# opaque panel does not. Judging by whole-crop transparency instead called dense,
+# clean icons "broken" (47% overall, 100% border). Calibrated on stored projects:
+# panels measured 0% border, cutouts 97-100%.
+BORDER_PX = 3
+FRAMED_BELOW = 0.9
+
+
+def border_clear(alpha):
+    w, h = alpha.size
+    px = alpha.load()
+    ring = [(x, y) for x in range(w) for y in (*range(min(BORDER_PX, h)), *range(max(h - BORDER_PX, 0), h))]
+    ring += [(x, y) for y in range(h) for x in (*range(min(BORDER_PX, w)), *range(max(w - BORDER_PX, 0), w))]
+    return sum(px[x, y] < 16 for x, y in ring) / len(ring)
+
+
 found = False
 for label, paths in groups.items():
     if not paths:
         continue
     found = True
-    values = []
+    borders, wholes, framed = [], [], []
     for p in paths:
         with Image.open(p) as im:
             alpha = im.convert("RGBA").getchannel("A")
-            values.append(sum(alpha.histogram()[:16]) / (im.width * im.height))
-    median = statistics.median(values)
-    verdict = "good" if median > 0.5 else "BROKEN — opaque panels, not cutouts"
-    print(f"{label:22} n={len(values):3}  median {median:5.1%}  min {min(values):5.1%}  max {max(values):5.1%}  {verdict}")
+            borders.append(border_clear(alpha))
+            wholes.append(sum(alpha.histogram()[:16]) / (im.width * im.height))
+        if borders[-1] < FRAMED_BELOW:
+            framed.append(f"{p.parent.name}/{p.name}")
+    verdict = "good" if not framed else f"{len(framed)} FRAMED — opaque panel edge, not a cutout"
+    print(f"{label:22} n={len(paths):3}  border clear {statistics.median(borders):5.1%} (min {min(borders):5.1%})"
+          f"  overall {statistics.median(wholes):5.1%}  {verdict}")
+    for name in framed[:6]:
+        print(f"    {name}")
 if not found:
     print("no cutouts generated yet for this project")
 else:
     print()
-    print("Reference: the broken local path measured 20% median across 40 item")
-    print("crops. A 3-item Test Lab probe on the Gemini path measured 80-91%,")
-    print("which is promising but a small sample — >50% is the bar.")
+    print("border clear = transparent share of each crop's outer 3px; a cutout is")
+    print(f"near 100%, a framed panel near 0%. Below {FRAMED_BELOW:.0%} is flagged.")
+    print("overall = transparent share of the whole crop; low just means a dense subject.")
 PYEOF
 }
 

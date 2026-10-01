@@ -256,11 +256,11 @@ const STEPS = [
       { label: "confirm prep ran on its own", code: "bash scripts/video-check.sh prep" },
       { label: "measure the cutouts", code: "bash scripts/video-check.sh cutouts" }
     ],
-    expect: "<b>visual_modes_prepared: True</b> without you pressing anything, a <b>popup_sequence count lower than the script asked for</b> (prose scenes get demoted here), and popup items at <b>&gt;50% median</b> transparency. The broken export measured 20% across 40 crops. A 3-item Test Lab probe on the Gemini path measured 80–91% — promising, but one scene.",
+    expect: "<b>visual_modes_prepared: True</b> without you pressing anything, a <b>popup_sequence count lower than the script asked for</b> (prose scenes get demoted here), and every cutout group reading <b>good</b> — the check flags any crop whose border is not clear (a framed panel scores near 0%, a real cutout near 100%). A low <b>overall</b> figure alone just means a dense subject.",
     checks: [
       "Image generation finished",
       "visual_modes_prepared is True",
-      "Popup item cutouts are above 50%",
+      "No cutout group is flagged FRAMED",
       "Opened one popup cutout and it looks like a cut-out object, not a card"
     ],
     fields: [{ id: "cutoutout", label: "Paste the cutout check output" },
