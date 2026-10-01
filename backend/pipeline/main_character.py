@@ -160,11 +160,13 @@ def _cutout_needs_processing(
     )
 
 
-# Image generation runs scenes in parallel, and every popup/comparison job syncs
-# the project character first. After a character change, those first parallel
-# calls all saw a stale cutout and rewrote it at once; one read it mid-write and
-# failed with "image file is truncated". One rebuild at a time, re-checked inside.
-_CHARACTER_CUTOUT_LOCK = threading.Lock()
+# Image generation runs scenes in parallel, and every scene job syncs the project
+# character first. Unlocked, the first parallel calls after a character change
+# rewrote the cutout at once (one read it mid-write: "image file is truncated"),
+# and a half-copied reference looked "changed" to a neighbour, which then deleted
+# the reference assets and invalidated cached scene images. All character-file
+# work runs under this lock; re-entrant because the sync calls the cutout check.
+_CHARACTER_FILES_LOCK = threading.RLock()
 
 
 def _ensure_current_character_cutout(
@@ -177,7 +179,7 @@ def _ensure_current_character_cutout(
     paths = {"reference_path": reference_path, "cutout_path": cutout_path, "metadata_path": metadata_path}
     if not _cutout_needs_processing(**paths):
         return False
-    with _CHARACTER_CUTOUT_LOCK:
+    with _CHARACTER_FILES_LOCK:
         if not _cutout_needs_processing(**paths):
             return False
         process_character_asset_bundle(
@@ -712,39 +714,43 @@ def sync_global_main_character_to_project(session, script_id: str) -> bool:
 
     character = MainCharacter(name=row.name, appearance=row.appearance, vibe=row.vibe)
     content = ScriptContent.model_validate_json(script.script_json)
-    target = character_reference_path(script_id)
-    changed = content.main_character != character
-    source_asset_changed = target.exists() and _files_differ(target, source_ref)
-    if changed or source_asset_changed:
-        clear_character_reference_assets(script_id)
-        invalidate_dependent_scene_caches(script_id)
-        changed = True
-    content.main_character = character
-    script.script_json = content.model_dump_json()
-    session.add(script)
+    with _CHARACTER_FILES_LOCK:
+        target = character_reference_path(script_id)
+        changed = content.main_character != character
+        source_asset_changed = target.exists() and _files_differ(target, source_ref)
+        if changed or source_asset_changed:
+            clear_character_reference_assets(script_id)
+            invalidate_dependent_scene_caches(script_id)
+            changed = True
+        content.main_character = character
+        script.script_json = content.model_dump_json()
+        session.add(script)
 
-    if session.get(ProjectConfig, script_id) is None:
-        session.add(cfg)
-    reference_missing = not target.exists()
-    target.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(source_ref, target)
-    if reference_missing or cfg.main_character_reference_url != character_reference_web_path(script_id):
-        changed = True
-    target_cutout = character_cutout_path(script_id)
-    source_cutout = style_preset_character_cutout_path(preset_id, active_character_id)
-    source_metadata = style_preset_character_metadata_path(preset_id, active_character_id)
-    if _ensure_current_character_cutout(
-        reference_path=source_ref,
-        cutout_path=source_cutout,
-        metadata_path=source_metadata,
-    ):
-        changed = True
-    if _ensure_current_character_cutout(
-        reference_path=target,
-        cutout_path=target_cutout,
-        metadata_path=target.parent / "metadata.json",
-    ):
-        changed = True
+        if session.get(ProjectConfig, script_id) is None:
+            session.add(cfg)
+        reference_missing = not target.exists()
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if reference_missing:
+            # Only when absent (a changed source cleared it above): copying on every
+            # call rewrote the file under concurrent readers.
+            shutil.copy2(source_ref, target)
+        if reference_missing or cfg.main_character_reference_url != character_reference_web_path(script_id):
+            changed = True
+        target_cutout = character_cutout_path(script_id)
+        source_cutout = style_preset_character_cutout_path(preset_id, active_character_id)
+        source_metadata = style_preset_character_metadata_path(preset_id, active_character_id)
+        if _ensure_current_character_cutout(
+            reference_path=source_ref,
+            cutout_path=source_cutout,
+            metadata_path=source_metadata,
+        ):
+            changed = True
+        if _ensure_current_character_cutout(
+            reference_path=target,
+            cutout_path=target_cutout,
+            metadata_path=target.parent / "metadata.json",
+        ):
+            changed = True
     cfg.main_character_reference_url = character_reference_web_path(script_id)
     session.add(cfg)
     return changed
