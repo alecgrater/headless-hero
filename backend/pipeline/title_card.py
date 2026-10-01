@@ -154,6 +154,12 @@ def ensure_title_card_images(
                     idx, seg.name, exc2,
                     exc_info=True,
                 )
+                # Remove any failed-generation placeholder: the shorts' title-card
+                # backdrop and thumbnails pick title_card_{idx}.png up just because
+                # it exists, and would show "Image generation failed".
+                if is_placeholder_image(Path(circle_path)):
+                    Path(circle_path).unlink(missing_ok=True)
+                    Path(circle_path).with_suffix(".source.json").unlink(missing_ok=True)
                 circle_paths.append("")  # Placeholder — composer will draw colored circle
 
         # Report per-segment progress

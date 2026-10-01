@@ -175,3 +175,38 @@ def test_a_placeholder_circle_triggers_the_stripped_prompt_retry(tmp_path, monke
     title_card.ensure_title_card_images(script_id, content, force=True)
 
     assert calls == ["", " "]  # first attempt, then the stripped-prompt retry
+
+
+def test_a_circle_that_fails_twice_leaves_no_placeholder_file(tmp_path, monkeypatch):
+    # The shorts read title_card_{idx}.png whenever it exists.
+    import json as _json
+
+    monkeypatch.setattr(title_card, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(thumbnail, "DATA_DIR", tmp_path)
+    script_id = "script-double-fail"
+    images_dir = tmp_path / "projects" / script_id / "images"
+
+    def always_placeholder(scene_id: str, **_kwargs):
+        out = images_dir / f"{scene_id}.png"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_bytes(b"placeholder")
+        out.with_suffix(".source.json").write_text(_json.dumps({"source_type": "placeholder"}))
+        return (f"/static/projects/{script_id}/images/{scene_id}.png", None, {"source_type": "placeholder"})
+
+    def fake_compose_title_card(**kwargs):
+        out = Path(kwargs["output_path"])
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_bytes(b"card")
+        return (kwargs["output_path"], {0: (100, 100, 50)})
+
+    monkeypatch.setattr(title_card, "generate_scene_image", always_placeholder)
+    monkeypatch.setattr(title_card, "compose_title_card", fake_compose_title_card)
+    monkeypatch.setattr(thumbnail, "gemini_enhance_thumbnail", lambda **_kwargs: None)
+    content = ScriptContent(title="T", segments=[
+        Segment(name="Night Vision", scenes=[Scene(id="scene_001", narration="N.", visual_prompt="p", is_title_card=True)]),
+    ])
+
+    title_card.ensure_title_card_images(script_id, content, force=True)
+
+    assert not (images_dir / "title_card_0.png").exists()
+    assert not (images_dir / "title_card_0.source.json").exists()

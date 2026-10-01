@@ -137,3 +137,20 @@ def test_batch_planning_does_not_reuse_a_placeholder(monkeypatch, tmp_path):
         {"scene_id": "scene_001", "visual_prompt": "A radar room", "visual_mode": "full_frame"}, "s1", 1920, 1080, "",
     )
     assert cached is None and request is not None
+
+
+def test_the_render_net_never_flattens_frames_over_stale_placeholder_metadata(monkeypatch, tmp_path):
+    monkeypatch.setattr(remotion_render, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(
+        "pipeline.image_gen.generate_scene_image",
+        lambda **_kwargs: (_ for _ in ()).throw(AssertionError("frames must not be regenerated")),
+    )
+    content = ScriptContent(title="T", segments=[Segment(name="S", scenes=[
+        Scene(
+            id="scene_001", narration="N.", visual_prompt="p", visual_mode="multi_frame",
+            image_url="/static/projects/s/images/scene_001_f0.png",
+            frame_urls=["/static/projects/s/images/scene_001_f0.png", "/static/projects/s/images/scene_001_f1.png"],
+            visual_source_metadata={"source_type": "placeholder"},
+        ),
+    ])])
+    assert remotion_render.ensure_renderable_scene_images("s", content) == 0

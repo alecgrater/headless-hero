@@ -1061,8 +1061,10 @@ def _scene_image_is_placeholder(script_id: str, scene: Scene) -> bool:
     """
     from pipeline.image_gen import is_placeholder_image
 
+    if scene.frame_urls:
+        return False  # placeholders only come from the single-image path
     prefix = f"/static/projects/{script_id}/images/"
-    if scene.image_url and scene.image_url.startswith(prefix) and not scene.frame_urls:
+    if scene.image_url and scene.image_url.startswith(prefix):
         local_path = DATA_DIR / "projects" / script_id / "images" / scene.image_url[len(prefix):]
         if local_path.exists():
             return is_placeholder_image(local_path)
