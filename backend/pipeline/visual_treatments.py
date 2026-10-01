@@ -98,6 +98,28 @@ CLAUSE_MARKER_WORDS = frozenset({
     "that", "though", "although", "unless", "until", "since", "whether",
 })
 
+# Popup-only clause signals (`_popup_items_are_a_list`). Auxiliaries and copulas
+# mark a finite clause ("people are suffering", "one might be a message", "is 43")
+# without touching imperative items ("keep your head down", "be interested").
+# Measured on every stored script: of 25 extracted "lists", these plus the
+# pronoun-subject, dash, subordinator and "and then" rules left 5, four of them
+# real lists. Not applied to comparison subjects, where a state ("the room is
+# calm") is a fair subject. Words are normalized, so "can't" is "cant".
+POPUP_TEMPORAL_SUBORDINATORS = frozenset({"after", "before", "once"})
+CLAUSE_VERB_WORDS = frozenset({
+    "is", "are", "was", "were", "am", "isnt", "arent", "wasnt", "werent",
+    "has", "had", "does", "did", "will", "would", "can", "could", "might",
+    "may", "must", "should", "shall", "cant", "wont", "couldnt", "wouldnt",
+    "theres", "youre", "theyre", "im", "ive", "youve",
+})
+
+# A multi-word fragment opening on a subject pronoun is a clause ("it made sense",
+# "they took this month's pain"). A lone "you" is still a valid item.
+SUBJECT_PRONOUN_WORDS = frozenset({"i", "you", "he", "she", "it", "we", "they", "there"})
+
+_ITEM_DASH_RE = re.compile(r"[\u2014\u2013]|\s-\s")
+_NARRATIVE_SEQUENCE_RE = re.compile(r"\band then\b|,\s*then\b", flags=re.IGNORECASE)
+
 # Discourse openers that survive the comma split as their own "item". They are
 # dropped rather than rejected, so one filler at the head of a real list does
 # not disqualify the list.
@@ -607,7 +629,7 @@ def _marker_list_items(scene: Scene) -> list[tuple[str, float]]:
             else _phrase_start_seconds(scene, phrase, index, len(matches))
         )
         items.append((phrase, start))
-    return items
+    return items if _popup_items_are_a_list([phrase for phrase, _ in items]) else []
 
 
 def _popup_layers_for_scene(
@@ -737,6 +759,9 @@ def _natural_list_items(scene: Scene) -> list[tuple[str, float]]:
 
     normalized_text = re.sub(r"\s+", " ", text)
     normalized_text = _list_candidate_text(normalized_text)
+    # "X and then Y" narrates events in order; it is not a set of things to show.
+    if _NARRATIVE_SEQUENCE_RE.search(normalized_text):
+        return []
     pieces = [
         _trim_list_item_phrase(piece.strip(" .,:;-"))
         for piece in re.split(r"\s*;\s*|\s*,\s*|\s+\b(?:and|or)\b\s+", normalized_text, flags=re.IGNORECASE)
@@ -749,7 +774,7 @@ def _natural_list_items(scene: Scene) -> list[tuple[str, float]]:
     # that happens to contain one short noun phrase between commas would yield a
     # two-item "list", so a paragraph became a popup sequence. If any piece is a
     # clause, the commas were punctuation, not separators.
-    if not all(_is_list_item_phrase(piece) for piece in pieces):
+    if not _popup_items_are_a_list(pieces):
         return []
     items = pieces
 
@@ -857,6 +882,35 @@ def _is_discourse_filler(value: str) -> bool:
     if not words:
         return True
     return all(word in DISCOURSE_FILLERS or word in REPETITION_STOPWORDS for word in words)
+
+
+def _has_popup_clause_signal(value: str) -> bool:
+    words = [word for word in (_normalize_word(word) for word in value.split()) if word]
+    if any(word in CLAUSE_VERB_WORDS for word in words):
+        return True
+    return len(words) > 1 and words[0] in SUBJECT_PRONOUN_WORDS
+
+
+def _has_popup_subordinator(value: str) -> bool:
+    return any(_normalize_word(word) in POPUP_TEMPORAL_SUBORDINATORS for word in value.split())
+
+
+def _popup_items_are_a_list(pieces: list[str]) -> bool:
+    """Popup items must each pass the shared gate and read as things, not clauses.
+
+    The first piece may carry the sentence's lead-in ("She points to missing keys,
+    spoiled lunch, and an angry prisoner"), but only with two more items after it;
+    with one ("It is a night in November, year sixteen") the "list" is a sentence.
+    """
+    if not all(_is_list_item_phrase(piece) for piece in pieces):
+        return False
+    # A dash or an opening subordinator ("After handwashing, mortality fell") marks
+    # prose anywhere, including the first piece.
+    if any(_ITEM_DASH_RE.search(piece) or _has_popup_subordinator(piece) for piece in pieces):
+        return False
+    if any(_has_popup_clause_signal(piece) for piece in pieces[1:]):
+        return False
+    return not _has_popup_clause_signal(pieces[0]) or len(pieces) >= 3
 
 
 def _is_list_item_phrase(value: str) -> bool:
