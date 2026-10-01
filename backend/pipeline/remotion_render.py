@@ -31,7 +31,7 @@ MAX_AI_VIDEO_SLOWDOWN_RATIO = 1.25
 SUBTITLE_ROUTER_VERSION = "standard-subtitle-router-v2"
 RENDERER_CONTEXT_STAGE_VERSION = "renderer-context-stage-v4"
 # Bump to invalidate every prior blink render (overlay geometry / detection changes).
-BLINK_RENDERER_VERSION = "full-frame-blink-v1"
+BLINK_RENDERER_VERSION = "full-frame-blink-v2"  # v2: renderer eye-separation floor 0.04 -> 0.03
 # Bump to invalidate every prior camera-drift render (CameraDrift transform math changes).
 CAMERA_DRIFT_RENDERER_VERSION = "camera-drift-cover-v1"
 SUBTITLE_COVERAGE_MODES = {"all", "punchy"}

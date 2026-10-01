@@ -27,7 +27,8 @@ const validAnchorPoint = (point?: BlinkOverlayPoint): point is BlinkOverlayPoint
 const BLINK_EYE_MIN_SIZE = 0.004;
 const BLINK_EYE_MAX_SIZE = 0.14;
 const BLINK_EYE_MAX_VERTICAL_DELTA = 0.02;
-const BLINK_EYE_MIN_SEPARATION = 0.04;
+// Keep equal to BLINK_EYE_MIN_SEPARATION in backend/pipeline/full_frame_blink.py.
+const BLINK_EYE_MIN_SEPARATION = 0.03;
 const BLINK_EYE_MAX_SEPARATION = 0.62;
 const BLINK_EYE_MIN_SYMMETRY_RATIO = 0.55;
 

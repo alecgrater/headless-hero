@@ -55,6 +55,17 @@ describe("resolveBlinkOverlayAnchor", () => {
     ).toBeNull();
   });
 
+  it("draws medium shots down to the backend's 0.03 eye-separation floor", () => {
+    // The backend marks these scenes as blinking; a stricter renderer floor
+    // (it was 0.04) silently skipped them.
+    const eyes = (separation: number) => safeAnchor({
+      eye_left: { x: 0.5, y: 0.33, width: 0.006, height: 0.013 },
+      eye_right: { x: 0.5 + separation, y: 0.33, width: 0.006, height: 0.013 },
+    });
+    expect(resolveBlinkOverlayAnchor(eyes(0.035))).not.toBeNull();
+    expect(resolveBlinkOverlayAnchor(eyes(0.025))).toBeNull();
+  });
+
   it("rejects eyes that are too close together or too far apart to be a face", () => {
     expect(
       resolveBlinkOverlayAnchor(

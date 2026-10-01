@@ -34,12 +34,18 @@ def test_build_full_frame_blink_metadata_enables_every_eligible_scene(monkeypatc
         ),
     )
 
+    # The vision check is covered in test_full_frame_blink_preview; never call out here.
+    monkeypatch.setattr(
+        full_frame_blink, "blink_vision_check",
+        lambda *_a, **_k: full_frame_blink.BlinkVisionVerdict(passed=None, note="test"),
+    )
+
     # No 50% deterministic gate: every eligible scene must enable blink.
     for index in range(8):
         meta = build_full_frame_blink_metadata(
             "script-1", f"scene-{index}", "/static/projects/script-1/images/x.png"
         )
-        assert meta == {"enabled": True, "action": "blink", "anchor": anchor}
+        assert meta == {"enabled": True, "action": "blink", "anchor": anchor, "vision_check": "skipped"}
 
 
 def test_build_full_frame_blink_metadata_suppresses_ineligible_scene(monkeypatch):

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import math
 import uuid
 from datetime import datetime, timezone
@@ -20,6 +21,8 @@ from pipeline.image_gen import (
     _sample_blink_face_skin_fill,
 )
 
+logger = logging.getLogger(__name__)
+
 BURGER_KING_BLINK_AUDIT_SCRIPT_ID = "9dacedc774514306ae1acb85215449e1"
 MEDIA_BACKED_BLINK_MODES = {"full_frame"}
 
@@ -28,6 +31,8 @@ MEDIA_BACKED_BLINK_MODES = {"full_frame"}
 # distorted overlay — quality over coverage.
 BLINK_EYE_MIN_SIZE = 0.004
 BLINK_EYE_MAX_SIZE = 0.14
+# Keep equal to the renderer's floor (BLINK_EYE_MIN_SEPARATION in BlinkOverlay.tsx):
+# a mismatch marks scenes as blinking that the renderer then refuses to draw.
 BLINK_EYE_MIN_SEPARATION = 0.03
 BLINK_EYE_MAX_SEPARATION = 0.6
 # The renderer hard-caps each closed-eye mark's half-width at eyeDistance*0.22,
@@ -35,6 +40,7 @@ BLINK_EYE_MAX_SEPARATION = 0.6
 # mis-detections where an "eye" is nearly as wide as the gap between the eyes.
 BLINK_EYE_MAX_WIDTH_VS_SEPARATION = 0.9
 BLINK_FILL_MAX_LUMINANCE_GAP = 45
+BLINK_LENS_MAX_VERTICAL_DELTA = 0.02  # = renderer BLINK_EYE_MAX_VERTICAL_DELTA
 
 
 class FullFrameBlinkDetection(BaseModel):
@@ -140,7 +146,10 @@ def full_frame_blink_quality_rejection_reason(anchor: dict[str, object]) -> str:
 
     left_y = float(left_eye["y"])
     right_y = float(right_eye["y"])
-    if abs(left_y - right_y) > 0.008:
+    # Lens anchors place each closed eye exactly on its own detected eye, so a
+    # tilted head still reads right; allow the renderer's own limit for them.
+    max_vertical_delta = BLINK_LENS_MAX_VERTICAL_DELTA if anchor.get("eye_fill_source") == "lens" else 0.008
+    if abs(left_y - right_y) > max_vertical_delta:
         return "blink_quality_eye_pair_misaligned"
 
     # Conservative absolute eye-size sanity (normalized image fractions). Real
@@ -174,6 +183,134 @@ def full_frame_blink_quality_rejection_reason(anchor: dict[str, object]) -> str:
     return ""
 
 
+# --- Closed-eye preview --------------------------------------------------------
+# A line-for-line port of blinkBlinkEyeOverlayGeometry (remotion TreatmentRenderer
+# .tsx) so the backend can look at the exact closed eye the renderer will draw
+# before keeping a blink. Keep the two in step: test_full_frame_blink_preview pins
+# the numbers against the TypeScript output for a fixed anchor.
+BLINK_EYELID_STROKE = "#2A1712"
+BLINK_FALLBACK_SKIN_FILL = "#D9A374"
+_BLINK_MAX_ON_SCREEN_ASPECT = 2.4
+
+
+def _color_distance(first: object, second: object) -> float | None:
+    a, b = _hex_rgb(first), _hex_rgb(second)
+    if a is None or b is None:
+        return None
+    return math.dist(a, b)
+
+
+def blink_closed_eye_geometry(anchor: dict[str, Any], aspect: float = 16 / 9) -> list[dict[str, Any]]:
+    """Closed-eye mask and lid per eye, in the renderer's 0–100 viewBox units."""
+    left, right = anchor["eye_left"], anchor["eye_right"]
+    sizes = []
+    for point in (left, right):
+        width, height = point.get("width"), point.get("height")
+        if not isinstance(width, int | float) or not isinstance(height, int | float) or width <= 0 or height <= 0:
+            return []
+        sizes.append((width, height))
+    left_eye = (left["x"] * 100, left["y"] * 100)
+    right_eye = (right["x"] * 100, right["y"] * 100)
+    eye_distance = abs(right_eye[0] - left_eye[0])
+    if not eye_distance > 0:
+        return []
+    midpoint_x = (left_eye[0] + right_eye[0]) / 2
+    nose_margin = max(eye_distance * 0.1, 1.0)
+    safe_aspect = aspect if aspect > 0 else 16 / 9
+    skin_fill = anchor.get("skin_fill") if isinstance(anchor.get("skin_fill"), str) else BLINK_FALLBACK_SKIN_FILL
+    shapes = []
+    for point, (eye_x, eye_y), (width, height), side in (
+        (left, left_eye, sizes[0], "left"),
+        (right, right_eye, sizes[1], "right"),
+    ):
+        eye_width, eye_height = width * 100, height * 100
+        mask_half_height = max(eye_height * 0.85, eye_height * 0.5 + 0.4)
+        mask_half_width = min(
+            eye_width * 0.6,
+            eye_distance * 0.22,
+            (mask_half_height * _BLINK_MAX_ON_SCREEN_ASPECT) / safe_aspect,
+        )
+        mask_left, mask_right = eye_x - mask_half_width, eye_x + mask_half_width
+        if side == "left":
+            mask_right = min(mask_right, midpoint_x - nose_margin)
+        else:
+            mask_left = max(mask_left, midpoint_x + nose_margin)
+        mask_width = max(0.0, mask_right - mask_left)
+        mask_height = mask_half_height * 2
+        side_distance = _color_distance(point.get("fill_left"), point.get("fill_right"))
+        vertical_distance = _color_distance(point.get("fill_top"), point.get("fill_bottom"))
+        if side_distance is not None and (vertical_distance is None or side_distance >= vertical_distance):
+            gradient = ("horizontal", point["fill_left"], point["fill_right"])
+        elif vertical_distance is not None:
+            gradient = ("vertical", point["fill_top"], point["fill_bottom"])
+        else:
+            gradient = None
+        lid_half_width = max(0.0, min(eye_width * 0.5, eye_distance * 0.22, eye_x - mask_left, mask_right - eye_x))
+        shapes.append({
+            "mask": {
+                "x": mask_left, "y": eye_y - mask_half_height, "width": mask_width, "height": mask_height,
+                "rx": min(mask_width, mask_height) / 2, "fill": skin_fill, "gradient": gradient,
+            },
+            "lid": {
+                "start": (eye_x - lid_half_width, eye_y),
+                "control": (eye_x, eye_y - mask_half_height * 0.3),
+                "end": (eye_x + lid_half_width, eye_y),
+                "stroke_width": min(max(eye_height * 0.28, 0.4), 0.9),
+            },
+        })
+    return shapes
+
+
+def render_closed_eye_frame(image: Image.Image, anchor: dict[str, Any]) -> Image.Image:
+    """The image with the renderer's closed-eye overlay drawn on it (2x supersampled)."""
+    from PIL import ImageDraw
+
+    base = image.convert("RGBA")
+    width, height = base.size
+    scale = 2
+    overlay = Image.new("RGBA", (width * scale, height * scale), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+    sx, sy = width * scale / 100, height * scale / 100
+    for shape in blink_closed_eye_geometry(anchor, width / height):
+        mask = shape["mask"]
+        box = (mask["x"] * sx, mask["y"] * sy, (mask["x"] + mask["width"]) * sx, (mask["y"] + mask["height"]) * sy)
+        if box[2] - box[0] < 1 or box[3] - box[1] < 1:
+            continue
+        radius = min(mask["rx"] * sx, mask["rx"] * sy)
+        if mask["gradient"]:
+            orientation, start, end = mask["gradient"]
+            start_rgb, end_rgb = _hex_rgb(start), _hex_rgb(end)
+            fill_layer = Image.new("RGBA", overlay.size, (0, 0, 0, 0))
+            fill_draw = ImageDraw.Draw(fill_layer)
+            span = (box[2] - box[0]) if orientation == "horizontal" else (box[3] - box[1])
+            for step in range(int(span) + 1):
+                t = step / max(span, 1)
+                color = tuple(round(a + (b - a) * t) for a, b in zip(start_rgb, end_rgb)) + (255,)
+                if orientation == "horizontal":
+                    fill_draw.line([(box[0] + step, box[1]), (box[0] + step, box[3])], fill=color)
+                else:
+                    fill_draw.line([(box[0], box[1] + step), (box[2], box[1] + step)], fill=color)
+            shape_mask = Image.new("L", overlay.size, 0)
+            ImageDraw.Draw(shape_mask).rounded_rectangle(box, radius=radius, fill=255)
+            overlay.paste(fill_layer, (0, 0), shape_mask)
+        else:
+            draw.rounded_rectangle(box, radius=radius, fill=_hex_rgb(mask["fill"]) + (255,))
+        lid = shape["lid"]
+        (x0, y0), (cx, cy), (x1, y1) = lid["start"], lid["control"], lid["end"]
+        points = []
+        for index in range(25):
+            t = index / 24
+            x = (1 - t) ** 2 * x0 + 2 * (1 - t) * t * cx + t ** 2 * x1
+            y = (1 - t) ** 2 * y0 + 2 * (1 - t) * t * cy + t ** 2 * y1
+            points.append((x * sx, y * sy))
+        stroke = max(1, round(lid["stroke_width"] * (sx + sy) / 2))
+        draw.line(points, fill=_hex_rgb(BLINK_EYELID_STROKE) + (255,), width=stroke, joint="curve")
+        for px, py in (points[0], points[-1]):
+            draw.ellipse((px - stroke / 2, py - stroke / 2, px + stroke / 2, py + stroke / 2), fill=_hex_rgb(BLINK_EYELID_STROKE) + (255,))
+    overlay = overlay.resize((width, height), Image.Resampling.LANCZOS)
+    return Image.alpha_composite(base, overlay)
+
+
 def _hex_rgb(value: object) -> tuple[int, int, int] | None:
     if not isinstance(value, str) or len(value) != 7 or not value.startswith("#"):
         return None
@@ -190,18 +327,90 @@ def build_full_frame_blink_metadata(script_id: str, scene_id: str, image_url: st
     unsafe anchors are silently suppressed (no metadata). There is no deterministic
     coverage gate and no manual review.
     """
-    del script_id, scene_id  # retained for call-site symmetry; no longer gating
     image_path = image_path_from_static_url(image_url)
     if image_path is None:
         return None
     detection = detect_full_frame_blink_anchor(image_path)
     if not detection.eligible or detection.anchor is None:
         return None
+    verdict = blink_vision_check(image_path, detection.anchor, script_id=script_id)
+    if verdict.passed is False:
+        logger.warning(
+            "[BLINK] vision check rejected blink scene=%s script=%s: %s", scene_id, script_id, verdict.note
+        )
+        return None
+    logger.info(
+        "[BLINK] blink enabled scene=%s script=%s vision_check=%s",
+        scene_id, script_id, "passed" if verdict.passed else f"skipped ({verdict.note})",
+    )
     return {
         "enabled": True,
         "action": "blink",
         "anchor": detection.anchor,
+        "vision_check": "passed" if verdict.passed else "skipped",
     }
+
+
+class BlinkVisionVerdict(BaseModel):
+    passed: bool | None  # None: the check could not run, so the geometric gate alone decides
+    note: str = ""
+
+
+BLINK_VISION_QUESTION = """Image A is a frame from a cartoon. Image B is the same frame with an automatic "closed eyes" overlay drawn on it, used to make the character blink.
+Judge ONLY whether Image B is a clean, believable blink. Return only a JSON object:
+{"on_the_eyes": true/false (each closed-eye mark sits exactly where an open eye was, inside the glasses if there are any),
+ "eyes_hidden": true/false (the open eyes from Image A are no longer visible in Image B),
+ "looks_natural": true/false (Image B reads as the same character with eyes closed, in the drawing's own style),
+ "visible_patch": true/false (a box, smear, bar, or patch of a different color is visible around the marks),
+ "note": "under 15 words"}"""
+
+
+def _blink_eye_crop_box(anchor: dict[str, Any], width: int, height: int) -> tuple[float, float, float, float]:
+    center_x = (anchor["eye_left"]["x"] + anchor["eye_right"]["x"]) / 2 * width
+    center_y = (anchor["eye_left"]["y"] + anchor["eye_right"]["y"]) / 2 * height
+    separation = max(abs(anchor["eye_right"]["x"] - anchor["eye_left"]["x"]) * width, 8.0)
+    return (
+        max(0.0, center_x - separation * 1.6),
+        max(0.0, center_y - separation * 0.8),
+        min(float(width), center_x + separation * 1.6),
+        min(float(height), center_y + separation * 0.8),
+    )
+
+
+def blink_vision_check(image_path: Path, anchor: dict[str, Any], *, script_id: str | None = None) -> BlinkVisionVerdict:
+    """Show Claude the eyes open and with the renderer's closed-eye overlay; keep the blink only if it passes.
+
+    The geometric gate had no false positives on 106 test images, but loosening
+    detection for coverage is exactly where bad blinks would slip in, and a
+    picture is the only reliable way to judge "does this look like a blink".
+    Runs on the cloud even in Local Mode, like cutout-sheet escalation; with no
+    key, or on any failure, it is skipped and the geometric gate alone decides.
+    """
+    from integrations import vision_client
+
+    if not vision_client.vision_check_available():
+        return BlinkVisionVerdict(passed=None, note="no Anthropic key")
+    try:
+        with Image.open(image_path) as image:
+            base = image.convert("RGBA")
+        closed = render_closed_eye_frame(base, anchor)
+        box = _blink_eye_crop_box(anchor, *base.size)
+        answer = vision_client.judge_images(
+            BLINK_VISION_QUESTION,
+            [("Image A:", base.crop(box)), ("Image B:", closed.crop(box))],
+            operation="blink_check",
+            script_id=script_id,
+        )
+    except Exception as exc:  # noqa: BLE001 - a failed check must never block image generation
+        logger.warning("[BLINK] vision check unavailable (%s: %s); keeping the geometric decision", type(exc).__name__, exc)
+        return BlinkVisionVerdict(passed=None, note=f"check failed: {type(exc).__name__}")
+    passed = (
+        answer.get("on_the_eyes") is True
+        and answer.get("eyes_hidden") is True
+        and answer.get("looks_natural") is True
+        and answer.get("visible_patch") is False
+    )
+    return BlinkVisionVerdict(passed=passed, note=str(answer.get("note") or "")[:200])
 
 
 def _anchor_dimension(point: dict[str, object], key: str) -> float:
@@ -336,9 +545,9 @@ def _detect_full_frame_main_face_anchor_points(image: Image.Image) -> dict[str, 
 # It runs first (see detect_full_frame_blink_anchor), and its anchor goes
 # through the same full_frame_blink_quality_rejection_reason gate.
 GLASSES_LENS_MIN_WIDTH = 0.008
-GLASSES_LENS_MAX_WIDTH = 0.08
+GLASSES_LENS_MAX_WIDTH = 0.14  # close-ups: lenses measured up to ~12% of frame width
 GLASSES_RIM_MIN_FRACTION = 0.6
-GLASSES_EYE_CONTRAST = 55
+GLASSES_EYE_CONTRAST = 40  # glare on tinted lenses washed eyes out at 55
 
 
 def _luminance(pixel: tuple[int, ...]) -> float:
@@ -444,6 +653,28 @@ def _lens_fill(image: Image.Image, lens: dict[str, float]) -> str | None:
     return "#{:02x}{:02x}{:02x}".format(*channels)
 
 
+def _eyes_share_gaze(
+    left_eye: dict[str, float], left_lens: dict[str, float], right_eye: dict[str, float], right_lens: dict[str, float]
+) -> bool:
+    def offset(eye: dict[str, float], lens: dict[str, float]) -> tuple[float, float]:
+        return (eye["cx"] - lens["cx"]) / max(lens["width"], 0.001), (eye["cy"] - lens["cy"]) / max(lens["height"], 0.001)
+
+    (left_dx, left_dy), (right_dx, right_dy) = offset(left_eye, left_lens), offset(right_eye, right_lens)
+    return abs(left_dx - right_dx) <= 0.25 and abs(left_dy - right_dy) <= 0.25
+
+
+def _with_size(eye: dict[str, float], width: float, height: float) -> dict[str, float]:
+    return {
+        **eye,
+        "width": width,
+        "height": height,
+        "left": eye["cx"] - width / 2,
+        "right": eye["cx"] + width / 2,
+        "top": eye["cy"] - height / 2,
+        "bottom": eye["cy"] + height / 2,
+    }
+
+
 def _clamp_box_to(box: dict[str, float], bounds: dict[str, float]) -> dict[str, float]:
     return {
         "left": round(max(box["left"], bounds["left"]), 4),
@@ -485,7 +716,9 @@ def _detect_full_frame_glasses_face_anchor_points(image: Image.Image) -> dict[st
         for right_lens in lenses:
             if left_lens is right_lens or left_lens["cx"] >= right_lens["cx"]:
                 continue
-            if min(left_lens["width"], right_lens["width"]) / max(left_lens["width"], right_lens["width"]) < 0.7:
+            # A highlight can split one lens' pale interior, so widths match loosely;
+            # heights (unaffected by a vertical glare stripe) still match strictly.
+            if min(left_lens["width"], right_lens["width"]) / max(left_lens["width"], right_lens["width"]) < 0.55:
                 continue
             if min(left_lens["height"], right_lens["height"]) / max(left_lens["height"], right_lens["height"]) < 0.7:
                 continue
@@ -502,7 +735,12 @@ def _detect_full_frame_glasses_face_anchor_points(image: Image.Image) -> dict[st
             right_eye = eye_of(right_lens)
             if left_eye is None or right_eye is None:
                 continue
-            if min(left_eye["area"], right_eye["area"]) / max(left_eye["area"], right_eye["area"]) < 0.5:
+            # Glare on one lens shrinks that eye's blob. Accept a size mismatch only
+            # when both eyes sit in the same spot inside their lenses (same gaze);
+            # the pair then gets one shared size below.
+            if min(left_eye["area"], right_eye["area"]) / max(left_eye["area"], right_eye["area"]) < 0.25:
+                continue
+            if not _eyes_share_gaze(left_eye, left_lens, right_eye, right_lens):
                 continue
             # The pale face has to continue below the glasses, or this is just two
             # framed pale shapes (windows, gauges) that happen to sit side by side.
@@ -539,6 +777,10 @@ def _detect_full_frame_glasses_face_anchor_points(image: Image.Image) -> dict[st
     if best is None:
         return None
     _score, left_lens, right_lens, face_component, left_eye, right_eye = best
+    shared_width = (left_eye["width"] + right_eye["width"]) / 2
+    shared_height = (left_eye["height"] + right_eye["height"]) / 2
+    left_eye = _with_size(left_eye, shared_width, shared_height)
+    right_eye = _with_size(right_eye, shared_width, shared_height)
     lens_height = (left_lens["height"] + right_lens["height"]) / 2
     face_left = min(face_component["left"], left_lens["left"])
     face_right = max(face_component["right"], right_lens["right"])
