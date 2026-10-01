@@ -485,14 +485,15 @@ export function useTimelineState(
         return;
       }
 
-      if (!scene.visual_prompt) return;
+      // A prompt-less image-backed scene still generates: the backend backfills it.
+      if (!sceneNeedsImageGeneration(scene)) return;
 
       setGeneratingSceneIds((prev) => new Set(prev).add(sceneId));
       try {
         const res = await api.post("/api/visuals/generate", {
           script_id: scriptId,
           scene_id: sceneId,
-          visual_prompt: scene.visual_prompt,
+          visual_prompt: scene.visual_prompt ?? "",
           frame_directives: scene.frame_directives || [],
           contains_person: scene.contains_person || false,
           visual_mode: scene.visual_mode ?? "full_frame",

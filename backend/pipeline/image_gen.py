@@ -34,8 +34,10 @@ BLINK_CUTOUT_REGISTRATION_VERSION = "alpha-mask-registration-v29"
 _STYLE_GUIDE = IMAGE_COMPOSITION_GUIDE.template
 _VISUAL_STYLE = IMAGE_VISUAL_STYLE.template
 _CHARACTER_PROMPT = IMAGE_CHARACTER_IN_SCENE.template
+# No bare "words in": narration backfilled as a prompt ("the words in his letter")
+# would fail generation. Real caption-text prompts also say "clean sans-serif".
 _CAPTION_TEXT_PROMPT_LEAK_RE = re.compile(
-    r"\b(?:caption text|clean sans-serif|words in|text on a dark background|readable caption text)\b",
+    r"\b(?:caption text|clean sans-serif|text on a dark background|readable caption text)\b",
     re.IGNORECASE,
 )
 
@@ -2224,8 +2226,8 @@ def _generate_one_scene(
                 "error": None,
             })
 
-        # Visual Beat System v2 path: per-frame directives
-        if frame_directives:
+        # Visual Beat System v2 path: per-frame directives (a lone directive is a plain image)
+        if frame_directives and single_image_directive(scene) is None:
             frame_results = generate_scene_frames_v2(
                 scene_id=scene["scene_id"],
                 frame_directives=frame_directives,
@@ -2249,7 +2251,7 @@ def _generate_one_scene(
             })
 
         # Legacy multi-frame path
-        if frame_prompts:
+        if frame_prompts and not frame_directives:
             frame_results = generate_scene_frames(
                 scene_id=scene["scene_id"],
                 frame_prompts=frame_prompts,
@@ -2275,12 +2277,12 @@ def _generate_one_scene(
         # Single-image path
         image_url, prompt_used, source_metadata = generate_scene_image(
             scene_id=scene["scene_id"],
-            visual_prompt=scene["visual_prompt"],
+            visual_prompt=single_image_prompt(scene),
             script_id=script_id,
             width=width,
             height=height,
             style_guide=style_guide,
-            contains_person=scene_contains_person,
+            contains_person=single_image_contains_person(scene),
         )
         return with_visual_layers({
             "scene_id": scene["scene_id"],
@@ -2320,14 +2322,17 @@ def _google_batch_visual_mode(scene: dict[str, object]) -> str:
     )
 
 
-def _single_batch_directive(scene: dict[str, object]) -> dict | None:
+def single_image_directive(scene: dict[str, object]) -> dict | None:
     """The one AI directive of a single-image scene, or None.
 
-    Script post-processing gives most full_frame scenes exactly one directive. With
-    no previous frame it builds one independent image — the same shape Batch makes —
-    so it must not disqualify the scene: rejecting every directive sent 0 of 70
-    scenes through Batch on a real run, billing all of them at the full rate.
+    Script post-processing gives most full_frame scenes exactly one directive, a copy
+    of the scene prompt. With no previous frame it is one independent image, so every
+    path treats it as a plain scene image (`{scene}.png`): Batch, the interactive
+    batch, the per-scene endpoint, and the render phase then share one cache file.
+    Rejecting every directive sent 0 of 70 scenes through Batch on a real run.
     """
+    if _google_batch_visual_mode(scene) not in {"full_frame", "captions"}:
+        return None  # multi_frame / continuous render their directives as frames
     frame_directives = scene.get("frame_directives") or []
     if len(frame_directives) != 1:
         return None
@@ -2340,11 +2345,20 @@ def _single_batch_directive(scene: dict[str, object]) -> dict | None:
     return directive
 
 
-def _google_batch_prompt(scene: dict[str, object]) -> str:
-    directive = _single_batch_directive(scene)
+def single_image_prompt(scene: dict[str, object]) -> str:
+    """Scene prompt first (what the render phase uses), else the single directive's."""
+    prompt = str(scene.get("visual_prompt") or "").strip()
+    if prompt:
+        return prompt
+    directive = single_image_directive(scene)
     if directive is not None:
-        return str(directive.get("prompt") or directive.get("search_query") or "")
-    return str(scene.get("visual_prompt") or "")
+        return str(directive.get("prompt") or directive.get("search_query") or "").strip()
+    return ""
+
+
+def single_image_contains_person(scene: dict[str, object]) -> bool:
+    directive = single_image_directive(scene) or {}
+    return bool(scene.get("contains_person") or directive.get("contains_person"))
 
 
 def _is_google_batch_eligible(scene: dict[str, object]) -> bool:
@@ -2355,9 +2369,9 @@ def _is_google_batch_eligible(scene: dict[str, object]) -> bool:
         return False
     if scene.get("frame_prompts"):
         return False
-    if scene.get("frame_directives") and _single_batch_directive(scene) is None:
+    if scene.get("frame_directives") and single_image_directive(scene) is None:
         return False
-    return bool(_google_batch_prompt(scene).strip())
+    return bool(single_image_prompt(scene))
 
 
 def _prepare_google_batch_scene(
@@ -2368,14 +2382,13 @@ def _prepare_google_batch_scene(
     style_guide: str,
 ) -> tuple[GoogleBatchImageRequest | None, dict[str, object] | None, Path | None, Path | None]:
     scene_id = str(scene["scene_id"])
-    visual_prompt = _google_batch_prompt(scene)
-    directive = _single_batch_directive(scene) or {}
+    visual_prompt = single_image_prompt(scene)
     _raise_for_caption_text_prompt_leak([visual_prompt], scene_id=scene_id)
     prompt, reference_image_path, style_reference_path = _compose_image_prompt_context(
         visual_prompt=visual_prompt,
         script_id=script_id,
         style_guide=style_guide,
-        contains_person=bool(scene.get("contains_person", False) or directive.get("contains_person")),
+        contains_person=single_image_contains_person(scene),
     )
     images_dir = DATA_DIR / "projects" / script_id / "images"
     images_dir.mkdir(parents=True, exist_ok=True)

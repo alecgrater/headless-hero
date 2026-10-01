@@ -203,3 +203,34 @@ def test_visual_batch_job_backfills_and_persists_a_missing_prompt(monkeypatch):
 
     assert seen_prompts == ["A scene."]
     assert stored.all_scenes()[0].visual_prompt == "A scene."
+
+
+def test_single_scene_generate_backfills_a_missing_prompt(monkeypatch):
+    from api import visuals as visuals_api
+
+    engine = _engine()
+    seen = {}
+
+    def fake_generate_scene_image(*, scene_id, visual_prompt, **_kwargs):
+        seen["prompt"] = visual_prompt
+        return (f"/static/projects/script-1/images/{scene_id}.png", visual_prompt, None)
+
+    monkeypatch.setattr(visuals_api, "_require_character_reference_ready", lambda session, script_id: None)
+    monkeypatch.setattr(visuals_api, "generate_scene_image", fake_generate_scene_image)
+    monkeypatch.setattr(visuals_api, "_metadata_with_full_frame_blink", lambda **kwargs: kwargs["source_metadata"])
+
+    content = _content()
+    content.all_scenes()[0].visual_prompt = ""
+    with Session(engine) as session:
+        session.add(BrandProfile(id="brand-1", name="Default"))
+        session.add(Script(id="script-1", brand_id="brand-1", topic_title="T",
+                           script_json=content.model_dump_json(), status="draft"))
+        session.commit()
+        visuals_api.generate_visual(
+            visuals_api.GenerateVisualRequest(script_id="script-1", scene_id="scene_001", visual_mode="full_frame"),
+            session=session,
+        )
+        stored = ScriptContent.model_validate_json(session.get(Script, "script-1").script_json)
+
+    assert seen["prompt"] == "A scene."
+    assert stored.all_scenes()[0].visual_prompt == "A scene."

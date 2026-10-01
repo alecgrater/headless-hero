@@ -1013,10 +1013,6 @@ def _reencode_h264(input_path: Path, output_path: Path) -> bool:
     return True
 
 
-# Visual modes whose render REQUIRES a generated scene image/frames. If one of
-# these reaches render with no image, the renderer draws a "No image" placeholder.
-
-
 def _persist_repaired_scene_images(
     script_id: str,
     content: ScriptContent,

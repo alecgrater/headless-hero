@@ -26,12 +26,15 @@ from pipeline.image_gen import (
     generate_scene_image,
     generate_stat_card_cutout,
     generate_visual_layer_panels,
+    single_image_contains_person,
+    single_image_directive,
+    single_image_prompt,
 )
 from pipeline import full_frame_blink as full_frame_blink_mod
 from pipeline.render_jobs import UserFacingJobError, create_job, get_job, is_cancelled, run_in_background, update_job
 from pipeline.formats import resolve_format
 from pipeline.visual_treatments import analyze_visual_treatment_scene, require_visual_treatment_voiceover
-from pipeline.visual_mode_policy import backfill_image_prompt
+from pipeline.visual_mode_policy import IMAGE_BACKED_MODES, backfill_image_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +48,7 @@ LAYERED_VISUAL_MODES = {"popup_sequence", "comparison_board", "stat_card"}
 class GenerateVisualRequest(BaseModel):
     script_id: str
     scene_id: str
-    visual_prompt: str
+    visual_prompt: str = ""
     width: int = IMAGE_WIDTH
     height: int = IMAGE_HEIGHT
     frame_directives: list[dict] = []
@@ -397,6 +400,41 @@ def _persist_visual_batch_results(
 
 # --- Endpoints ---
 
+def _backfill_requested_prompts(
+    session: Session,
+    record: Script,
+    content: ScriptContent,
+    requested: list[tuple[str, str]],
+) -> dict[str, str]:
+    """Fill and persist prompts for requested image-backed scenes that have none.
+
+    `requested` pairs a scene id with the visual mode the editor sent, which wins
+    over the stored one so an unsaved switch into an image mode still backfills.
+    Returns scene_id -> prompt for every scene that now has one.
+    """
+    scene_map = {sc.id: sc for sc in content.all_scenes()}
+    backfilled: list[str] = []
+    for scene_id, request_mode in requested:
+        scene = scene_map.get(scene_id)
+        if scene is None:
+            continue
+        mode = request_mode if request_mode in IMAGE_BACKED_MODES else scene.visual_mode
+        probe = scene.model_copy(update={"visual_mode": mode})
+        if backfill_image_prompt(probe):
+            scene.visual_prompt = probe.visual_prompt
+            backfilled.append(scene_id)
+    if backfilled:
+        # Persist so the prompt marker, the editor, and a later render all agree.
+        record.script_json = content.model_dump_json()
+        session.add(record)
+        session.commit()
+        logger.info(
+            "Backfilled visual_prompt from narration for %d image-backed scene(s) in %s: %s",
+            len(backfilled), record.id, ", ".join(sorted(backfilled)),
+        )
+    return {sc_id: sc.visual_prompt for sc_id, sc in scene_map.items() if sc.visual_prompt}
+
+
 @router.post("/generate", response_model=GenerateVisualResponse)
 def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_session)):
     """Generate a visual for a single scene, dispatching by visual_mode."""
@@ -406,6 +444,9 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
         raise HTTPException(status_code=404, detail="Script not found")
     _require_character_reference_ready(session, body.script_id)
     content = ScriptContent.model_validate_json(record.script_json)
+    if not body.visual_prompt.strip():
+        prompts = _backfill_requested_prompts(session, record, content, [(body.scene_id, body.visual_mode)])
+        body.visual_prompt = prompts.get(body.scene_id, "")
 
     explicit_visual_mode = "visual_mode" in body.model_fields_set and body.visual_mode in VISUAL_MODES
     visual_mode = body.visual_mode or "full_frame"
@@ -514,8 +555,15 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
             visual_layers=visual_layers or [],
         )
 
-    # Visual Beat System v2 path: per-frame directives
-    if body.frame_directives:
+    single_image = {
+        "visual_mode": visual_mode,
+        "visual_prompt": body.visual_prompt,
+        "frame_directives": body.frame_directives,
+        "contains_person": body.contains_person,
+    }
+
+    # Visual Beat System v2 path: per-frame directives (a lone directive is a plain image)
+    if body.frame_directives and single_image_directive(single_image) is None:
         visual_layers = _generate_scene_visual_layers(
             content=content,
             scene_id=body.scene_id,
@@ -581,11 +629,11 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
     try:
         image_url, prompt_used, source_metadata = generate_scene_image(
             scene_id=body.scene_id,
-            visual_prompt=body.visual_prompt,
+            visual_prompt=single_image_prompt(single_image),
             script_id=body.script_id,
             width=body.width,
             height=body.height,
-            contains_person=body.contains_person,
+            contains_person=single_image_contains_person(single_image),
         )
     except (CaptionPromptLeakError, UserFacingJobError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -649,25 +697,15 @@ def start_visual_batch_job(body: GenerateBatchRequest, session: Session = Depend
     bind = session.get_bind()
     content = ScriptContent.model_validate_json(record.script_json)
     scene_map = {sc.id: sc for seg in content.segments for sc in seg.scenes}
-    requested_ids = {s.scene_id for s in body.scenes}
-    backfilled_ids = [
-        scene_id for scene_id in requested_ids
-        if scene_id in scene_map and backfill_image_prompt(scene_map[scene_id])
-    ]
-    if backfilled_ids:
-        # Persist so the prompt marker, the editor, and a later render all agree.
-        record.script_json = content.model_dump_json()
-        session.add(record)
-        session.commit()
-        logger.info(
-            "Backfilled visual_prompt from narration for %d image-backed scene(s) in %s: %s",
-            len(backfilled_ids), body.script_id, ", ".join(sorted(backfilled_ids)),
-        )
+    prompts = _backfill_requested_prompts(
+        session, record, content,
+        [(s.scene_id, s.visual_mode) for s in body.scenes if not s.visual_prompt.strip()],
+    )
 
     scenes = [
         {
             "scene_id": s.scene_id,
-            "visual_prompt": s.visual_prompt or (scene_map[s.scene_id].visual_prompt if s.scene_id in scene_map else ""),
+            "visual_prompt": s.visual_prompt or prompts.get(s.scene_id, ""),
             "frame_directives": s.frame_directives,
             "contains_person": s.contains_person or (scene_map[s.scene_id].contains_person if s.scene_id in scene_map else False),
             "visual_mode": s.visual_mode or (scene_map[s.scene_id].visual_mode if s.scene_id in scene_map else ""),
@@ -839,10 +877,15 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
             return stored_scene.visual_mode
         return "full_frame"
 
+    prompts = _backfill_requested_prompts(
+        session, record, content,
+        [(s.scene_id, s.visual_mode) for s in body.scenes if not s.visual_prompt.strip()],
+    )
+
     scenes = [
         {
             "scene_id": s.scene_id,
-            "visual_prompt": s.visual_prompt,
+            "visual_prompt": s.visual_prompt or prompts.get(s.scene_id, ""),
             "frame_directives": s.frame_directives,
             "contains_person": s.contains_person or (scene_map[s.scene_id].contains_person if s.scene_id in scene_map else False),
             "visual_mode": s.visual_mode or (scene_map[s.scene_id].visual_mode if s.scene_id in scene_map else ""),
