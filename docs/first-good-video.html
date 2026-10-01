@@ -317,10 +317,9 @@ const STEPS = [
     sub: "Things only a real run can answer",
     meta: "after the video",
     why: "Three decisions were made today on a single video's evidence. Your run is the second data point, and each of these is a lever I'd rather tune with data than guesswork.",
-    expect: "<b>Popup rate</b> — the new gate rejected all 11 popups in the last video as prose. How many did this script get? Zero forever would mean the gate is too strict.<br><br><b>Segment closers</b> — the cold-open prompt now forbids ending on a question that pits one side against another, which used to produce “X had opinions. Y had data.” closers. Does any segment still end on a two-sided slogan?<br><br><b>The 6-word cap</b> — “Money goes to rent stress” passes at 5 words; “The monthly budget goes to rent stress” fails at 7. Did a real list get turned away?<br><br><b>Stat cards</b> — zero is expected now. If you want them back, the script prompt is the lever, not a regex.",
+    expect: "<b>Popup rate</b> — the new gate rejected all 11 popups in the last video as prose. How many did this script get? Zero forever would mean the gate is too strict.<br><br><b>The 6-word cap</b> — “Money goes to rent stress” passes at 5 words; “The monthly budget goes to rent stress” fails at 7. Did a real list get turned away?<br><br><b>Stat cards</b> — zero is expected now. If you want them back, the script prompt is the lever, not a regex.",
     fields: [
       { id: "popupcount", label: "How many popup_sequence scenes did this script get?" },
-      { id: "closers", label: "Any two-sided slogan closers? Quote them" },
       { id: "feedback", label: "Anything else worth changing" }
     ]
   },

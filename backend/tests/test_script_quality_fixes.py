@@ -203,12 +203,3 @@ def test_listicle_endings_are_concrete_and_concessions_are_not_templated():
     assert "Never end on an abstract moral or generalization" in text
     assert "X actually makes a lot of sense when you look at it from Z angle" not in text
     assert "at most once per segment, in your own words each time" in text
-
-
-def test_cold_open_does_not_set_up_a_two_sided_slogan():
-    # Unmeasured follow-up to the 2026-09-30 A/B: an opening ending on "what did the
-    # brothers know that the newspaper didn't?" produced "The newspaper had opinions.
-    # They had data." as segment 1's closer in every sample.
-    assert "Never end on a question that pits one side against another" in COLD_OPEN_ADDENDUM.template
-    assert "at most one run of stacked fragments" in COLD_OPEN_ADDENDUM.template
-    assert "never on two short parallel sentences that contrast one side with the other" in SCRIPT_SYSTEM.template
