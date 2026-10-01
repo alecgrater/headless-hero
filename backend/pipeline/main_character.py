@@ -11,6 +11,7 @@ import hashlib
 import json
 import logging
 import shutil
+import threading
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -159,6 +160,13 @@ def _cutout_needs_processing(
     )
 
 
+# Image generation runs scenes in parallel, and every popup/comparison job syncs
+# the project character first. After a character change, those first parallel
+# calls all saw a stale cutout and rewrote it at once; one read it mid-write and
+# failed with "image file is truncated". One rebuild at a time, re-checked inside.
+_CHARACTER_CUTOUT_LOCK = threading.Lock()
+
+
 def _ensure_current_character_cutout(
     *,
     reference_path: Path,
@@ -166,20 +174,20 @@ def _ensure_current_character_cutout(
     metadata_path: Path,
     prompt_fingerprint: str = "",
 ) -> bool:
-    if not _cutout_needs_processing(
-        reference_path=reference_path,
-        cutout_path=cutout_path,
-        metadata_path=metadata_path,
-    ):
+    paths = {"reference_path": reference_path, "cutout_path": cutout_path, "metadata_path": metadata_path}
+    if not _cutout_needs_processing(**paths):
         return False
-    process_character_asset_bundle(
-        source_path=reference_path,
-        output_dir=reference_path.parent,
-        reference_filename=reference_path.name,
-        cutout_filename=cutout_path.name,
-        metadata_filename=metadata_path.name,
-        prompt_fingerprint=prompt_fingerprint,
-    )
+    with _CHARACTER_CUTOUT_LOCK:
+        if not _cutout_needs_processing(**paths):
+            return False
+        process_character_asset_bundle(
+            source_path=reference_path,
+            output_dir=reference_path.parent,
+            reference_filename=reference_path.name,
+            cutout_filename=cutout_path.name,
+            metadata_filename=metadata_path.name,
+            prompt_fingerprint=prompt_fingerprint,
+        )
     return True
 
 
