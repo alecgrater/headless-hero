@@ -14,6 +14,7 @@ WALL = (205, 214, 200)
 SKIN = (222, 216, 200)
 INK = (25, 25, 25)
 EYE = (95, 95, 95)
+RIM = (20, 20, 60)  # distinct from INK so tests can tell the glasses rim from hair
 
 
 def _glasses_face(path, *, eyes=True):
@@ -22,11 +23,11 @@ def _glasses_face(path, *, eyes=True):
     draw.ellipse((520, 90, 820, 400), fill=SKIN, outline=INK, width=6)  # head
     draw.pieslice((520, 60, 820, 300), 180, 360, fill=INK)  # hair
     for cx in (620, 720):
-        draw.ellipse((cx - 38, 210, cx + 38, 286), outline=INK, width=6)  # lens rim
+        draw.ellipse((cx - 38, 210, cx + 38, 286), outline=RIM, width=6)  # lens rim
         if eyes:
             draw.ellipse((cx - 7, 240, cx + 7, 256), fill=EYE)  # grey eye behind glass
         draw.line((cx - 25, 190, cx + 25, 190), fill=INK, width=5)  # brow
-    draw.line((658, 248, 682, 248), fill=INK, width=6)  # bridge
+    draw.line((658, 248, 682, 248), fill=RIM, width=6)  # bridge
     draw.line((645, 340, 695, 340), fill=INK, width=5)  # mouth
     image.save(path)
     return path

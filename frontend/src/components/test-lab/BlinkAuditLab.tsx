@@ -2,6 +2,7 @@ import { AlertTriangle, CheckCircle2, Loader2, RefreshCw, ScanFace } from "lucid
 import { useEffect, useMemo, useState } from "react";
 import { assetUrl, getBlinkAuditReports, runBlinkAudit } from "../../api";
 import type { FullFrameBlinkAuditReport, FullFrameBlinkCandidate } from "../../types/testLab";
+import { blinkLidStroke } from "../blink/blinkLidStroke";
 
 export default function BlinkAuditLab() {
   const [reports, setReports] = useState<FullFrameBlinkAuditReport[]>([]);
@@ -211,6 +212,7 @@ function BlinkAnchorOverlay({ anchor }: { anchor?: Record<string, unknown> | nul
   const left = pointFromAnchor(anchor, "eye_left");
   const right = pointFromAnchor(anchor, "eye_right");
   const skinFill = typeof anchor?.skin_fill === "string" ? anchor.skin_fill : "#D9A374";
+  const lidStroke = blinkLidStroke(anchor);
   if (!left || !right) return null;
   return (
     <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
@@ -229,7 +231,7 @@ function BlinkAnchorOverlay({ anchor }: { anchor?: Record<string, unknown> | nul
             <path
               d={`M${geometry.lid.left} ${geometry.lid.y} Q${geometry.lid.center} ${geometry.lid.liftedY} ${geometry.lid.right} ${geometry.lid.y}`}
               fill="none"
-              stroke="#2A1712"
+              stroke={lidStroke}
               strokeWidth={geometry.lid.strokeWidth}
               strokeLinecap="round"
             />

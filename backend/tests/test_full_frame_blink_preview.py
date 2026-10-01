@@ -211,8 +211,8 @@ def test_preview_lid_uses_the_characters_line_color():
 
 
 def test_glasses_detection_samples_the_rim_as_lid_color(tmp_path):
-    from tests.test_full_frame_blink_glasses import _glasses_face
+    from tests.test_full_frame_blink_glasses import RIM, _glasses_face
 
     anchor = fb.detect_full_frame_blink_anchor(_glasses_face(tmp_path / "face.png")).anchor
-    rgb = fb._hex_rgb(anchor["lid_stroke"])
-    assert max(rgb) < 70  # the drawing's ink, not the brown default
+    # The rim's own color, not the (black) hair or the brown default.
+    assert fb._hex_rgb(anchor["lid_stroke"]) == RIM

@@ -1,4 +1,5 @@
 import { assetUrl } from "../../api";
+import { blinkLidStroke } from "./blinkLidStroke";
 
 type BlinkAnchorPoint = {
   x: number;
@@ -29,6 +30,7 @@ function BlinkAnchorOverlay({ anchor }: { anchor?: Record<string, unknown> | nul
   const left = pointFromAnchor(anchor, "eye_left");
   const right = pointFromAnchor(anchor, "eye_right");
   const skinFill = typeof anchor?.skin_fill === "string" ? anchor.skin_fill : "#D9A374";
+  const lidStroke = blinkLidStroke(anchor);
   if (!left || !right) return null;
   return (
     <svg
@@ -52,7 +54,7 @@ function BlinkAnchorOverlay({ anchor }: { anchor?: Record<string, unknown> | nul
             <path
               d={`M${geometry.lid.left} ${geometry.lid.y} Q${geometry.lid.center} ${geometry.lid.liftedY} ${geometry.lid.right} ${geometry.lid.y}`}
               fill="none"
-              stroke="#2A1712"
+              stroke={lidStroke}
               strokeWidth={geometry.lid.strokeWidth}
               strokeLinecap="round"
             />

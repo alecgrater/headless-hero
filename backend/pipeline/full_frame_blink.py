@@ -657,8 +657,10 @@ def _collect_pale_and_dark_components(image: Image.Image) -> tuple[list[dict[str
     )
 
 
-def _lens_rim_fraction(image: Image.Image, lens: dict[str, float], *, samples: int = 36, reach: float = 1.9) -> float:
-    """Share of rays from the lens center that meet a dark rim within `reach` lens radii.
+def _lens_rim_hits(
+    image: Image.Image, lens: dict[str, float], *, samples: int = 36, reach: float = 1.9
+) -> list[tuple[int, int, int]]:
+    """The first dark pixel on each ray from the lens center out to `reach` lens radii.
 
     Walks outward rather than sampling one circle: a lens highlight splits the
     pale interior, so the detected lens shape can be smaller than the real lens.
@@ -667,7 +669,7 @@ def _lens_rim_fraction(image: Image.Image, lens: dict[str, float], *, samples: i
     pixels = image.load()
     center_x, center_y = lens["cx"] * width, lens["cy"] * height
     radius = max(lens["width"] * width, lens["height"] * height) / 2
-    hits = 0
+    hits: list[tuple[int, int, int]] = []
     for index in range(samples):
         angle = 2 * math.pi * index / samples
         for step in range(int(radius * 0.5), int(radius * reach) + 2):
@@ -676,28 +678,19 @@ def _lens_rim_fraction(image: Image.Image, lens: dict[str, float], *, samples: i
             if not (0 <= x < width and 0 <= y < height):
                 break
             if _luminance(pixels[x, y]) < 90:
-                hits += 1
+                hits.append(pixels[x, y][:3])
                 break
-    return hits / samples
+    return hits
 
 
-def _lens_rim_color(image: Image.Image, lens: dict[str, float], *, samples: int = 36, reach: float = 1.9) -> str | None:
+def _lens_rim_fraction(image: Image.Image, lens: dict[str, float], *, samples: int = 36) -> float:
+    """Share of rays from the lens center that meet a dark rim."""
+    return len(_lens_rim_hits(image, lens, samples=samples)) / samples
+
+
+def _lens_rim_color(image: Image.Image, lens: dict[str, float]) -> str | None:
     """Median color of the dark rim around a lens: the character's own line color."""
-    width, height = image.size
-    pixels = image.load()
-    center_x, center_y = lens["cx"] * width, lens["cy"] * height
-    radius = max(lens["width"] * width, lens["height"] * height) / 2
-    found: list[tuple[int, int, int]] = []
-    for index in range(samples):
-        angle = 2 * math.pi * index / samples
-        for step in range(int(radius * 0.5), int(radius * reach) + 2):
-            x = int(center_x + step * math.cos(angle))
-            y = int(center_y + step * math.sin(angle))
-            if not (0 <= x < width and 0 <= y < height):
-                break
-            if _luminance(pixels[x, y]) < 90:
-                found.append(pixels[x, y][:3])
-                break
+    found = _lens_rim_hits(image, lens)
     if not found:
         return None
     channels = [sorted(color[index] for color in found)[len(found) // 2] for index in range(3)]

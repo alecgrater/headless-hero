@@ -66,6 +66,8 @@ export interface BlinkOverlayAnchor {
   detected?: boolean;
   coordinate_space?: "normalized_layer_frame" | string;
   skin_fill?: string;
+  /** Eyelid line color sampled from the character's own line work. */
+  lid_stroke?: string;
   eye_left?: BlinkOverlayPoint;
   eye_right?: BlinkOverlayPoint;
   mouth?: BlinkOverlayPoint;
