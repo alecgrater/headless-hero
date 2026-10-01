@@ -179,7 +179,7 @@ const STEPS = [
     meta: "before anything",
     why: "Everything runs in the cloud now: text on Claude/OpenAI, scene images and cutouts on Gemini (Nano Banana 2 Lite with Batch), voice on ElevenLabs. ComfyUI, ollama and mlx-audio can all be off without affecting this run.",
     cmds: [{ label: "run in the repo", code: "bash scripts/video-check.sh preflight" }],
-    expect: "Routing should read <b>scenes google / cutouts google / voice elevenlabs / text cloud for every task</b>, all four credentials <b>ok</b>, and the backend <b>ok</b>. ComfyUI and mlx-audio showing <b>off</b> is expected. If cutouts say <b>local</b>, stop — popup crops will come out as opaque panels again.",
+    expect: "Routing should read <b>scenes google / cutouts google / voice elevenlabs / text cloud for every task</b>, all four credentials <b>ok</b>, and the backend <b>ok</b>. ComfyUI, ollama and mlx-audio showing <b>off</b> is expected. If cutouts say <b>local</b>, stop — popup crops will come out as opaque panels again.",
     checks: [
       "Routing matches the four values above",
       "All four credentials show ok",
