@@ -14,6 +14,23 @@ from PIL import Image
 from models.script import MainCharacter
 from pipeline import image_gen
 
+def test_batch_request_labels_each_attached_image(tmp_path):
+    """Unlabelled, the busy style preset was copied as content when the scene prompt was thin."""
+    from integrations import google_image_client as gic
+
+    ref, style = tmp_path / "ref.png", tmp_path / "style.png"
+    for path in (ref, style):
+        Image.new("RGB", (4, 4)).save(path)
+    request = gic.GoogleBatchImageRequest(key="k", prompt="Draw it.", aspect_ratio="16:9",
+                                          reference_image_path=str(ref), style_reference_path=str(style))
+    parts = gic._batch_request_payload(request)["contents"][0]["parts"]
+    assert parts[0] == {"text": gic.REFERENCE_IMAGE_LABEL}
+    assert "inline_data" in parts[1] or "inlineData" in parts[1]
+    assert parts[2] == {"text": gic.STYLE_IMAGE_LABEL}
+    assert parts[-1] == {"text": "Draw it."}
+    assert "Never copy its people" in gic.STYLE_IMAGE_LABEL
+
+
 RAY = MainCharacter(name="Fred", appearance="Large round white head, round black glasses, navy top.", vibe="Chatty.")
 
 
@@ -69,10 +86,12 @@ class TestCutoutSheetPrompt:
         assert "Subject 1: handcuffs" in prompt
         assert "Never write them" in prompt
 
-    @pytest.mark.parametrize(("count", "positions"), [(2, "25%, 75%"), (3, "17%, 50%, 83%")])
-    def test_states_positions_that_match_the_equal_width_crop(self, count, positions):
-        prompt = image_gen._compose_popup_item_sheet_prompt("Scene.", [f"item {i}" for i in range(count)])
-        assert f"at about {positions} of the image width" in prompt
+    def test_positions_are_in_words_not_numbers(self):
+        """Percent positions ("17%, 50%, 83%") were drawn as captions under the subjects."""
+        prompt = image_gen._compose_popup_item_sheet_prompt("Scene.", ["a", "b", "c"])
+        layout = prompt[prompt.index("Layout:"):prompt.index("Background:")]
+        assert "%" not in layout
+        assert "evenly across the full width" in layout
 
     def test_popup_sheet_excludes_people_and_comparison_does_not(self):
         assert "No main character or human figures" in image_gen._compose_popup_item_sheet_prompt("S.", ["a", "b"])
@@ -115,3 +134,28 @@ class TestComparisonSheetCarriesTheCharacter:
         self._generate(contains_person=False)
         assert captured[0].reference_image_path is None
         assert "STYLE LOCK" not in captured[0].prompt
+
+
+def test_cache_markers_never_reach_the_model():
+    """They are cache keys; left in, they were the last text after the style lock."""
+    from integrations.image_client import strip_cache_markers
+
+    prompt = "Scene.\n\nSTYLE LOCK — keep it.\n[char_ref:/a/ref.png:123]\n[style_ref:/a/s.png:456]"
+    assert strip_cache_markers(prompt) == "Scene.\n\nSTYLE LOCK — keep it."
+    assert strip_cache_markers("[reference_previous:/f.png:9] Draw.") == " Draw."
+
+
+def test_every_frame_path_appends_the_character_block_last():
+    """Pins the ordering in generate_scene_frames / _v2, which are too heavy to call here."""
+    import inspect
+
+    source = inspect.getsource(image_gen.generate_scene_frames) + inspect.getsource(image_gen.generate_scene_frames_v2)
+    tail = '            if character_text:\n                parts.append(character_text)\n            prompt = "\\n\\n".join(parts)'
+    assert source.count(tail) == 4
+    assert source.count("parts.append(character_text)") == 4
+
+
+def test_comparison_sheet_lifts_the_single_protagonist_rule():
+    prompt = image_gen._compose_comparison_subject_sheet_prompt("S.", ["a", "b"], character_block="BLOCK")
+    assert "Several subjects may each be the main character" in prompt
+    assert prompt.index("Several subjects") < prompt.index("BLOCK")

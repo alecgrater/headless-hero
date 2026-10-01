@@ -50,6 +50,20 @@ class GoogleBatchImageResult:
     error: str | None = None
 
 
+# Attached images used to go in unlabeled, so the model had to guess which one
+# the prompt meant by "the reference image" — and the style preset is usually a
+# busy scene full of people. With a thin scene prompt, Nano Banana 2 Lite copied
+# the preset's crowd and park outright. The reference slot also carries the
+# previous frame for continuous scenes, so its label stays neutral.
+REFERENCE_IMAGE_LABEL = (
+    "INPUT IMAGE — the image the instructions below call the reference image, the input image, or the previous frame:"
+)
+STYLE_IMAGE_LABEL = (
+    "STYLE EXAMPLE ONLY — match this image's drawing style, line weight, flat fills, and palette. Never copy its "
+    "people, characters, places, objects, or composition:"
+)
+
+
 def _part_from_path(path: str) -> types.Part:
     """Load an image file as a Gemini Part, inferring MIME type from extension."""
     ext = os.path.splitext(path.lower())[1]
@@ -119,8 +133,10 @@ def _extract_inline_image_data(response: object) -> bytes | None:
 def _batch_request_payload(request: GoogleBatchImageRequest) -> dict:
     parts: list[dict] = []
     if request.reference_image_path:
+        parts.append({"text": REFERENCE_IMAGE_LABEL})
         parts.append(_inline_part_from_path(request.reference_image_path))
     if request.style_reference_path:
+        parts.append({"text": STYLE_IMAGE_LABEL})
         parts.append(_inline_part_from_path(request.style_reference_path))
     parts.append({"text": request.prompt})
     return {
@@ -395,9 +411,11 @@ def generate_image(
     # Build reference image parts (reusable across retries)
     ref_parts: list = []
     if reference_image_path:
+        ref_parts.append(REFERENCE_IMAGE_LABEL)
         ref_parts.append(_part_from_path(reference_image_path))
         logger.info("Including character reference image: %s", reference_image_path)
     if style_reference_path:
+        ref_parts.append(STYLE_IMAGE_LABEL)
         ref_parts.append(_part_from_path(style_reference_path))
         logger.info("Including style reference image: %s", style_reference_path)
 

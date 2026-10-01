@@ -152,8 +152,9 @@ _PROTAGONIST_STYLE_LOCK = (
     "STYLE LOCK — this overrides anything above: draw the protagonist exactly in the reference's drawing style — the "
     "same head shape and head-to-body ratio, skin color, eye and mouth style, hair shapes, and limb style. Never draw "
     "the protagonist more realistically or in more detail than the reference, even if the scene text describes their "
-    "face or build, and even if the rest of the scene is detailed. Only their clothing, expression, pose, and small age "
-    "cues change."
+    "face or build, and even if the rest of the scene is detailed or dramatically lit. Only their clothing, expression, "
+    "pose, and small age cues change. Age cues stay inside the reference style — a few grey strands in the hair shapes, "
+    "posture, a tired expression — never wrinkles, facial shading, skin texture, or realistic facial features."
 )
 
 
@@ -851,13 +852,27 @@ def generate_comparison_board_cutouts(
     character_text = ""
     if contains_person:
         eli_enabled, main_character_url, main_character_obj = _load_project_character_context(script_id)
-        reference_image_path, character_text = _resolve_character_reference(
-            script_id=script_id,
-            contains_person=True,
-            eli_enabled=eli_enabled,
-            main_character_reference_url=main_character_url,
-            main_character=main_character_obj,
-        )
+        try:
+            reference_image_path, character_text = _resolve_character_reference(
+                script_id=script_id,
+                contains_person=True,
+                eli_enabled=eli_enabled,
+                main_character_reference_url=main_character_url,
+                main_character=main_character_obj,
+            )
+        except RuntimeError as exc:
+            # Same fallback as the popup anchor: subjects without the character
+            # beat a scene that cannot be generated at all.
+            record_fallback(
+                category="image_generation",
+                event="comparison_character_reference_missing",
+                reason=str(exc),
+                to_value="no_character_reference",
+                script_id=script_id,
+                scene_id=scene_id,
+                severity="warn",
+                logger=logger,
+            )
     item_prompt = _compose_comparison_subject_sheet_prompt(scene_prompt, labels, character_block=character_text)
     prompt_marker = output_dir / "comparison_board.prompt"
     prompt_fingerprint = json.dumps(
@@ -1401,11 +1416,11 @@ def _compose_cutout_sheet_prompt(
     numbered label list each invited Nano Banana 2 Lite to draw panels,
     dividers, tinted bands, or the label as a caption — all fatal to the
     equal-width crop and chroma key. Describing subjects as things to draw,
-    asking for wide same-color gaps, and stating each subject's position kept
-    the background continuous while still landing one subject per crop.
+    asking for wide same-color gaps, and spreading them evenly kept the
+    background continuous while still landing one subject per crop. Positions
+    stay in words: stated as percentages, they were drawn under the subjects.
     """
     count = len(labels)
-    positions = ", ".join(f"{round((2 * index + 1) * 100 / (2 * count))}%" for index in range(count))
     lines = [
         "This image is raw material for automatic cutting. No viewer ever reads it; software adds every word later.",
         "",
@@ -1414,7 +1429,9 @@ def _compose_cutout_sheet_prompt(
         "These descriptions tell you WHAT to draw. Never write them, or any other words, in the image.",
         "",
         "Layout:",
-        f"- Center the subjects at about {positions} of the image width, each no wider than {round(75 / count)}% of the image",
+        "- Spread the subjects evenly across the full width, left to right, each centered in its own equal share of the "
+        "width and filling at most three quarters of that share",
+        "- Never write positions, numbers, or measurements in the image",
         "- Leave wide empty gaps of the SAME background color between subjects; do not divide the image into sections of any kind",
         "- Single row only; no stacking, wrapping, or overlapping",
         "",
@@ -1433,7 +1450,12 @@ def _compose_cutout_sheet_prompt(
         lines.append("- No main character or human figures")
     lines += ["", "Scene context, for style only:", scene_prompt.strip()]
     if character_block:
-        lines += ["", "Wherever a subject is the main character, draw them as the character in the reference image:",
+        # The identity block (and Eli's prompt) say only one person may be the
+        # protagonist; a comparison is often the protagonist twice ("year one" vs
+        # "year twelve"), so that rule is lifted for the sheet explicitly.
+        lines += ["", "Wherever a subject is the main character, draw them as the character in the reference image. "
+                  "Several subjects may each be the main character at different moments; this overrides any rule "
+                  "below that allows only one of them or asks other people to look different.",
                   character_block]
     return "\n".join(lines).strip()
 

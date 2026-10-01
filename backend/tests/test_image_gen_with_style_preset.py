@@ -48,8 +48,9 @@ def test_generate_image_passes_style_reference_as_part(tmp_path, fake_gemini_res
     contents = captured_contents[0]
     # Last item must be the prompt string
     assert contents[-1] == "a scene"
-    # First items must be Parts (one for the style ref, since no character ref provided)
-    assert len(contents) == 2  # 1 style ref + 1 prompt
+    # Style label + style Part, then the prompt (no character ref provided)
+    assert len(contents) == 3
+    assert contents[0] == google_image_client.STYLE_IMAGE_LABEL
 
 
 def test_generate_image_without_style_reference_omits_part(tmp_path, fake_gemini_response):
@@ -100,12 +101,14 @@ def test_generate_image_with_both_char_and_style_refs(tmp_path, fake_gemini_resp
         )
 
     contents = captured_contents[0]
-    # 2 parts (char + style) + prompt = 3 items
-    assert len(contents) == 3
+    # label + char Part, label + style Part, prompt
+    assert len(contents) == 5
     assert contents[-1] == "a scene"
-    # Verify ordering: char ref first, style ref second
-    assert contents[0].inline_data.data == b"charpng"
-    assert contents[1].inline_data.data == b"stylepng"
+    # Verify ordering: char ref first, style ref second, each after its label
+    assert contents[0] == google_image_client.REFERENCE_IMAGE_LABEL
+    assert contents[1].inline_data.data == b"charpng"
+    assert contents[2] == google_image_client.STYLE_IMAGE_LABEL
+    assert contents[3].inline_data.data == b"stylepng"
 
 
 def test_generate_scene_image_threads_style_ref_when_eli_off(tmp_path, monkeypatch):

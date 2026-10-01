@@ -6,7 +6,7 @@ import math
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from PIL import Image
 from pydantic import BaseModel, Field
@@ -76,31 +76,36 @@ def detect_full_frame_blink_anchor(image_path: Path) -> FullFrameBlinkDetection:
             detection_image = _full_frame_detection_image(rgba)
             # Glasses first: it is the stricter test, and on a glasses face the
             # skin/eye-pair path can lock onto something else (it once picked two
-            # outlined shirt pockets with buttons under the real face).
-            detected = _detect_full_frame_glasses_face_anchor_points(detection_image)
-            if detected is None:
-                detected = _detect_full_frame_main_face_anchor_points(detection_image)
-            if detected is None:
-                return FullFrameBlinkDetection(status="failed", eligible=False, reason="face_landmarks_missing")
-            skin_fill = _sample_blink_face_skin_fill(rgba, detected)
-            anchor = {
-                "version": 1,
-                "detected": True,
-                "coordinate_space": "normalized_image",
-                **({"skin_fill": skin_fill} if skin_fill else {}),
-                "eye_left": dict(detected["eye_left"]),
-                "eye_right": dict(detected["eye_right"]),
-                "mouth": dict(detected["mouth"]),
-                "brow_left": dict(detected["brow_left"]),
-                "brow_right": dict(detected["brow_right"]),
-                **({"eye_fill_source": detected["eye_fill_source"]} if "eye_fill_source" in detected else {}),
-            }
+            # outlined shirt pockets with buttons under the real face). A glasses
+            # hit that fails the quality gate still lets the main path try.
+            rejection_reason = "face_landmarks_missing"
+            for detect in (_detect_full_frame_glasses_face_anchor_points, _detect_full_frame_main_face_anchor_points):
+                detected = detect(detection_image)
+                if detected is None:
+                    continue
+                anchor = _anchor_from_detection(rgba, detected)
+                rejection_reason = full_frame_blink_quality_rejection_reason(anchor)
+                if not rejection_reason:
+                    return FullFrameBlinkDetection(status="passed", eligible=True, anchor=anchor)
     except OSError:
         return FullFrameBlinkDetection(status="failed", eligible=False, reason="image_unreadable")
-    rejection_reason = full_frame_blink_quality_rejection_reason(anchor)
-    if rejection_reason:
-        return FullFrameBlinkDetection(status="failed", eligible=False, reason=rejection_reason)
-    return FullFrameBlinkDetection(status="passed", eligible=True, anchor=anchor)
+    return FullFrameBlinkDetection(status="failed", eligible=False, reason=rejection_reason)
+
+
+def _anchor_from_detection(rgba: Image.Image, detected: dict[str, Any]) -> dict[str, object]:
+    skin_fill = _sample_blink_face_skin_fill(rgba, detected)
+    return {
+        "version": 1,
+        "detected": True,
+        "coordinate_space": "normalized_image",
+        **({"skin_fill": skin_fill} if skin_fill else {}),
+        "eye_left": dict(detected["eye_left"]),
+        "eye_right": dict(detected["eye_right"]),
+        "mouth": dict(detected["mouth"]),
+        "brow_left": dict(detected["brow_left"]),
+        "brow_right": dict(detected["brow_right"]),
+        **({"eye_fill_source": detected["eye_fill_source"]} if "eye_fill_source" in detected else {}),
+    }
 
 
 def full_frame_blink_quality_rejection_reason(anchor: dict[str, object]) -> str:
@@ -326,10 +331,10 @@ def _detect_full_frame_main_face_anchor_points(image: Image.Image) -> dict[str, 
 # Minimal cartoon characters with round glasses defeat the skin/eye-pair path:
 # the frame joins both eyes and the hair into one dark shape, the eyes are small
 # grey dots behind tinted lenses, and an off-white head merges with pale walls.
-# Measured on 76 images of a stick-figure protagonist: the main path found 2;
-# this path finds the matched lens pair in 40 with no false hits. It runs only
-# when the main path finds nothing, and its anchor goes through the same
-# full_frame_blink_quality_rejection_reason gate.
+# Measured on 76 images of a stick-figure protagonist: the main path made 2
+# faces eligible; with this path 31 pass the quality gate, with no false hits.
+# It runs first (see detect_full_frame_blink_anchor), and its anchor goes
+# through the same full_frame_blink_quality_rejection_reason gate.
 GLASSES_LENS_MIN_WIDTH = 0.008
 GLASSES_LENS_MAX_WIDTH = 0.08
 GLASSES_RIM_MIN_FRACTION = 0.6
@@ -448,7 +453,7 @@ def _clamp_box_to(box: dict[str, float], bounds: dict[str, float]) -> dict[str, 
     }
 
 
-def _detect_full_frame_glasses_face_anchor_points(image: Image.Image) -> dict[str, dict[str, float]] | None:
+def _detect_full_frame_glasses_face_anchor_points(image: Image.Image) -> dict[str, Any] | None:
     width, height = image.size
     if width <= 0 or height <= 0:
         return None
@@ -462,6 +467,20 @@ def _detect_full_frame_glasses_face_anchor_points(image: Image.Image) -> dict[st
         and 0.6 <= (component["width"] * aspect) / max(component["height"], 0.001) <= 1.7
     ]
     best: tuple[float, dict, dict, dict, dict, dict] | None = None
+    # Rim and eye checks depend on one lens only; compute each once, not per pair.
+    rim_cache: dict[int, float] = {}
+    eye_cache: dict[int, dict[str, float] | None] = {}
+
+    def rim(lens: dict[str, float]) -> float:
+        if id(lens) not in rim_cache:
+            rim_cache[id(lens)] = _lens_rim_fraction(image, lens)
+        return rim_cache[id(lens)]
+
+    def eye_of(lens: dict[str, float]) -> dict[str, float] | None:
+        if id(lens) not in eye_cache:
+            eye_cache[id(lens)] = _eye_inside_lens(image, lens)
+        return eye_cache[id(lens)]
+
     for left_lens in lenses:
         for right_lens in lenses:
             if left_lens is right_lens or left_lens["cx"] >= right_lens["cx"]:
@@ -477,13 +496,10 @@ def _detect_full_frame_glasses_face_anchor_points(image: Image.Image) -> dict[st
             gap = right_lens["left"] - left_lens["right"]
             if not lens_width * 0.05 <= gap <= lens_width * 1.2:
                 continue
-            if (
-                _lens_rim_fraction(image, left_lens) < GLASSES_RIM_MIN_FRACTION
-                or _lens_rim_fraction(image, right_lens) < GLASSES_RIM_MIN_FRACTION
-            ):
+            if rim(left_lens) < GLASSES_RIM_MIN_FRACTION or rim(right_lens) < GLASSES_RIM_MIN_FRACTION:
                 continue
-            left_eye = _eye_inside_lens(image, left_lens)
-            right_eye = _eye_inside_lens(image, right_lens)
+            left_eye = eye_of(left_lens)
+            right_eye = eye_of(right_lens)
             if left_eye is None or right_eye is None:
                 continue
             if min(left_eye["area"], right_eye["area"]) / max(left_eye["area"], right_eye["area"]) < 0.5:

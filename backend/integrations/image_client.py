@@ -6,8 +6,10 @@ pipeline goes through here so a mode switch can never leave one path on the
 cloud.
 """
 
+import dataclasses
 import logging
 import os
+import re
 
 from config import DEFAULT_IMAGE_MODEL, IMAGE_HEIGHT, IMAGE_WIDTH
 # Re-exported so pipeline code never has to import google_image_client directly.
@@ -121,6 +123,16 @@ def provider_fingerprint(purpose: str = SCENE) -> str:
     return f"{CLOUD_PROVIDER}:{cloud_model}"
 
 
+# image_gen appends "[char_ref:path:mtime]"-style lines so a changed reference
+# invalidates the prompt cache marker. They are cache keys, not instructions, and
+# were the last text the model saw — after the protagonist style lock.
+_CACHE_MARKER_RE = re.compile(r"\n?\[(?:char_ref|style_ref|reference_previous):[^\]\n]*\]")
+
+
+def strip_cache_markers(prompt: str) -> str:
+    return _CACHE_MARKER_RE.sub("", prompt).rstrip()
+
+
 def generate_image(
     prompt: str,
     width: int = IMAGE_WIDTH,
@@ -154,7 +166,7 @@ def generate_image(
         from integrations.google_image_client import generate_image as _gen
 
     return _gen(
-        prompt,
+        strip_cache_markers(prompt),
         width=width,
         height=height,
         reference_image_path=reference_image_path,
@@ -239,6 +251,7 @@ def generate_images_batch(
     """
     if not requests:
         return []
+    requests = [dataclasses.replace(request, prompt=strip_cache_markers(request.prompt)) for request in requests]
 
     if resolved_provider() != "local":
         from integrations.google_image_client import generate_images_batch as _batch
