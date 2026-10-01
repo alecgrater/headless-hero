@@ -5,6 +5,7 @@ import logging
 import os
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, model_validator
@@ -281,11 +282,16 @@ def _metadata_with_full_frame_blink(
     visual_mode: str,
     image_url: str,
     source_metadata: dict | None,
+    precomputed_blink: dict[tuple[str, str], dict | None] | None = None,
 ) -> dict | None:
     metadata = dict(source_metadata or {})
     metadata.pop("full_frame_blink", None)
     if visual_mode in full_frame_blink_mod.MEDIA_BACKED_BLINK_MODES and image_url:
-        blink_metadata = full_frame_blink_mod.build_full_frame_blink_metadata(script_id, scene_id, image_url)
+        key = (scene_id, image_url)
+        if precomputed_blink is not None and key in precomputed_blink:
+            blink_metadata = precomputed_blink[key]
+        else:
+            blink_metadata = full_frame_blink_mod.build_full_frame_blink_metadata(script_id, scene_id, image_url)
         if blink_metadata:
             metadata["full_frame_blink"] = blink_metadata
     return metadata or None
@@ -295,12 +301,39 @@ def _setting_enabled(value: str | None) -> bool:
     return (value or "").strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _precompute_batch_blink(script_id: str, scenes: list[dict], results: list[dict]) -> dict[tuple[str, str], dict | None]:
+    """Blink metadata for every full-frame result, computed in parallel.
+
+    Each scene now includes a vision check (a network call), so this runs before
+    the Script row is loaded: computing it inside the merge loop held a stale
+    script_json for minutes and could overwrite edits made in the meantime.
+    """
+    requested = {scene["scene_id"]: scene.get("visual_mode") or "full_frame" for scene in scenes}
+    todo = [
+        (r["scene_id"], r["image_url"])
+        for r in results
+        if not r.get("error")
+        and r.get("image_url")
+        and not r.get("video_url")
+        and not r.get("frame_urls")
+        and requested.get(r["scene_id"]) in full_frame_blink_mod.MEDIA_BACKED_BLINK_MODES
+    ]
+    if not todo:
+        return {}
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        metadata = pool.map(
+            lambda item: full_frame_blink_mod.build_full_frame_blink_metadata(script_id, item[0], item[1]), todo
+        )
+        return dict(zip(todo, metadata))
+
+
 def _persist_visual_batch_results(
     session: Session,
     script_id: str,
     scenes: list[dict],
     results: list[dict],
 ) -> list[dict]:
+    precomputed_blink = _precompute_batch_blink(script_id, scenes, results)
     record = session.get(Script, script_id)
     if not record:
         raise UserFacingJobError("Script not found")
@@ -351,6 +384,7 @@ def _persist_visual_batch_results(
             visual_mode=sc.visual_mode,
             image_url=blink_image_url,
             source_metadata=source_metadata,
+            precomputed_blink=precomputed_blink,
         )
         r["visual_source_metadata"] = merged_metadata
         sc.visual_source_metadata = merged_metadata or METADATA_CLEAR

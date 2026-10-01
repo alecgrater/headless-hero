@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import math
+import threading
+import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -261,27 +265,54 @@ def blink_closed_eye_geometry(anchor: dict[str, Any], aspect: float = 16 / 9) ->
     return shapes
 
 
+def _rounded_box_mask(size: tuple[int, int], box: tuple[float, float, float, float], rx: float, ry: float) -> Image.Image:
+    """SVG <rect rx> under preserveAspectRatio="none": corners are ellipses (rx·sx by rx·sy), not circles."""
+    from PIL import ImageDraw
+
+    mask = Image.new("L", size, 0)
+    draw = ImageDraw.Draw(mask)
+    x0, y0, x1, y1 = box
+    rx, ry = min(rx, (x1 - x0) / 2), min(ry, (y1 - y0) / 2)
+    draw.rectangle((x0 + rx, y0, x1 - rx, y1), fill=255)
+    draw.rectangle((x0, y0 + ry, x1, y1 - ry), fill=255)
+    for cx, cy in ((x0 + rx, y0 + ry), (x1 - rx, y0 + ry), (x0 + rx, y1 - ry), (x1 - rx, y1 - ry)):
+        draw.ellipse((cx - rx, cy - ry, cx + rx, cy + ry), fill=255)
+    return mask
+
+
 def render_closed_eye_frame(image: Image.Image, anchor: dict[str, Any]) -> Image.Image:
-    """The image with the renderer's closed-eye overlay drawn on it (2x supersampled)."""
+    """The image with the renderer's closed-eye overlay drawn on it (2x supersampled, eye region only)."""
     from PIL import ImageDraw
 
     base = image.convert("RGBA")
     width, height = base.size
+    shapes = blink_closed_eye_geometry(anchor, width / height)
+    if not shapes:
+        return base
+    # Work only on the region around the eyes; full-frame 2x layers cost ~16 MB each.
+    left = max(0, int(min(sh["mask"]["x"] for sh in shapes) * width / 100) - 8)
+    top = max(0, int(min(sh["mask"]["y"] for sh in shapes) * height / 100) - 8)
+    right = min(width, int(max(sh["mask"]["x"] + sh["mask"]["width"] for sh in shapes) * width / 100) + 9)
+    bottom = min(height, int(max(sh["mask"]["y"] + sh["mask"]["height"] for sh in shapes) * height / 100) + 9)
     scale = 2
-    overlay = Image.new("RGBA", (width * scale, height * scale), (0, 0, 0, 0))
+    region = ((right - left) * scale, (bottom - top) * scale)
+    overlay = Image.new("RGBA", region, (0, 0, 0, 0))
     draw = ImageDraw.Draw(overlay)
     sx, sy = width * scale / 100, height * scale / 100
-    for shape in blink_closed_eye_geometry(anchor, width / height):
+    ox, oy = left * scale, top * scale
+    lid_rgb = _hex_rgb(BLINK_EYELID_STROKE)
+    for shape in shapes:
         mask = shape["mask"]
-        box = (mask["x"] * sx, mask["y"] * sy, (mask["x"] + mask["width"]) * sx, (mask["y"] + mask["height"]) * sy)
+        box = (mask["x"] * sx - ox, mask["y"] * sy - oy, (mask["x"] + mask["width"]) * sx - ox,
+               (mask["y"] + mask["height"]) * sy - oy)
         if box[2] - box[0] < 1 or box[3] - box[1] < 1:
             continue
-        radius = min(mask["rx"] * sx, mask["rx"] * sy)
+        shape_mask = _rounded_box_mask(region, box, mask["rx"] * sx, mask["rx"] * sy)
+        fill_layer = Image.new("RGBA", region, (0, 0, 0, 0))
+        fill_draw = ImageDraw.Draw(fill_layer)
         if mask["gradient"]:
             orientation, start, end = mask["gradient"]
             start_rgb, end_rgb = _hex_rgb(start), _hex_rgb(end)
-            fill_layer = Image.new("RGBA", overlay.size, (0, 0, 0, 0))
-            fill_draw = ImageDraw.Draw(fill_layer)
             span = (box[2] - box[0]) if orientation == "horizontal" else (box[3] - box[1])
             for step in range(int(span) + 1):
                 t = step / max(span, 1)
@@ -290,11 +321,9 @@ def render_closed_eye_frame(image: Image.Image, anchor: dict[str, Any]) -> Image
                     fill_draw.line([(box[0] + step, box[1]), (box[0] + step, box[3])], fill=color)
                 else:
                     fill_draw.line([(box[0], box[1] + step), (box[2], box[1] + step)], fill=color)
-            shape_mask = Image.new("L", overlay.size, 0)
-            ImageDraw.Draw(shape_mask).rounded_rectangle(box, radius=radius, fill=255)
-            overlay.paste(fill_layer, (0, 0), shape_mask)
         else:
-            draw.rounded_rectangle(box, radius=radius, fill=_hex_rgb(mask["fill"]) + (255,))
+            fill_draw.rectangle(box, fill=_hex_rgb(mask["fill"]) + (255,))
+        overlay.paste(fill_layer, (0, 0), shape_mask)
         lid = shape["lid"]
         (x0, y0), (cx, cy), (x1, y1) = lid["start"], lid["control"], lid["end"]
         points = []
@@ -302,13 +331,17 @@ def render_closed_eye_frame(image: Image.Image, anchor: dict[str, Any]) -> Image
             t = index / 24
             x = (1 - t) ** 2 * x0 + 2 * (1 - t) * t * cx + t ** 2 * x1
             y = (1 - t) ** 2 * y0 + 2 * (1 - t) * t * cy + t ** 2 * y1
-            points.append((x * sx, y * sy))
-        stroke = max(1, round(lid["stroke_width"] * (sx + sy) / 2))
-        draw.line(points, fill=_hex_rgb(BLINK_EYELID_STROKE) + (255,), width=stroke, joint="curve")
+            points.append((x * sx - ox, y * sy - oy))
+        # A near-horizontal stroke in a non-uniformly stretched viewBox is as
+        # thick as the vertical scale makes it.
+        stroke = max(1, round(lid["stroke_width"] * sy))
+        draw.line(points, fill=lid_rgb + (255,), width=stroke, joint="curve")
         for px, py in (points[0], points[-1]):
-            draw.ellipse((px - stroke / 2, py - stroke / 2, px + stroke / 2, py + stroke / 2), fill=_hex_rgb(BLINK_EYELID_STROKE) + (255,))
-    overlay = overlay.resize((width, height), Image.Resampling.LANCZOS)
-    return Image.alpha_composite(base, overlay)
+            draw.ellipse((px - stroke / 2, py - stroke / 2, px + stroke / 2, py + stroke / 2), fill=lid_rgb + (255,))
+    patch = overlay.resize((right - left, bottom - top), Image.Resampling.LANCZOS)
+    result = base.copy()
+    result.alpha_composite(patch, (left, top))
+    return result
 
 
 def _hex_rgb(value: object) -> tuple[int, int, int] | None:
@@ -390,6 +423,16 @@ def blink_vision_check(image_path: Path, anchor: dict[str, Any], *, script_id: s
 
     if not vision_client.vision_check_available():
         return BlinkVisionVerdict(passed=None, note="no Anthropic key")
+    if time.monotonic() < _VISION_BREAKER["open_until"]:
+        return BlinkVisionVerdict(passed=None, note="paused after repeated failures")
+    cache_path = image_path.with_name(f"{image_path.name}.blinkcheck.json")
+    cache_key = _vision_cache_key(image_path, anchor)
+    try:
+        cached = json.loads(cache_path.read_text())
+        if cached.get("key") == cache_key:
+            return BlinkVisionVerdict(passed=cached["passed"], note=cached.get("note", ""))
+    except (OSError, ValueError, KeyError):
+        pass
     try:
         with Image.open(image_path) as image:
             base = image.convert("RGBA")
@@ -402,15 +445,44 @@ def blink_vision_check(image_path: Path, anchor: dict[str, Any], *, script_id: s
             script_id=script_id,
         )
     except Exception as exc:  # noqa: BLE001 - a failed check must never block image generation
+        with _VISION_BREAKER_LOCK:
+            _VISION_BREAKER["failures"] += 1
+            if _VISION_BREAKER["failures"] >= VISION_BREAKER_FAILURES:
+                _VISION_BREAKER["open_until"] = time.monotonic() + VISION_BREAKER_COOLDOWN_SECONDS
+                _VISION_BREAKER["failures"] = 0
+                logger.warning("[BLINK] vision check paused for %ds after repeated failures", VISION_BREAKER_COOLDOWN_SECONDS)
         logger.warning("[BLINK] vision check unavailable (%s: %s); keeping the geometric decision", type(exc).__name__, exc)
         return BlinkVisionVerdict(passed=None, note=f"check failed: {type(exc).__name__}")
+    with _VISION_BREAKER_LOCK:
+        _VISION_BREAKER["failures"] = 0
     passed = (
         answer.get("on_the_eyes") is True
         and answer.get("eyes_hidden") is True
         and answer.get("looks_natural") is True
         and answer.get("visible_patch") is False
     )
-    return BlinkVisionVerdict(passed=passed, note=str(answer.get("note") or "")[:200])
+    verdict = BlinkVisionVerdict(passed=passed, note=str(answer.get("note") or "")[:200])
+    try:
+        cache_path.write_text(json.dumps({"key": cache_key, "passed": verdict.passed, "note": verdict.note}))
+    except OSError:
+        pass
+    return verdict
+
+
+# During an outage every scene would wait out its own timeout; after a few
+# consecutive failures, skip checks for a while instead.
+VISION_BREAKER_FAILURES = 3
+VISION_BREAKER_COOLDOWN_SECONDS = 600
+_VISION_BREAKER = {"failures": 0, "open_until": 0.0}
+_VISION_BREAKER_LOCK = threading.Lock()
+
+
+def _vision_cache_key(image_path: Path, anchor: dict[str, Any]) -> str:
+    """Same image file + same anchor + same question = same verdict, so reruns are free."""
+    stat = image_path.stat()
+    payload = json.dumps({"mtime": stat.st_mtime_ns, "size": stat.st_size, "anchor": anchor,
+                          "question": BLINK_VISION_QUESTION}, sort_keys=True, default=str)
+    return hashlib.sha256(payload.encode()).hexdigest()
 
 
 def _anchor_dimension(point: dict[str, object], key: str) -> float:
@@ -777,8 +849,10 @@ def _detect_full_frame_glasses_face_anchor_points(image: Image.Image) -> dict[st
     if best is None:
         return None
     _score, left_lens, right_lens, face_component, left_eye, right_eye = best
-    shared_width = (left_eye["width"] + right_eye["width"]) / 2
-    shared_height = (left_eye["height"] + right_eye["height"]) / 2
+    # Glare only shrinks a blob, so the larger eye is the true size; an average
+    # left the real eye's edges uncovered when the blobs differed 2x.
+    shared_width = max(left_eye["width"], right_eye["width"])
+    shared_height = max(left_eye["height"], right_eye["height"])
     left_eye = _with_size(left_eye, shared_width, shared_height)
     right_eye = _with_size(right_eye, shared_width, shared_height)
     lens_height = (left_lens["height"] + right_lens["height"]) / 2

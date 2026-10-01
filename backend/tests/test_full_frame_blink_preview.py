@@ -108,3 +108,64 @@ def test_a_failed_vision_check_turns_blink_off(monkeypatch, image_file):
 def test_a_passed_or_skipped_check_keeps_blink_and_says_which(monkeypatch, image_file):
     assert _metadata(monkeypatch, image_file, fb.BlinkVisionVerdict(passed=True))["vision_check"] == "passed"
     assert _metadata(monkeypatch, image_file, fb.BlinkVisionVerdict(passed=None))["vision_check"] == "skipped"
+
+
+def test_verdict_is_cached_next_to_the_image(monkeypatch, image_file):
+    calls = []
+    from integrations import vision_client
+
+    monkeypatch.setattr(vision_client, "vision_check_available", lambda: True)
+    monkeypatch.setattr(vision_client, "judge_images", lambda *a, **k: (calls.append(1), GOOD)[1])
+    assert fb.blink_vision_check(image_file, ANCHOR).passed is True
+    assert fb.blink_vision_check(image_file, ANCHOR).passed is True
+    assert len(calls) == 1
+    # A different anchor is a different question.
+    moved = {**ANCHOR, "eye_left": {**ANCHOR["eye_left"], "x": 0.48}}
+    fb.blink_vision_check(image_file, moved)
+    assert len(calls) == 2
+
+
+def test_repeated_failures_pause_the_check(monkeypatch, image_file, tmp_path):
+    from integrations import vision_client
+
+    monkeypatch.setattr(fb, "_VISION_BREAKER", {"failures": 0, "open_until": 0.0})
+    calls = []
+
+    def down(*_a, **_k):
+        calls.append(1)
+        raise RuntimeError("outage")
+
+    monkeypatch.setattr(vision_client, "vision_check_available", lambda: True)
+    monkeypatch.setattr(vision_client, "judge_images", down)
+    for index in range(fb.VISION_BREAKER_FAILURES + 2):
+        other = tmp_path / f"s{index}.png"
+        Image.new("RGB", (64, 36)).save(other)
+        assert fb.blink_vision_check(other, ANCHOR).passed is None
+    assert len(calls) == fb.VISION_BREAKER_FAILURES
+
+
+def test_preview_corners_are_elliptical_like_svg():
+    mask = fb._rounded_box_mask((40, 20), (0, 0, 40, 20), rx=20, ry=10)
+    assert mask.getpixel((20, 10)) == 255  # center filled
+    assert mask.getpixel((1, 1)) == 0  # corner cut as an ellipse, not left square
+
+
+def test_batch_save_checks_only_full_frame_images_before_loading_the_script(monkeypatch):
+    from api import visuals
+    from pipeline import full_frame_blink
+
+    seen = []
+    monkeypatch.setattr(full_frame_blink, "build_full_frame_blink_metadata",
+                        lambda sid, scene, url: (seen.append((scene, url)), {"enabled": True})[1])
+    scenes = [{"scene_id": s, "visual_mode": m} for s, m in
+              (("a", "full_frame"), ("b", "full_frame"), ("c", "multi_frame"), ("d", "full_frame"), ("e", "full_frame"))]
+    results = [
+        {"scene_id": "a", "image_url": "/a.png"},
+        {"scene_id": "b", "image_url": "/b.png", "error": "boom"},
+        {"scene_id": "c", "image_url": "/c.png"},
+        {"scene_id": "d", "frame_urls": ["/d1.png"]},
+        {"scene_id": "e", "image_url": "/e.png", "video_url": "/e.mp4"},
+    ]
+    precomputed = visuals._precompute_batch_blink("script", scenes, results)
+    assert seen == [("a", "/a.png")]
+    assert precomputed == {("a", "/a.png"): {"enabled": True}}

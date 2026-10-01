@@ -27,9 +27,12 @@ def vision_check_available() -> bool:
     return bool((os.environ.get("ANTHROPIC_API_KEY") or "").strip())
 
 
-def _image_block(image: Image.Image, max_side: int = 768) -> dict[str, Any]:
+def _image_block(image: Image.Image, long_side: int = 768) -> dict[str, Any]:
+    # Scale to a fixed long side in both directions: an eye crop can be ~130px
+    # wide with 8px eyes, too small to judge, and thumbnail() only ever shrinks.
     image = image.convert("RGB")
-    image.thumbnail((max_side, max_side))
+    scale = long_side / max(image.size)
+    image = image.resize((max(1, round(image.width * scale)), max(1, round(image.height * scale))), Image.Resampling.LANCZOS)
     buffer = io.BytesIO()
     image.save(buffer, format="PNG")
     return {
@@ -44,7 +47,7 @@ def judge_images(
     *,
     operation: str,
     script_id: str | None = None,
-    timeout: float = 60.0,
+    timeout: float = 20.0,
 ) -> dict[str, Any]:
     """Ask Claude a yes/no-style question about labelled images; return the parsed JSON object.
 
@@ -61,12 +64,14 @@ def judge_images(
     content.append({"type": "text", "text": question})
 
     t0 = time.monotonic()
-    response = get_anthropic_client().messages.create(
+    # No SDK retries: a failed check is skipped, not worth minutes of backoff
+    # per scene during an outage.
+    response = get_anthropic_client().with_options(max_retries=0).messages.create(
         model=VISION_CHECK_MODEL,
         max_tokens=2000,
         messages=[{"role": "user", "content": content}],
         # A visual yes/no check, not a reasoning task: low effort keeps it cheap.
-        extra_body={"output_config": {"effort": "low"}},
+        output_config={"effort": "low"},
         timeout=timeout,
     )
     usage = response.usage
