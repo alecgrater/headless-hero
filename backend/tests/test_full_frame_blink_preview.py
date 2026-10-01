@@ -169,3 +169,29 @@ def test_batch_save_checks_only_full_frame_images_before_loading_the_script(monk
     precomputed = visuals._precompute_batch_blink("script", scenes, results)
     assert seen == [("a", "/a.png")]
     assert precomputed == {("a", "/a.png"): {"enabled": True}}
+
+
+def test_a_saved_rejection_holds_even_when_the_check_cannot_run(monkeypatch, image_file):
+    from integrations import vision_client
+
+    monkeypatch.setattr(vision_client, "vision_check_available", lambda: True)
+    monkeypatch.setattr(vision_client, "judge_images", lambda *a, **k: {**GOOD, "visible_patch": True})
+    assert fb.blink_vision_check(image_file, ANCHOR).passed is False
+    monkeypatch.setattr(vision_client, "vision_check_available", lambda: False)
+    assert fb.blink_vision_check(image_file, ANCHOR).passed is False
+
+
+def test_verdict_files_do_not_make_renders_stale(monkeypatch, tmp_path):
+    from pipeline import render_cache
+
+    monkeypatch.setattr(render_cache, "DATA_DIR", tmp_path, raising=False)
+    images = tmp_path / "projects" / "p" / "images"
+    images.mkdir(parents=True)
+    (images / "s.png").write_bytes(b"x")
+    before = render_cache.latest_source_mtime("p")
+    import os
+    import time as _time
+    verdict = images / "s.png.blinkcheck.json"
+    verdict.write_text("{}")
+    os.utime(verdict, (_time.time() + 100, _time.time() + 100))
+    assert render_cache.latest_source_mtime("p") == before

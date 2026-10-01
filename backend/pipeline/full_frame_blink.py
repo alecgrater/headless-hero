@@ -421,10 +421,8 @@ def blink_vision_check(image_path: Path, anchor: dict[str, Any], *, script_id: s
     """
     from integrations import vision_client
 
-    if not vision_client.vision_check_available():
-        return BlinkVisionVerdict(passed=None, note="no Anthropic key")
-    if time.monotonic() < _VISION_BREAKER["open_until"]:
-        return BlinkVisionVerdict(passed=None, note="paused after repeated failures")
+    # A saved verdict wins even when the check can't run now (no key, paused):
+    # a blink Claude already rejected must stay off.
     cache_path = image_path.with_name(f"{image_path.name}.blinkcheck.json")
     cache_key = _vision_cache_key(image_path, anchor)
     try:
@@ -433,6 +431,10 @@ def blink_vision_check(image_path: Path, anchor: dict[str, Any], *, script_id: s
             return BlinkVisionVerdict(passed=cached["passed"], note=cached.get("note", ""))
     except (OSError, ValueError, KeyError):
         pass
+    if not vision_client.vision_check_available():
+        return BlinkVisionVerdict(passed=None, note="no Anthropic key")
+    if time.monotonic() < _VISION_BREAKER["open_until"]:
+        return BlinkVisionVerdict(passed=None, note="paused after repeated failures")
     try:
         with Image.open(image_path) as image:
             base = image.convert("RGBA")

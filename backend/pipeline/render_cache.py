@@ -66,7 +66,9 @@ def latest_source_mtime(script_id: str) -> float | None:
         if not directory.is_dir():
             continue
         for entry in directory.iterdir():
-            if not entry.is_file():
+            # Blink vision-check verdicts are bookkeeping about an image, not a
+            # change to it; counting them would mark finished renders stale.
+            if not entry.is_file() or entry.name.endswith(".blinkcheck.json"):
                 continue
             try:
                 mtime = entry.stat().st_mtime
