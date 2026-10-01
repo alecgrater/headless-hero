@@ -1,5 +1,7 @@
 """The closed-eye preview matches the renderer, and the vision check gates blink."""
 
+import os
+import time
 from types import SimpleNamespace
 
 import pytest
@@ -87,6 +89,7 @@ def test_any_flaw_fails(monkeypatch, image_file, flaw):
 
 
 def test_no_key_or_an_error_skips_the_check(monkeypatch, image_file):
+    monkeypatch.setattr(fb, "_VISION_BREAKER", {"failures": 0, "open_until": 0.0})
     _with_judge(monkeypatch, available=False)
     assert fb.blink_vision_check(image_file, ANCHOR).passed is None
     _with_judge(monkeypatch, error=RuntimeError("down"))
@@ -174,24 +177,26 @@ def test_batch_save_checks_only_full_frame_images_before_loading_the_script(monk
 def test_a_saved_rejection_holds_even_when_the_check_cannot_run(monkeypatch, image_file):
     from integrations import vision_client
 
+    breaker = {"failures": 0, "open_until": 0.0}
+    monkeypatch.setattr(fb, "_VISION_BREAKER", breaker)
     monkeypatch.setattr(vision_client, "vision_check_available", lambda: True)
     monkeypatch.setattr(vision_client, "judge_images", lambda *a, **k: {**GOOD, "visible_patch": True})
     assert fb.blink_vision_check(image_file, ANCHOR).passed is False
-    monkeypatch.setattr(vision_client, "vision_check_available", lambda: False)
+    breaker["open_until"] = time.monotonic() + 600  # paused
+    assert fb.blink_vision_check(image_file, ANCHOR).passed is False
+    monkeypatch.setattr(vision_client, "vision_check_available", lambda: False)  # no key
     assert fb.blink_vision_check(image_file, ANCHOR).passed is False
 
 
 def test_verdict_files_do_not_make_renders_stale(monkeypatch, tmp_path):
     from pipeline import render_cache
 
-    monkeypatch.setattr(render_cache, "DATA_DIR", tmp_path, raising=False)
+    monkeypatch.setattr(render_cache, "DATA_DIR", tmp_path)
     images = tmp_path / "projects" / "p" / "images"
     images.mkdir(parents=True)
     (images / "s.png").write_bytes(b"x")
     before = render_cache.latest_source_mtime("p")
-    import os
-    import time as _time
     verdict = images / "s.png.blinkcheck.json"
     verdict.write_text("{}")
-    os.utime(verdict, (_time.time() + 100, _time.time() + 100))
+    os.utime(verdict, (time.time() + 100, time.time() + 100))
     assert render_cache.latest_source_mtime("p") == before

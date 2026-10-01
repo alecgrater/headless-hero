@@ -424,7 +424,10 @@ def blink_vision_check(image_path: Path, anchor: dict[str, Any], *, script_id: s
     # A saved verdict wins even when the check can't run now (no key, paused):
     # a blink Claude already rejected must stay off.
     cache_path = image_path.with_name(f"{image_path.name}.blinkcheck.json")
-    cache_key = _vision_cache_key(image_path, anchor)
+    try:
+        cache_key = _vision_cache_key(image_path, anchor)
+    except OSError:
+        return BlinkVisionVerdict(passed=None, note="image unreadable")
     try:
         cached = json.loads(cache_path.read_text())
         if cached.get("key") == cache_key:
