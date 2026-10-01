@@ -296,9 +296,9 @@ const STEPS = [
     title: "Measure the run",
     sub: "Cost and time against the projection",
     meta: "1 min",
-    why: "The projection is roughly <b>$1</b> for the script, <b>$2.60</b> for images, plus ElevenLabs — under the <b>$5</b> ceiling. Wall-clock on the all-cloud route has not been measured yet.",
+    why: "The first all-cloud run (life-as-a, 84 scenes, 12½ min) measured <b>$10.03</b>: $1.20 script, $4.64 images (138, none batched — since fixed), $4.14 ElevenLabs v3. With one-image scenes now going through Batch the projection is about <b>$9</b>: ~$1.20 script, ~$3.90 images, ~$4.10 voice. YOLO ran end to end in about <b>80 minutes</b>.",
     cmds: [{ label: "after export", code: "bash scripts/video-check.sh cost" }],
-    expect: "Total spend under <b>$5</b>, with images near <b>$2.60</b>.",
+    expect: "Total near <b>$9</b> for a video of that length. Images should show <b>image_gen_batch</b> rows; if every image is a plain <b>image_gen</b> row, Batch was skipped again.",
     checks: ["Cost recorded below", "Wall-clock time recorded below"],
     fields: [
       { id: "cost", label: "Total cost" },

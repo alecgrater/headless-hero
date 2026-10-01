@@ -333,8 +333,8 @@ $PRELUDE
 
 conn = db()
 rows = conn.execute(
-    """select service, model, count(*) n, sum(cost_estimate) cost
-       from api_usage where script_id=? group by service, model order by cost desc""",
+    """select service, model, operation, sum(max(images, 1)) n, sum(cost_estimate) cost
+       from api_usage where script_id=? group by service, model, operation order by cost desc""",
     (sys.argv[1],),
 ).fetchall()
 if not rows:
@@ -344,8 +344,8 @@ total = 0.0
 for r in rows:
     cost = r["cost"] or 0.0
     total += cost
-    print(f"  {r['service']:14}{(r['model'] or '')[:30]:32} n={r['n']:4}  \$ {cost:7.3f}")
-print(f"\n  TOTAL  \$ {total:.2f}   (projection: ~\$1 script + ~\$2.60 images + ElevenLabs, ceiling \$5)")
+    print(f"  {r['service']:14}{(r['model'] or '')[:30]:32}{(r['operation'] or '')[:16]:17} n={r['n']:4}  \$ {cost:7.3f}")
+print(f"\n  TOTAL  \$ {total:.2f}   (projection for ~12 min: ~\$1.20 script + ~\$3.90 images + ~\$4.10 voice = ~\$9)")
 
 rows = conn.execute(
     """select operation_type, engine, round(sum(duration_seconds)/60,1) mins

@@ -2320,6 +2320,33 @@ def _google_batch_visual_mode(scene: dict[str, object]) -> str:
     )
 
 
+def _single_batch_directive(scene: dict[str, object]) -> dict | None:
+    """The one AI directive of a single-image scene, or None.
+
+    Script post-processing gives most full_frame scenes exactly one directive. With
+    no previous frame it builds one independent image — the same shape Batch makes —
+    so it must not disqualify the scene: rejecting every directive sent 0 of 70
+    scenes through Batch on a real run, billing all of them at the full rate.
+    """
+    frame_directives = scene.get("frame_directives") or []
+    if len(frame_directives) != 1:
+        return None
+    raw = frame_directives[0]
+    directive = raw if isinstance(raw, dict) else getattr(raw, "model_dump", lambda: {})()
+    if directive.get("source", "ai_generated") != "ai_generated":
+        return None
+    if not str(directive.get("prompt") or directive.get("search_query") or "").strip():
+        return None
+    return directive
+
+
+def _google_batch_prompt(scene: dict[str, object]) -> str:
+    directive = _single_batch_directive(scene)
+    if directive is not None:
+        return str(directive.get("prompt") or directive.get("search_query") or "")
+    return str(scene.get("visual_prompt") or "")
+
+
 def _is_google_batch_eligible(scene: dict[str, object]) -> bool:
     visual_mode = _google_batch_visual_mode(scene)
     if visual_mode == "captions" and not str(scene.get("visual_prompt") or "").strip():
@@ -2328,10 +2355,9 @@ def _is_google_batch_eligible(scene: dict[str, object]) -> bool:
         return False
     if scene.get("frame_prompts"):
         return False
-    frame_directives = scene.get("frame_directives") or []
-    if frame_directives:
+    if scene.get("frame_directives") and _single_batch_directive(scene) is None:
         return False
-    return bool(str(scene.get("visual_prompt") or "").strip())
+    return bool(_google_batch_prompt(scene).strip())
 
 
 def _prepare_google_batch_scene(
@@ -2342,13 +2368,14 @@ def _prepare_google_batch_scene(
     style_guide: str,
 ) -> tuple[GoogleBatchImageRequest | None, dict[str, object] | None, Path | None, Path | None]:
     scene_id = str(scene["scene_id"])
-    visual_prompt = str(scene.get("visual_prompt") or "")
+    visual_prompt = _google_batch_prompt(scene)
+    directive = _single_batch_directive(scene) or {}
     _raise_for_caption_text_prompt_leak([visual_prompt], scene_id=scene_id)
     prompt, reference_image_path, style_reference_path = _compose_image_prompt_context(
         visual_prompt=visual_prompt,
         script_id=script_id,
         style_guide=style_guide,
-        contains_person=bool(scene.get("contains_person", False)),
+        contains_person=bool(scene.get("contains_person", False) or directive.get("contains_person")),
     )
     images_dir = DATA_DIR / "projects" / script_id / "images"
     images_dir.mkdir(parents=True, exist_ok=True)

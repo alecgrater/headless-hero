@@ -80,3 +80,59 @@ def test_generate_batch_with_google_batch_keeps_layered_mode_standard(monkeypatc
     assert calls == {"batch": 0, "standard": 1}
     assert results[0]["scene_id"] == "scene_001"
 
+
+
+def test_single_directive_full_frame_scene_goes_through_google_batch(monkeypatch, tmp_path):
+    # Post-processing gives most full_frame scenes exactly one directive; it is one
+    # independent image, so it must not push the scene onto the full-price path.
+    monkeypatch.setattr(image_gen, "DATA_DIR", tmp_path)
+    generated = tmp_path / "generated.png"
+    _write_png(generated)
+    captured_requests = []
+
+    def fake_batch(requests, script_id):
+        captured_requests.extend(requests)
+        return [GoogleBatchImageResult(key=requests[0].key, image_path=str(generated))]
+
+    def fail_standard(*_args, **_kwargs):
+        raise AssertionError("single-directive scene must not use the standard path")
+
+    monkeypatch.setattr(image_gen, "generate_images_batch", fake_batch)
+    monkeypatch.setattr(image_gen, "_generate_one_scene", fail_standard)
+
+    results = image_gen.generate_batch_with_google_batch(
+        scenes=[
+            {
+                "scene_id": "scene_001",
+                "visual_prompt": "A radar room",
+                "visual_mode": "full_frame",
+                "frame_directives": [
+                    {"prompt": "A dim radar scope glowing green", "source": "ai_generated", "reference_previous": False}
+                ],
+            }
+        ],
+        script_id="script-1",
+    )
+
+    assert [request.key for request in captured_requests] == ["scene_001"]
+    assert "A dim radar scope glowing green" in captured_requests[0].prompt
+    assert results[0]["image_url"] == "/static/projects/script-1/images/scene_001.png"
+    assert results[0]["frame_urls"] == []
+
+
+def test_multi_directive_full_frame_scene_stays_standard():
+    # Two or more directives render as a sequence whose later frames anchor on the
+    # earlier ones, which Batch cannot express.
+    scene = {
+        "scene_id": "scene_001",
+        "visual_prompt": "A radar room",
+        "visual_mode": "full_frame",
+        "frame_directives": [
+            {"prompt": "First", "source": "ai_generated", "reference_previous": False},
+            {"prompt": "Second", "source": "ai_generated", "reference_previous": True},
+        ],
+    }
+    assert image_gen._is_google_batch_eligible(scene) is False
+    assert image_gen._is_google_batch_eligible({**scene, "frame_directives": scene["frame_directives"][:1]}) is True
+    subtitle_only = {**scene, "frame_directives": [{"prompt": "Words", "source": "subtitle"}]}
+    assert image_gen._is_google_batch_eligible(subtitle_only) is False
