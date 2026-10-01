@@ -776,9 +776,15 @@ def _comparison_subjects(scene: Scene) -> list[str]:
         return []
     left = _trim_comparison_subject(text[:connector_match.start()])
     right = _trim_comparison_subject(text[connector_match.end():])
-    if left and right:
-        return [left, right]
-    return []
+    if not (left and right):
+        return []
+    # Both sides of the connector must name a drawable thing. A "but" inside
+    # prose splits one thought into two clauses, and each clause went to the
+    # image model as a subject to draw ("it closes it"). All-or-nothing, as for
+    # popup items: if either side is a clause, the scene is not a comparison.
+    if not all(_is_list_item_phrase(subject) for subject in (left, right)):
+        return []
+    return [left, right]
 
 
 def _comparison_display_labels(scene: Scene, subjects: list[str]) -> list[str]:
@@ -804,11 +810,10 @@ def _comparison_display_labels(scene: Scene, subjects: list[str]) -> list[str]:
 
 
 def _trim_comparison_subject(value: str) -> str:
+    # No word-count truncation: keeping the last N words of a long fragment
+    # disguised prose as a short phrase and let it past _is_list_item_phrase.
     cleaned = re.sub(r"^[^a-zA-Z0-9]*(?:at first|first|the|a|an)\s+", "", value.strip(), flags=re.IGNORECASE)
-    cleaned = re.sub(r"\s+", " ", cleaned.strip(" .,:;-"))
-    words = cleaned.split()
-    if len(words) > 5:
-        cleaned = " ".join(words[-5:])
+    cleaned = re.sub(r"\s+", " ", cleaned.strip(" .,:;-\u2014\u2013"))
     return cleaned.lower()
 
 

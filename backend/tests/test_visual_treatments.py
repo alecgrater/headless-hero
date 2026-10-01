@@ -2248,6 +2248,74 @@ def test_analyze_visual_treatments_fills_explicit_comparison_board_without_layer
     assert [layer.label for layer in assignment.visual_layers] == ["rich", "poor"]
 
 
+# Real narration from a shipped script. Each one contains "but"/"while", and
+# splitting on it sent prose fragments ("it closes it", "without having to
+# think") to the image model as comparison subjects to draw.
+PROSE_CONNECTOR_NARRATIONS = [
+    "That number closes the argument with yourself. Not elegantly \u2014 but it closes it.",
+    "Eleven executions. You do not say the number out loud, but you know it the way you know "
+    "your daughter's shoe size \u2014 without having to think.",
+    "Darnell has been on the tier for nine years when you meet him properly \u2014 not just a name "
+    "on a post sheet but a voice, a specific cadence, a way of beginning every question.",
+    "The math is not cynical \u2014 it is how you keep the lights on and your daughter in dance class "
+    "and the mortgage current \u2014 but it has become the load-bearing wall of your life.",
+]
+
+
+@pytest.mark.parametrize("narration", PROSE_CONNECTOR_NARRATIONS)
+def test_comparison_subjects_reject_prose_split_on_connector(narration):
+    from pipeline.visual_treatments import _comparison_layers_for_scene, _comparison_subjects
+
+    scene = scene_with_words("s1", narration)
+
+    assert _comparison_subjects(scene) == []
+    assert _comparison_layers_for_scene(scene) == []
+
+
+@pytest.mark.parametrize("narration", PROSE_CONNECTOR_NARRATIONS)
+def test_analyze_does_not_infer_comparison_board_from_prose(narration):
+    scene = scene_with_words("s1", narration)
+    content = content_with_scenes(scene)
+
+    assignment = analyze_visual_treatments(content, script_id="script-prose-contrast")[0]
+
+    assert assignment.visual_mode != "comparison_board"
+    assert not any("_compare_" in layer.id for layer in assignment.visual_layers)
+
+
+@pytest.mark.parametrize("narration", PROSE_CONNECTOR_NARRATIONS)
+def test_analyze_demotes_marked_comparison_board_with_prose_narration(narration):
+    scene = scene_with_words("s1", narration)
+    scene.set_visual_mode("comparison_board")
+    content = content_with_scenes(scene)
+
+    assignment = analyze_visual_treatments(content, script_id="script-prose-marked")[0]
+
+    assert assignment.visual_mode == "full_frame"
+    assert assignment.visual_layers == []
+
+
+@pytest.mark.parametrize(
+    ("narration", "expected_subjects"),
+    [
+        ("Cash versus credit.", ["cash", "credit"]),
+        ("Then vs. now.", ["then", "now"]),
+        ("The good choice saves you, the bad choice costs you.", ["good choice", "bad choice"]),
+        ("Rich families kept warm while poor families counted every coin.", ["rich", "poor"]),
+    ],
+)
+def test_legitimate_comparisons_still_produce_layers(narration, expected_subjects):
+    from pipeline.visual_treatments import _comparison_subjects
+
+    scene = scene_with_words("s1", narration)
+    content = content_with_scenes(scene)
+
+    assert _comparison_subjects(scene) == expected_subjects
+    assignment = analyze_visual_treatments(content, script_id="script-legit-comparison")[0]
+    assert assignment.visual_mode == "comparison_board"
+    assert len(assignment.visual_layers) == len(expected_subjects)
+
+
 def test_analyze_visual_treatments_keeps_list_mode_with_progression_words():
     scene = scene_with_words("s1", "First the crack appears, second the warning light spreads.")
     content = content_with_scenes(scene)
@@ -2544,8 +2612,8 @@ def test_visual_treatment_assignment_legacy_property_keeps_layered_modes():
 def test_analyze_visual_treatments_prevents_adjacent_non_full_frame_modes():
     first = scene_with_words("s1", "First the badge, second the receipt, third the timer.")
     second = scene_with_words("s2", "Before the lunch rush, after the dinner rush.")
-    third = scene_with_words("s3", "His hands open and close around the register drawer while he talks.")
-    third.visual_prompt = "[REACTION] Cartoon cashier talking beside a register drawer."
+    third = scene_with_words("s3", "The cashier versus the manager.")
+    third.visual_prompt = "[REACTION] Cartoon cashier facing a store manager."
     content = content_with_scenes(first, second, third)
 
     assignments = analyze_visual_treatments(content, script_id="spacing-script")
