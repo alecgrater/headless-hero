@@ -141,9 +141,11 @@ def test_batch_planning_does_not_reuse_a_placeholder(monkeypatch, tmp_path):
 
 def test_the_render_net_never_flattens_frames_over_stale_placeholder_metadata(monkeypatch, tmp_path):
     monkeypatch.setattr(remotion_render, "DATA_DIR", tmp_path)
+    # Record rather than raise: the render net swallows exceptions per scene.
+    calls = []
     monkeypatch.setattr(
         "pipeline.image_gen.generate_scene_image",
-        lambda **_kwargs: (_ for _ in ()).throw(AssertionError("frames must not be regenerated")),
+        lambda **kwargs: calls.append(kwargs) or ("", "", None),
     )
     content = ScriptContent(title="T", segments=[Segment(name="S", scenes=[
         Scene(
@@ -154,3 +156,4 @@ def test_the_render_net_never_flattens_frames_over_stale_placeholder_metadata(mo
         ),
     ])])
     assert remotion_render.ensure_renderable_scene_images("s", content) == 0
+    assert calls == []
