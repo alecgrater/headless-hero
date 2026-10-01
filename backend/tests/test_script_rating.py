@@ -143,3 +143,36 @@ def test_a_non_numeric_overall_is_a_parse_error():
     scores = {"flow": 7, "clarity": 8, "human_sounding": 6, "continuity": 8, "format_fit": 7, "overall": None}
     with pytest.raises(ValueError):
         parse_script_rating_response(json.dumps(_rating_payload(scores=scores)), narration=_narration(), model="m")
+
+
+def test_an_unparseable_reply_is_resampled_once(monkeypatch):
+    # A real run lost its rating to one unescaped quote inside a quoted problem.
+    from pipeline import script_rating
+
+    replies = iter(['{"scores": {"overall": 7 "flow": 7}}', json.dumps(_rating_payload())])
+    calls = []
+
+    def fake_chat(system: str, user: str, **kwargs):
+        calls.append(user)
+        return next(replies)
+
+    monkeypatch.setattr(script_rating, "chat", fake_chat)
+    rating = script_rating.rate_script(_content(), script_id="script-123")
+
+    assert len(calls) == 2
+    assert rating.overall == _rating_payload()["scores"]["overall"]
+
+
+def test_two_unparseable_replies_still_fail(monkeypatch):
+    from pipeline import script_rating
+
+    calls = []
+
+    def fake_chat(system: str, user: str, **kwargs):
+        calls.append(user)
+        return "not json"
+
+    monkeypatch.setattr(script_rating, "chat", fake_chat)
+    with pytest.raises(RuntimeError):
+        script_rating.rate_script(_content(), script_id="script-123")
+    assert len(calls) == 2

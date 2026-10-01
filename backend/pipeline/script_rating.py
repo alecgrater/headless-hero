@@ -92,6 +92,9 @@ def _review_prompt(content: ScriptContent) -> str:
         title=content.title, narration=_narration_payload(content))
 
 
+_PARSE_ATTEMPTS = 2
+
+
 def _norm(text: str) -> str:
     text = text.lower().replace("\u2019", "'").replace("\u2018", "'").replace("\u201c", '"').replace("\u201d", '"')
     text = re.sub(r"[\u2014\u2013-]", " ", text)
@@ -150,22 +153,31 @@ def rate_script(content: ScriptContent, *, script_id: str | None = None) -> Scri
     model = _resolve_model(provider, "script_rating", None)
     logger.info("[%s] Rating script %r with %s/%s", script_id or "no-id", content.title, provider, model)
 
-    raw = chat(
-        JUDGE_SYSTEM,
-        _review_prompt(content),
-        max_tokens=16000,
-        timeout=300.0,
-        script_id=script_id,
-        json_mode=True,
-        task="script_rating",
-    )
-
-    try:
-        narration = " ".join(scene.narration for scene in content.all_scenes())
-        rating = parse_script_rating_response(raw, narration=narration, model=model)
-    except (json.JSONDecodeError, ValueError) as exc:
-        logger.error("[%s] Failed to parse script rating response: %s", script_id or "no-id", exc)
-        raise RuntimeError(f"Script rating returned invalid JSON: {exc}") from exc
+    narration = " ".join(scene.narration for scene in content.all_scenes())
+    prompt = _review_prompt(content)
+    # Anthropic has no JSON mode, and the judge quotes narration, so an unescaped
+    # quote occasionally breaks the object (seen on a real run). Resample rather
+    # than ship the script unrated.
+    for attempt in range(1, _PARSE_ATTEMPTS + 1):
+        raw = chat(
+            JUDGE_SYSTEM,
+            prompt,
+            max_tokens=16000,
+            timeout=300.0,
+            script_id=script_id,
+            json_mode=True,
+            task="script_rating",
+        )
+        try:
+            rating = parse_script_rating_response(raw, narration=narration, model=model)
+            break
+        except (json.JSONDecodeError, ValueError) as exc:
+            if attempt < _PARSE_ATTEMPTS:
+                logger.warning("[%s] Script rating response did not parse (attempt %d/%d): %s; retrying",
+                               script_id or "no-id", attempt, _PARSE_ATTEMPTS, exc)
+                continue
+            logger.error("[%s] Failed to parse script rating response: %s", script_id or "no-id", exc)
+            raise RuntimeError(f"Script rating returned invalid JSON: {exc}") from exc
 
     majors = sum(problem.severity == "major" for problem in rating.problems)
     logger.info("[%s] Script rating complete: overall=%.1f, %d problems (%d major)",
