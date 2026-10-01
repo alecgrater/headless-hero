@@ -177,21 +177,15 @@ const STEPS = [
     title: "Pre-flight",
     sub: "Services, keys and routing — 2 minutes",
     meta: "before anything",
-    why: "Only <b>ComfyUI</b> matters now: scene images are the one thing still generated locally. Text, cutouts and voice all go to the cloud, so ollama and mlx-audio can be down without affecting this run.",
+    why: "Everything runs in the cloud now: text on Claude/OpenAI, scene images and cutouts on Gemini (Nano Banana 2 Lite with Batch), voice on ElevenLabs. ComfyUI, ollama and mlx-audio can all be off without affecting this run.",
     cmds: [{ label: "run in the repo", code: "bash scripts/video-check.sh preflight" }],
-    expect: "Routing should read <b>text cloud / scenes local / cutouts cloud / voice cloud</b>, all four credentials <b>ok</b>, and backend + ComfyUI <b>ok</b>. If cutouts say <b>local</b>, stop — popup crops will come out as opaque panels again.",
+    expect: "Routing should read <b>scenes google / cutouts google / voice elevenlabs / text cloud for every task</b>, all four credentials <b>ok</b>, and the backend <b>ok</b>. ComfyUI and mlx-audio showing <b>off</b> is expected. If cutouts say <b>local</b>, stop — popup crops will come out as opaque panels again.",
     checks: [
       "Routing matches the four values above",
       "All four credentials show ok",
-      "Backend and ComfyUI are up",
+      "Backend is up",
       "At least 10 GB free"
-    ],
-    decisions: [{
-      id: "rotate",
-      q: "Both API keys were pasted into our conversation. Rotate them?",
-      opts: ["Rotate now, before the run", "Rotate after this video", "Not worried about it"],
-      rec: 1
-    }]
+    ]
   },
   {
     id: "pick",
@@ -223,7 +217,7 @@ const STEPS = [
       "Script rating recorded below"
     ],
     fields: [
-      { id: "rating", label: "Script rating (last video scored 7.2)" },
+      { id: "rating", label: "Script rating overall (fresh scripts judged 7/10 in the last measurement)" },
       { id: "modes", label: "Paste the VISUAL MODES block" }
     ]
   },
@@ -256,8 +250,8 @@ const STEPS = [
     id: "images",
     title: "Generate images",
     sub: "The long one — and the cutout fix",
-    meta: "30–60 min",
-    why: "Scene images run locally at roughly 30–45 seconds each; this is where almost all the wall-clock goes. Cutout sheets are quietly routed to Gemini instead — around a dozen images, a few cents.",
+    meta: "time not yet measured",
+    why: "Scene images and cutout sheets both go to Gemini (Nano Banana 2 Lite) through Google Batch, which bills half price but can queue. This is the first full run on that route, so note how long it takes.",
     cmds: [
       { label: "confirm prep ran on its own", code: "bash scripts/video-check.sh prep" },
       { label: "measure the cutouts", code: "bash scripts/video-check.sh cutouts" }
@@ -302,9 +296,9 @@ const STEPS = [
     title: "Measure the run",
     sub: "Cost and time against the projection",
     meta: "1 min",
-    why: "The projection was <b>$3.06</b> and <b>1.5–2.5 hours</b>. Real numbers tell us whether the cheap-and-slow trade is where you want it, or whether more should move to the cloud.",
+    why: "The projection is roughly <b>$1</b> for the script, <b>$2.60</b> for images, plus ElevenLabs — under the <b>$5</b> ceiling. Wall-clock on the all-cloud route has not been measured yet.",
     cmds: [{ label: "after export", code: "bash scripts/video-check.sh cost" }],
-    expect: "Cloud spend near <b>$3</b>. Local image and voice calls record as $0 because they are free, not because they were skipped.",
+    expect: "Total spend under <b>$5</b>, with images near <b>$2.60</b>.",
     checks: ["Cost recorded below", "Wall-clock time recorded below"],
     fields: [
       { id: "cost", label: "Total cost" },
@@ -313,7 +307,7 @@ const STEPS = [
     decisions: [{
       id: "tradeoff",
       q: "Given the real numbers, what next?",
-      opts: ["Keep it cheap and slow", "Move scene images to Gemini too (faster, ~$10)", "Decide later"],
+      opts: ["Keep the current routing", "Something costs more than expected — dig in", "Decide later"],
       rec: null
     }]
   },
@@ -323,9 +317,10 @@ const STEPS = [
     sub: "Things only a real run can answer",
     meta: "after the video",
     why: "Three decisions were made today on a single video's evidence. Your run is the second data point, and each of these is a lever I'd rather tune with data than guesswork.",
-    expect: "<b>Popup rate</b> — the new gate rejected all 11 popups in the last video as prose. How many did this script get? Zero forever would mean the gate is too strict.<br><br><b>The 6-word cap</b> — “Money goes to rent stress” passes at 5 words; “The monthly budget goes to rent stress” fails at 7. Did a real list get turned away?<br><br><b>Stat cards</b> — zero is expected now. If you want them back, the script prompt is the lever, not a regex.",
+    expect: "<b>Popup rate</b> — the new gate rejected all 11 popups in the last video as prose. How many did this script get? Zero forever would mean the gate is too strict.<br><br><b>Segment closers</b> — the cold-open prompt now forbids ending on a question that pits one side against another, which used to produce “X had opinions. Y had data.” closers. Does any segment still end on a two-sided slogan?<br><br><b>The 6-word cap</b> — “Money goes to rent stress” passes at 5 words; “The monthly budget goes to rent stress” fails at 7. Did a real list get turned away?<br><br><b>Stat cards</b> — zero is expected now. If you want them back, the script prompt is the lever, not a regex.",
     fields: [
       { id: "popupcount", label: "How many popup_sequence scenes did this script get?" },
+      { id: "closers", label: "Any two-sided slogan closers? Quote them" },
       { id: "feedback", label: "Anything else worth changing" }
     ]
   },
