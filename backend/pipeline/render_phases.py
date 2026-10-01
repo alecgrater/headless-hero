@@ -168,9 +168,10 @@ def _phase_images(ctx: ExportContext) -> None:
                 or (scene_now.caption_text.strip() if scene_now is not None else "")
                 or (scene_now.narration.strip() if scene_now is not None else "")
             )
-            image_url, _, _ = generate_scene_image(sid, prompt, ctx.script_id, force=True)
+            image_url, _, source_metadata = generate_scene_image(sid, prompt, ctx.script_id, force=True)
             sc_info["_image_url"] = image_url
             sc_info["_frame_urls"] = None
+            sc_info["_source_metadata"] = source_metadata
         sc_info["_full_frame_blink"] = None
         if visual_mode in full_frame_blink_mod.MEDIA_BACKED_BLINK_MODES:
             blink_image_url = sc_info.get("_image_url") or ""
@@ -320,6 +321,9 @@ def _phase_persist(ctx: ExportContext) -> None:
             sc.voice_engine = sc_info.get("_voice_engine", sc.voice_engine)
             if "_visual_layers" in sc_info:
                 sc.visual_layers = [VisualLayer.model_validate(layer) for layer in sc_info["_visual_layers"]]
+            if sc_info.get("_source_metadata") is not None:
+                # Keep source_type current so a placeholder reads as missing.
+                sc.visual_source_metadata = dict(sc_info["_source_metadata"])
             if "_full_frame_blink" in sc_info:
                 metadata = dict(sc.visual_source_metadata or {})
                 if sc_info["_full_frame_blink"]:

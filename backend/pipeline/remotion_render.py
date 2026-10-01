@@ -1051,6 +1051,24 @@ def _persist_repaired_scene_images(
             session.commit()
 
 
+def _scene_image_is_placeholder(script_id: str, scene: Scene) -> bool:
+    """Whether the scene's image is a failed-generation placeholder.
+
+    The file's own source metadata decides when it exists: the export images phase
+    used to drop the returned metadata, so the scene's stored copy could be stale
+    in either direction (a fresh placeholder read as fine, or a fresh image still
+    read as a placeholder and paid for twice).
+    """
+    from pipeline.image_gen import is_placeholder_image
+
+    prefix = f"/static/projects/{script_id}/images/"
+    if scene.image_url and scene.image_url.startswith(prefix) and not scene.frame_urls:
+        local_path = DATA_DIR / "projects" / script_id / "images" / scene.image_url[len(prefix):]
+        if local_path.exists():
+            return is_placeholder_image(local_path)
+    return (scene.visual_source_metadata or {}).get("source_type") == "placeholder"
+
+
 def ensure_renderable_scene_images(script_id: str, content: ScriptContent) -> int:
     """Guarantee every image-backed scene has a renderable image before render.
 
@@ -1075,7 +1093,7 @@ def ensure_renderable_scene_images(script_id: str, content: ScriptContent) -> in
             continue
         if scene.visual_mode not in IMAGE_BACKED_MODES:
             continue
-        placeholder = (scene.visual_source_metadata or {}).get("source_type") == "placeholder"
+        placeholder = _scene_image_is_placeholder(script_id, scene)
         if (scene.image_url or scene.frame_urls or scene.video_url) and not placeholder:
             continue
 

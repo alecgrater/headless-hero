@@ -13,7 +13,7 @@ from pathlib import Path
 
 from config import DATA_DIR, DEFAULT_ACCENT_COLOR, DEFAULT_SEGMENT_COLORS, SQUARE_IMAGE_SIZE
 from models.script import ScriptContent
-from pipeline.image_gen import generate_scene_image
+from pipeline.image_gen import generate_scene_image, is_placeholder_image
 from pipeline.render_jobs import update_job
 from pipeline.title_card_composer import compose_title_card
 
@@ -48,6 +48,7 @@ def ensure_title_card_images(
     # Check if both composites AND all circle images already exist (cache)
     all_circles_exist = all(
         (images_dir / f"title_card_{idx}.png").exists()
+        and not is_placeholder_image(images_dir / f"title_card_{idx}.png")
         for idx in range(len(content.segments))
     )
     if not force and composite_path.exists() and notitle_path.exists() and all_circles_exist:
@@ -91,7 +92,8 @@ def ensure_title_card_images(
         circle_path = str(images_dir / circle_filename)
 
         # Skip if already generated and not forcing
-        if not force and os.path.exists(circle_path):
+        # A placeholder circle is a failed generation, not a cached image.
+        if not force and os.path.exists(circle_path) and not is_placeholder_image(Path(circle_path)):
             circle_paths.append(circle_path)
             # Report progress for cached images too
             if job_id:
@@ -107,7 +109,7 @@ def ensure_title_card_images(
         prompt = seg.title_card_image_prompt or f"A vivid, colorful illustration representing the concept of {seg.name}. Simple, iconic, centered subject on a clean background."
 
         try:
-            web_url, _, _ = generate_scene_image(
+            web_url, _, metadata = generate_scene_image(
                 scene_id=f"title_card_{idx}",
                 visual_prompt=prompt,
                 script_id=script_id,
@@ -116,6 +118,10 @@ def ensure_title_card_images(
                 force=force,
                 style_guide="",
             )
+            # generate_scene_image returns a placeholder instead of raising; treat
+            # it as the failure it is so the stripped-prompt retry below runs.
+            if (metadata or {}).get("source_type") == "placeholder":
+                raise RuntimeError("image generation returned a placeholder")
             circle_paths.append(circle_path)
             logger.info("Generated circle image %d/%d for segment %r", idx + 1, len(content.segments), seg.name)
         except Exception as exc:
@@ -129,7 +135,7 @@ def ensure_title_card_images(
                     f"A simple, colorful illustration: {prompt}. "
                     "Cartoon style, bright colors, clean background, no text, no people."
                 )
-                web_url, _, _ = generate_scene_image(
+                web_url, _, metadata = generate_scene_image(
                     scene_id=f"title_card_{idx}",
                     visual_prompt=fallback_prompt,
                     script_id=script_id,
@@ -138,6 +144,8 @@ def ensure_title_card_images(
                     force=True,
                     style_guide=" ",  # space to skip default guide
                 )
+                if (metadata or {}).get("source_type") == "placeholder":
+                    raise RuntimeError("image generation returned a placeholder")
                 circle_paths.append(circle_path)
                 logger.info("Generated circle image %d/%d for segment %r (fallback prompt)", idx + 1, len(content.segments), seg.name)
             except Exception as exc2:

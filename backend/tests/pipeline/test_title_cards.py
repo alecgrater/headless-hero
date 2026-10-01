@@ -140,3 +140,38 @@ def test_title_card_generation_archives_previous_active_thumbnail(tmp_path, monk
 
     assert (thumbs_dir / "1.png").read_bytes() == b"old active thumbnail"
     assert active_path.read_bytes() == b"with title"
+
+
+def test_a_placeholder_circle_triggers_the_stripped_prompt_retry(tmp_path, monkeypatch):
+    # generate_scene_image returns a placeholder rather than raising, which used to
+    # skip the retry and draw "Image generation failed" into the title card.
+    monkeypatch.setattr(title_card, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(thumbnail, "DATA_DIR", tmp_path)
+    script_id = "script-placeholder-circle"
+    images_dir = tmp_path / "projects" / script_id / "images"
+    calls = []
+
+    def fake_generate_scene_image(scene_id: str, **kwargs):
+        calls.append(kwargs["style_guide"])
+        out = images_dir / f"{scene_id}.png"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_bytes(b"circle")
+        metadata = {"source_type": "placeholder"} if len(calls) == 1 else {"source_type": "ai_generated"}
+        return (f"/static/projects/{script_id}/images/{scene_id}.png", None, metadata)
+
+    def fake_compose_title_card(**kwargs):
+        out = Path(kwargs["output_path"])
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_bytes(b"card")
+        return (kwargs["output_path"], {0: (100, 100, 50)})
+
+    monkeypatch.setattr(title_card, "generate_scene_image", fake_generate_scene_image)
+    monkeypatch.setattr(title_card, "compose_title_card", fake_compose_title_card)
+    monkeypatch.setattr(thumbnail, "gemini_enhance_thumbnail", lambda **_kwargs: None)
+    content = ScriptContent(title="T", segments=[
+        Segment(name="Night Vision", scenes=[Scene(id="scene_001", narration="N.", visual_prompt="p", is_title_card=True)]),
+    ])
+
+    title_card.ensure_title_card_images(script_id, content, force=True)
+
+    assert calls == ["", " "]  # first attempt, then the stripped-prompt retry

@@ -364,7 +364,7 @@ def _read_source_metadata(image_path: Path) -> dict[str, object] | None:
         return None
 
 
-def _is_placeholder_image(image_path: Path) -> bool:
+def is_placeholder_image(image_path: Path) -> bool:
     """True for the "Image generation failed" stand-in, which must never be reused."""
     return (_read_source_metadata(image_path) or {}).get("source_type") == "placeholder"
 
@@ -1630,7 +1630,7 @@ def generate_scene_image(
     prompt_marker = images_dir / f"{scene_id}.prompt"
     web_path = f"/static/projects/{script_id}/images/{filename}"
 
-    if not force and local_path.exists() and prompt_marker.exists() and not _is_placeholder_image(local_path):
+    if not force and local_path.exists() and prompt_marker.exists() and not is_placeholder_image(local_path):
         if _marker_matches(prompt_marker, prompt):
             logger.info("Image cache hit for scene %s", scene_id)
             return web_path, prompt, _read_source_metadata(local_path)
@@ -2485,7 +2485,7 @@ def _prepare_google_batch_scene(
     prompt_marker = images_dir / f"{scene_id}.prompt"
     web_path = f"/static/projects/{script_id}/images/{scene_id}.png"
 
-    if local_path.exists() and prompt_marker.exists() and not _is_placeholder_image(local_path):
+    if local_path.exists() and prompt_marker.exists() and not is_placeholder_image(local_path):
         if _marker_matches(prompt_marker, prompt):
             logger.info("Image cache hit for Google batch scene %s", scene_id)
             return None, {
@@ -2803,8 +2803,8 @@ def generate_batch_with_google_batch(
                     batch_result.key, batch_result.error or "no image",
                 )
                 # Call the provider directly, not generate_scene_image: on failure
-                # that writes a cached "Image generation failed" placeholder,
-                # which would then count as done and ship in the video.
+                # that returns an "Image generation failed" placeholder, whereas
+                # this should report the error so the stage retries the scene.
                 request = requests_by_key[batch_result.key]
                 try:
                     tmp_path = generate_image(

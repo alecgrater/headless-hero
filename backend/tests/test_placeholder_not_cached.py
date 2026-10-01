@@ -83,3 +83,57 @@ def test_the_render_net_regenerates_a_placeholder_scene(monkeypatch):
     assert remotion_render.ensure_renderable_scene_images("s", content) == 1
     assert generated == ["scene_001"]
     assert content.all_scenes()[0].visual_source_metadata == {"source_type": "ai_generated"}
+
+
+def _render_content(metadata):
+    return ScriptContent(title="T", segments=[Segment(name="S", scenes=[
+        Scene(
+            id="scene_001", narration="A radar room.", visual_prompt="A radar room", visual_mode="full_frame",
+            image_url="/static/projects/s/images/scene_001.png", visual_source_metadata=metadata,
+        ),
+    ])])
+
+
+def _write_image(tmp_path, source_type):
+    images = tmp_path / "projects" / "s" / "images"
+    images.mkdir(parents=True, exist_ok=True)
+    Image.new("RGB", (2, 2)).save(images / "scene_001.png")
+    (images / "scene_001.source.json").write_text(json.dumps({"source_type": source_type}))
+
+
+def test_the_render_net_trusts_the_file_over_stale_scene_metadata(monkeypatch, tmp_path):
+    # The export images phase used to drop the returned metadata, so the stored
+    # copy can be stale in either direction.
+    monkeypatch.setattr(remotion_render, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(image_gen, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(remotion_render, "_persist_repaired_scene_images", lambda *_args: None)
+    generated = []
+    monkeypatch.setattr(
+        "pipeline.image_gen.generate_scene_image",
+        lambda *, scene_id, visual_prompt, script_id, **_k: (generated.append(scene_id) or (f"/x/{scene_id}.png", visual_prompt, None)),
+    )
+
+    _write_image(tmp_path, "placeholder")
+    assert remotion_render.ensure_renderable_scene_images("s", _render_content({"source_type": "ai_generated"})) == 1
+
+    _write_image(tmp_path, "ai_generated")
+    assert remotion_render.ensure_renderable_scene_images("s", _render_content({"source_type": "placeholder"})) == 0
+    assert generated == ["scene_001"]
+
+
+def test_batch_planning_does_not_reuse_a_placeholder(monkeypatch, tmp_path):
+    monkeypatch.setattr(image_gen, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(
+        image_gen, "_compose_image_prompt_context",
+        lambda *, visual_prompt, script_id, style_guide, contains_person: (f"P:{visual_prompt}", None, None),
+    )
+    images = tmp_path / "projects" / "s1" / "images"
+    images.mkdir(parents=True)
+    Image.new("RGB", (2, 2)).save(images / "scene_001.png")
+    (images / "scene_001.source.json").write_text(json.dumps({"source_type": "placeholder"}))
+    (images / "scene_001.prompt").write_text(image_gen._marker_payload("P:A radar room"))
+
+    request, cached, _, _ = image_gen._prepare_google_batch_scene(
+        {"scene_id": "scene_001", "visual_prompt": "A radar room", "visual_mode": "full_frame"}, "s1", 1920, 1080, "",
+    )
+    assert cached is None and request is not None
