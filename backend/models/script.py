@@ -254,6 +254,8 @@ class Scene(BaseModel):
             return ""
         if isinstance(value, list):
             return next((str(item).strip() for item in value if str(item).strip()), "")
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            return str(value)  # "stat_value": 85
         return value
 
     @field_validator("transition_in", mode="before")

@@ -14,6 +14,7 @@ from models.brand import BrandProfile
 from models.generation_duration import GenerationDuration
 from models.cold_open import GenerateColdOpensRequest
 from models.script import HookScore
+from models.settings import AppSetting
 from pipeline.cold_open import generate_cold_opens
 from pipeline.formats import resolve_format
 from pipeline.hook_refiner import RefinedHook, refine_hook
@@ -73,11 +74,14 @@ def generate_cold_opens_endpoint(
         body.topic, brand_id, fmt.id,
     )
 
-    # Build brand context (same pattern as api/scripts.py)
+    # Build brand context (same pattern as api/scripts.py). The request carries no
+    # eli_enabled, so follow the project default the script request falls back to.
+    eli_setting = session.get(AppSetting, "ELI_ENABLED_DEFAULT")
+    eli_enabled = (eli_setting.value if eli_setting else "false").lower() == "true"
     parts = [brand.name]
     if _VISUAL_STYLE:
         parts.append(f"Visual Style:\n{_VISUAL_STYLE}")
-    if _CHARACTER:
+    if _CHARACTER and eli_enabled:
         parts.append(f"Character:\n{_CHARACTER}")
     brand_context = "\n\n".join(parts)
 

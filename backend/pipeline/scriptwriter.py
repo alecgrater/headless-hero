@@ -18,7 +18,7 @@ from config import (
     parse_json_array_response,
     strip_markdown_fences,
 )
-from integrations.llm_client import chat, text_fingerprint
+from integrations.llm_client import _resolve_provider, chat, text_fingerprint
 from models.script import LevelMeta, MainCharacter, Scene, ScriptContent, Segment
 from pipeline.visual_mode_policy import (
     duration_profile_for_mode,
@@ -1072,7 +1072,14 @@ _OPENING_CONTINUATION_RULE = (
 )
 
 
-def _story_so_far_block(written: list[Segment], section_label: str, stand_alone: bool) -> str:
+# A local model shares a 16k context between prompt and reply, so only the most
+# recent sections fit; cloud models get the whole story so far.
+_LOCAL_STORY_SO_FAR_SEGMENTS = 2
+
+
+def _story_so_far_block(
+    written: list[Segment], section_label: str, stand_alone: bool, *, max_segments: int | None = None,
+) -> str:
     """The narration already written, so a segment call can stay consistent with it.
 
     Each segment call used to see only the outline, so later sections re-introduced
@@ -1080,21 +1087,30 @@ def _story_so_far_block(written: list[Segment], section_label: str, stand_alone:
     on life-as-a, giving them the earlier narration (plus the outline's story bible)
     took judged continuity from 4/10 to 7/10.
     """
-    if not written:
+    shown = written[-max_segments:] if max_segments else written
+    if not shown:
         return ""
     body = "\n".join(
-        f"[{segment.name}]\n" + "\n".join(s.narration for s in segment.scenes if not s.is_title_card)
-        for segment in written
+        f"[{segment.name}]\n"
+        + "\n".join(s.narration for s in segment.scenes if not s.is_title_card and s.narration.strip())
+        for segment in shown
     )
-    stand_alone_rule = (
-        f" Each {section_label} must still stand alone as a Short: do not mention or refer back to "
-        f"these earlier {section_label}s."
-        if stand_alone else ""
-    )
+    if stand_alone:
+        # A Short viewer has not seen the earlier segments, so this one must
+        # re-introduce whoever it uses rather than lean on them.
+        rule = (
+            "Use it only for consistency: re-introduce briefly anyone this "
+            f"{section_label} uses, do not contradict any fact in it, never reuse its sentences or sentence "
+            f"patterns, and never mention or refer back to these earlier {section_label}s — each "
+            f"{section_label} must stand alone as a Short."
+        )
+    else:
+        rule = (
+            "Continue from it: do not re-introduce anyone already introduced, do not contradict any fact "
+            "in it, and never reuse its sentences or sentence patterns."
+        )
     return (
-        f"STORY SO FAR — the narration already written for earlier {section_label}s, verbatim. "
-        "Continue from it: do not re-introduce anyone already introduced, do not contradict any fact "
-        f"in it, and never reuse its sentences or sentence patterns.{stand_alone_rule}\n"
+        f"STORY SO FAR — the narration already written for earlier {section_label}s, verbatim. {rule}\n"
         f"<narration>\n{body}\n</narration>\n\n"
     )
 
@@ -1418,13 +1434,23 @@ def _generate_segmented(
                         f"{_OPENING_CONTINUATION_RULE}\n\n"
                     )
 
+                story_so_far = _story_so_far_block(
+                    segments, section_label, segments_stand_alone,
+                    max_segments=_LOCAL_STORY_SO_FAR_SEGMENTS if _resolve_provider("script") == "ollama" else None,
+                )
+                logger.info(
+                    "SEGMENTED: %s %d/%d prompt context ~%d chars (story so far %d chars)",
+                    section_label, i + 1, len(outline["segments"]),
+                    len(system_prompt) + len(story_so_far) + len(first_level_opening) + len(trailing_context)
+                    + len(json.dumps(outline)) + len(segment_scenes_instructions),
+                    len(story_so_far),
+                )
                 scenes = _generate_segment_scenes(
                     system_prompt,
                     outline,
                     i,
                     model,
-                    _story_so_far_block(segments, section_label, segments_stand_alone)
-                    + first_level_opening + trailing_context,
+                    story_so_far + first_level_opening + trailing_context,
                     script_id=script_id,
                     segment_scenes_instructions=segment_scenes_instructions,
                     level_label=section_label,

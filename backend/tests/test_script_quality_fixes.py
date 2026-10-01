@@ -41,6 +41,9 @@ def test_list_valued_caption_fields_take_the_first_phrase():
     assert scene.caption_emphasis == "ever"
     assert Scene.model_validate({"id": "s", "narration": "x", "visual_prompt": "",
                                  "caption_emphasis": None}).caption_emphasis == ""
+    stat = Scene.model_validate({"id": "s", "narration": "85 percent quit.", "visual_prompt": "",
+                                 "visual_mode": "stat_card", "stat_value": 85})
+    assert stat.stat_value == "85"
 
 
 def test_outline_budget_leaves_room_for_adaptive_thinking():
@@ -62,6 +65,9 @@ def _scenes(*texts: str) -> str:
 
 
 def _run(monkeypatch, *, stand_alone: bool, cold_open: str | None = None) -> list[str]:
+    scriptwriter._PROGRESS_DIR.mkdir(parents=True, exist_ok=True)
+    for stale in scriptwriter._PROGRESS_DIR.glob("*.json"):
+        stale.unlink()  # each run starts fresh rather than resuming the previous one
     monkeypatch.setattr(scriptwriter, "_generate_outline", lambda *a, **k: _outline(3))
     replies = [_scenes("Walter hands you the matches."), _scenes("Walter's hip is worse."), _scenes("Spring.")]
     users: list[str] = []
@@ -87,9 +93,43 @@ def test_later_segment_calls_see_the_narration_already_written(isolated_progress
     assert "stand alone as a Short" not in users[1]
 
 
-def test_standalone_formats_are_told_not_to_refer_back(isolated_progress, monkeypatch):
+def test_standalone_formats_re_introduce_instead_of_referring_back(isolated_progress, monkeypatch):
+    # The listicle prompts require re-introducing people in every segment; telling
+    # stand-alone segments "do not re-introduce" would contradict them.
     users = _run(monkeypatch, stand_alone=True)
-    assert "must still stand alone as a Short" in users[1]
+    assert "must stand alone as a Short" in users[1]
+    assert "re-introduce briefly anyone" in users[1]
+    assert "do not re-introduce" not in users[1]
+
+
+def test_local_engines_see_only_the_most_recent_sections(isolated_progress, monkeypatch):
+    # A local model shares a 16k context between prompt and reply.
+    monkeypatch.setattr(scriptwriter, "_resolve_provider", lambda task: "ollama")
+    users = _run(monkeypatch, stand_alone=False)
+    monkeypatch.setattr(scriptwriter, "_LOCAL_STORY_SO_FAR_SEGMENTS", 1)
+    users_capped = _run(monkeypatch, stand_alone=False)
+    assert "Walter hands you the matches." in users[2]
+    assert "Walter hands you the matches." not in users_capped[2]
+    assert "Walter's hip is worse." in users_capped[2]
+
+
+def test_resumed_segments_still_feed_the_story_so_far(isolated_progress, monkeypatch):
+    outline = _outline(2)
+    key = scriptwriter._progress_key("sys", "user", None, scriptwriter._OUTLINE_INSTRUCTIONS,
+                                     scriptwriter._SEGMENT_SCENES_INSTRUCTIONS)
+    cached = [Scene.model_validate(s).model_dump(mode="json")
+              for s in json.loads(_scenes("Walter hands you the matches."))["scenes"]]
+    scriptwriter._save_progress(key, outline, [cached])
+    users: list[str] = []
+
+    def fake_chat(system, user, **kwargs):
+        users.append(user)
+        return _scenes("Spring.")
+
+    monkeypatch.setattr(scriptwriter, "chat", fake_chat)
+    scriptwriter._generate_segmented("sys", "user", "topic", "", "", None)
+    assert len(users) == 1, "segment 1 should come from the cache"
+    assert "Walter hands you the matches." in users[0]
 
 
 def test_listicle_segments_stand_alone_and_life_as_a_levels_do_not():
