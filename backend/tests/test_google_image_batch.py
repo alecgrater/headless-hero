@@ -207,3 +207,57 @@ def test_generate_images_batch_raises_on_failed_job(monkeypatch):
             ],
             poll_interval_seconds=0,
         )
+
+
+class _ConcurrentBatches:
+    """Records the order of create/get calls; chunk 2 can be made to fail."""
+
+    def __init__(self, fail_second: bool = False):
+        self.calls = []
+        self.fail_second = fail_second
+
+    def create(self, *, model, src, config):
+        name = f"batches/{len([c for c in self.calls if c[0] == 'create']) + 1}"
+        self.calls.append(("create", name))
+        return _BatchJob(name=name)
+
+    def get(self, *, name):
+        self.calls.append(("get", name))
+        if self.fail_second and name == "batches/2":
+            return _BatchJob(name=name, state="JOB_STATE_FAILED", error="quota")
+        return _BatchJob(name=name, state="JOB_STATE_SUCCEEDED", responses=[_InlineResponse(TINY_PNG)])
+
+
+def _two_chunk_requests():
+    return [
+        google_image_client.GoogleBatchImageRequest(key="scene-a", prompt="a prompt" * 10, aspect_ratio="16:9"),
+        google_image_client.GoogleBatchImageRequest(key="scene-b", prompt="b prompt" * 10, aspect_ratio="16:9"),
+    ]
+
+
+def test_every_chunk_is_submitted_before_any_is_polled(monkeypatch):
+    client = type("C", (), {})()
+    client.batches = _ConcurrentBatches()
+    monkeypatch.setattr(google_image_client.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(google_image_client, "record_usage", lambda **_kwargs: None)
+    monkeypatch.setattr(google_image_client, "BATCH_INLINE_REQUEST_LIMIT_BYTES", 220)
+
+    results = google_image_client.generate_images_batch(client=client, requests=_two_chunk_requests(), poll_interval_seconds=0)
+
+    kinds = [kind for kind, _ in client.batches.calls]
+    assert kinds[:2] == ["create", "create"]
+    assert [r.key for r in results] == ["scene-a", "scene-b"]
+    assert all(r.image_path for r in results)
+
+
+def test_a_failed_chunk_keeps_the_other_chunks_images(monkeypatch):
+    client = type("C", (), {})()
+    client.batches = _ConcurrentBatches(fail_second=True)
+    monkeypatch.setattr(google_image_client.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(google_image_client, "record_usage", lambda **_kwargs: None)
+    monkeypatch.setattr(google_image_client, "BATCH_INLINE_REQUEST_LIMIT_BYTES", 220)
+
+    results = google_image_client.generate_images_batch(client=client, requests=_two_chunk_requests(), poll_interval_seconds=0)
+
+    assert results[0].image_path and results[0].error is None
+    assert results[1].image_path is None and "JOB_STATE_FAILED" in results[1].error

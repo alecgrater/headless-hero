@@ -146,13 +146,16 @@ def test_cache_markers_never_reach_the_model():
 
 
 def test_every_frame_path_appends_the_character_block_last():
-    """Pins the ordering in generate_scene_frames / _v2, which are too heavy to call here."""
+    """Pins the ordering in generate_scene_frames and the v2 frame planner, which are too heavy to call here."""
     import inspect
 
-    source = inspect.getsource(image_gen.generate_scene_frames) + inspect.getsource(image_gen.generate_scene_frames_v2)
-    tail = '            if character_text:\n                parts.append(character_text)\n            prompt = "\\n\\n".join(parts)'
-    assert source.count(tail) == 4
-    assert source.count("parts.append(character_text)") == 4
+    legacy = inspect.getsource(image_gen.generate_scene_frames)
+    planner = inspect.getsource(image_gen._plan_sequence_frame)
+    legacy_tail = '            if character_text:\n                parts.append(character_text)\n            prompt = "\\n\\n".join(parts)'
+    planner_tail = '        if character_text:\n            parts.append(character_text)\n        prompt = "\\n\\n".join(parts)'
+    assert legacy.count(legacy_tail) == 2
+    assert planner.count(planner_tail) == 2
+    assert (legacy + planner).count("parts.append(character_text)") == 4
 
 
 def test_comparison_sheet_lifts_the_single_protagonist_rule():

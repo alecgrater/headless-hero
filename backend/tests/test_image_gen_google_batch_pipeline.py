@@ -204,3 +204,114 @@ def test_a_lone_directive_on_a_sequence_mode_stays_a_frame():
     assert image_gen.single_image_directive({**scene, "visual_mode": "full_frame"}) is not None
     assert image_gen.single_image_directive({**scene, "visual_mode": "multi_frame"}) is None
     assert image_gen.single_image_directive({**scene, "visual_mode": "continuous"}) is None
+
+
+def _sequence_env(monkeypatch, tmp_path):
+    """Isolate the frame planner from the project DB and character files."""
+    monkeypatch.setattr(image_gen, "DATA_DIR", tmp_path)
+    style = tmp_path / "style.png"
+    ref = tmp_path / "ref.png"
+    _write_png(style)
+    _write_png(ref)
+    monkeypatch.setattr(image_gen, "_load_project_character_context", lambda sid: (False, "/ref", None))
+    monkeypatch.setattr(image_gen, "_ensure_project_character_reference_ready", lambda **_k: None)
+    monkeypatch.setattr(image_gen, "_load_project_style_enabled", lambda sid: True)
+    monkeypatch.setattr(image_gen, "_resolve_style_preset", lambda **_k: str(style))
+    monkeypatch.setattr(
+        image_gen, "_resolve_character_reference",
+        lambda **k: (str(ref), "CHARACTER") if k["contains_person"] else (None, ""),
+    )
+
+
+def _sequence_scene(scene_id: str, frames: int, mode: str = "continuous") -> dict:
+    return {
+        "scene_id": scene_id,
+        "visual_prompt": f"Brief for {scene_id}",
+        "visual_mode": mode,
+        "frame_directives": [
+            {"prompt": f"{scene_id} frame {i}", "source": "ai_generated", "reference_previous": i > 0}
+            for i in range(frames)
+        ],
+    }
+
+
+def _fake_rounds(tmp_path, rounds, fail_keys=()):
+    def fake_batch(requests, script_id):
+        rounds.append([(r.key, r.reference_image_path) for r in requests])
+        results = []
+        for request in requests:
+            if request.key in fail_keys:
+                results.append(GoogleBatchImageResult(key=request.key, error="blocked"))
+                continue
+            out = tmp_path / f"out_{len(rounds)}_{request.key.replace(':', '_')}.png"
+            _write_png(out)
+            results.append(GoogleBatchImageResult(key=request.key, image_path=str(out)))
+        return results
+    return fake_batch
+
+
+def test_frame_sequences_batch_one_frame_per_round(monkeypatch, tmp_path):
+    _sequence_env(monkeypatch, tmp_path)
+    rounds = []
+    monkeypatch.setattr(image_gen, "generate_images_batch", _fake_rounds(tmp_path, rounds))
+    monkeypatch.setattr(image_gen, "_generate_one_scene", lambda *a, **k: (_ for _ in ()).throw(AssertionError("standard path")))
+
+    results = image_gen.generate_batch_with_google_batch(
+        scenes=[
+            _sequence_scene("scene_a", 3),
+            _sequence_scene("scene_b", 2, mode="multi_frame"),
+            {"scene_id": "scene_c", "visual_prompt": "One image", "visual_mode": "full_frame"},
+        ],
+        script_id="s1",
+    )
+
+    images = tmp_path / "projects" / "s1" / "images"
+    assert [[key for key, _ in batch] for batch in rounds] == [
+        ["scene_c", "scene_a::f0", "scene_b::f0"],
+        ["scene_a::f1", "scene_b::f1"],
+        ["scene_a::f2"],
+    ]
+    # Each later frame is anchored on the frame the previous round produced.
+    assert dict(rounds[1])["scene_a::f1"] == str(images / "scene_a_f0.png")
+    assert dict(rounds[2])["scene_a::f2"] == str(images / "scene_a_f1.png")
+    by_id = {r["scene_id"]: r for r in results}
+    assert by_id["scene_a"]["frame_urls"] == [f"/static/projects/s1/images/scene_a_f{i}.png" for i in range(3)]
+    assert by_id["scene_b"]["image_url"] == "/static/projects/s1/images/scene_b_f0.png"
+    assert by_id["scene_c"]["image_url"] == "/static/projects/s1/images/scene_c.png"
+    assert all(r["error"] is None for r in results)
+
+
+def test_batched_frames_are_cache_hits_for_both_paths(monkeypatch, tmp_path):
+    _sequence_env(monkeypatch, tmp_path)
+    rounds = []
+    monkeypatch.setattr(image_gen, "generate_images_batch", _fake_rounds(tmp_path, rounds))
+    scene = _sequence_scene("scene_a", 3)
+    image_gen.generate_batch_with_google_batch(scenes=[scene], script_id="s1")
+    assert len(rounds) == 3
+
+    def no_generation(*_args, **_kwargs):
+        raise AssertionError("expected a cache hit")
+
+    monkeypatch.setattr(image_gen, "generate_image", no_generation)
+    again = image_gen.generate_batch_with_google_batch(scenes=[scene], script_id="s1")
+    assert len(rounds) == 3  # no new batch round
+    frames = image_gen.generate_scene_frames_v2(
+        "scene_a", scene["frame_directives"], "s1", visual_prompt=scene["visual_prompt"],
+    )
+    assert [url for url, _, _ in frames] == again[0]["frame_urls"]
+
+
+def test_a_failed_frame_stops_only_its_own_scene(monkeypatch, tmp_path):
+    _sequence_env(monkeypatch, tmp_path)
+    rounds = []
+    monkeypatch.setattr(image_gen, "generate_images_batch", _fake_rounds(tmp_path, rounds, fail_keys={"scene_a::f1"}))
+
+    results = image_gen.generate_batch_with_google_batch(
+        scenes=[_sequence_scene("scene_a", 3), _sequence_scene("scene_b", 3)],
+        script_id="s1",
+    )
+
+    by_id = {r["scene_id"]: r for r in results}
+    assert by_id["scene_a"]["error"] == "blocked"
+    assert len(by_id["scene_b"]["frame_urls"]) == 3
+    assert [key for key, _ in rounds[2]] == ["scene_b::f2"]

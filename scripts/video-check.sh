@@ -366,7 +366,7 @@ for r in rows:
     cost = r["cost"] or 0.0
     total += cost
     print(f"  {r['service']:14}{(r['model'] or '')[:30]:32}{(r['operation'] or '')[:16]:17} n={r['n']:4}  \$ {cost:7.3f}")
-print(f"\n  TOTAL  \$ {total:.2f}   (projection for ~12 min: ~\$1.20 script + ~\$3.90 images + ~\$4.10 voice = ~\$9)")
+print(f"\n  TOTAL  \$ {total:.2f}   (projection for ~12 min: ~\$1.20 script + ~\$3.00 images + ~\$4.10 voice = ~\$8.30)")
 
 rows = conn.execute(
     """select operation_type, engine, round(sum(duration_seconds)/60,1) mins

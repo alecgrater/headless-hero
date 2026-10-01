@@ -6,6 +6,7 @@ import os
 import re
 import shutil
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass, field
 from pathlib import Path
 from statistics import median
 from typing import Callable
@@ -1890,6 +1891,225 @@ def generate_scene_frames(
     return results
 
 
+@dataclass(frozen=True)
+class _FrameSequence:
+    """Per-scene inputs shared by every frame of a directive sequence."""
+
+    scene_id: str
+    script_id: str
+    directives: list
+    visual_prompt: str
+    guide: str
+    images_dir: Path
+    contains_person: bool
+    eli_enabled: bool
+    main_character_url: str | None
+    main_character_obj: object
+    style_reference_path: str | None
+
+
+@dataclass(frozen=True)
+class _FramePlan:
+    """Everything needed to generate, or reuse, one frame of a sequence."""
+
+    index: int
+    local_path: Path
+    prompt_marker: Path
+    web_path: str
+    prompt: str
+    directive_prompt: str
+    reference_image_path: str | None
+    style_reference_path: str | None
+    subtitle: bool = False
+
+
+def _prepare_frame_sequence(
+    scene_id: str,
+    frame_directives: list[dict],
+    script_id: str,
+    visual_prompt: str,
+    style_guide: str,
+    contains_person: bool,
+) -> _FrameSequence:
+    from models.script import FrameDirective as FrameDirectiveModel
+
+    prompt_parts = [visual_prompt]
+    for directive in frame_directives:
+        if isinstance(directive, dict):
+            prompt_parts.append(str(directive.get("prompt") or ""))
+            prompt_parts.append(str(directive.get("search_query") or ""))
+        elif hasattr(directive, "prompt"):
+            prompt_parts.append(str(getattr(directive, "prompt") or ""))
+            prompt_parts.append(str(getattr(directive, "search_query", "") or ""))
+    _raise_for_caption_text_prompt_leak(prompt_parts, scene_id=scene_id)
+
+    images_dir = DATA_DIR / "projects" / script_id / "images"
+    images_dir.mkdir(parents=True, exist_ok=True)
+
+    eli_enabled, main_character_url, main_character_obj = _load_project_character_context(script_id)
+    _ensure_project_character_reference_ready(
+        script_id=script_id,
+        eli_enabled=eli_enabled,
+        main_character_reference_url=main_character_url,
+        main_character=main_character_obj,
+    )
+
+    project_style_enabled = _load_project_style_enabled(script_id)
+    style_reference_path = _resolve_style_preset(
+        eli_enabled=eli_enabled,
+        project_style_enabled=project_style_enabled,
+    )
+    return _FrameSequence(
+        scene_id=scene_id,
+        script_id=script_id,
+        directives=[FrameDirectiveModel.model_validate(raw) for raw in frame_directives],
+        visual_prompt=visual_prompt,
+        guide=style_guide if style_guide else _STYLE_GUIDE,
+        images_dir=images_dir,
+        contains_person=contains_person,
+        eli_enabled=eli_enabled,
+        main_character_url=main_character_url,
+        main_character_obj=main_character_obj,
+        style_reference_path=style_reference_path,
+    )
+
+
+def _plan_sequence_frame(sequence: _FrameSequence, i: int, prev_frame_path: Path | None) -> _FramePlan:
+    """Build frame i's prompt, cache marker text, and attached images.
+
+    Shared by the one-at-a-time loop and the round-based Google Batch path, so a
+    frame made by either one is a cache hit for the other.
+    """
+    directive = sequence.directives[i]
+    total_frames = len(sequence.directives)
+    visual_prompt = sequence.visual_prompt
+    guide = sequence.guide
+    scene_id = sequence.scene_id
+    script_id = sequence.script_id
+
+    filename = f"{scene_id}_f{i}.png"
+    local_path = sequence.images_dir / filename
+    prompt_marker = sequence.images_dir / f"{scene_id}_f{i}.prompt"
+    web_path = f"/static/projects/{script_id}/images/{filename}"
+
+    # --- Subtitle frames: no image generation ---
+    if directive.source == "subtitle":
+        return _FramePlan(i, local_path, prompt_marker, web_path, directive.prompt, directive.prompt, None, None, subtitle=True)
+
+    directive_prompt = directive.prompt or directive.search_query
+
+    # --- AI-generated frames ---
+    # Per-frame contains_person: check directive first, fall back to scene-level
+    frame_has_person = directive.contains_person or sequence.contains_person
+
+    # Resolve character reference for this frame's person flag.
+    reference_image_path, character_text = _resolve_character_reference(
+        script_id=script_id,
+        contains_person=frame_has_person,
+        eli_enabled=sequence.eli_enabled,
+        main_character_reference_url=sequence.main_character_url,
+        main_character=sequence.main_character_obj,
+    )
+
+    use_reference = (
+        directive.reference_previous
+        and prev_frame_path is not None
+        and prev_frame_path.exists()
+    )
+    use_style_anchor = (
+        not directive.reference_previous
+        and total_frames > 1
+        and prev_frame_path is not None
+        and prev_frame_path.exists()
+    )
+
+    if use_reference:
+        # Kontext-optimized: edit instruction referencing the input image
+        parts: list[str] = []
+        if _VISUAL_STYLE:
+            parts.append(_VISUAL_STYLE)
+        parts.append(_FULL_BLEED_IMAGE_GUARD)
+        if visual_prompt.strip():
+            parts.append(f"Shared scene brief for the whole continuous sequence:\n{visual_prompt.strip()}")
+        parts.append(
+            f"This is image {i + 1} of {total_frames} in an animation sequence. "
+            f"Using the input image as the previous frame reference, progress the scene by changing ONLY the following: "
+            f"{directive_prompt}\n"
+            f"Maintain identical style, background, composition, character design, "
+            f"and color palette. Only the described action should change."
+        )
+        if character_text:
+            parts.append(character_text)
+        prompt = "\n\n".join(parts)
+    else:
+        # Independent sequence images may change subject/composition, but use
+        # the previous generated image as a visual style anchor when present.
+        parts = []
+        if _VISUAL_STYLE:
+            parts.append(_VISUAL_STYLE)
+        parts.append(_FULL_BLEED_IMAGE_GUARD)
+        if total_frames > 1:
+            parts.append(_SEQUENCE_CONSISTENCY_PROMPT)
+            if visual_prompt.strip():
+                parts.append(f"Shared scene brief for the whole sequence:\n{visual_prompt.strip()}")
+        if use_style_anchor:
+            parts.append(
+                "Use the input image as a visual style anchor only: match its line weight, flat-color rendering, "
+                "palette discipline, character proportions, and overall cartoon finish. "
+                "Do not copy its exact subject or layout; create the new requested image content below."
+            )
+        if guide and guide != directive_prompt:
+            parts.append(f"Scene context: {guide}\n\nThis specific image:")
+        parts.append(directive_prompt)
+        if character_text:
+            parts.append(character_text)
+        prompt = "\n\n".join(parts)
+
+    # Append reference path + mtime for cache invalidation when reference changes
+    if reference_image_path:
+        try:
+            mtime = int(Path(reference_image_path).stat().st_mtime)
+            prompt += f"\n[char_ref:{reference_image_path}:{mtime}]"
+        except OSError:
+            pass
+
+    effective_style_reference_path = (
+        None if (use_reference or use_style_anchor) else sequence.style_reference_path
+    )
+    if effective_style_reference_path:
+        try:
+            mtime = int(Path(effective_style_reference_path).stat().st_mtime)
+            prompt += f"\n[style_ref:{effective_style_reference_path}:{mtime}]"
+        except OSError:
+            pass
+
+    if use_reference or use_style_anchor:
+        try:
+            anchor_kind = "reference_previous" if use_reference else "style_anchor"
+            mtime = prev_frame_path.stat().st_mtime_ns if prev_frame_path else 0
+            prompt += f"\n[{anchor_kind}:{prev_frame_path}:{mtime}]"
+        except OSError:
+            pass
+
+    # reference_previous wins for animation continuity; independent sequence
+    # images may still use the previous output as a style-only anchor.
+    ref_path = str(prev_frame_path) if (use_reference or use_style_anchor) else reference_image_path
+    return _FramePlan(
+        index=i,
+        local_path=local_path,
+        prompt_marker=prompt_marker,
+        web_path=web_path,
+        prompt=prompt,
+        directive_prompt=directive_prompt,
+        reference_image_path=ref_path,
+        style_reference_path=effective_style_reference_path,
+    )
+
+
+def _frame_cache_hit(plan: _FramePlan) -> bool:
+    return plan.local_path.exists() and plan.prompt_marker.exists() and _marker_matches(plan.prompt_marker, plan.prompt)
+
+
 def generate_scene_frames_v2(
     scene_id: str,
     frame_directives: list[dict],
@@ -1910,184 +2130,43 @@ def generate_scene_frames_v2(
 
     Returns list of (web_path, prompt, source metadata) tuples. Empty string web_path for subtitle frames.
     """
-    from models.script import FrameDirective as FrameDirectiveModel
-
-    prompt_parts = [visual_prompt]
-    for directive in frame_directives:
-        if isinstance(directive, dict):
-            prompt_parts.append(str(directive.get("prompt") or ""))
-            prompt_parts.append(str(directive.get("search_query") or ""))
-        elif hasattr(directive, "prompt"):
-            prompt_parts.append(str(getattr(directive, "prompt") or ""))
-            prompt_parts.append(str(getattr(directive, "search_query", "") or ""))
-    _raise_for_caption_text_prompt_leak(prompt_parts, scene_id=scene_id)
-
-    guide = style_guide if style_guide else _STYLE_GUIDE
-    images_dir = DATA_DIR / "projects" / script_id / "images"
-    images_dir.mkdir(parents=True, exist_ok=True)
-
-    eli_enabled, main_character_url, main_character_obj = _load_project_character_context(script_id)
-    _ensure_project_character_reference_ready(
-        script_id=script_id,
-        eli_enabled=eli_enabled,
-        main_character_reference_url=main_character_url,
-        main_character=main_character_obj,
+    sequence = _prepare_frame_sequence(
+        scene_id, frame_directives, script_id, visual_prompt, style_guide, contains_person
     )
-
-    project_style_enabled = _load_project_style_enabled(script_id)
-    style_reference_path = _resolve_style_preset(
-        eli_enabled=eli_enabled,
-        project_style_enabled=project_style_enabled,
-    )
-
-    total_frames = len(frame_directives)
-    logger.info("Generating %d frames (v2) for scene %s", total_frames, scene_id)
+    logger.info("Generating %d frames (v2) for scene %s", len(sequence.directives), scene_id)
     results: list[tuple[str, str, dict[str, object] | None]] = []
     prev_frame_path: Path | None = None
 
-    for i, raw_directive in enumerate(frame_directives):
-        # Validate directive
-        directive = FrameDirectiveModel.model_validate(raw_directive)
-
-        filename = f"{scene_id}_f{i}.png"
-        local_path = images_dir / filename
-        prompt_marker = images_dir / f"{scene_id}_f{i}.prompt"
-        web_path = f"/static/projects/{script_id}/images/{filename}"
-
-        # --- Subtitle frames: no image generation ---
-        if directive.source == "subtitle":
-            results.append(("", directive.prompt, None))
+    for i in range(len(sequence.directives)):
+        plan = _plan_sequence_frame(sequence, i, prev_frame_path)
+        if plan.subtitle:
+            results.append(("", plan.prompt, None))
             # Don't update prev_frame_path — subtitles can't be references
             continue
 
-        directive_prompt = directive.prompt or directive.search_query
-
-        # --- AI-generated frames ---
-        # Per-frame contains_person: check directive first, fall back to scene-level
-        frame_has_person = directive.contains_person or contains_person
-
-        # Resolve character reference for this frame's person flag.
-        reference_image_path, character_text = _resolve_character_reference(
-            script_id=script_id,
-            contains_person=frame_has_person,
-            eli_enabled=eli_enabled,
-            main_character_reference_url=main_character_url,
-            main_character=main_character_obj,
-        )
-
-        use_reference = (
-            directive.reference_previous
-            and prev_frame_path is not None
-            and prev_frame_path.exists()
-        )
-        use_style_anchor = (
-            not directive.reference_previous
-            and total_frames > 1
-            and prev_frame_path is not None
-            and prev_frame_path.exists()
-        )
-
-        if use_reference:
-            # Kontext-optimized: edit instruction referencing the input image
-            parts: list[str] = []
-            if _VISUAL_STYLE:
-                parts.append(_VISUAL_STYLE)
-            parts.append(_FULL_BLEED_IMAGE_GUARD)
-            if visual_prompt.strip():
-                parts.append(f"Shared scene brief for the whole continuous sequence:\n{visual_prompt.strip()}")
-            parts.append(
-                f"This is image {i + 1} of {total_frames} in an animation sequence. "
-                f"Using the input image as the previous frame reference, progress the scene by changing ONLY the following: "
-                f"{directive_prompt}\n"
-                f"Maintain identical style, background, composition, character design, "
-                f"and color palette. Only the described action should change."
-            )
-            if character_text:
-                parts.append(character_text)
-            prompt = "\n\n".join(parts)
-        else:
-            # Independent sequence images may change subject/composition, but use
-            # the previous generated image as a visual style anchor when present.
-            parts: list[str] = []
-            if _VISUAL_STYLE:
-                parts.append(_VISUAL_STYLE)
-            parts.append(_FULL_BLEED_IMAGE_GUARD)
-            if total_frames > 1:
-                parts.append(_SEQUENCE_CONSISTENCY_PROMPT)
-                if visual_prompt.strip():
-                    parts.append(f"Shared scene brief for the whole sequence:\n{visual_prompt.strip()}")
-            if use_style_anchor:
-                parts.append(
-                    "Use the input image as a visual style anchor only: match its line weight, flat-color rendering, "
-                    "palette discipline, character proportions, and overall cartoon finish. "
-                    "Do not copy its exact subject or layout; create the new requested image content below."
-                )
-            if guide and guide != directive_prompt:
-                parts.append(f"Scene context: {guide}\n\nThis specific image:")
-            parts.append(directive_prompt)
-            if character_text:
-                parts.append(character_text)
-            prompt = "\n\n".join(parts)
-
-        # Append reference path + mtime for cache invalidation when reference changes
-        if reference_image_path:
-            try:
-                mtime = int(Path(reference_image_path).stat().st_mtime)
-                prompt += f"\n[char_ref:{reference_image_path}:{mtime}]"
-            except OSError:
-                pass
-
-        effective_style_reference_path = (
-            None if (use_reference or use_style_anchor) else style_reference_path
-        )
-        if effective_style_reference_path:
-            try:
-                mtime = int(Path(effective_style_reference_path).stat().st_mtime)
-                prompt += f"\n[style_ref:{effective_style_reference_path}:{mtime}]"
-            except OSError:
-                pass
-
-        if use_reference or use_style_anchor:
-            try:
-                anchor_kind = "reference_previous" if use_reference else "style_anchor"
-                mtime = prev_frame_path.stat().st_mtime_ns if prev_frame_path else 0
-                prompt += f"\n[{anchor_kind}:{prev_frame_path}:{mtime}]"
-            except OSError:
-                pass
-
         # Cache check
-        if not force and local_path.exists() and prompt_marker.exists():
-            if _marker_matches(prompt_marker, prompt):
-                results.append((web_path, prompt, _read_source_metadata(local_path)))
-                prev_frame_path = local_path
-                continue
-
-        # reference_previous wins for animation continuity; independent sequence
-        # images may still use the previous output as a style-only anchor.
-        if use_reference:
-            ref_path = str(prev_frame_path)
-        elif use_style_anchor:
-            ref_path = str(prev_frame_path)
-        else:
-            ref_path = reference_image_path
+        if not force and _frame_cache_hit(plan):
+            results.append((plan.web_path, plan.prompt, _read_source_metadata(plan.local_path)))
+            prev_frame_path = plan.local_path
+            continue
 
         tmp_path = generate_image(
-            prompt,
+            plan.prompt,
             width=width,
             height=height,
-            reference_image_path=ref_path,
-            original_prompt=directive_prompt,
-            style_reference_path=effective_style_reference_path,
+            reference_image_path=plan.reference_image_path,
+            original_prompt=plan.directive_prompt,
+            style_reference_path=plan.style_reference_path,
             script_id=script_id,
         )
-        metadata = _move_generated_image(tmp_path, local_path, {
+        metadata = _move_generated_image(tmp_path, plan.local_path, {
             "source_type": "ai_generated",
             "provider": provider_fingerprint(),
             "fallback": False,
         })
-        prompt_marker.write_text(_marker_payload(prompt), encoding="utf-8")
-        results.append((web_path, prompt, metadata))
-        prev_frame_path = local_path
+        plan.prompt_marker.write_text(_marker_payload(plan.prompt), encoding="utf-8")
+        results.append((plan.web_path, plan.prompt, metadata))
+        prev_frame_path = plan.local_path
 
     return results
 
@@ -2419,6 +2498,91 @@ def _prepare_google_batch_scene(
     return request, None, local_path, prompt_marker
 
 
+_SEQUENCE_BATCH_MODES = {"full_frame", "multi_frame", "continuous"}
+
+
+def _is_google_batch_sequence(scene: dict[str, object]) -> bool:
+    """A multi-directive frame sequence, batched one frame per round.
+
+    Frame k anchors on frame k-1, so a sequence cannot go into one batch job; but
+    every sequence's frame k can share a job, which keeps the frames identical to
+    the one-at-a-time path at half the price.
+    """
+    if _google_batch_visual_mode(scene) not in _SEQUENCE_BATCH_MODES:
+        return False
+    if scene.get("frame_prompts"):
+        return False
+    return bool(scene.get("frame_directives")) and single_image_directive(scene) is None
+
+
+@dataclass
+class _SequenceBatchRun:
+    """One scene's frames as they come back from successive batch rounds."""
+
+    scene_id: str
+    sequence: _FrameSequence
+    next_index: int = 0
+    prev_frame_path: Path | None = None
+    frames: list = field(default_factory=list)
+    pending: _FramePlan | None = None
+    error: str | None = None
+    done: bool = False
+
+    def frame_key(self, index: int) -> str:
+        return f"{self.scene_id}::f{index}"
+
+    def advance(self) -> _FramePlan | None:
+        """Return the next frame needing generation, or None once the scene is finished."""
+        if self.error:
+            self.done = True
+            return None
+        while self.next_index < len(self.sequence.directives):
+            plan = _plan_sequence_frame(self.sequence, self.next_index, self.prev_frame_path)
+            if plan.subtitle:
+                self.frames.append(("", plan.prompt, None))
+                self.next_index += 1
+                continue
+            if _frame_cache_hit(plan):
+                self.frames.append((plan.web_path, plan.prompt, _read_source_metadata(plan.local_path)))
+                self.prev_frame_path = plan.local_path
+                self.next_index += 1
+                continue
+            self.pending = plan
+            return plan
+        self.done = True
+        return None
+
+    def complete_pending(self, image_path: str) -> None:
+        plan = self.pending
+        assert plan is not None
+        metadata = _move_generated_image(image_path, plan.local_path, {
+            "source_type": "ai_generated",
+            "provider": provider_fingerprint(),
+            "batch": True,
+            "fallback": False,
+        })
+        plan.prompt_marker.write_text(_marker_payload(plan.prompt), encoding="utf-8")
+        self.frames.append((plan.web_path, plan.prompt, metadata))
+        self.prev_frame_path = plan.local_path
+        self.next_index += 1
+        self.pending = None
+
+    def result(self) -> dict[str, object]:
+        self.done = True
+        if self.error:
+            return {"scene_id": self.scene_id, "image_url": None, "prompt_used": None, "error": self.error}
+        frame_urls = [url for url, _, _ in self.frames]
+        return {
+            "scene_id": self.scene_id,
+            "image_url": next((url for url in frame_urls if url), None),
+            "frame_urls": frame_urls,
+            "video_url": "",
+            "prompt_used": self.frames[0][1] if self.frames else None,
+            "visual_source_metadata": next((metadata for url, _, metadata in self.frames if url and metadata), None),
+            "error": None,
+        }
+
+
 def generate_batch_with_google_batch(
     scenes: list[dict[str, object]],
     script_id: str,
@@ -2428,11 +2592,17 @@ def generate_batch_with_google_batch(
     on_scene_done: Callable[[int, int], None] | None = None,
     should_cancel: Callable[[], bool] | None = None,
 ) -> list[dict[str, object]]:
-    """Generate full-project images using Google Batch for eligible independent images.
+    """Generate full-project images through Google Batch, in rounds.
 
-    `should_cancel()` gates the two long phases; the Google Batch poll itself
+    Round 1 carries every independent single image plus frame 0 of every frame
+    sequence; each later round carries the next frame of every unfinished
+    sequence, anchored on the frame the previous round produced. Cached and
+    subtitle frames are skipped without a request, so a rerun only pays for what
+    is missing. Anything Batch cannot express goes to the standard path.
+
+    `should_cancel()` is checked before each round; the Google Batch poll itself
     is not interruptible once started, so a cancel during it takes effect only
-    when that call returns. It must be side-effect-free and idempotent.
+    when that round returns. It must be side-effect-free and idempotent.
     """
     results_by_scene: dict[str, dict[str, object]] = {}
 
@@ -2451,11 +2621,30 @@ def generate_batch_with_google_batch(
         except Exception:
             logger.exception("Batch image progress callback failed; continuing")
     standard_scenes: list[dict[str, object]] = []
-    batch_requests: list[GoogleBatchImageRequest] = []
+    single_requests: list[GoogleBatchImageRequest] = []
     output_paths: dict[str, tuple[Path, Path, str]] = {}
+    sequences: list[_SequenceBatchRun] = []
 
     for scene in scenes:
         scene_id = str(scene["scene_id"])
+        if _is_google_batch_sequence(scene):
+            try:
+                sequences.append(_SequenceBatchRun(
+                    scene_id=scene_id,
+                    sequence=_prepare_frame_sequence(
+                        scene_id,
+                        list(scene.get("frame_directives") or []),
+                        script_id,
+                        str(scene.get("visual_prompt") or ""),
+                        style_guide,
+                        bool(scene.get("contains_person", False)),
+                    ),
+                ))
+            except Exception as exc:
+                logger.error("Google batch planning failed for scene %s: %s", scene_id, exc, exc_info=True)
+                results_by_scene[scene_id] = {"scene_id": scene_id, "image_url": None, "prompt_used": None, "error": str(exc)}
+                _tick()
+            continue
         if not _is_google_batch_eligible(scene):
             standard_scenes.append(scene)
             continue
@@ -2478,7 +2667,7 @@ def generate_batch_with_google_batch(
             _tick()
             continue
         if request and local_path and prompt_marker:
-            batch_requests.append(request)
+            single_requests.append(request)
             output_paths[scene_id] = (
                 local_path,
                 prompt_marker,
@@ -2486,14 +2675,63 @@ def generate_batch_with_google_batch(
             )
 
     logger.info(
-        "Google image batch plan for script %s: %d eligible, %d standard",
-        script_id, len(batch_requests), len(standard_scenes),
+        "Google image batch plan for script %s: %d single image(s), %d frame sequence(s), %d standard",
+        script_id, len(single_requests), len(sequences), len(standard_scenes),
     )
-    if batch_requests and not _cancelled():
-        batch_results = generate_images_batch(requests=batch_requests, script_id=script_id)
+    aspect_ratio = _closest_aspect_ratio(width, height)
+
+    def _finish_sequence(run: _SequenceBatchRun) -> None:
+        results_by_scene[run.scene_id] = run.result()
+        _tick()
+
+    def _advance_sequences() -> list[GoogleBatchImageRequest]:
+        """Walk each sequence past cached and subtitle frames to its next real request."""
+        frame_requests: list[GoogleBatchImageRequest] = []
+        for run in sequences:
+            if run.done:
+                continue
+            try:
+                plan = run.advance()
+            except Exception as exc:
+                logger.error("Google batch frame planning failed for scene %s: %s", run.scene_id, exc, exc_info=True)
+                run.error = str(exc)
+                plan = None
+            if plan is None:
+                _finish_sequence(run)
+                continue
+            frame_requests.append(GoogleBatchImageRequest(
+                key=run.frame_key(plan.index),
+                prompt=plan.prompt,
+                aspect_ratio=aspect_ratio,
+                reference_image_path=plan.reference_image_path,
+                style_reference_path=plan.style_reference_path,
+            ))
+        return frame_requests
+
+    round_number = 0
+    pending_frames = _advance_sequences()
+    while (single_requests or pending_frames) and not _cancelled():
+        round_number += 1
+        round_requests = [*single_requests, *pending_frames]
+        logger.info(
+            "Google image batch round %d for script %s: %d single image(s), %d sequence frame(s)",
+            round_number, script_id, len(single_requests), len(pending_frames),
+        )
+        batch_results = generate_images_batch(requests=round_requests, script_id=script_id)
+        prompts_by_key = {request.key: request.prompt for request in round_requests}
+        runs_by_key = {run.frame_key(run.pending.index): run for run in sequences if run.pending is not None}
         for batch_result in batch_results:
+            run = runs_by_key.get(batch_result.key)
+            if run is not None:
+                if batch_result.error or not batch_result.image_path:
+                    run.error = batch_result.error or "Google Batch returned no image"
+                    run.pending = None
+                    _finish_sequence(run)
+                else:
+                    run.complete_pending(batch_result.image_path)
+                continue
             local_path, prompt_marker, web_path = output_paths[batch_result.key]
-            prompt = next(request.prompt for request in batch_requests if request.key == batch_result.key)
+            prompt = prompts_by_key[batch_result.key]
             if batch_result.error or not batch_result.image_path:
                 results_by_scene[batch_result.key] = {
                     "scene_id": batch_result.key,
@@ -2520,6 +2758,8 @@ def generate_batch_with_google_batch(
                 "error": None,
             }
             _tick()
+        single_requests = []
+        pending_frames = _advance_sequences()
 
     for result in generate_batch(
         standard_scenes,

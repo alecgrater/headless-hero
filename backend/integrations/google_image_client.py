@@ -186,66 +186,94 @@ def generate_images_batch(
 
     The Batch API is asynchronous and discounted, so this helper submits inline
     generateContent requests, polls to a terminal state, and writes each returned
-    image to a temp PNG path.
+    image to a temp PNG path. Requests are split into chunks under the inline size
+    limit; every chunk is submitted before any is polled, because waiting on them
+    one after another stacked a ~2 minute queue per chunk (about 7 chunks for a
+    video's reference-carrying scene images). A chunk that fails reports its own
+    requests as errors so the other chunks' paid-for images are kept; the call
+    raises only when every chunk failed.
     """
     if not requests:
         return []
     client = client or get_google_client()
-    all_results: list[GoogleBatchImageResult] = []
+    model = active_image_model()
     request_chunks = _chunk_batch_requests(requests)
-    for chunk_index, request_chunk in enumerate(request_chunks):
-        chunk_results = _generate_images_batch_chunk(
+    job_names = [
+        _create_batch_job(
             client=client,
-            requests=request_chunk,
+            requests=chunk,
+            model=model,
             script_id=script_id,
-            poll_interval_seconds=poll_interval_seconds,
-            timeout_seconds=timeout_seconds,
-            chunk_index=chunk_index,
+            chunk_index=index,
             chunk_count=len(request_chunks),
         )
-        all_results.extend(chunk_results)
+        for index, chunk in enumerate(request_chunks)
+    ]
+
+    deadline = time.monotonic() + timeout_seconds
+    finished: dict[int, object] = {}
+    while True:
+        for index, job_name in enumerate(job_names):
+            if index in finished:
+                continue
+            batch_job = client.batches.get(name=job_name)
+            if _state_name(batch_job) in BATCH_TERMINAL_STATES:
+                finished[index] = batch_job
+        if len(finished) == len(job_names):
+            break
+        if time.monotonic() >= deadline:
+            pending = [name for index, name in enumerate(job_names) if index not in finished]
+            raise RuntimeError(f"Google image batch timed out before completion: {', '.join(pending)}")
+        time.sleep(poll_interval_seconds)
+
+    all_results: list[GoogleBatchImageResult] = []
+    failures: list[str] = []
+    for index, chunk in enumerate(request_chunks):
+        batch_job = finished[index]
+        state = _state_name(batch_job)
+        if state != "JOB_STATE_SUCCEEDED":
+            error = _get_attr_or_key(batch_job, "error")
+            message = f"Google image batch failed ({state}): {error or job_names[index]}"
+            logger.error(message)
+            failures.append(message)
+            all_results.extend(GoogleBatchImageResult(key=request.key, error=message) for request in chunk)
+            continue
+        all_results.extend(_collect_batch_results(batch_job, chunk, model=model, script_id=script_id))
+    if len(failures) == len(request_chunks):
+        raise RuntimeError(failures[0])
     return all_results
 
 
-def _generate_images_batch_chunk(
+def _create_batch_job(
     *,
     client: genai.Client,
     requests: list[GoogleBatchImageRequest],
+    model: str,
     script_id: str | None,
-    poll_interval_seconds: float,
-    timeout_seconds: float,
     chunk_index: int,
     chunk_count: int,
-) -> list[GoogleBatchImageResult]:
+) -> str:
     display_name = f"headless-hero-images-{script_id or 'no-script'}-{int(time.time())}-{chunk_index + 1}of{chunk_count}"
     inline_requests = [_batch_request_payload(request) for request in requests]
     logger.info(
         "Creating Google image batch job for %d request(s) (script=%s, chunk=%d/%d)",
         len(requests), script_id or "none", chunk_index + 1, chunk_count,
     )
-    model = active_image_model()
     batch_job = client.batches.create(
         model=model,
         src=inline_requests,
         config={"display_name": display_name},
     )
-    job_name = getattr(batch_job, "name", None) or batch_job["name"]
-    deadline = time.monotonic() + timeout_seconds
+    return getattr(batch_job, "name", None) or batch_job["name"]
 
-    while True:
-        batch_job = client.batches.get(name=job_name)
-        state = _state_name(batch_job)
-        if state in BATCH_TERMINAL_STATES:
-            break
-        if time.monotonic() >= deadline:
-            raise RuntimeError(f"Google image batch timed out before completion: {job_name}")
-        time.sleep(poll_interval_seconds)
 
-    state = _state_name(batch_job)
-    if state != "JOB_STATE_SUCCEEDED":
-        error = _get_attr_or_key(batch_job, "error")
-        raise RuntimeError(f"Google image batch failed ({state}): {error or job_name}")
-
+def _collect_batch_results(
+    batch_job: object,
+    requests: list[GoogleBatchImageRequest],
+    *,
+    model: str,
+    script_id: str | None,
+) -> list[GoogleBatchImageResult]:
     inline_responses = _extract_inline_responses(batch_job)
     results: list[GoogleBatchImageResult] = []
     for request, inline_response in zip(requests, inline_responses):
