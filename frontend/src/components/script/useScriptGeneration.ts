@@ -354,6 +354,7 @@ export default function useScriptGeneration({ brandId, idea, supportsColdOpen = 
         brand_id: brandId,
         model: selectedModel !== DEFAULT_MODEL ? selectedModel : undefined,
         format_id: idea.format_id ?? "youtube-listicle",
+        eli_enabled: eliEnabled,
       });
       if (cancelledRef.current) return;
       if (!res.ok) {

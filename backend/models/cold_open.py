@@ -41,3 +41,5 @@ class GenerateColdOpensRequest(BaseModel):
     brand_id: str | None = None
     model: str | None = None
     format_id: str = Field(default="youtube-listicle")
+    # The idea's Eli toggle; None falls back to ELI_ENABLED_DEFAULT like script generation does.
+    eli_enabled: bool | None = None

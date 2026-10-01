@@ -1439,7 +1439,7 @@ def _generate_segmented(
                     max_segments=_LOCAL_STORY_SO_FAR_SEGMENTS if _resolve_provider("script") == "ollama" else None,
                 )
                 logger.info(
-                    "SEGMENTED: %s %d/%d prompt context ~%d chars (story so far %d chars)",
+                    "SEGMENTED: %s %d/%d prompt context >=%d chars (story so far %d chars)",
                     section_label, i + 1, len(outline["segments"]),
                     len(system_prompt) + len(story_so_far) + len(first_level_opening) + len(trailing_context)
                     + len(json.dumps(outline)) + len(segment_scenes_instructions),

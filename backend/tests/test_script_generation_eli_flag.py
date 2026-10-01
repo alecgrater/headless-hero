@@ -305,3 +305,46 @@ def test_script_generation_persists_script_rating(monkeypatch, isolated_engine):
 
     assert content.script_rating is not None
     assert content.script_rating.overall == 7.4
+
+
+@pytest.mark.parametrize("eli_enabled", [False, True])
+def test_script_brand_context_sends_eli_spec_only_when_eli_is_on(monkeypatch, isolated_engine, eli_enabled):
+    """With Eli off, the spec told the model "Eli appears throughout every video"."""
+    captured = {}
+    monkeypatch.setattr(scripts_module, "run_in_background", lambda job_id, target: target())
+
+    def fake_generate_script(**kwargs):
+        from models.script import ScriptContent, Segment
+
+        captured.update(kwargs)
+        return ScriptContent(title="t", segments=[Segment(name="seg-1", scenes=[])])
+
+    monkeypatch.setattr(scripts_module, "generate_script", fake_generate_script)
+    res = TestClient(app).post("/api/scripts/generate", json={
+        "topic": f"eli-context-{uuid.uuid4().hex}", "format_id": "life-as-a", "eli_enabled": eli_enabled,
+    })
+    assert res.status_code == 200, res.text
+    assert ("ELI — RECURRING CHARACTER" in captured["brand_context"]) is eli_enabled
+
+
+@pytest.mark.parametrize("eli_enabled", [False, True])
+def test_cold_open_brand_context_follows_the_ideas_eli_choice(monkeypatch, isolated_engine, eli_enabled):
+    from api import cold_opens as cold_opens_module
+    from models.cold_open import ColdOpenResult
+
+    captured = {}
+    monkeypatch.setattr(cold_opens_module, "run_in_background", lambda job_id, target: target())
+
+    def fake_generate_cold_opens(**kwargs):
+        captured.update(kwargs)
+        return ColdOpenResult(variants=[])
+
+    monkeypatch.setattr(cold_opens_module, "generate_cold_opens", fake_generate_cold_opens)
+    with Session(isolated_engine) as session:  # the default points the other way
+        session.add(AppSetting(key="ELI_ENABLED_DEFAULT", value="false" if eli_enabled else "true"))
+        session.commit()
+    res = TestClient(app).post("/api/scripts/cold-opens", json={
+        "topic": "Your Life As A Lighthouse Keeper", "format_id": "life-as-a", "eli_enabled": eli_enabled,
+    })
+    assert res.status_code == 200, res.text
+    assert ("ELI — RECURRING CHARACTER" in captured["brand_context"]) is eli_enabled

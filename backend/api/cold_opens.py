@@ -74,10 +74,13 @@ def generate_cold_opens_endpoint(
         body.topic, brand_id, fmt.id,
     )
 
-    # Build brand context (same pattern as api/scripts.py). The request carries no
-    # eli_enabled, so follow the project default the script request falls back to.
-    eli_setting = session.get(AppSetting, "ELI_ENABLED_DEFAULT")
-    eli_enabled = (eli_setting.value if eli_setting else "false").lower() == "true"
+    # Build brand context (same pattern as api/scripts.py), with the idea's Eli
+    # choice resolved the same way the script request resolves it.
+    if body.eli_enabled is not None:
+        eli_enabled = body.eli_enabled
+    else:
+        eli_setting = session.get(AppSetting, "ELI_ENABLED_DEFAULT")
+        eli_enabled = (eli_setting.value if eli_setting else "false").lower() == "true"
     parts = [brand.name]
     if _VISUAL_STYLE:
         parts.append(f"Visual Style:\n{_VISUAL_STYLE}")
