@@ -11,54 +11,19 @@ const ratedScript: ScriptContent = {
   format_id: "life-as-a",
   script_rating: {
     overall: 8.2,
-    model: "gpt-5.6-terra",
-    version: "2026-05-25",
-    viewer_retention: {
-      average: 8.0,
-      explanation: "Strong opening tension.",
-      criteria: {
-        hook_strength: { score: 8 },
-        curiosity_gaps: { score: 8 },
-        pacing_variance: { score: 8 },
+    model: "claude-sonnet-5-5",
+    version: "2026-09-30",
+    scores: { flow: 8, clarity: 8, human_sounding: 7, continuity: 9, format_fit: 8 },
+    problems: [
+      {
+        category: "ai_tells",
+        scene: "scene-1",
+        quote: "The job starts before sunrise.",
+        problem: "Flat opener.",
+        severity: "minor",
       },
-    },
-    narrative_quality: {
-      average: 8.0,
-      explanation: "Clear progression.",
-      criteria: {
-        coherence: { score: 8 },
-        throughline: { score: 8 },
-      },
-    },
-    script_craft: {
-      average: 8.3,
-      explanation: "Specific and economical.",
-      criteria: {
-        sentence_variety: { score: 8 },
-        specificity: { score: 9 },
-        redundancy: { score: 8 },
-        word_economy: { score: 8 },
-      },
-    },
-    audience_fit: {
-      average: 8.0,
-      explanation: "Easy to follow.",
-      criteria: {
-        assumed_knowledge_level: { score: 8 },
-        relatability: { score: 8 },
-        tone_consistency: { score: 8 },
-        emotional_range: { score: 8 },
-      },
-    },
-    seo_alignment: {
-      average: 8.0,
-      explanation: "Title and hook align.",
-      criteria: {
-        title_hook_match: { score: 8 },
-        search_intent_match: { score: 8 },
-        rewatch_value: { score: 8 },
-      },
-    },
+    ],
+    worst_problem: "A flat opener.",
   },
   segments: [
     {

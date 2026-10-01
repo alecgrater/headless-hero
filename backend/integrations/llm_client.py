@@ -295,7 +295,9 @@ LLM_TASKS: dict[str, dict[str, str]] = {
         "label": "Script rating",
         "provider_key": "SCRIPT_RATING_LLM_PROVIDER",
         "model_key": "SCRIPT_RATING_MODEL",
-        "default_provider": "openai",
+        # Claude Sonnet is the model the rating judge was calibrated on (2026-09-30);
+        # the same scorecard on terra could not detect planted defects.
+        "default_provider": "anthropic",
         "default_anthropic_model": BALANCED_CLAUDE_MODEL,
         "default_openai_model": BALANCED_OPENAI_MODEL,
         "openai_reasoning_effort": "none",

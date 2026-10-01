@@ -10,8 +10,8 @@ from models.script import (
     Script,
     ScriptContent,
     ScriptRating,
-    ScriptRatingCategory,
-    ScriptRatingCriterion,
+    ScriptRatingProblem,
+    ScriptRatingScores,
     Segment,
     UpdateScriptRequest,
     UpdateScriptTitleRequest,
@@ -20,29 +20,13 @@ from pipeline.export_paths import longform_filename, project_downloads_folder, s
 
 
 def _script_rating(overall: float = 7.4) -> ScriptRating:
-    def category(criteria: dict[str, int], average: float) -> ScriptRatingCategory:
-        return ScriptRatingCategory(
-            average=average,
-            explanation="Useful but can be sharper.",
-            criteria={key: ScriptRatingCriterion(score=value) for key, value in criteria.items()},
-        )
-
     return ScriptRating(
-        viewer_retention=category({"hook_strength": 8, "curiosity_gaps": 7, "pacing_variance": 7}, 7.3),
-        narrative_quality=category({"coherence": 7, "throughline": 6}, 6.5),
-        script_craft=category({"sentence_variety": 8, "specificity": 9, "redundancy": 7, "word_economy": 8}, 8.0),
-        audience_fit=category(
-            {
-                "assumed_knowledge_level": 8,
-                "relatability": 7,
-                "tone_consistency": 8,
-                "emotional_range": 7,
-            },
-            7.5,
-        ),
-        seo_alignment=category({"title_hook_match": 7, "search_intent_match": 6, "rewatch_value": 7}, 6.7),
         overall=overall,
-        model="gpt-5.6-terra",
+        scores=ScriptRatingScores(flow=7, clarity=8, human_sounding=6, continuity=8, format_fit=7),
+        problems=[ScriptRatingProblem(category="ai_tells", scene="scene_002", quote="a tidy closing line",
+                                      problem="Formula closer.", severity="minor")],
+        worst_problem="One formula closer.",
+        model="claude-sonnet-5-5",
     )
 
 

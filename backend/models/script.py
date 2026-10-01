@@ -394,32 +394,41 @@ class MainCharacter(BaseModel):
     vibe: str = ""
 
 
-class ScriptRatingCriterion(BaseModel):
-    """A single 1-10 script rating criterion."""
+ScriptRatingCategoryKey = Literal[
+    "continuity_errors", "unintroduced_references", "bumpy_transitions", "ai_tells",
+    "read_aloud_problems", "standalone_violations", "voice_violations",
+]
 
-    score: int = PydanticField(ge=1, le=10)
-    note: str = ""
+
+class ScriptRatingProblem(BaseModel):
+    """One concrete problem, quoted verbatim from the narration."""
+
+    category: ScriptRatingCategoryKey
+    scene: str = ""
+    quote: str
+    problem: str
+    severity: Literal["major", "minor"] = "minor"
 
 
-class ScriptRatingCategory(BaseModel):
-    """A weighted script-rating category with criterion-level scores."""
+class ScriptRatingScores(BaseModel):
+    """1-10 scores; 10 = a strong human writer would ship it, 5 = noticeably flawed."""
 
-    average: float
-    explanation: str
-    criteria: dict[str, ScriptRatingCriterion]
+    flow: int = PydanticField(ge=1, le=10)
+    clarity: int = PydanticField(ge=1, le=10)
+    human_sounding: int = PydanticField(ge=1, le=10)
+    continuity: int = PydanticField(ge=1, le=10)
+    format_fit: int = PydanticField(ge=1, le=10)
 
 
 class ScriptRating(BaseModel):
-    """Full-script quality scorecard generated after script creation."""
+    """Full-script quality review: quoted problems plus the scores they justify."""
 
-    viewer_retention: ScriptRatingCategory
-    narrative_quality: ScriptRatingCategory
-    script_craft: ScriptRatingCategory
-    audience_fit: ScriptRatingCategory
-    seo_alignment: ScriptRatingCategory
-    overall: float
+    overall: float = PydanticField(ge=1, le=10)
+    scores: ScriptRatingScores
+    problems: list[ScriptRatingProblem] = PydanticField(default_factory=list)
+    worst_problem: str = ""
     model: str = ""
-    version: str = "2026-05-25"
+    version: str = "2026-09-30"
 
 
 class ScriptContent(BaseModel):
@@ -441,7 +450,7 @@ class ScriptContent(BaseModel):
     seo_metadata: dict | None = None      # Generated SEO metadata (title, description, tags)
     short_form_seo_metadata: dict | None = None  # Generated per-short metadata for Shorts/TikTok/Reels
     hook_score: dict | None = None        # 30-second hook retention score (HookScore dict)
-    script_rating: ScriptRating | None = None  # Full-script 1-10 quality scorecard
+    script_rating: ScriptRating | None = None  # Full-script quality review (quoted problems + scores)
     hook_scene_count: int | None = None  # Number of leading scenes in segment 0 that are hook teasers; skipped from short #1
     # --- Media source routing ---
     ai_video_enabled: bool = False
@@ -453,6 +462,18 @@ class ScriptContent(BaseModel):
     format_id: str = "youtube-listicle"
     cinematic_thumbnail_prompt: str | None = None
     levels: list[LevelMeta] | None = None
+
+    @field_validator("script_rating", mode="before")
+    @classmethod
+    def drop_retired_scorecard(_cls, value: object) -> object:
+        """Pre-2026-09-30 ratings were a category scorecard that could not detect defects.
+
+        They carry no `scores` key; dropping them shows "not rated" instead of failing
+        to load the whole project.
+        """
+        if isinstance(value, dict) and "scores" not in value:
+            return None
+        return value
 
     def all_scenes(self) -> list["Scene"]:
         """Flatten all scenes from all segments in order."""

@@ -250,34 +250,12 @@ def test_script_generation_persists_script_rating(monkeypatch, isolated_engine):
     monkeypatch.setattr(scripts_module, "generate_script", fake_generate_script)
 
     def fake_rate_script(content, *, script_id=None):
-        from models.script import ScriptRating, ScriptRatingCategory, ScriptRatingCriterion
-
-        def category(criteria, average):
-            return ScriptRatingCategory(
-                average=average,
-                explanation="Useful but can be sharper.",
-                criteria={key: ScriptRatingCriterion(score=value) for key, value in criteria.items()},
-            )
+        from models.script import ScriptRating, ScriptRatingScores
 
         return ScriptRating(
-            viewer_retention=category({"hook_strength": 8, "curiosity_gaps": 7, "pacing_variance": 7}, 7.3),
-            narrative_quality=category({"coherence": 7, "throughline": 6}, 6.5),
-            script_craft=category(
-                {"sentence_variety": 8, "specificity": 9, "redundancy": 7, "word_economy": 8},
-                8.0,
-            ),
-            audience_fit=category(
-                {
-                    "assumed_knowledge_level": 8,
-                    "relatability": 7,
-                    "tone_consistency": 8,
-                    "emotional_range": 7,
-                },
-                7.5,
-            ),
-            seo_alignment=category({"title_hook_match": 7, "search_intent_match": 6, "rewatch_value": 7}, 6.7),
             overall=7.4,
-            model="gpt-5.6-terra",
+            scores=ScriptRatingScores(flow=7, clarity=8, human_sounding=6, continuity=8, format_fit=7),
+            model="claude-sonnet-5-5",
         )
 
     monkeypatch.setattr(scripts_module, "rate_script", fake_rate_script)

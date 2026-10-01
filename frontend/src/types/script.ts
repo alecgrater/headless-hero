@@ -234,24 +234,36 @@ export interface ScriptSummary {
 
 // --- Script rating types ---
 
-export interface ScriptRatingCriterion {
-  score: number;
-  note?: string;
+export type ScriptRatingProblemCategory =
+  | "continuity_errors"
+  | "unintroduced_references"
+  | "bumpy_transitions"
+  | "ai_tells"
+  | "read_aloud_problems"
+  | "standalone_violations"
+  | "voice_violations";
+
+export interface ScriptRatingProblem {
+  category: ScriptRatingProblemCategory;
+  scene: string;
+  quote: string;
+  problem: string;
+  severity: "major" | "minor";
 }
 
-export interface ScriptRatingCategory {
-  average: number;
-  explanation: string;
-  criteria: Record<string, ScriptRatingCriterion>;
+export interface ScriptRatingScores {
+  flow: number;
+  clarity: number;
+  human_sounding: number;
+  continuity: number;
+  format_fit: number;
 }
 
 export interface ScriptRating {
-  viewer_retention: ScriptRatingCategory;
-  narrative_quality: ScriptRatingCategory;
-  script_craft: ScriptRatingCategory;
-  audience_fit: ScriptRatingCategory;
-  seo_alignment: ScriptRatingCategory;
   overall: number;
+  scores: ScriptRatingScores;
+  problems: ScriptRatingProblem[];
+  worst_problem: string;
   model?: string;
   version?: string;
 }

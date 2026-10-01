@@ -30,130 +30,101 @@ def _content() -> ScriptContent:
     )
 
 
-def _rating_payload() -> dict:
-    return {
-        "viewer_retention": {
-            "criteria": {
-                "hook_strength": {"score": 8, "note": "Clear promise."},
-                "curiosity_gaps": {"score": 7, "note": "Some open loops."},
-                "pacing_variance": {"score": 7, "note": "Could vary rhythm."},
-            },
-            "explanation": "The opening has a concrete promise, but the middle can add sharper turns.",
-        },
-        "narrative_quality": {
-            "criteria": {
-                "coherence": {"score": 7, "note": "Easy to follow."},
-                "throughline": {"score": 6, "note": "Theme is present but light."},
-            },
-            "explanation": "The argument is coherent, but callbacks should carry the thesis harder.",
-        },
-        "script_craft": {
-            "criteria": {
-                "sentence_variety": {"score": 8, "note": "Good mix."},
-                "specificity": {"score": 9, "note": "Strong images."},
-                "redundancy": {"score": 7, "note": "Minor repeats."},
-                "word_economy": {"score": 8, "note": "Mostly lean."},
-            },
-            "explanation": "The writing is specific and efficient with only a few repeated moves.",
-        },
-        "audience_fit": {
-            "criteria": {
-                "assumed_knowledge_level": {"score": 8, "note": "Accessible."},
-                "relatability": {"score": 7, "note": "Familiar examples."},
-                "tone_consistency": {"score": 8, "note": "Stable tone."},
-                "emotional_range": {"score": 7, "note": "Could broaden stakes."},
-            },
-            "explanation": "The script fits a broad audience while leaving room for more emotional contrast.",
-        },
-        "seo_alignment": {
-            "criteria": {
-                "title_hook_match": {"score": 7, "note": "Mostly aligned."},
-                "search_intent_match": {"score": 6, "note": "Needs clearer query fit."},
-                "rewatch_value": {"score": 7, "note": "Useful takeaways."},
-            },
-            "explanation": "The title and hook match, but search intent could be more explicit.",
-        },
+def _rating_payload(**overrides) -> dict:
+    payload = {
+        "continuity_errors": [],
+        "unintroduced_references": [],
+        "bumpy_transitions": [],
+        "ai_tells": [{"scene": "scene-2", "quote": "why old games still teach modern designers",
+                      "problem": "Tidy thesis line.", "severity": "minor"}],
+        "read_aloud_problems": [],
+        "standalone_violations": [{"scene": "scene-2", "quote": "next time we will cover arcades",
+                                   "problem": "Invented line.", "severity": "major"}],
+        "voice_violations": [],
+        "scores": {"flow": 7, "clarity": 8, "human_sounding": 6, "continuity": 8, "format_fit": 7, "overall": 7},
+        "worst_problem": "The closing line states the thesis outright.",
     }
+    payload.update(overrides)
+    return payload
 
 
-def test_script_rating_round_trips_on_script_content():
+def _narration() -> str:
+    from pipeline.script_rating import _narration_payload
+
+    return _narration_payload(_content())
+
+
+def test_review_keeps_only_quotes_that_are_in_the_narration():
     from pipeline.script_rating import parse_script_rating_response
 
-    rating = parse_script_rating_response(json.dumps(_rating_payload()), model="gpt-5.6-terra")
+    rating = parse_script_rating_response(json.dumps(_rating_payload()), narration=_narration(), model="claude-sonnet-5-5")
+
+    assert rating.overall == 7
+    assert rating.scores.human_sounding == 6
+    assert [p.category for p in rating.problems] == ["ai_tells"], "the invented quote must be dropped"
+    assert rating.worst_problem.startswith("The closing line")
+
+
+def test_major_problems_sort_first():
+    from pipeline.script_rating import parse_script_rating_response
+
+    payload = _rating_payload(standalone_violations=[{"scene": "scene-1", "quote": "a cartridge clicks into place",
+                                                      "problem": "x", "severity": "major"}])
+    rating = parse_script_rating_response(json.dumps(payload), narration=_narration(), model="m")
+    assert [p.severity for p in rating.problems] == ["major", "minor"]
+
+
+def test_review_round_trips_on_script_content():
+    from pipeline.script_rating import parse_script_rating_response
+
+    rating = parse_script_rating_response(json.dumps(_rating_payload()), narration=_narration(), model="m")
     content = _content().model_copy(update={"script_rating": rating})
-
     restored = ScriptContent.model_validate_json(content.model_dump_json())
-
-    assert restored.script_rating is not None
-    assert restored.script_rating.overall == 7.3
-    assert restored.script_rating.viewer_retention.average == 7.3
-    assert restored.script_rating.script_craft.average == 8.0
+    assert restored.script_rating == rating
 
 
-def test_script_rating_recomputes_model_math():
+def test_retired_scorecards_load_as_unrated():
+    # Pre-2026-09-30 ratings had category keys and no `scores`; they must not break loading.
+    data = _content().model_dump(mode="json")
+    data["script_rating"] = {"viewer_retention": {"average": 7.3}, "overall": 7.4, "model": "gpt-5.6-terra"}
+    assert ScriptContent.model_validate(data).script_rating is None
+
+
+@pytest.mark.parametrize("scores", [{"flow": 7}, {"flow": 11, "clarity": 8, "human_sounding": 6, "continuity": 8,
+                                                 "format_fit": 7, "overall": 7}])
+def test_review_rejects_missing_or_out_of_range_scores(scores):
     from pipeline.script_rating import parse_script_rating_response
 
-    payload = _rating_payload()
-    payload["overall"] = 10
-    payload["viewer_retention"]["average"] = 1
-
-    rating = parse_script_rating_response(json.dumps(payload), model="gpt-5.6-terra")
-
-    assert rating.viewer_retention.average == 7.3
-    assert rating.narrative_quality.average == 6.5
-    assert rating.seo_alignment.average == pytest.approx(6.7)
-    assert rating.overall == 7.3
+    with pytest.raises(ValueError):
+        parse_script_rating_response(json.dumps(_rating_payload(scores=scores)), narration=_narration(), model="m")
 
 
-def test_script_rating_rejects_missing_criteria():
-    from pipeline.script_rating import parse_script_rating_response
-
-    payload = _rating_payload()
-    del payload["viewer_retention"]["criteria"]["hook_strength"]
-
-    with pytest.raises(ValueError, match="hook_strength"):
-        parse_script_rating_response(json.dumps(payload), model="gpt-5.6-terra")
-
-
-def test_script_rating_rejects_out_of_range_scores():
-    from pipeline.script_rating import parse_script_rating_response
-
-    payload = _rating_payload()
-    payload["seo_alignment"]["criteria"]["search_intent_match"]["score"] = 11
-
-    with pytest.raises(ValueError, match="less than or equal to 10"):
-        parse_script_rating_response(json.dumps(payload), model="gpt-5.6-terra")
-
-
-def test_script_rating_task_defaults_to_gpt_5_mini(monkeypatch):
+def test_script_rating_task_defaults_to_the_calibrated_claude_model(monkeypatch):
     monkeypatch.delenv("SCRIPT_RATING_LLM_PROVIDER", raising=False)
     monkeypatch.delenv("SCRIPT_RATING_MODEL", raising=False)
-    monkeypatch.delenv("OPENAI_REASONING_EFFORT_SCRIPT_RATING", raising=False)
     monkeypatch.setenv("LLM_PROVIDER", "ollama")
 
-    assert _resolve_provider("script_rating") == "openai"
-    assert _resolve_model("openai", "script_rating", None) == "gpt-5.6-terra"
-    assert _resolve_openai_reasoning_effort("script_rating") == "none"
+    assert _resolve_provider("script_rating") == "anthropic"
+    assert _resolve_model("anthropic", "script_rating", None) == "claude-sonnet-5-5"
 
 
-def test_life_as_a_rating_prompt_uses_format_specific_rubric(monkeypatch):
+@pytest.mark.parametrize("format_id,expected,absent", [
+    ("life-as-a", "Literary 'Your Life As A", "for this listicle"),
+    ("youtube-listicle", "for this listicle: earlier in the SAME segment", "always an empty list"),
+])
+def test_review_prompt_uses_the_format_notes(monkeypatch, format_id, expected, absent):
     from pipeline import script_rating
 
     captured = {}
 
     def fake_chat(system: str, user: str, **kwargs):
-        captured["system"] = system
-        captured["user"] = user
+        captured.update(system=system, user=user)
         return json.dumps(_rating_payload())
 
-    content = _content().model_copy(update={"format_id": "life-as-a"})
     monkeypatch.setattr(script_rating, "chat", fake_chat)
+    script_rating.rate_script(_content().model_copy(update={"format_id": format_id}), script_id="script-123")
 
-    rating = script_rating.rate_script(content, script_id="script-123")
-
-    assert rating.overall == 7.3
-    assert "Format context: `life-as-a`" in captured["system"]
-    assert "This is not a listicle" in captured["system"]
-    assert "second-person present-tense immersion" in captured["system"]
-    assert "Level 1: Opening" in captured["user"]
-    assert "Segment 1: Opening" not in captured["user"]
+    assert captured["system"] == script_rating.JUDGE_SYSTEM
+    assert expected in captured["user"]
+    assert absent not in captured["user"]
+    assert "scene-1: A cartridge clicks into place" in captured["user"]

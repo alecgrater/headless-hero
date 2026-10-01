@@ -4,62 +4,20 @@ from models.script import (
     Script,
     ScriptContent,
     ScriptRating,
-    ScriptRatingCategory,
-    ScriptRatingCriterion,
+    ScriptRatingProblem,
+    ScriptRatingScores,
     Segment,
 )
 
 
 def _rating(overall: float = 7.4) -> ScriptRating:
     return ScriptRating(
-        viewer_retention=ScriptRatingCategory(
-            average=7.3,
-            explanation="Good hook with room for sharper curiosity gaps.",
-            criteria={
-                "hook_strength": ScriptRatingCriterion(score=8),
-                "curiosity_gaps": ScriptRatingCriterion(score=7),
-                "pacing_variance": ScriptRatingCriterion(score=7),
-            },
-        ),
-        narrative_quality=ScriptRatingCategory(
-            average=6.5,
-            explanation="Coherent, but the throughline could be stronger.",
-            criteria={
-                "coherence": ScriptRatingCriterion(score=7),
-                "throughline": ScriptRatingCriterion(score=6),
-            },
-        ),
-        script_craft=ScriptRatingCategory(
-            average=8.0,
-            explanation="Specific and economical.",
-            criteria={
-                "sentence_variety": ScriptRatingCriterion(score=8),
-                "specificity": ScriptRatingCriterion(score=9),
-                "redundancy": ScriptRatingCriterion(score=7),
-                "word_economy": ScriptRatingCriterion(score=8),
-            },
-        ),
-        audience_fit=ScriptRatingCategory(
-            average=7.5,
-            explanation="Audience fit is clear.",
-            criteria={
-                "assumed_knowledge_level": ScriptRatingCriterion(score=8),
-                "relatability": ScriptRatingCriterion(score=7),
-                "tone_consistency": ScriptRatingCriterion(score=8),
-                "emotional_range": ScriptRatingCriterion(score=7),
-            },
-        ),
-        seo_alignment=ScriptRatingCategory(
-            average=6.7,
-            explanation="Search intent can be more direct.",
-            criteria={
-                "title_hook_match": ScriptRatingCriterion(score=7),
-                "search_intent_match": ScriptRatingCriterion(score=6),
-                "rewatch_value": ScriptRatingCriterion(score=7),
-            },
-        ),
         overall=overall,
-        model="gpt-5.6-terra",
+        scores=ScriptRatingScores(flow=7, clarity=8, human_sounding=6, continuity=8, format_fit=7),
+        problems=[ScriptRatingProblem(category="ai_tells", scene="scene_002", quote="a tidy closing line",
+                                      problem="Formula closer.", severity="minor")],
+        worst_problem="One formula closer.",
+        model="claude-sonnet-5-5",
     )
 
 

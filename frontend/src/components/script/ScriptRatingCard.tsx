@@ -1,73 +1,29 @@
-import type { ScriptRating, ScriptRatingCategory } from "../../types/script";
+import { useState } from "react";
+import type { ScriptRating, ScriptRatingProblemCategory, ScriptRatingScores } from "../../types/script";
 
 interface Props {
   rating: ScriptRating | null | undefined;
 }
 
-const CATEGORIES: {
-  key: keyof Pick<ScriptRating, "viewer_retention" | "narrative_quality" | "script_craft" | "audience_fit" | "seo_alignment">;
-  label: string;
-  weight: string;
-  color: string;
-  criteria: { key: string; label: string }[];
-}[] = [
-  {
-    key: "viewer_retention",
-    label: "Viewer Retention",
-    weight: "30%",
-    color: "bg-violet-500",
-    criteria: [
-      { key: "hook_strength", label: "hook" },
-      { key: "curiosity_gaps", label: "curiosity" },
-      { key: "pacing_variance", label: "pacing" },
-    ],
-  },
-  {
-    key: "narrative_quality",
-    label: "Narrative Quality",
-    weight: "15%",
-    color: "bg-sky-500",
-    criteria: [
-      { key: "coherence", label: "coherence" },
-      { key: "throughline", label: "throughline" },
-    ],
-  },
-  {
-    key: "script_craft",
-    label: "Script Craft",
-    weight: "25%",
-    color: "bg-emerald-500",
-    criteria: [
-      { key: "sentence_variety", label: "variety" },
-      { key: "specificity", label: "specificity" },
-      { key: "redundancy", label: "redundancy" },
-      { key: "word_economy", label: "economy" },
-    ],
-  },
-  {
-    key: "audience_fit",
-    label: "Audience Fit",
-    weight: "20%",
-    color: "bg-amber-500",
-    criteria: [
-      { key: "assumed_knowledge_level", label: "knowledge" },
-      { key: "relatability", label: "relatability" },
-      { key: "tone_consistency", label: "tone" },
-      { key: "emotional_range", label: "emotion" },
-    ],
-  },
-  {
-    key: "seo_alignment",
-    label: "SEO Alignment",
-    weight: "10%",
-    color: "bg-rose-500",
-    criteria: [
-      { key: "title_hook_match", label: "title" },
-      { key: "search_intent_match", label: "intent" },
-      { key: "rewatch_value", label: "rewatch" },
-    ],
-  },
+const SCORES: { key: keyof ScriptRatingScores; label: string; hint: string }[] = [
+  { key: "flow", label: "Flow", hint: "Does each line follow from the one before when heard as one voiceover?" },
+  { key: "clarity", label: "Clarity", hint: "Is every person, term, and idea introduced before it is used?" },
+  { key: "human_sounding", label: "Sounds human", hint: "Free of formula lines, reused sentence patterns, and empty aphorisms?" },
+  { key: "continuity", label: "Continuity", hint: "Do names, ages, numbers, and timeline stay consistent?" },
+  { key: "format_fit", label: "Format fit", hint: "Does it keep the format's voice and rules (standalone segments, second person)?" },
 ];
+
+const CATEGORY_LABELS: Record<ScriptRatingProblemCategory, string> = {
+  continuity_errors: "Continuity",
+  unintroduced_references: "Never introduced",
+  bumpy_transitions: "Bumpy transition",
+  ai_tells: "Sounds machine-written",
+  read_aloud_problems: "Hard to read aloud",
+  standalone_violations: "Breaks standalone Short",
+  voice_violations: "Off-voice",
+};
+
+const COLLAPSED_PROBLEM_COUNT = 6;
 
 function scoreColor(score: number) {
   if (score >= 8) return "text-emerald-400";
@@ -75,73 +31,21 @@ function scoreColor(score: number) {
   return "text-red-400";
 }
 
-function CategoryRow({
-  category,
-  label,
-  weight,
-  color,
-  criteria,
-}: {
-  category: ScriptRatingCategory;
-  label: string;
-  weight: string;
-  color: string;
-  criteria: { key: string; label: string }[];
-}) {
-  const sortedCriteria = criteria
-    .map(({ key, label: criterionLabel }) => ({
-      key,
-      label: criterionLabel,
-      score: category.criteria[key]?.score,
-    }))
-    .filter((item) => item.score != null);
-
-  return (
-    <div className="space-y-3 rounded-lg border border-neutral-800 bg-neutral-950/50 p-4">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${color}`} />
-            <h4 className="text-base font-semibold leading-snug text-neutral-100">{label}</h4>
-          </div>
-          <p className="mt-1 text-xs text-neutral-500">Weight {weight}</p>
-        </div>
-        <span className={`text-2xl font-bold tabular-nums leading-none ${scoreColor(category.average)}`}>
-          {category.average.toFixed(1)}
-        </span>
-      </div>
-
-      <div className="grid grid-cols-2 gap-2">
-        {sortedCriteria.map(({ key, label: criterionLabel, score }) => (
-          <div
-            key={key}
-            className="flex items-center justify-between gap-2 rounded-md border border-neutral-800 bg-neutral-900/80 px-2.5 py-1.5 text-xs"
-          >
-            <span className="truncate text-neutral-400">{criterionLabel}</span>
-            <span className="font-semibold tabular-nums text-neutral-100">{score}</span>
-          </div>
-        ))}
-      </div>
-
-      {category.explanation && (
-        <p className="text-sm leading-6 text-neutral-300">{category.explanation}</p>
-      )}
-    </div>
-  );
-}
-
 export default function ScriptRatingCard({ rating }: Props) {
+  const [showAll, setShowAll] = useState(false);
   if (!rating) return null;
+
+  const majors = rating.problems.filter((problem) => problem.severity === "major").length;
+  const visible = showAll ? rating.problems : rating.problems.slice(0, COLLAPSED_PROBLEM_COUNT);
 
   return (
     <div className="rounded-lg border border-neutral-800 bg-neutral-900 px-5 py-5">
       <div className="mb-5 flex items-start justify-between gap-4">
         <div>
-          <h3 className="text-base font-semibold text-neutral-100">
-            Script Rating
-          </h3>
+          <h3 className="text-base font-semibold text-neutral-100">Script Rating</h3>
           <p className="mt-1 text-sm text-neutral-400">
-            Full-script score against top educational YouTube standards.
+            A strict editor's read of the narration as one continuous voiceover. 10 = a strong human writer would ship
+            it, 5 = noticeably flawed.
           </p>
         </div>
         <div className="text-right">
@@ -152,17 +56,62 @@ export default function ScriptRatingCard({ rating }: Props) {
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {CATEGORIES.map((item) => (
-          <CategoryRow
-            key={item.key}
-            category={rating[item.key]}
-            label={item.label}
-            weight={item.weight}
-            color={item.color}
-            criteria={item.criteria}
-          />
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+        {SCORES.map(({ key, label, hint }) => (
+          <div
+            key={key}
+            title={hint}
+            className="flex items-center justify-between gap-2 rounded-md border border-neutral-800 bg-neutral-950/50 px-3 py-2 text-sm transition-colors hover:border-neutral-700"
+          >
+            <span className="truncate text-neutral-400">{label}</span>
+            <span className={`font-semibold tabular-nums ${scoreColor(rating.scores[key])}`}>{rating.scores[key]}</span>
+          </div>
         ))}
+      </div>
+
+      {rating.worst_problem && (
+        <p className="mt-4 text-sm leading-6 text-neutral-300">
+          <span className="font-medium text-neutral-100">Biggest issue: </span>
+          {rating.worst_problem}
+        </p>
+      )}
+
+      <div className="mt-5">
+        <h4 className="text-sm font-semibold text-neutral-100">
+          {rating.problems.length === 0
+            ? "No concrete problems found"
+            : `${rating.problems.length} problem${rating.problems.length === 1 ? "" : "s"}${majors ? ` · ${majors} major` : ""}`}
+        </h4>
+        {rating.problems.length > 0 && (
+          <ul className="mt-3 divide-y divide-neutral-800 rounded-lg border border-neutral-800 bg-neutral-950/50">
+            {visible.map((problem, index) => (
+              <li key={`${problem.scene}-${index}`} className="space-y-1 px-4 py-3">
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <span
+                    className={`rounded px-1.5 py-0.5 font-semibold uppercase tracking-wide ${
+                      problem.severity === "major" ? "bg-red-500/15 text-red-300" : "bg-neutral-800 text-neutral-400"
+                    }`}
+                  >
+                    {problem.severity}
+                  </span>
+                  <span className="text-neutral-300">{CATEGORY_LABELS[problem.category] ?? problem.category}</span>
+                  {problem.scene && <span className="font-mono text-neutral-500">{problem.scene}</span>}
+                </div>
+                <p className="text-sm italic text-neutral-200">“{problem.quote}”</p>
+                {problem.problem && <p className="text-sm text-neutral-400">{problem.problem}</p>}
+              </li>
+            ))}
+          </ul>
+        )}
+        {rating.problems.length > COLLAPSED_PROBLEM_COUNT && (
+          <button
+            type="button"
+            onClick={() => setShowAll((value) => !value)}
+            className="mt-3 text-sm font-medium text-violet-300 transition-colors hover:text-violet-200"
+          >
+            {showAll ? "Show fewer" : `Show all ${rating.problems.length}`}
+          </button>
+        )}
       </div>
     </div>
   );
