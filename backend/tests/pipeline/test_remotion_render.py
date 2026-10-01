@@ -393,7 +393,7 @@ def test_subtitle_render_fingerprint_includes_renderer_context_for_canvas_modes(
     fingerprint = remotion_render.subtitle_render_fingerprint(content)
 
     assert fingerprint["renderer_context_stage_version"] == "renderer-context-stage-v4"
-    assert fingerprint["blink_renderer_version"] == "full-frame-blink-v2"
+    assert fingerprint["blink_renderer_version"] == "full-frame-blink-v3"
     assert fingerprint["scenes"][0]["renderer_context"] == "indoor"
 
 

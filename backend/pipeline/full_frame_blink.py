@@ -115,6 +115,7 @@ def _anchor_from_detection(rgba: Image.Image, detected: dict[str, Any]) -> dict[
         "brow_left": dict(detected["brow_left"]),
         "brow_right": dict(detected["brow_right"]),
         **({"eye_fill_source": detected["eye_fill_source"]} if "eye_fill_source" in detected else {}),
+        **({"lid_stroke": detected["lid_stroke"]} if "lid_stroke" in detected else {}),
     }
 
 
@@ -300,7 +301,7 @@ def render_closed_eye_frame(image: Image.Image, anchor: dict[str, Any]) -> Image
     draw = ImageDraw.Draw(overlay)
     sx, sy = width * scale / 100, height * scale / 100
     ox, oy = left * scale, top * scale
-    lid_rgb = _hex_rgb(BLINK_EYELID_STROKE)
+    lid_rgb = _hex_rgb(anchor.get("lid_stroke")) or _hex_rgb(BLINK_EYELID_STROKE)
     for shape in shapes:
         mask = shape["mask"]
         box = (mask["x"] * sx - ox, mask["y"] * sy - oy, (mask["x"] + mask["width"]) * sx - ox,
@@ -338,7 +339,9 @@ def render_closed_eye_frame(image: Image.Image, anchor: dict[str, Any]) -> Image
         draw.line(points, fill=lid_rgb + (255,), width=stroke, joint="curve")
         for px, py in (points[0], points[-1]):
             draw.ellipse((px - stroke / 2, py - stroke / 2, px + stroke / 2, py + stroke / 2), fill=lid_rgb + (255,))
-    patch = overlay.resize((right - left, bottom - top), Image.Resampling.LANCZOS)
+    # BOX, not LANCZOS: LANCZOS rings at hard edges and drew a faint dotted halo
+    # around every patch that the browser's antialiasing never draws.
+    patch = overlay.resize((right - left, bottom - top), Image.Resampling.BOX)
     result = base.copy()
     result.alpha_composite(patch, (left, top))
     return result
@@ -678,6 +681,29 @@ def _lens_rim_fraction(image: Image.Image, lens: dict[str, float], *, samples: i
     return hits / samples
 
 
+def _lens_rim_color(image: Image.Image, lens: dict[str, float], *, samples: int = 36, reach: float = 1.9) -> str | None:
+    """Median color of the dark rim around a lens: the character's own line color."""
+    width, height = image.size
+    pixels = image.load()
+    center_x, center_y = lens["cx"] * width, lens["cy"] * height
+    radius = max(lens["width"] * width, lens["height"] * height) / 2
+    found: list[tuple[int, int, int]] = []
+    for index in range(samples):
+        angle = 2 * math.pi * index / samples
+        for step in range(int(radius * 0.5), int(radius * reach) + 2):
+            x = int(center_x + step * math.cos(angle))
+            y = int(center_y + step * math.sin(angle))
+            if not (0 <= x < width and 0 <= y < height):
+                break
+            if _luminance(pixels[x, y]) < 90:
+                found.append(pixels[x, y][:3])
+                break
+    if not found:
+        return None
+    channels = [sorted(color[index] for color in found)[len(found) // 2] for index in range(3)]
+    return "#{:02x}{:02x}{:02x}".format(*channels)
+
+
 def _eye_inside_lens(image: Image.Image, lens: dict[str, float]) -> dict[str, float] | None:
     """The blob clearly darker than the lens itself — eyes behind tinted glass are grey, not black."""
     width, height = image.size
@@ -902,9 +928,11 @@ def _detect_full_frame_glasses_face_anchor_points(image: Image.Image) -> dict[st
             "fill_left": fill_left,
             "fill_right": fill_right,
         }
+    lid_stroke = _lens_rim_color(image, left_lens) or _lens_rim_color(image, right_lens)
     return {
         **eyes,
         "eye_fill_source": "lens",
+        **({"lid_stroke": lid_stroke} if lid_stroke else {}),
         "mouth": {"x": round(mouth["cx"], 4), "y": round(mouth["cy"], 4)},
         "brow_left": {"x": round(left_eye["cx"], 4), "y": round(brow_y, 4)},
         "brow_right": {"x": round(right_eye["cx"], 4), "y": round(brow_y, 4)},

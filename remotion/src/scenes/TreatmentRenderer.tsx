@@ -222,7 +222,7 @@ type BlinkOverlay =
 type BlinkResolvedOverlayAnchor = Required<Pick<
   BlinkOverlayAnchor,
   "eye_left" | "eye_right" | "mouth" | "brow_left" | "brow_right"
->> & Pick<BlinkOverlayAnchor, "skin_fill">;
+>> & Pick<BlinkOverlayAnchor, "skin_fill" | "lid_stroke">;
 
 type BlinkClosedEyeGeometry = {
   mask: {
@@ -478,7 +478,9 @@ export const blinkBlinkEyeOverlayGeometry = (
       lid: {
         d: `M${roundSvgNumber(eye.x - lidHalfWidth)} ${roundSvgNumber(eye.y)} Q${roundSvgNumber(eye.x)} ${roundSvgNumber(eye.y - lidLift)} ${roundSvgNumber(eye.x + lidHalfWidth)} ${roundSvgNumber(eye.y)}`,
         y: roundSvgNumber(eye.y),
-        stroke: BLINK_EYELID_STROKE,
+        // The character's own line color when known: a brown lid read as
+        // off-style on black line art.
+        stroke: anchor.lid_stroke ?? BLINK_EYELID_STROKE,
         strokeWidth: roundSvgNumber(strokeWidth),
       },
     };

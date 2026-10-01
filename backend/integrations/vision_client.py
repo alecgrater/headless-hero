@@ -32,7 +32,8 @@ def _image_block(image: Image.Image, long_side: int = 768) -> dict[str, Any]:
     # wide with 8px eyes, too small to judge, and thumbnail() only ever shrinks.
     image = image.convert("RGB")
     scale = long_side / max(image.size)
-    image = image.resize((max(1, round(image.width * scale)), max(1, round(image.height * scale))), Image.Resampling.LANCZOS)
+    # Bilinear: LANCZOS/bicubic overshoot at hard edges and add halos that aren't in the frame.
+    image = image.resize((max(1, round(image.width * scale)), max(1, round(image.height * scale))), Image.Resampling.BILINEAR)
     buffer = io.BytesIO()
     image.save(buffer, format="PNG")
     return {

@@ -200,3 +200,19 @@ def test_verdict_files_do_not_make_renders_stale(monkeypatch, tmp_path):
     verdict.write_text("{}")
     os.utime(verdict, (time.time() + 100, time.time() + 100))
     assert render_cache.latest_source_mtime("p") == before
+
+
+def test_preview_lid_uses_the_characters_line_color():
+    base = Image.new("RGBA", (1344, 768), (228, 221, 202, 255))
+    eye = (round(0.4993 * 1344), round(0.22 * 768))
+    brown = fb.render_closed_eye_frame(base, ANCHOR).getpixel(eye)
+    black = fb.render_closed_eye_frame(base, {**ANCHOR, "lid_stroke": "#000000"}).getpixel(eye)
+    assert sum(black[:3]) < sum(brown[:3])
+
+
+def test_glasses_detection_samples_the_rim_as_lid_color(tmp_path):
+    from tests.test_full_frame_blink_glasses import _glasses_face
+
+    anchor = fb.detect_full_frame_blink_anchor(_glasses_face(tmp_path / "face.png")).anchor
+    rgb = fb._hex_rgb(anchor["lid_stroke"])
+    assert max(rgb) < 70  # the drawing's ink, not the brown default

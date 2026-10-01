@@ -55,6 +55,11 @@ describe("resolveBlinkOverlayAnchor", () => {
     ).toBeNull();
   });
 
+  it("passes a valid eyelid color through and drops an invalid one", () => {
+    expect(resolveBlinkOverlayAnchor(safeAnchor({ lid_stroke: "#1a1a1a" }))?.lid_stroke).toBe("#1a1a1a");
+    expect(resolveBlinkOverlayAnchor(safeAnchor({ lid_stroke: "black" }))?.lid_stroke).toBeUndefined();
+  });
+
   it("draws medium shots down to the backend's 0.03 eye-separation floor", () => {
     // The backend marks these scenes as blinking; a stricter renderer floor
     // (it was 0.04) silently skipped them.

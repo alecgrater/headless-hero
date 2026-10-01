@@ -10,7 +10,7 @@ import {
 type BlinkResolvedOverlayAnchor = Required<Pick<
   BlinkOverlayAnchor,
   "eye_left" | "eye_right" | "mouth" | "brow_left" | "brow_right"
->> & Pick<BlinkOverlayAnchor, "skin_fill">;
+>> & Pick<BlinkOverlayAnchor, "skin_fill" | "lid_stroke">;
 
 type BlinkOverlay = NonNullable<ReturnType<typeof blinkMicroOverlay>>;
 
@@ -102,6 +102,9 @@ export const resolveBlinkOverlayAnchor = (anchor: unknown): BlinkResolvedOverlay
     brow_left: anchor.brow_left,
     brow_right: anchor.brow_right,
     skin_fill: typeof anchor.skin_fill === "string" ? anchor.skin_fill : undefined,
+    lid_stroke: typeof anchor.lid_stroke === "string" && /^#[0-9a-f]{6}$/i.test(anchor.lid_stroke)
+      ? anchor.lid_stroke
+      : undefined,
   };
 };
 
