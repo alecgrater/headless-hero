@@ -13,7 +13,12 @@ import re
 
 from config import DEFAULT_IMAGE_MODEL, IMAGE_HEIGHT, IMAGE_WIDTH
 # Re-exported so pipeline code never has to import google_image_client directly.
-from integrations.google_image_client import GoogleBatchImageRequest, GoogleBatchImageResult, active_image_model
+from integrations.google_image_client import (
+    BATCH_JOB_FAILED_PREFIX,
+    GoogleBatchImageRequest,
+    GoogleBatchImageResult,
+    active_image_model,
+)
 from integrations.local_models import active_model, modality_source
 
 __all__ = [
@@ -22,6 +27,7 @@ __all__ = [
     "GoogleBatchImageResult",
     "SCENE",
     "generate_image",
+    "BATCH_JOB_FAILED_PREFIX",
     "generate_images_batch",
     "provider_fingerprint",
     "resolved_provider",

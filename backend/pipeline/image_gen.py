@@ -15,6 +15,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 from config import DATA_DIR, IMAGE_HEIGHT, IMAGE_WIDTH, VIDEO_HEIGHT, VIDEO_WIDTH
 from integrations.image_client import (
+    BATCH_JOB_FAILED_PREFIX,
     CUTOUT_SHEET,
     GoogleBatchImageRequest,
     generate_image,
@@ -2501,6 +2502,15 @@ def _prepare_google_batch_scene(
 _SEQUENCE_BATCH_MODES = {"full_frame", "multi_frame", "continuous"}
 
 
+def _should_retry_batch_item(error: str | None) -> bool:
+    """Retry a single blocked item, never every item of a failed job.
+
+    A whole failed job would otherwise be redone one image at a time at full
+    price; those scenes fail instead and the stage retry sends them back to Batch.
+    """
+    return not (error or "").startswith(BATCH_JOB_FAILED_PREFIX)
+
+
 def _is_google_batch_sequence(scene: dict[str, object]) -> bool:
     """A multi-directive frame sequence, batched one frame per round.
 
@@ -2741,12 +2751,18 @@ def generate_batch_with_google_batch(
         )
         batch_results = generate_images_batch(requests=round_requests, script_id=script_id)
         prompts_by_key = {request.key: request.prompt for request in round_requests}
+        requests_by_key = {request.key: request for request in round_requests}
         runs_by_key = {run.frame_key(run.pending.index): run for run in sequences if run.pending is not None}
         for batch_result in batch_results:
             run = runs_by_key.get(batch_result.key)
             if run is not None:
                 if batch_result.image_path:
                     run.complete_pending(batch_result.image_path)
+                    continue
+                if not _should_retry_batch_item(batch_result.error):
+                    run.error = batch_result.error or "Google Batch returned no image"
+                    run.pending = None
+                    _finish_sequence(run)
                     continue
                 logger.warning(
                     "Google Batch failed frame %s (%s); retrying it with a normal call",
@@ -2762,29 +2778,47 @@ def generate_batch_with_google_batch(
                 continue
             local_path, prompt_marker, web_path = output_paths[batch_result.key]
             prompt = prompts_by_key[batch_result.key]
+            if (batch_result.error or not batch_result.image_path) and not _should_retry_batch_item(batch_result.error):
+                results_by_scene[batch_result.key] = {
+                    "scene_id": batch_result.key,
+                    "image_url": None,
+                    "prompt_used": prompt,
+                    "error": batch_result.error or "Google Batch returned no image",
+                }
+                _tick()
+                continue
             if batch_result.error or not batch_result.image_path:
                 # Same reason as frames: only the normal call has the filter retry.
                 logger.warning(
                     "Google Batch failed scene %s (%s); retrying it with a normal call",
                     batch_result.key, batch_result.error or "no image",
                 )
-                scene = single_scenes[batch_result.key]
+                # Call the provider directly, not generate_scene_image: on failure
+                # that writes a cached "Image generation failed" placeholder,
+                # which would then count as done and ship in the video.
+                request = requests_by_key[batch_result.key]
                 try:
-                    image_url, prompt_used, metadata = generate_scene_image(
-                        scene_id=batch_result.key,
-                        visual_prompt=single_image_prompt(scene),
-                        script_id=script_id,
+                    tmp_path = generate_image(
+                        request.prompt,
                         width=width,
                         height=height,
-                        style_guide=style_guide,
-                        contains_person=single_image_contains_person(scene),
+                        original_prompt=single_image_prompt(single_scenes[batch_result.key]),
+                        reference_image_path=request.reference_image_path,
+                        style_reference_path=request.style_reference_path,
+                        script_id=script_id,
                     )
+                    metadata = _move_generated_image(tmp_path, local_path, {
+                        "source_type": "ai_generated",
+                        "provider": provider_fingerprint(),
+                        "fallback": False,
+                    })
+                    prompt_marker.write_text(_marker_payload(prompt), encoding="utf-8")
                     results_by_scene[batch_result.key] = {
                         "scene_id": batch_result.key,
-                        "image_url": image_url,
+                        "image_url": web_path,
                         "frame_urls": [],
                         "video_url": "",
-                        "prompt_used": prompt_used,
+                        "prompt_used": prompt,
                         "visual_source_metadata": metadata,
                         "error": None,
                     }

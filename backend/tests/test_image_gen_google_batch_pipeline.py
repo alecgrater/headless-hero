@@ -383,3 +383,53 @@ def test_progress_ticks_once_per_scene_across_every_path(monkeypatch, tmp_path):
         scenes=scenes, script_id="s1", on_scene_done=lambda done, total: ticks.append((done, total)),
     )
     assert ticks == [(i, len(scenes)) for i in range(1, len(scenes) + 1)]
+
+
+def test_a_whole_failed_job_is_not_retried_item_by_item(monkeypatch, tmp_path):
+    _sequence_env(monkeypatch, tmp_path)
+    job_error = f"{image_gen.BATCH_JOB_FAILED_PREFIX} (JOB_STATE_FAILED): quota"
+
+    def failed_job(requests, script_id):
+        return [GoogleBatchImageResult(key=r.key, error=job_error) for r in requests]
+
+    def no_retry(*_args, **_kwargs):
+        raise AssertionError("a failed job must not be redone one image at a time")
+
+    monkeypatch.setattr(image_gen, "generate_images_batch", failed_job)
+    monkeypatch.setattr(image_gen, "generate_image", no_retry)
+    ticks = []
+    results = image_gen.generate_batch_with_google_batch(
+        scenes=[
+            _sequence_scene("scene_a", 2),
+            {"scene_id": "scene_c", "visual_prompt": "One image", "visual_mode": "full_frame"},
+        ],
+        script_id="s1",
+        on_scene_done=lambda done, total: ticks.append(done),
+    )
+    assert all(r["error"] == job_error for r in results)
+    assert ticks == [1, 2]
+
+
+def test_progress_ticks_once_when_a_retry_also_fails(monkeypatch, tmp_path):
+    _sequence_env(monkeypatch, tmp_path)
+    rounds = []
+    monkeypatch.setattr(
+        image_gen, "generate_images_batch",
+        _fake_rounds(tmp_path, rounds, fail_keys={"seq::f0", "single"}),
+    )
+    monkeypatch.setattr(image_gen, "generate_image", lambda *_a, **_k: (_ for _ in ()).throw(RuntimeError("blocked")))
+    ticks = []
+    results = image_gen.generate_batch_with_google_batch(
+        scenes=[
+            _sequence_scene("seq", 2),
+            {"scene_id": "single", "visual_prompt": "One image", "visual_mode": "full_frame"},
+            _sequence_scene("ok", 2),
+        ],
+        script_id="s1",
+        on_scene_done=lambda done, total: ticks.append(done),
+    )
+    assert ticks == [1, 2, 3]
+    assert {r["scene_id"]: bool(r["error"]) for r in results} == {"seq": True, "single": True, "ok": False}
+    # A failed retry leaves nothing cached, so the next attempt regenerates it.
+    images = tmp_path / "projects" / "s1" / "images"
+    assert not (images / "single.png").exists() and not (images / "single.prompt").exists()

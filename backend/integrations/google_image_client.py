@@ -30,6 +30,9 @@ def image_price(model: str, *, batch: bool = False) -> float:
     return price / 2 if batch else price
 
 
+# Prefix of a per-request error that came from a whole failed job rather than the
+# item itself; callers use it to avoid retrying an outage one image at a time.
+BATCH_JOB_FAILED_PREFIX = "Google image batch failed"
 BATCH_TERMINAL_STATES = {"JOB_STATE_SUCCEEDED", "JOB_STATE_FAILED", "JOB_STATE_CANCELLED", "JOB_STATE_EXPIRED"}
 BATCH_INLINE_REQUEST_LIMIT_BYTES = 18 * 1024 * 1024
 
@@ -233,7 +236,7 @@ def generate_images_batch(
         state = _state_name(batch_job)
         if state != "JOB_STATE_SUCCEEDED":
             error = _get_attr_or_key(batch_job, "error")
-            message = f"Google image batch failed ({state}): {error or job_names[index]}"
+            message = f"{BATCH_JOB_FAILED_PREFIX} ({state}): {error or job_names[index]}"
             logger.error(message)
             failures.append(message)
             all_results.extend(GoogleBatchImageResult(key=request.key, error=message) for request in chunk)
