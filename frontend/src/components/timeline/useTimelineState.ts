@@ -4,7 +4,7 @@ import { fetchGenerationEstimate, recordDuration, pollTitleCardJob, pollVisualBa
 import type { FrameDirective, Scene, ScriptContent, VisualLayer } from "../../types/script";
 import type { GenerateTitleCardsResponse, GenerateVisualBatchJobOutput, GenerateVisualBatchJobResponse } from "../../types/visual";
 import type { GenerateAudioResponse } from "../../types/audio";
-import { sceneVisualAssetsComplete } from "./assetCompletion";
+import { sceneNeedsImageGeneration, sceneVisualAssetsComplete } from "./assetCompletion";
 
 type BatchSceneStatus = "idle" | "pending" | "generating" | "done" | "failed";
 
@@ -551,11 +551,11 @@ export function useTimelineState(
         for (const sc of seg.scenes) {
           if (sc.is_title_card) {
             if (!missingOnly || !sc.image_url) shouldGenerateTitleCards = true;
-          } else if (sc.visual_prompt && !sc.is_title_card) {
+          } else if (sceneNeedsImageGeneration(sc)) {
             if (missingOnly && sceneVisualAssetsComplete(sc)) continue;
             scenes.push({
               scene_id: sc.id,
-              visual_prompt: sc.visual_prompt,
+              visual_prompt: sc.visual_prompt ?? "",
               name: sc.narration.slice(0, 40) || sc.id,
               frame_directives: sc.frame_directives || [],
               contains_person: sc.contains_person || false,

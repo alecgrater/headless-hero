@@ -168,3 +168,38 @@ def test_visual_batch_job_does_not_fallback_to_standard_after_batch_failure(monk
     assert job is not None
     assert job.status == "failed"
     assert "batch failed" in (job.error or "")
+
+
+def test_visual_batch_job_backfills_and_persists_a_missing_prompt(monkeypatch):
+    from api import visuals as visuals_api
+
+    engine = _engine()
+    seen_prompts = []
+
+    def fake_standard(*, scenes, **_kwargs):
+        seen_prompts.extend(scene["visual_prompt"] for scene in scenes)
+        return [{"scene_id": "scene_001", "image_url": "/static/projects/script-1/images/scene_001.png", "error": None}]
+
+    monkeypatch.setenv("GOOGLE_IMAGE_BATCH_ENABLED", "false")
+    monkeypatch.setattr(visuals_api, "_require_character_reference_ready", lambda session, script_id: None)
+    monkeypatch.setattr(visuals_api, "run_in_background", _run_background_immediately)
+    monkeypatch.setattr(visuals_api, "generate_batch", fake_standard)
+
+    content = _content()
+    content.all_scenes()[0].visual_prompt = ""
+    with Session(engine) as session:
+        session.add(BrandProfile(id="brand-1", name="Default"))
+        session.add(Script(id="script-1", brand_id="brand-1", topic_title="T",
+                           script_json=content.model_dump_json(), status="draft"))
+        session.commit()
+        visuals_api.start_visual_batch_job(
+            visuals_api.GenerateBatchRequest(
+                script_id="script-1",
+                scenes=[visuals_api.BatchScene(scene_id="scene_001", visual_mode="full_frame")],
+            ),
+            session=session,
+        )
+        stored = ScriptContent.model_validate_json(session.get(Script, "script-1").script_json)
+
+    assert seen_prompts == ["A scene."]
+    assert stored.all_scenes()[0].visual_prompt == "A scene."

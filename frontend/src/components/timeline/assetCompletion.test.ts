@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Scene } from "../../types/script";
-import { sceneVisualAssetsComplete } from "./assetCompletion";
+import { sceneNeedsImageGeneration, sceneVisualAssetsComplete } from "./assetCompletion";
 
 const baseScene: Scene = {
   id: "scene_001",
@@ -47,5 +47,22 @@ describe("sceneVisualAssetsComplete", () => {
         ],
       }),
     ).toBe(false);
+  });
+});
+
+describe("sceneNeedsImageGeneration", () => {
+  it("counts an image-backed scene with no prompt, since the backend backfills one", () => {
+    expect(sceneNeedsImageGeneration({ ...baseScene, visual_prompt: "", visual_mode: "full_frame" })).toBe(true);
+    expect(sceneNeedsImageGeneration({ ...baseScene, visual_prompt: "", visual_mode: "multi_frame" })).toBe(true);
+  });
+
+  it("skips text-only captions, title cards, and scenes with nothing to draw from", () => {
+    expect(sceneNeedsImageGeneration({ ...baseScene, visual_prompt: "", visual_mode: "captions" })).toBe(false);
+    expect(sceneNeedsImageGeneration({ ...baseScene, is_title_card: true })).toBe(false);
+    expect(sceneNeedsImageGeneration({ ...baseScene, visual_prompt: "", narration: "", visual_mode: "full_frame" })).toBe(false);
+  });
+
+  it("keeps any prompted scene", () => {
+    expect(sceneNeedsImageGeneration({ ...baseScene, visual_mode: "popup_sequence" })).toBe(true);
   });
 });

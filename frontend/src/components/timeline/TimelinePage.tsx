@@ -103,7 +103,7 @@ import type { ProductionTask, YoloStageKey } from "./timelineProduction";
 import { blockingVisualModePrepSceneIds, canPrepareVisualModes, needsVisualModePrep } from "./timelineProduction";
 import { YoloRunController, unresolvedStages, type YoloRunRecord } from "./yoloRun";
 import type { ThumbnailPhaseItem, ThumbnailPhaseStatus } from "./ThumbnailPhaseProgress";
-import { sceneVisualAssetsComplete } from "./assetCompletion";
+import { sceneNeedsImageGeneration, sceneVisualAssetsComplete } from "./assetCompletion";
 
 const DEFAULT_UPLOAD_TRACKING: UploadTracking = {
   longform_youtube: false,
@@ -502,7 +502,7 @@ function getCreationStatus(content: ScriptContent, projectConfig?: ProjectConfig
   const nonTitleScenes = allScenes.filter((sc) => !sc.is_title_card);
   const titleScenes = allScenes.filter((sc) => sc.is_title_card);
   const narratedScenes = allScenes.filter((sc) => sc.narration);
-  const imageScenes = nonTitleScenes.filter((sc) => sc.visual_prompt);
+  const imageScenes = nonTitleScenes.filter(sceneNeedsImageGeneration);
   const eliScenes = nonTitleScenes.filter((sc) => sc.narration && !sc.contains_person);
 
   const eliDisabledForProject = projectConfig?.eli_enabled === false;
@@ -1941,8 +1941,8 @@ function TimelineEditor({
   const titleScenes = allScenes.filter((sc) => sc.is_title_card);
   // Audio generates for ALL scenes with narration (including title cards)
   const narratedScenes = allScenes.filter((sc) => sc.narration);
-  // Image scenes: non-title scenes that have a visual_prompt (excludes aha_subtitle which are text-on-black)
-  const imageScenes = nonTitleScenes.filter((sc) => sc.visual_prompt);
+  // Image scenes: non-title scenes the images stage must generate for (see sceneNeedsImageGeneration)
+  const imageScenes = nonTitleScenes.filter(sceneNeedsImageGeneration);
   // Title cards complete when all title card scenes have an image
   const allTitleCardsGenerated = titleScenes.length > 0 && titleScenes.every((sc) => sc.image_url);
   const allImagesGenerated = imageScenes.length > 0 && imageScenes.every(sceneVisualAssetsComplete);

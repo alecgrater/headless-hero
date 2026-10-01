@@ -1,6 +1,17 @@
 import type { Scene } from "../../types/script";
 
 const REQUIRED_LAYER_MODES = new Set(["popup_sequence", "blink", "comparison_board"]);
+const IMAGE_BACKED_MODES = new Set(["full_frame", "multi_frame", "continuous"]);
+
+// Scenes the images stage must produce assets for. An image-backed scene with no
+// visual_prompt still counts (a captions/comparison scene demoted to full_frame has
+// none): the batch endpoint backfills one from the narration. Skipping it left the
+// render to generate it late, after the shorts, which then all re-rendered.
+export function sceneNeedsImageGeneration(scene: Scene): boolean {
+  if (scene.is_title_card) return false;
+  if (scene.visual_prompt) return true;
+  return IMAGE_BACKED_MODES.has(scene.visual_mode ?? "full_frame") && Boolean(scene.narration || scene.caption_text);
+}
 
 // Layered modes whose per-scene layer specs are filled by the post-voiceover
 // visual-treatment analyzer (not script generation). Until those specs exist, batch

@@ -14,6 +14,7 @@ from config import BACKEND_PORT, DATA_DIR, FPS, VIDEO_HEIGHT, VIDEO_WIDTH
 from models.script import ChapterMarker, Scene, SceneFX, Script, ScriptContent, WordTimestamp
 from pipeline.export_paths import copy_to_project_downloads, longform_filename
 from pipeline.process_manager import register_process, run_tracked, terminate_process_group, unregister_process
+from pipeline.visual_mode_policy import IMAGE_BACKED_MODES, backfill_image_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -1014,7 +1015,6 @@ def _reencode_h264(input_path: Path, output_path: Path) -> bool:
 
 # Visual modes whose render REQUIRES a generated scene image/frames. If one of
 # these reaches render with no image, the renderer draws a "No image" placeholder.
-_IMAGE_BACKED_RENDER_MODES = {"full_frame", "multi_frame", "continuous"}
 
 
 def _persist_repaired_scene_images(
@@ -1066,7 +1066,7 @@ def ensure_renderable_scene_images(script_id: str, content: ScriptContent) -> in
     final MP4.
 
     For each such scene this backfills an empty ``visual_prompt`` from the
-    scene's caption_text/narration, generates the missing image, mutates
+    scene's narration (or caption_text), generates the missing image, mutates
     ``content`` in place, and persists the repaired scenes to the DB. Returns
     the count of scenes repaired. Scenes with no usable source text are left
     as-is and logged as errors so the gap is observable on the dev dashboard.
@@ -1077,14 +1077,13 @@ def ensure_renderable_scene_images(script_id: str, content: ScriptContent) -> in
     for scene in content.all_scenes():
         if scene.is_title_card:
             continue
-        if scene.visual_mode not in _IMAGE_BACKED_RENDER_MODES:
+        if scene.visual_mode not in IMAGE_BACKED_MODES:
             continue
         if scene.image_url or scene.frame_urls or scene.video_url:
             continue
 
-        fallback = (scene.caption_text or "").strip() or (scene.narration or "").strip()
-        prompt = (scene.visual_prompt or "").strip() or fallback
-        if not prompt:
+        backfilled = backfill_image_prompt(scene)
+        if not (scene.visual_prompt or "").strip():
             logger.error(
                 "[ENSURE_IMAGES] %s scene %s is %s with no image and no prompt/narration to "
                 "generate from; render will show a blank frame",
@@ -1092,9 +1091,6 @@ def ensure_renderable_scene_images(script_id: str, content: ScriptContent) -> in
             )
             continue
 
-        backfilled = not (scene.visual_prompt or "").strip()
-        if backfilled:
-            scene.visual_prompt = prompt
         logger.warning(
             "[ENSURE_IMAGES] %s scene %s (%s) has no generated image; generating from %s "
             "to avoid a blank frame",

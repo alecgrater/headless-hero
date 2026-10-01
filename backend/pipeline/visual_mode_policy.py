@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from models.script import VISUAL_MODES
+from models.script import VISUAL_MODES, Scene
 
 
 @dataclass(frozen=True)
@@ -114,6 +114,31 @@ if _missing_targets or _unknown_targets:
     )
 
 CANONICAL_VISUAL_MODES: tuple[str, ...] = tuple(mode for mode in _TARGETS if mode in VISUAL_MODES)
+
+# Modes whose visible picture is a generated scene image or frame sequence.
+IMAGE_BACKED_MODES = frozenset({"full_frame", "multi_frame", "continuous"})
+
+
+def backfill_image_prompt(scene: Scene) -> bool:
+    """Give an image-backed scene with no `visual_prompt` one from its own text.
+
+    A captions / comparison_board / popup scene can be moved into an image-backed
+    mode (visual-mode prep demotions, adjacency spacing, the monotony fix) without
+    ever having had an image prompt. Every image path skips an empty prompt, so the
+    scene reached render imageless and the renderer generated it late — after the
+    shorts, which then all re-rendered. Narration comes first because a short
+    caption phrase is a thin prompt, and thin prompts copy the style preset's
+    content. Returns True when the prompt was filled.
+    """
+    if scene.is_title_card or scene.visual_mode not in IMAGE_BACKED_MODES:
+        return False
+    if (scene.visual_prompt or "").strip():
+        return False
+    fallback = (scene.narration or "").strip() or (scene.caption_text or "").strip()
+    if not fallback:
+        return False
+    scene.visual_prompt = fallback
+    return True
 PRODUCTION_OPPORTUNITY_MODES: tuple[str, ...] = CANONICAL_VISUAL_MODES
 
 _OPPORTUNITY_POLICIES: dict[str, VisualModeOpportunityPolicy] = {

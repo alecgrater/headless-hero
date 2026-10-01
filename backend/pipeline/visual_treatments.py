@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from models.script import ScriptContent, Scene, VISUAL_MODES, VisualLayer, VisualMode
 from pipeline.render_jobs import UserFacingJobError
+from pipeline.visual_mode_policy import backfill_image_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -264,6 +265,9 @@ def apply_visual_treatment_assignments(
             else []
         )
     _enforce_content_non_repeatable_spacing(content)
+    for scene in content.all_scenes():
+        if backfill_image_prompt(scene):
+            logger.info("[ANIMATION_TYPE] scene=%s backfilled visual_prompt from narration for %s", scene.id, scene.visual_mode)
 
 
 def stat_label_grounded_in_narration(stat_label: str, narration: str) -> bool:

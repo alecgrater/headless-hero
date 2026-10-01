@@ -31,6 +31,7 @@ from pipeline import full_frame_blink as full_frame_blink_mod
 from pipeline.render_jobs import UserFacingJobError, create_job, get_job, is_cancelled, run_in_background, update_job
 from pipeline.formats import resolve_format
 from pipeline.visual_treatments import analyze_visual_treatment_scene, require_visual_treatment_voiceover
+from pipeline.visual_mode_policy import backfill_image_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +77,7 @@ class GenerateVisualResponse(BaseModel):
 
 class BatchScene(BaseModel):
     scene_id: str
-    visual_prompt: str
+    visual_prompt: str = ""
     frame_directives: list[dict] = []
     contains_person: bool = False
     visual_mode: str = ""
@@ -648,11 +649,25 @@ def start_visual_batch_job(body: GenerateBatchRequest, session: Session = Depend
     bind = session.get_bind()
     content = ScriptContent.model_validate_json(record.script_json)
     scene_map = {sc.id: sc for seg in content.segments for sc in seg.scenes}
+    requested_ids = {s.scene_id for s in body.scenes}
+    backfilled_ids = [
+        scene_id for scene_id in requested_ids
+        if scene_id in scene_map and backfill_image_prompt(scene_map[scene_id])
+    ]
+    if backfilled_ids:
+        # Persist so the prompt marker, the editor, and a later render all agree.
+        record.script_json = content.model_dump_json()
+        session.add(record)
+        session.commit()
+        logger.info(
+            "Backfilled visual_prompt from narration for %d image-backed scene(s) in %s: %s",
+            len(backfilled_ids), body.script_id, ", ".join(sorted(backfilled_ids)),
+        )
 
     scenes = [
         {
             "scene_id": s.scene_id,
-            "visual_prompt": s.visual_prompt,
+            "visual_prompt": s.visual_prompt or (scene_map[s.scene_id].visual_prompt if s.scene_id in scene_map else ""),
             "frame_directives": s.frame_directives,
             "contains_person": s.contains_person or (scene_map[s.scene_id].contains_person if s.scene_id in scene_map else False),
             "visual_mode": s.visual_mode or (scene_map[s.scene_id].visual_mode if s.scene_id in scene_map else ""),

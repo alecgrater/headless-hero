@@ -21,6 +21,7 @@ from config import (
 from integrations.llm_client import _resolve_provider, chat, text_fingerprint
 from models.script import LevelMeta, MainCharacter, Scene, ScriptContent, Segment
 from pipeline.visual_mode_policy import (
+    backfill_image_prompt,
     duration_profile_for_mode,
     max_scene_seconds_for_mode,
     prompt_visual_opportunity_guidance,
@@ -820,6 +821,9 @@ def generate_script(
         logger.info("Script visual metadata audit promoted modes: %s", audited_modes)
     _ensure_scene_granularity(content)
     _fix_visual_monotony(content, rules=fmt.visual_beat_rules)
+    backfilled = sum(backfill_image_prompt(scene) for scene in content.all_scenes())
+    if backfilled:
+        logger.info("Backfilled visual_prompt from narration on %d image-backed scene(s)", backfilled)
     _ensure_visual_beat_directives(content)
     if cold_open_text and fmt.supports_cold_open and not fmt.supports_hook_scoring:
         selected_opening_count = _selected_opening_scene_count(content, cold_open_text)
