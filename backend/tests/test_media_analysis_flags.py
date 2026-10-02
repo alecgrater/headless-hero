@@ -448,6 +448,36 @@ def test_life_as_a_ai_video_eligibility_rejects_named_secondary_interaction():
     ) is False
 
 
+@pytest.mark.parametrize(
+    "narration",
+    [
+        "You sit beside your wife at the kitchen table.",
+        "Your trainer leans in behind your shoulder.",
+        "Your son waits outside the bedroom door.",
+    ],
+)
+def test_life_as_a_ai_video_eligibility_rejects_relationship_labelled_secondary(narration):
+    # Life-as-a scripts call recurring people by relationship ("your wife"),
+    # never by name, so the name-based check alone no longer catches them.
+    scene = Scene(
+        id="scene_001",
+        narration=narration,
+        visual_prompt=(
+            "[REACTION] Eli, the recurring character, is the main subject and protagonist in this scene. "
+            "Depict Eli as Air Traffic Controller; any other people are secondary and visually distinct from Eli. "
+            "An air traffic controller at home."
+        ),
+        audio_duration_seconds=5.4,
+        contains_person=True,
+    )
+
+    assert media_analyzer.is_ai_video_eligible(
+        scene,
+        require_eli_scene=True,
+        life_as_a_role="Air Traffic Controller",
+    ) is False
+
+
 def test_life_as_a_ai_video_assignment_injects_solo_subject_prompt():
     scene = Scene(
         id="scene_001",

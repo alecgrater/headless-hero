@@ -481,8 +481,8 @@ The script MUST include all of the following:
 ### 1. Time progression markers
 Explicit time anchors throughout. "You are 26." "By year three." "The morning you leave." "It is a Tuesday in March." The viewer must always know roughly where they are in the journey. Plant at least one time marker per level, ideally one per scene.
 
-### 2. Recurring named characters
-At least one secondary character appears across multiple levels with specific concrete moments. Give them a name (a first name is enough — "Marcus", "Devon", "Sara"). No faceless plurals like "your friends" or "the others". When they reappear in a later level, the meaning of their presence has shifted.
+### 2. Recurring characters
+At least one secondary character appears across multiple levels with specific concrete moments. Never give an invented person a name. Refer to every person by their relationship to you or their role ("your wife", "your trainer", "the night supervisor", "the girl from your academy class"), and give each recurring person one fixed label that no one else shares, used every time they appear. A name makes the listener feel they should already know the person; a relationship tells them who the person is. Real historical or public figures may still be named. No faceless plurals like "your friends" or "the others". When they reappear in a later level, the meaning of their presence has shifted.
 
 ### 3. Concrete sensory anchors
 Every level needs at least one viscerally specific detail — the cocktail waitress with the bored half-smile, the fold-out couch in your sister's living room, the exact dollar amount on the screen, the cold of the parking lot at 4am. No abstractions floating untethered. If a sentence could appear in any video on this topic, replace it with one that could only appear in this one.
@@ -712,7 +712,7 @@ CRITICAL:
 STORY BIBLE (required): add a top-level "story_bible" object. Every level's scenes must follow it exactly.
 "story_bible": {
   "protagonist_timeline": [{"level": 1, "age": 24, "time_marker": "first month on the job"}],
-  "recurring_characters": [{"name": "First name", "who": "one line", "fixed_facts": ["facts that never change: relationship, age relative to the timeline, places, numbers"], "introduced_in_level": 1, "introduction": "the one line that introduces them"}],
+  "recurring_characters": [{"label": "how narration always refers to them: a relationship or role, never a name (e.g. \\"your wife\\")", "who": "one line", "fixed_facts": ["facts that never change: relationship, age relative to the timeline, places, numbers"], "introduced_in_level": 1, "introduction": "the one line that introduces them"}],
   "callbacks": [{"detail": "an object, phrase, or moment", "planted_in_level": 1, "paid_off_in_level": 4}]
 }
 - protagonist_timeline has one entry per level, and every age agrees with the time that has passed.
@@ -775,7 +775,7 @@ Return a JSON object with a single key `"scenes"` whose value is a flat array of
 ### Required craft inside this level
 - **Time markers.** At least one explicit time anchor (specific age, year, season, named moment). The viewer must know where in the journey they are.
 - **Concrete sensory anchors.** At least one viscerally specific detail per level — a named object, a specific dollar amount, a sound, a smell, a particular person doing a particular thing.
-- **Recurring named characters.** If a named character was established in an earlier level, bring them back here with shifted meaning when it serves the arc. If this is an early level, plant a named character that future levels can return to.
+- **Recurring characters.** If a recurring character was established in an earlier level, bring them back here with shifted meaning when it serves the arc, using the same label the story_bible gives them. If this is an early level, plant a recurring character that future levels can return to. Never give an invented person a name: call them by their relationship to you or their role ("your wife", "your trainer").
 - **Callbacks.** Plant phrases or images that later levels can return to, OR return to ones planted in earlier levels with shifted meaning. The script should feel architected.
 - **Gradual level shift.** Do NOT announce the level boundary inside narration ("and then level two began"). The level shift happens in texture — new vocabulary, new behaviors taken for granted, a new rhythm. The protagonist is already inside this level before they notice the previous one ended.
 

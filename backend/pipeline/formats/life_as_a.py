@@ -54,6 +54,10 @@ _SOLO_AI_VIDEO_BLOCKER_RE = re.compile(
     r"\b("
     r"crowd|crowds|group|groups|audience|classmates?|colleagues?|"
     r"family|friends?|partners?|"
+    # Recurring people are named by relationship, never by name ("your wife").
+    r"wife|wives|husbands?|sons?|daughters?|mother|father|mom|dad|parents?|"
+    r"sisters?|brothers?|kids?|child|children|girlfriend|boyfriend|roommates?|"
+    r"trainers?|supervisors?|boss|"
     r"line of people|room full of people|another person|second person|"
     r"two people|three people|other guards?|other workers?"
     r")\b",

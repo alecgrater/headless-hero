@@ -154,6 +154,20 @@ def test_outlines_fix_characters_and_claims_before_scenes_are_written():
     assert "Follow the segment_plan" in SCRIPT_SEGMENT_SCENES_INSTRUCTIONS.template
 
 
+def test_life_as_a_never_names_invented_characters():
+    # An invented first name ("Elena") reads as someone the listener should
+    # already know; recurring people are carried by a relationship label instead.
+    system = LIFE_AS_A_SCRIPT_SYSTEM.template
+    outline = LIFE_AS_A_OUTLINE_INSTRUCTIONS.template
+    level = LIFE_AS_A_LEVEL_SCENES_INSTRUCTIONS.template
+    for text in (system, level):
+        assert "Never give an invented person a name" in text
+        assert "Recurring named characters" not in text
+    assert '"label": "how narration always refers to them' in outline
+    assert '"name": "First name"' not in outline
+    assert "plant a named character" not in level
+
+
 def test_both_formats_carry_the_flow_and_clarity_rules():
     for prompt in (SCRIPT_SYSTEM, LIFE_AS_A_SCRIPT_SYSTEM):
         text = prompt.template
