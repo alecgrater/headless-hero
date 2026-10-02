@@ -10,6 +10,7 @@ from pathlib import Path
 from config import DATA_DIR
 from models.script import Scene, ScriptContent
 from pipeline.image_gen import generate_scene_image
+from pipeline.render_jobs import is_cancelled
 
 logger = logging.getLogger(__name__)
 
@@ -73,10 +74,7 @@ class CinematicChaptersStrategy:
         force: bool = False,
         job_id: str | None = None,
     ) -> None:
-        # ``job_id`` is part of the strategy protocol contract for cancellation /
-        # progress tracking. The cinematic-chapters pipeline does not yet wire
-        # job_id into its sub-steps; accepted here as a no-op for future use.
-        del job_id, accent_color  # accent_color was used by the old Pillow title overlay.
+        del accent_color  # accent_color was used by the old Pillow title overlay.
 
         from pipeline.thumbnail import (
             DEFAULT_THUMBNAIL_LABEL_STYLE,
@@ -128,6 +126,11 @@ class CinematicChaptersStrategy:
             return
 
         for level in content.levels[1:]:
+            # YOLO Stop cancels the job but leaves the backend running, so the
+            # loop must notice or it keeps paying for chapter images. Raising (not
+            # returning) also stops the caller persisting a half-finished pass.
+            if job_id and is_cancelled(job_id):
+                raise RuntimeError(f"Job cancelled before chapter {level.number}")
             if not level.image_prompt:
                 logger.warning(
                     "cinematic-chapters: level %d missing image_prompt — skipping",

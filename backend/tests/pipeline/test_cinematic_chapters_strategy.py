@@ -257,3 +257,18 @@ def test_prepare_thumbnail_uses_main_character_prompt_only_when_eli_disabled(
     eli_off_prompts = [prompt for _, prompt in fake_image_gen]
     assert eli_off_prompts
     assert all("Maya is the visually dominant main subject" in prompt for prompt in eli_off_prompts)
+
+
+def test_cancelled_job_stops_generating_chapter_images(patched_data_dir, fake_image_gen):
+    """YOLO Stop leaves the backend running, so the chapter loop must stop paying."""
+    from pipeline.render_jobs import cancel_job, create_job
+
+    job = create_job()
+    cancel_job(job.id)
+
+    with pytest.raises(RuntimeError, match="cancelled"):
+        CINEMATIC_CHAPTERS.prepare_thumbnail(
+            script_id="s_cancel", content=_make_content(4), accent_color="#fff", job_id=job.id,
+        )
+
+    assert [scene_id for scene_id, _ in fake_image_gen] == ["cinematic_thumbnail_clean"]

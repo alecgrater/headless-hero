@@ -8,7 +8,7 @@ export interface RenderJobResponse {
 
 export interface RenderStatusResponse {
   job_id: string;
-  status: "pending" | "running" | "completed" | "failed";
+  status: "pending" | "running" | "completed" | "failed" | "cancelled";
   progress: number;
   current_step: string;
   output_urls: string[];
@@ -94,7 +94,7 @@ export interface ExportBundleResponse {
 
 export interface ShortFormJobStatus {
   job_id: string;
-  status: "pending" | "running" | "completed" | "failed";
+  status: "pending" | "running" | "completed" | "failed" | "cancelled";
   progress: number;
   current_step: string;
   output_urls: string[];

@@ -2464,6 +2464,7 @@ function TimelineEditor({
               if (status.status === "failed") {
                 throw new Error(status.error ?? "Long-form render failed");
               }
+              if (status.status === "cancelled") throw new Error("Long-form render cancelled");
             }
             await new Promise((r) => setTimeout(r, 1500));
           }

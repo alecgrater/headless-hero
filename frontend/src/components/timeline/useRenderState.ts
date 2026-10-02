@@ -119,7 +119,7 @@ export function useRenderState(
       return res.data as RenderStatusResponse;
     },
     isComplete: (s) => s.status === "completed",
-    isFailed: (s) => s.status === "failed",
+    isFailed: (s) => s.status === "failed" || s.status === "cancelled",
     onStatus: (status) => {
       setYoutubeStatus(status);
       if (status.status === "completed" && status.output_urls.length > 0) {

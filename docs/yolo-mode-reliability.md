@@ -100,9 +100,16 @@ It used to be different: from May 2026 Stop went through a
 called `app.quit()`. That closed the app on every Stop, and because the quit
 landed ~100 ms later the controller never wrote its terminal snapshot, so every
 deliberate Stop was later shown as "Interrupted". Cooperative cancellation
-already covered the expensive work, so the teardown bought nothing. LLM-only
-jobs (FX, Eli, analysis) that do not check the cancel event finish their one
-call in the background and save its result, which costs cents and is harmless.
+already covered the expensive work, so the teardown bought nothing.
+
+What Stop does not interrupt: LLM jobs that never check the cancel event (FX,
+Eli, visual-mode analysis) finish their in-flight calls in the background and
+save the result, which costs cents. An image batch checks between rounds, but a
+Google Batch poll already in progress runs to completion (that round is billed
+either way). Pressing YOLO again immediately can overlap those last writes;
+cached outputs mean the new run reuses rather than duplicates them. Any new
+backend loop that generates paid assets must check `is_cancelled(job_id)` per
+item, as the title-card chapter loop does.
 
 ## Timing display
 
