@@ -1,7 +1,7 @@
 const { app, BrowserWindow, ipcMain, shell, dialog, screen, powerSaveBlocker } = require("electron");
 const fs = require("fs");
 const path = require("path");
-const { execFile, spawn } = require("child_process");
+const { spawn } = require("child_process");
 
 let mainWindow;
 let backendProcess;
@@ -13,7 +13,6 @@ const debug = (...args) => {
   if (DEBUG) console.log(...args);
 };
 const BACKEND_PORT = 8420;
-const FRONTEND_PORT = 5173;
 const BACKEND_URL = `http://localhost:${BACKEND_PORT}`;
 const CHROME_APP_NAME = "Google Chrome";
 const UPLOAD_SHORTS_URLS = [
@@ -194,137 +193,6 @@ function startBackend() {
   });
 }
 
-function execFileLines(command, args) {
-  return new Promise((resolve) => {
-    execFile(command, args, (error, stdout) => {
-      if (error) {
-        resolve([]);
-        return;
-      }
-      resolve(stdout.split(/\r?\n/).map((line) => line.trim()).filter(Boolean));
-    });
-  });
-}
-
-function parsePid(value) {
-  const pid = Number.parseInt(value, 10);
-  return Number.isInteger(pid) && pid > 0 && pid !== process.pid ? pid : null;
-}
-
-async function listListeningPids(port) {
-  if (process.platform === "win32") return [];
-  const lines = await execFileLines("lsof", ["-ti", `tcp:${port}`]);
-  return [...new Set(lines.map(parsePid).filter(Boolean))];
-}
-
-async function getProcessInfo(pid) {
-  const lines = await execFileLines("ps", ["-o", "ppid=", "-o", "command=", "-p", String(pid)]);
-  const [line] = lines;
-  if (!line) return null;
-  const match = line.match(/^(\d+)\s+(.+)$/);
-  if (!match) return null;
-  const ppid = parsePid(match[1]);
-  return { pid, ppid, command: match[2] };
-}
-
-async function listChildPids(pid) {
-  if (process.platform === "win32") return [];
-  const lines = await execFileLines("pgrep", ["-P", String(pid)]);
-  return lines.map(parsePid).filter(Boolean);
-}
-
-function isYoloDevServerCommand(command) {
-  return (
-    command.includes("npm run dev:backend") ||
-    command.includes("npm run dev:frontend") ||
-    command.includes("uv run uvicorn api.main:app") ||
-    command.includes("uvicorn api.main:app") ||
-    command.includes("vite --host") ||
-    /(^|\s)vite(\s|$)/.test(command)
-  );
-}
-
-async function collectDescendantPids(pid, collected = new Set()) {
-  for (const childPid of await listChildPids(pid)) {
-    if (collected.has(childPid)) continue;
-    collected.add(childPid);
-    await collectDescendantPids(childPid, collected);
-  }
-  return collected;
-}
-
-async function collectYoloProcessPids(seedPids) {
-  const pids = new Set(seedPids);
-
-  for (const pid of seedPids) {
-    for (const childPid of await collectDescendantPids(pid)) {
-      pids.add(childPid);
-    }
-
-    let currentPid = pid;
-    while (currentPid) {
-      const info = await getProcessInfo(currentPid);
-      if (!info?.ppid) break;
-
-      const parentInfo = await getProcessInfo(info.ppid);
-      if (!parentInfo || !isYoloDevServerCommand(parentInfo.command)) break;
-
-      pids.add(parentInfo.pid);
-      for (const childPid of await collectDescendantPids(parentInfo.pid)) {
-        pids.add(childPid);
-      }
-      currentPid = parentInfo.pid;
-    }
-  }
-
-  return [...pids].filter((pid) => pid !== process.pid);
-}
-
-function terminatePids(pids) {
-  for (const pid of pids) {
-    try {
-      process.kill(pid, "SIGTERM");
-    } catch {
-      // Process already exited.
-    }
-  }
-  setTimeout(() => {
-    for (const pid of pids) {
-      try {
-        process.kill(pid, "SIGKILL");
-      } catch {
-        // Process exited after SIGTERM.
-      }
-    }
-  }, 1500).unref();
-}
-
-async function stopYoloProcesses() {
-  setKeepAwake(false);
-  try {
-    await fetch(`${BACKEND_URL}/dev/api/kill-all`, {
-      method: "POST",
-      signal: AbortSignal.timeout(3000),
-    });
-  } catch (error) {
-    console.warn("[main] Backend kill-all request failed:", error.message);
-  }
-
-  const listeningPids = isDev
-    ? await Promise.all([listListeningPids(FRONTEND_PORT), listListeningPids(BACKEND_PORT)])
-    : [[]];
-  const pids = await collectYoloProcessPids([...new Set(listeningPids.flat())]);
-  terminatePids(pids);
-
-  if (backendProcess) {
-    backendProcess.kill();
-    backendProcess = null;
-  }
-
-  setTimeout(() => app.quit(), 100).unref();
-  return { stopped: true, processes: pids.length };
-}
-
 /**
  * Hold off App Nap / system suspension while a long YOLO run is in flight.
  *
@@ -476,9 +344,6 @@ ipcMain.handle("open-upload-shorts-windows", () => openUploadShortsWindows());
 
 // IPC: open the long-form upload destination in a positioned Chrome window.
 ipcMain.handle("open-youtube-upload-window", () => openUploadWindow(YOUTUBE_LONGFORM_UPLOAD_URL));
-
-// IPC: emergency stop for YOLO mode. Cancels backend jobs, kills dev servers, and quits Electron.
-ipcMain.handle("stop-yolo-processes", () => stopYoloProcesses());
 
 // IPC: keep the machine and app awake for the duration of a long YOLO run.
 ipcMain.handle("set-keep-awake", (_event, enabled) => setKeepAwake(Boolean(enabled)));

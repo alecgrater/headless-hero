@@ -11,8 +11,8 @@ import {
 } from "./yoloRun";
 
 const RUN_STATUS_COPY: Record<YoloRunStatus, { label: string; tone: string }> = {
-  // A stored run still marked "running" never got to close itself — Stop quits
-  // the app, and a crash or an OS kill leaves the same trace.
+  // A stored run still marked "running" never got to close itself — the app was
+  // quit, crashed, or killed mid-run. Stop records "cancelled" instead.
   running: { label: "Interrupted", tone: "border-amber-500/30 bg-amber-500/10 text-amber-200" },
   completed: { label: "Completed", tone: "border-emerald-500/30 bg-emerald-500/10 text-emerald-200" },
   completed_with_failures: {

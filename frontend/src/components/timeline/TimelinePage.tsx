@@ -1315,8 +1315,8 @@ function TimelineEditor({
   // Surface the last YOLO run on open. Whoever started it was almost certainly
   // away when it ended, so the persisted log is the only record of which stage
   // failed and how long each one took. A record still marked "running" was
-  // interrupted — Stop quits the app before the run can close itself, as does a
-  // crash — and those are exactly the cases worth showing.
+  // interrupted — the app quit or crashed before the run could close itself —
+  // and those are exactly the cases worth showing.
   useEffect(() => {
     let cancelled = false;
     setYoloRun(null);
@@ -2805,11 +2805,10 @@ function TimelineEditor({
     setProductionBusyTask(null);
     setProductionProgress(null);
     showToast("Stopping YOLO render and backend work...", "info");
+    // Stop cancels work; it never tears down the stack. Backend jobs honour the
+    // kill switch cooperatively and tracked Remotion subprocesses are killed, so
+    // the run unwinds, records itself as cancelled, and the app stays open.
     try {
-      if (api.stopYoloProcesses) {
-        await api.stopYoloProcesses();
-        return;
-      }
       const res = await api.post("/dev/api/kill-all");
       if (!res.ok) throw new Error("Could not reach backend kill switch");
       const data = res.data as { cancelled?: number };

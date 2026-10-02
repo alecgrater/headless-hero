@@ -81,10 +81,28 @@ line, so the run is greppable alongside backend logs.
 
 `TimelinePage` loads the newest run on mount and renders `YoloRunSummary`, so
 the answer to "what happened while I was away" survives a reload and an app
-restart. A stored run still marked `running` was interrupted — Stop quits the
-app before the controller can close the run, and a crash leaves the same trace —
-so it is shown as "Interrupted" rather than filtered out. Those are the cases
-where "which stage was it on when it died" matters most.
+restart. A stored run still marked `running` was interrupted — the app was
+quit, crashed, or killed before the controller could close the run — so it is
+shown as "Interrupted" rather than filtered out. Those are the cases where
+"which stage was it on when it died" matters most.
+
+## Stopping a run
+
+Stop cancels work; it does not tear down the stack. The button calls
+`POST /dev/api/kill-all`, which sets the cancel event on every background job
+(image batches and render phases check it, and tracked Remotion subprocesses
+are terminated), while the frontend sets its cancel refs. Every job poller
+throws on a `cancelled` status, the controller sees `isCancelled()`, and the run
+closes itself as `cancelled` and releases keep-awake in its own `finally`.
+
+It used to be different: from May 2026 Stop went through a
+`stopYoloProcesses` IPC that killed the backend and Vite listeners and then
+called `app.quit()`. That closed the app on every Stop, and because the quit
+landed ~100 ms later the controller never wrote its terminal snapshot, so every
+deliberate Stop was later shown as "Interrupted". Cooperative cancellation
+already covered the expensive work, so the teardown bought nothing. LLM-only
+jobs (FX, Eli, analysis) that do not check the cancel event finish their one
+call in the background and save its result, which costs cents and is harmless.
 
 ## Timing display
 
@@ -109,8 +127,3 @@ the polling loops on an occluded window, and suspension stops them outright.
 - The export stage has no `verify`; it relies on `render.yoloRender` throwing.
   Re-running it is cheap (it checks for an existing long-form render first),
   but a silent partial export would not be retried.
-- A deliberate Stop is indistinguishable from a crash in storage. `Stop` calls
-  `stopYoloProcesses`, which quits the app ~100 ms later, so the controller
-  never writes its `cancelled` snapshot and the run is later labelled
-  "Interrupted" rather than "Stopped". Fixing it would mean flushing a terminal
-  snapshot before the quit.
