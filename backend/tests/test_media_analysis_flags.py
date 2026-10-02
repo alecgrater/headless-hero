@@ -478,6 +478,27 @@ def test_life_as_a_ai_video_eligibility_rejects_relationship_labelled_secondary(
     ) is False
 
 
+@pytest.mark.parametrize("role", ["Personal Trainer", "Night Supervisor", "Stay-At-Home Dad"])
+def test_life_as_a_ai_video_eligibility_allows_relationship_word_that_is_the_role(role):
+    scene = Scene(
+        id="scene_001",
+        narration="You stand alone in the empty room before anyone arrives.",
+        visual_prompt=(
+            "[REACTION] Eli, the recurring character, is the main subject and protagonist in this scene. "
+            f"Depict Eli as {role}; any other people are secondary and visually distinct from Eli. "
+            f"A {role.lower()} stands alone in an empty room."
+        ),
+        audio_duration_seconds=5.4,
+        contains_person=True,
+    )
+
+    assert media_analyzer.is_ai_video_eligible(
+        scene,
+        require_eli_scene=True,
+        life_as_a_role=role,
+    ) is True
+
+
 def test_life_as_a_ai_video_assignment_injects_solo_subject_prompt():
     scene = Scene(
         id="scene_001",

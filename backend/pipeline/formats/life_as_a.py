@@ -198,12 +198,25 @@ def _solo_ai_video_candidate_text(scene: Scene) -> str:
     return _SECONDARY_PEOPLE_INSTRUCTION_RE.sub("", text)
 
 
+def _has_secondary_person_blocker(text: str, role: str) -> bool:
+    # A blocker word that is part of the role ("Personal Trainer", "Stay-At-Home
+    # Dad") names the protagonist, and every prompt says "Depict ... as {role}" —
+    # counting it would rule out AI video for the whole topic.
+    role_words = set(re.split(r"[^a-z]+", role.lower())) - {""}
+    for match in _SOLO_AI_VIDEO_BLOCKER_RE.finditer(text):
+        word = match.group(1).lower()
+        if word in role_words or (word.endswith("s") and word[:-1] in role_words):
+            continue
+        return True
+    return False
+
+
 def is_life_as_a_solo_ai_video_scene(scene: Scene, role: str = "") -> bool:
     """Return True when an AI-video scene can sensibly show only the protagonist."""
     if scene.is_title_card:
         return False
     text = _solo_ai_video_candidate_text(scene)
-    if _SOLO_AI_VIDEO_BLOCKER_RE.search(text):
+    if _has_secondary_person_blocker(text, role):
         return False
     if _NAMED_SECONDARY_INTERACTION_RE.search(text):
         return False

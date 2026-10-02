@@ -586,7 +586,7 @@ Output rules:
 
 ## FLOW AND CLARITY (applies to every scene)
 - The narration is heard as ONE continuous voiceover; scene breaks are invisible to the listener. Every scene must follow naturally from the one before it.
-- Introduce every person, place, term, or object the first time it appears in narration. Never refer to someone or something the listener has not met yet (for example "Mara is back", "the Feldman loop", or "your sergeant" before any sergeant exists).
+- Introduce every person, place, term, or object the first time it appears in narration. Never refer to someone or something the listener has not met yet (for example "your wife is back" before any wife exists, "the Feldman loop", or "your sergeant" before any sergeant exists).
 - Narration is only the words the narrator says aloud. Never describe the image, the shot, or the camera in narration.
 - Keep facts fixed: names, ages, dates, amounts, and places stay the same everywhere they recur, and time markers only move forward.
 - Sound like one thoughtful person talking, not a template. Never reuse a sentence from earlier in the script, and never use the same sentence pattern twice in a segment (for example "It's not X. It's Y." or "You don't think of yourself as X. You think of yourself as Y.").
