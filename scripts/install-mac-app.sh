@@ -73,6 +73,11 @@ cat > "$CONTENTS/Info.plist" <<PLIST
 PLIST
 ok "wrote Info.plist"
 
+# A custom icon pasted onto the bundle in Finder lives in a hidden "Icon\r" file and
+# overrides icon.icns, so a rebuilt icon never shows. Drop it so the .icns wins.
+rm -f "$APP"/Icon?
+xattr -d com.apple.FinderInfo "$APP" 2>/dev/null || true
+
 if [ -f "$ICON_SRC" ]; then
     ICONSET="$(mktemp -d)/icon.iconset"
     mkdir -p "$ICONSET"
