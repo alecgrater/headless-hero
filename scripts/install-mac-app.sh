@@ -86,7 +86,7 @@ from PIL import Image
 src = Image.open(sys.argv[1]).convert("RGBA")
 art = src.resize((824, 824), Image.LANCZOS)
 canvas = Image.new("RGBA", (1024, 1024), (0, 0, 0, 0))
-canvas.paste(art, (100, 100), art)
+canvas.alpha_composite(art, (100, 100))
 canvas.save(sys.argv[2])
 ' "$ICON_SRC" "$MASTER"
     # macOS wants the full ladder; a single size renders blurry in the Dock.
