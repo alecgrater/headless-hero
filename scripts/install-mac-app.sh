@@ -76,11 +76,24 @@ ok "wrote Info.plist"
 if [ -f "$ICON_SRC" ]; then
     ICONSET="$(mktemp -d)/icon.iconset"
     mkdir -p "$ICONSET"
+    # The artwork is full-bleed, but macOS icons inset the shape to 824/1024 of the
+    # canvas (the rest is transparent margin). Without that inset the Dock draws
+    # this icon visibly larger than every other app's.
+    MASTER="$(dirname "$ICONSET")/master.png"
+    uv run --frozen --project "$REPO/backend" python -I -c '
+import sys
+from PIL import Image
+src = Image.open(sys.argv[1]).convert("RGBA")
+art = src.resize((824, 824), Image.LANCZOS)
+canvas = Image.new("RGBA", (1024, 1024), (0, 0, 0, 0))
+canvas.paste(art, (100, 100), art)
+canvas.save(sys.argv[2])
+' "$ICON_SRC" "$MASTER"
     # macOS wants the full ladder; a single size renders blurry in the Dock.
     for size in 16 32 64 128 256 512; do
-        sips -z "$size" "$size" "$ICON_SRC" --out "$ICONSET/icon_${size}x${size}.png" > /dev/null 2>&1
+        sips -z "$size" "$size" "$MASTER" --out "$ICONSET/icon_${size}x${size}.png" > /dev/null 2>&1
         double=$((size * 2))
-        sips -z "$double" "$double" "$ICON_SRC" --out "$ICONSET/icon_${size}x${size}@2x.png" > /dev/null 2>&1
+        sips -z "$double" "$double" "$MASTER" --out "$ICONSET/icon_${size}x${size}@2x.png" > /dev/null 2>&1
     done
     iconutil -c icns "$ICONSET" -o "$CONTENTS/Resources/icon.icns"
     rm -rf "$(dirname "$ICONSET")"
